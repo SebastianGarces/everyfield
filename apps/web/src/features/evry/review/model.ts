@@ -104,6 +104,7 @@ export type Operation =
 	| SettingsOperation
 	| PipelineOperation
 	| LaunchOperation
+	| NetworkOperation
 	| IntelligenceOperation;
 
 export type IntelligenceOperation = "intelligence.requestRefresh" | "intelligence.submitFeedback";
@@ -129,14 +130,29 @@ export type LaunchOperation =
 export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 export type PipelineOperation =
-	"pipeline.proposeStageMove" | "development.saveProgram" | "development.draftNextVersion";
+	| "pipeline.proposeStageMove"
+	| "pipeline.saveGoal"
+	| "pipeline.saveStages"
+	| "development.saveProgram"
+	| "development.draftNextVersion"
+	| EnrollmentOperation;
+type EnrollmentOperation =
+	| "development.enroll"
+	| "development.updateEnrollment"
+	| "development.applyVersion"
+	| "development.confirmMilestone"
+	| "development.completeMilestone";
 export const isPipeline = (operation: Operation): operation is PipelineOperation =>
-	operation === "pipeline.proposeStageMove" ||
-	operation === "development.saveProgram" ||
-	operation === "development.draftNextVersion";
+	/^(pipeline|development)\./.test(operation);
+export type NetworkOperation = "organizationIntelligence.requestRefresh" | "organizationIntelligence.submitFeedback";
+export const isNetwork = (operation: Operation): operation is NetworkOperation =>
+	operation.startsWith("organizationIntelligence.");
 export const asksReason = (operation: Operation) => operation === "pipeline.proposeStageMove";
 export function pipelineLink(review: Pick<Review, "operation" | "review">): { href: string; label: string } {
 	const who = review.review.target;
+	if (review.operation === "pipeline.saveGoal" || review.operation === "pipeline.saveStages")
+		return { href: "/organization/pipeline", label: "Open Pipeline" };
+	if (who?.href) return { href: who.href, label: `Open ${who.label}` };
 	if (review.operation === "development.draftNextVersion" && who)
 		return { href: `/organization/pipeline/programs/${who.id}`, label: "Open the program" };
 	return review.operation === "pipeline.proposeStageMove" && who
@@ -212,6 +228,7 @@ export type SettingsOperation =
 	| "plant.updateProfile"
 	| "plant.setTimezone"
 	| "church.digestSchedule.set"
+	| "organizations.correctReportingLocation"
 	| "privacy.setSharing"
 	| "associations.invite"
 	| "associations.end"
@@ -368,6 +385,27 @@ const FIELD_LABEL: Record<string, string> = {
 	changedMilestones: "Milestones changed",
 	removedMilestones: "Milestones removed",
 	milestoneOrder: "Milestone order",
+	leaderTarget: "Leaders to develop",
+	plantTarget: "Churches to plant",
+	targetYear: "By the year",
+	rationale: "Why this goal",
+	countingFrom: "Counting from",
+	goalCounts: "What this goal counts",
+	renamedStages: "Renamed",
+	addedStages: "Added",
+	removedStages: "Removed",
+	stageOrder: "Order",
+	program: "Program",
+	cohort: "Cohort",
+	startedOn: "Start",
+	expectedEndOn: "Expected end",
+	programStage: "Program stage",
+	nextMeeting: "Next meeting",
+	programVersion: "Version",
+	milestoneProgress: "Progress",
+	networkIntelligence: "Network Intelligence",
+	reportingPlace: "Reporting place",
+	reportingRegion: "Region",
 	firstName: "First name",
 	lastName: "Last name",
 	email: "Email",
@@ -730,7 +768,7 @@ export const isSettings = (operation: Operation): operation is SettingsOperation
 	operation === "identity.answerLeadOnboarding";
 export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
-	if (operation.startsWith("plant.") || operation.startsWith("church."))
+	if (/^(plant|church)\./.test(operation) || operation === "organizations.correctReportingLocation")
 		return { href: "/settings/church", label: "Open Church settings" };
 	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
 	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
@@ -772,7 +810,8 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 	!(
 		(isMeetings(review.operation) ||
 			isLaunch(review.operation) ||
-			review.operation === "development.draftNextVersion") &&
+			isPipeline(review.operation) ||
+			isNetwork(review.operation)) &&
 		(change.before === null || change.before === undefined)
 	) &&
 	!(
@@ -839,6 +878,8 @@ export function savedText(review: Review): string {
 	if (delayed !== null) return delayed;
 	const who = review.review.target?.label;
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
+	const own = OWN_SAVED[review.operation];
+	if (own) return `Saved. ${own(who ?? "This person")}`;
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
 	const name = subjectName(review);
 	const status = review.review.changes.find((c) => c.field === "status")?.after;
@@ -892,6 +933,19 @@ export function savedText(review: Review): string {
 	}
 }
 
+const OWN_SAVED: Partial<Record<Operation, (who: string) => string>> = {
+	"pipeline.saveGoal": () => "The sending goal is on your Pipeline page.",
+	"pipeline.saveStages": () => "The pipeline stages are updated. No person moved.",
+	"development.enroll": (who) => `${who} is enrolled.`,
+	"development.updateEnrollment": (who) => `${who}'s enrollment is updated.`,
+	"development.applyVersion": (who) => `${who} is on the current version.`,
+	"development.confirmMilestone": (who) => `${who}'s milestone is confirmed.`,
+	"development.completeMilestone": (who) => `${who}'s milestone is recorded as finished.`,
+	"organizationIntelligence.requestRefresh": () => "Network Intelligence has a new run.",
+	"organizationIntelligence.submitFeedback": () => "Your rating is updated.",
+	"organizations.correctReportingLocation": () => "The reporting place and Region are updated.",
+};
+
 const WIKI_EDITOR_SAVED: Record<WikiEditorOperation, (title: string) => string> = {
 	"wiki.organizationArticles.add": (t) =>
 		`Saved. Your draft of ${t} is in your Wiki editor. Churches keep seeing the Wiki's version.`,
@@ -925,8 +979,13 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
 	if (field === "feedback") return "No vote";
-	if (field === "household" || field === "householdRole" || field === "prerequisites") return "None";
-	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
+	if (["household", "householdRole", "prerequisites", "goalCounts"].includes(field)) return "None";
+	if (field === "nextMeeting") return "Not set";
+	if (field === "reportingRegion") return "No Region set";
+	if (
+		after &&
+		["note", "skill", "category", "proficiency", "tag", "removedMilestones", "removedStages"].includes(field)
+	)
 		return "Removed";
 	return "Empty";
 }
@@ -1023,7 +1082,17 @@ const TITLE: Record<Operation, string> = {
 	"account.requestDeletion": "Delete your login",
 	"organizations.updateProfile": "Update the organization profile",
 	"pipeline.proposeStageMove": "Move to another stage",
+	"pipeline.saveGoal": "Save a sending goal",
+	"pipeline.saveStages": "Change pipeline stages",
 	"development.saveProgram": "Create a program",
+	"development.enroll": "Enroll in a program",
+	"development.updateEnrollment": "Update an enrollment",
+	"development.applyVersion": "Apply the current version",
+	"development.confirmMilestone": "Confirm a milestone",
+	"development.completeMilestone": "Record a finished milestone",
+	"organizationIntelligence.requestRefresh": "Refresh Network Intelligence",
+	"organizationIntelligence.submitFeedback": "Rate a pattern",
+	"organizations.correctReportingLocation": "Correct the reporting Region",
 	"launch.schedule": "Set Launch Sunday",
 	"launch.postpone": "Postpone the launch",
 	"launch.recordOutcome": "Record Launch Sunday",
@@ -1768,11 +1837,15 @@ export function settingsRefusalText(code: string | undefined): string {
 		case "revision_conflict":
 		case "conflict":
 		case "stale_preview":
+		case "stale_revision":
 			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		case "access_denied":
 		case "unavailable":
 		case "invitation_unavailable":
 			return "Your seat no longer allows this change, or what it changes is gone, so nothing was saved.";
+		case "region_unavailable":
+		case "reference_unavailable":
+			return "That Region is not one of the official choices for this place now, so nothing was saved. Ask Evry for the choices again.";
 		case "protected_owner":
 			return "The Owner's seat can't be changed here, so nothing was saved.";
 		case "invitation_cooldown":
@@ -1809,9 +1882,29 @@ export function pipelineRefusalText(
 	operation: PipelineOperation,
 	who: string | null,
 ): string {
-	const area = operation === "pipeline.proposeStageMove" ? "The Pipeline" : "Programs";
+	const area = operation.startsWith("pipeline.") ? "The Pipeline" : "Programs";
 	switch (code) {
+		case "stale_review":
+			return `${who ?? "This person"}'s enrollment or the program's version changed after Evry prepared this, so nothing was applied. Ask Evry to prepare it again.`;
+		case "already_enrolled":
+			return `${who ?? "This person"} is already enrolled in this program, so nothing was saved.`;
+		case "not_published":
+			return "This program has no published version, so no one was enrolled.";
+		case "linked_resident":
+			return `${who ?? "This person"} has a linked account, so they mark this milestone themselves on My residency. Nothing was saved.`;
+		case "stage_occupied":
+			return "A stage this removes has people in it now, so nothing was saved. Move or remove them first, then ask Evry again.";
 		case "revision_conflict":
+			if (operation === "pipeline.saveGoal")
+				return "This goal changed after Evry prepared this, so nothing was saved over it. Ask Evry to prepare it again.";
+			if (operation === "pipeline.saveStages")
+				return "The pipeline stages changed after Evry prepared this, so nothing was saved over them. Ask Evry to prepare it again.";
+			if (
+				operation !== "pipeline.proposeStageMove" &&
+				operation !== "development.saveProgram" &&
+				operation !== "development.draftNextVersion"
+			)
+				return `${who ?? "This person"}'s enrollment changed after Evry prepared this, so nothing was saved over it. Ask Evry to prepare it again.`;
 			if (operation === "development.draftNextVersion")
 				return "The program changed since Evry prepared this, so nothing was saved over it. Open the program to see it as it is now, or ask Evry to prepare it again.";
 			return operation === "development.saveProgram"
@@ -1824,6 +1917,12 @@ export function pipelineRefusalText(
 		default:
 			return `${area} refused this change, so nothing was saved.`;
 	}
+}
+
+export function networkRefusalText(code: string | undefined): string {
+	return code === "access_denied"
+		? "Your seat no longer allows this, or you can no longer read this pattern, so nothing was saved."
+		: "Network Intelligence refused this change, so nothing was saved. Ask Evry to prepare it again.";
 }
 
 export function launchRefusalText(code: string | undefined): string {

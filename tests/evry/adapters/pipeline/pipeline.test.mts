@@ -21,7 +21,15 @@ import {
 	readProgram as programRead,
 } from "../../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { evalDatabase, GRACE_AUSTIN, seedHope } from "../../evals/golden-church.mts";
-import { ANA_NOTE, PEOPLE, seedPipeline, sessionOf, type PipelineName } from "../../evals/pipeline-church.mts";
+import {
+	ANA_NOTE,
+	linkResident,
+	markMilestone,
+	PEOPLE,
+	seedPipeline,
+	sessionOf,
+	type PipelineName,
+} from "../../evals/pipeline-church.mts";
 import { completed, refusedAs, reviews } from "../review-support.mts";
 
 const database = await evalDatabase({ prefix: "evrypipa", max: 10 });
@@ -198,7 +206,12 @@ test("INV-evry-goals: a goal is added and changed through a review card that kee
 		{ goalId: saved.id, leaderTarget: 4 },
 		"The goal already says this, so nothing would change.",
 	);
-	await r.refuses(who.dana, "pipeline.saveGoal", { leaderTarget: 1, plantTarget: 1, targetYear: 2030 }, "invalid_input");
+	await r.refuses(
+		who.dana,
+		"pipeline.saveGoal",
+		{ leaderTarget: 1, plantTarget: 1, targetYear: 2030 },
+		"invalid_input",
+	);
 	for (const name of ["ana", "ben"] as const)
 		await r.refuses(who[name], "pipeline.saveGoal", { goalId: saved.id, leaderTarget: 1 }, "access_denied");
 	await r.refuses(who.hill, "pipeline.saveGoal", { goalId: saved.id, leaderTarget: 1 }, "not_found");
@@ -237,12 +250,7 @@ test("AC:ADR1-008 stages are renamed, added, reordered and removed through one c
 		{ stages: all.map((l) => keep(l)) },
 		"The stages are already like this, so nothing would change.",
 	);
-	await r.refuses(
-		who.dana,
-		"pipeline.saveStages",
-		{ stages: all.slice(1).map((l) => keep(l)) },
-		"invalid_input",
-	);
+	await r.refuses(who.dana, "pipeline.saveStages", { stages: all.slice(1).map((l) => keep(l)) }, "invalid_input");
 	for (const name of ["ana", "ben"] as const)
 		await r.refuses(who[name], "pipeline.saveStages", { stages: all.map((l) => keep(l)) }, "access_denied");
 	await r.refuses(who.hill, "pipeline.saveStages", { stages: all.map((l) => keep(l)) }, "invalid_input");
@@ -365,7 +373,10 @@ test("AC:ADR1-011 an Owner or Admin enrolls a live pipeline person through a rev
 		viaScreen,
 		"the same enrollment as the screen makes",
 	);
-	assert.deepEqual((await audits("development.enrolled", sam.id)).map((a) => a.metadata), [{ programId: p.id }]);
+	assert.deepEqual(
+		(await audits("development.enrolled", sam.id)).map((a) => a.metadata),
+		[{ programId: p.id }],
+	);
 
 	await r.refusedCard(
 		who.dana,
@@ -493,12 +504,7 @@ test("AC:ADR1-011 the current director updates an enrollment: unnamed fields, th
 		{ enrollmentId: before.id, changes: { cohort: "Winter cohort" } },
 		"The enrollment already says this, so nothing would change.",
 	);
-	await r.refuses(
-		who.ana,
-		op,
-		{ enrollmentId: before.id, changes: { stageId: randomUUID() } },
-		"invalid_input",
-	);
+	await r.refuses(who.ana, op, { enrollmentId: before.id, changes: { stageId: randomUUID() } }, "invalid_input");
 	const input = { enrollmentId: before.id, changes: { cohort: "Other" } };
 	for (const [name, code] of [
 		["dana", "access_denied"],
@@ -548,7 +554,7 @@ test("AC:ADR1-012 the director records a milestone finished for someone with no 
 		await r.refuses(who[name], op, input, code);
 	await r.refuses(who.ana, op, { ...input, milestoneId: randomUUID() }, "not_found");
 
-	await linkCasey(true);
+	caseyAccount = await linkResident(admin, PEOPLE.casey, "Casey Lee");
 	refusedAs(await r.approve(who.ana, late), "linked_resident");
 	assert.equal((await enrollment()).milestones[2]!.completion, null);
 	await r.refusedCard(
@@ -559,27 +565,6 @@ test("AC:ADR1-012 the director records a milestone finished for someone with no 
 	);
 });
 
-async function linkCasey(shares: boolean) {
-	const account = randomUUID();
-	const user = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},'casey@example.test',true,'Casey Lee')`,
-	);
-	await admin.execute(sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind)
-		VALUES(${account},${user},'active','discovery')`);
-	const [affiliation, invitation] = [randomUUID(), randomUUID()];
-	await admin.execute(sql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,
-		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
-		VALUES(${affiliation},${account},${GRACE_AUSTIN},clock_timestamp(),false,false,false,false,false,false,false)`);
-	await admin.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,
-		accepted_account_id,resident_person_id) VALUES(${invitation},${GRACE_AUSTIN},'residency_link','casey@example.test',
-		${randomUUID()},'accepted',clock_timestamp(),${account},${PEOPLE.casey})`);
-	await admin.execute(sql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,
-		accepted_at,consent_revision,revision,share_foundations,share_milestones)
-		VALUES(${randomUUID()},${GRACE_AUSTIN},${PEOPLE.casey},${account},${affiliation},${invitation},clock_timestamp(),1,1,false,${shares})`);
-	await admin.execute(sql`UPDATE person SET linked_account_id=${account} WHERE id=${PEOPLE.casey}`);
-	caseyAccount = account;
-}
 let caseyAccount = "";
 const shareMilestones = (shares: boolean) =>
 	admin.execute(sql`UPDATE residency_link SET share_milestones=${shares} WHERE person_id=${PEOPLE.casey}`);
@@ -594,9 +579,7 @@ test("AC:ADR1-012 the director confirms a milestone only when the linked residen
 		input,
 		"Casey Lee hasn't marked this milestone done yet. They mark it on My residency.",
 	);
-	await admin.execute(sql`INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,source,
-		completed_on,recorder_id) SELECT ${randomUUID()},e.organization_id,e.id,e.version_id,${third.id},'resident',
-		${START}::date,${caseyAccount} FROM development_enrollment e WHERE e.id=${input.enrollmentId}`);
+	await markMilestone(admin, input.enrollmentId, third.title, caseyAccount, START);
 	await shareMilestones(false);
 	await r.refusedCard(
 		who.ana,
@@ -725,11 +708,7 @@ test("AC:ADR1-011 the director applies the current version to one person from a 
 		[screen.versionNumber, screen.stage, screen.milestones.map((m) => m.title)],
 		"the same version and stage the screen applies",
 	);
-	assert.deepEqual(
-		after.milestones[0]!.completion?.completedOn,
-		START,
-		"finished work carries over",
-	);
+	assert.deepEqual(after.milestones[0]!.completion?.completedOn, START, "finished work carries over");
 	assert.equal((await audits("development.version_applied", enrollmentId)).length, 1);
 	assert.equal((await enrollment()).versionNumber, 1, "only the one person moves");
 	await r.refuses(

@@ -2276,6 +2276,10 @@
 		"limit": 5,
 		"retry": 5
 	},
+	"programs.updateEnrollment": {
+		"limit": 4,
+		"retry": 4
+	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
 		"limit": 5,
 		"retry": 3

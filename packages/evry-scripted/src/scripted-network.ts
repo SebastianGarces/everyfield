@@ -66,8 +66,7 @@ const REFRESH_PLANT = /\brefresh (?!our\b|the\b|plant\b|network\b)(.+?)['’]s a
 const REFRESH_NETWORK = /\brefresh network intelligence\b/i;
 const RATE = /\brate the (.+?) pattern in (.+?) (useful|not useful)\b/i;
 
-const concernsLine = (r: Row) =>
-	`Now: health ${text(r.fields.health)}, released concerns ${text(r.fields.concerns)}.`;
+const concernsLine = (r: Row) => `Now: health ${text(r.fields.health)}, released concerns ${text(r.fields.concerns)}.`;
 
 function oversightStep(t: Turn): Step {
 	const read = (operation: string, input: unknown = {}) => call("oversight_read", { operation, input });
@@ -89,7 +88,7 @@ function oversightStep(t: Turn): Step {
 					`[${text(detail.facts?.church)}](${text(detail.facts?.href)}) has ${counted(plants.length, "plant")} linked to both of you:`,
 					...plants.map(
 						(p) =>
-							`- [${p.label}](${text(p.fields.href)}): health ${text(p.fields.health)}, ${p.fields.launchSunday ? `Launch Sunday ${text(p.fields.launchSunday)}` : `${text(p.fields.milestone)}, ${text(p.fields.milestoneProgress)}`}, linked ${text(p.fields.linked).toLowerCase()}.`,
+							`- [${p.label}](${text(p.fields.href)}): health ${text(p.fields.health)}, ${p.fields.launchSunday ? `Launch Sunday ${text(p.fields.launchSunday)}` : `${text(p.fields.milestone)}, ${text(p.fields.milestoneProgress)}`}, linked: ${text(p.fields.linked)}.`,
 					),
 				].join("\n"),
 			);
@@ -256,7 +255,10 @@ function plantStep(t: Turn): Step {
 			`The assessment measured ${text(f.measuredOn)} (Phase ${text(f.phase)}): ${text(f.summary)}`,
 			...rows(out)
 				.filter((r) => r.fields.role)
-				.map((r) => `- **${r.label}** (${text(r.fields.severity)}): ${text(r.fields.body)} Cites: ${text(r.fields.cites)}.`),
+				.map(
+					(r) =>
+						`- **${r.label}** (${text(r.fields.severity)}): ${text(r.fields.body)} Cites: ${text(r.fields.cites)}.`,
+				),
 			...rows(out)
 				.filter((r) => r.fields.standing)
 				.map((r) => `- ${r.label}: ${text(r.fields.standing)}`),
@@ -511,7 +513,8 @@ export function networkStep(options: LanguageModelV4CallOptions, asked: string):
 		all: (operation) => outputs.filter((o) => o.operation === operation),
 		offers: (operation) => tools.includes(`"${operation}"`),
 	};
-	const step = oversightStep(t) ?? plantStep(t) ?? (t.offers("pipeline.listPeople") ? (goalStep(t) ?? programStep(t)) : null);
+	const step =
+		oversightStep(t) ?? plantStep(t) ?? (t.offers("pipeline.listPeople") ? (goalStep(t) ?? programStep(t)) : null);
 	if (step && t.last?.error) return say(`I couldn't do that (${t.last.error}). Nothing was prepared.`);
 	return step;
 }

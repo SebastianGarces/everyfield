@@ -161,6 +161,84 @@
 			"ask": "what changed since last time?",
 			"calls": ["intelligence.readAssessmentDelta"],
 			"answer": ["Since the assessment of Oct 13, 2026, the one measured Oct 13, 2026 shows:", "28 → 30"]
+		},
+		{
+			"id": "INT-13",
+			"operation": "intelligence.readAssessmentHistory",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "how have our assessments changed over time?",
+			"calls": ["intelligence.readAssessmentHistory"],
+			"answer": [
+				"Your published assessments, newest first:",
+				"Committed adults known 30",
+				"Committed adults known 28",
+				"See [Trends](/intelligence/trends)."
+			],
+			"absent": ["being prepared"]
+		},
+		{
+			"id": "INT-14",
+			"operation": "intelligence.readAssessmentRun",
+			"criterion": 4,
+			"actor": "admin",
+			"ask": "what did our earlier assessment say?",
+			"calls": ["intelligence.readAssessmentHistory", "intelligence.readAssessmentRun"],
+			"answer": [
+				"The assessment measured Oct 13, 2026 (Phase 1): This looks at your launch progress in Phase 1.",
+				"- **Finish guest follow-up from the Vision meeting** (Watch):"
+			]
+		},
+		{
+			"id": "INT-15",
+			"operation": "intelligence.readAssessmentRun",
+			"criterion": 5,
+			"setup": "preparing",
+			"actor": "owner",
+			"ask": "what did our earlier assessment say?",
+			"calls": ["intelligence.readAssessmentHistory", "intelligence.readAssessmentRun"],
+			"answer": ["A newer assessment is being prepared. This is the published assessment measured Oct 13, 2026."]
+		},
+		{
+			"id": "INT-16",
+			"operation": "intelligence.readOwnFeedback",
+			"criterion": 8,
+			"actor": "admin",
+			"ask": "what rating did I give the assessment?",
+			"calls": ["intelligence.readOwnFeedback"],
+			"answer": [
+				"- **Finish guest follow-up from the Vision meeting** (assessment measured Oct 13, 2026): Not useful, rated"
+			]
+		},
+		{
+			"id": "INT-17",
+			"operation": "intelligence.readOwnFeedback",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "what rating did I give the assessment?",
+			"calls": ["intelligence.readOwnFeedback"],
+			"answer": ["You gave no rating to a Plant Intelligence finding."]
+		},
+		{
+			"id": "INT-18",
+			"operation": "intelligence.readColdStartGuidance",
+			"criterion": 7,
+			"actor": "starter",
+			"ask": "where do we start?",
+			"calls": ["intelligence.readColdStartGuidance"],
+			"answer": [
+				"**Your first assessment hasn't been prepared yet.** Everyfield prepares one in the background when your records change, and at least once a week.",
+				"1. [Record commitments as people join](/people): 0 committed adults known so far."
+			]
+		},
+		{
+			"id": "INT-19",
+			"operation": "intelligence.readAssessmentHistory",
+			"criterion": 3,
+			"actor": "member",
+			"ask": "how have our assessments changed over time?",
+			"calls": [],
+			"answer": ["Your Member seat does not include the church's Plant Intelligence."]
 		}
 	]
 }
