@@ -265,7 +265,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/identity/identity.test.mts",
-								"name": "AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes"
+								"name": "AC:TARGET-IDN-030 AC:WP005-API-STAGED INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes"
 							}
 						],
 						"cases": ["TARGET-IDN-030"]
@@ -422,7 +422,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/identity/identity.test.mts",
-								"name": "AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully"
+								"name": "AC:TARGET-IDN-009 AC:WP005-API-RESET INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully"
 							}
 						],
 						"cases": ["TARGET-IDN-009"]
@@ -474,7 +474,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/identity/identity.test.mts",
-								"name": "INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together"
+								"name": "AC:TARGET-IDN-030 INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together"
 							}
 						]
 					},
