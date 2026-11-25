@@ -18,7 +18,6 @@ import { EvryRefusal } from "../context/errors.ts";
 import { logRefusal } from "@everyfield/domain/flags";
 import { ATTACHMENTS, stagedPhotoIn } from "../attachments/store.ts";
 import { liveJob } from "../runtime/job.ts";
-import { worded } from "../catalog/types.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
 import type { MailPort, NativePorts, ReviewContext, ReviewedWrite } from "./types.ts";
 import {
@@ -48,7 +47,7 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 	const write = REVIEWED_WRITES[op] as ReviewedWrite<unknown>;
 	if (!write.allowed(actor)) throw new EvryRefusal("access_denied");
-	return worded(actor, write);
+	return write;
 }
 const queued: ProposalSubject = { now: false, lapsed: false, jobLive: false };
 const now: ProposalSubject = { ...queued, now: true };

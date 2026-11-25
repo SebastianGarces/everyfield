@@ -64,7 +64,7 @@ export type SourceResult = {
 	facts?: Record<string, string | number | boolean | null>;
 };
 
-export type AccountWording<I> = { description: string; input?: z.ZodType<I> };
+type AccountWording<I> = { description: string; input?: z.ZodType<I> };
 
 export function worded<I, T extends { description: string; input: z.ZodType<I>; account?: AccountWording<I> }>(
 	actor: EvryActor,

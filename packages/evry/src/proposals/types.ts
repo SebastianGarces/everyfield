@@ -19,7 +19,7 @@ import type { LaunchNotices } from "@everyfield/domain/launch";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import type { AccountWording, ConversationFiles } from "../catalog/types.ts";
+import type { ConversationFiles } from "../catalog/types.ts";
 
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
 
@@ -80,7 +80,7 @@ export type EffectResult = EffectDone | OwnSettingsDone | { refused: string };
 export type ReviewedWrite<I> = {
 	operation: string;
 	description: string;
-	account?: AccountWording<I>;
+	account?: { description: string };
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
 	sendsMail?: true;
