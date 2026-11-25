@@ -42,6 +42,10 @@ type Turn = {
 	all(operation: string): Output[];
 	offers(operation: string): boolean;
 };
+function ownerOnly(t: Turn): Step {
+	const rule = /Only an Owner or Admin can [^.]+\./.exec(t.system)?.[0];
+	return rule ? say(rule) : null;
+}
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 const holds = (label: string, hint: string) =>
 	hint
@@ -172,8 +176,7 @@ function plantStep(t: Turn): Step {
 	if (t.offers("oversight.listPlants")) return null;
 	if (REGION.test(t.text)) {
 		if (!t.offers("geography.listReportingRegionCandidates")) {
-			const rule = /Only an Owner or Admin can [^.]+\./.exec(t.system)?.[0];
-			return rule ? say(rule) : null;
+			return ownerOnly(t);
 		}
 		if (t.last?.refusal) return say(t.last.refusal);
 		if (t.last?.proposalId) return say(CARD);
@@ -309,10 +312,6 @@ function pipelineStages(t: Turn, board: Output) {
 
 function goalStep(t: Turn): Step {
 	const read = (operation: string) => call("pipeline_read", { operation, input: {} });
-	const notOffered = () => {
-		const rule = /Only an Owner or Admin can [^.]+\./.exec(t.system)?.[0];
-		return rule ? say(rule) : null;
-	};
 	if (GOALS.test(t.text)) {
 		const out = t.of("pipeline.readGoals");
 		if (!out) return read("pipeline.readGoals");
@@ -341,7 +340,7 @@ function goalStep(t: Turn): Step {
 	const edit = EDIT_GOAL.exec(t.text);
 	const stages = [RENAME, ADD_STAGE, REMOVE_STAGE, REORDER].some((r) => r.test(t.text));
 	if (!(add || edit || stages)) return null;
-	if (!t.offers(stages ? "pipeline.saveStages" : "pipeline.saveGoal")) return notOffered();
+	if (!t.offers(stages ? "pipeline.saveStages" : "pipeline.saveGoal")) return ownerOnly(t);
 	if (t.last?.refusal) return say(t.last.refusal);
 	if (t.last?.proposalId) return say(CARD);
 	if (stages) {
@@ -452,8 +451,7 @@ function programStep(t: Turn): Step {
 	if (t.last?.refusal) return say(t.last.refusal);
 	if (t.last?.proposalId) return say(CARD);
 	if (enroll && !t.offers("development.enroll")) {
-		const rule = /Only an Owner or Admin can [^.]+\./.exec(t.system)?.[0];
-		return rule ? say(rule) : null;
+		return ownerOnly(t);
 	}
 	const outs = t.all("development.readProgram");
 	const list = outs.find((o) => !o.facts?.programId);

@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
+import { RATING } from "../../intelligence/reads/assessment.ts";
 import { networkSeat, organizationSeat, idInput } from "../../native.ts";
 
 const NOT_SHARED = "Not shared";
@@ -30,7 +31,6 @@ const LAUNCH: Record<C.LaunchState, string> = {
 	overdue: "Overdue",
 	completed: "Launched",
 };
-export const RATING = { useful: "Useful", not_useful: "Not useful" } as const;
 const place = (p: C.PlantDirectoryRow) => [p.city, p.stateProvince].filter(Boolean).join(", ") || null;
 const AGGREGATES_ONLY = "names, notes, interviews, private care and assessment text, which oversight never shows";
 

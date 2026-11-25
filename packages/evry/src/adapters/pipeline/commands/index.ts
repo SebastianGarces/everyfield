@@ -440,10 +440,9 @@ export const saveStages = approvedNow({
 		const occupied = removed.find((s) => (held.get(s.id) ?? 0) > 0);
 		const renamed = rows.filter((r) => r.was && r.was.label !== r.label);
 		const added = rows.filter((r) => !r.was);
-		const order = (ids: string[]) => ids.join();
 		const stays = board.stages.filter((s) => kept.has(s.id)).map((s) => s.id);
 		const natural = [...stays, ...added.map((r) => r.id)];
-		const moved = order(rows.map((r) => r.id)) !== order(natural);
+		const moved = rows.some((r, n) => r.id !== natural[n]);
 		const changes = [
 			...(renamed.length
 				? [{ field: "renamedStages", before: renamed.map((r) => r.was?.label), after: renamed.map((r) => r.label) }]

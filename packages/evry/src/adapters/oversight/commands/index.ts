@@ -11,7 +11,8 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReviewContext } from "../../../proposals/types.ts";
 import { approvedNow, reviewed, idInput } from "../../native.ts";
-import { RATING, runText } from "../reads/index.ts";
+import { RATING } from "../../intelligence/reads/assessment.ts";
+import { runText } from "../reads/index.ts";
 
 type Reply = { status: "ok"; value: object } | { status: "refused"; refusal: { code: string } };
 const settled = (reply: Reply) => (reply.status === "ok" ? { revision: "1" } : { refused: reply.refusal.code });
@@ -65,12 +66,6 @@ async function patternOf(
 	const pattern = view?.groups.flatMap((g) => g.patterns).find((p) => p.key === input.patternKey);
 	return view?.run && pattern ? { pattern, ranAt: view.run.ranAt, timeZone: view.timeZone } : null;
 }
-const rated = z.strictObject({
-	requestId: idInput,
-	runId: z.string(),
-	patternKey: z.string(),
-	rating: z.enum(["useful", "not_useful"]),
-});
 
 export const submitFeedback = approvedNow({
 	operation: "organizationIntelligence.submitFeedback",
@@ -102,13 +97,12 @@ export const submitFeedback = approvedNow({
 					refusal: "You already rated this pattern that way, so nothing would change.",
 				}),
 			},
-			{ requestId: randomUUID(), ...value },
+			value,
 		);
 	},
 	reason: false,
 	async run(db, authority, args) {
-		const { runId, patternKey, rating } = rated.parse(args);
-		const input = { runId, patternKey, rating };
+		const input = C.feedbackRequest.parse(args);
 		if (!(await patternOf(db, authority, input))) return { refused: "access_denied" };
 		return settled(await submitIntelligenceFeedback(db, authority, input));
 	},
