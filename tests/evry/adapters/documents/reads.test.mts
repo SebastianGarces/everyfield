@@ -201,23 +201,39 @@ test("export, archive and mark-as-core-values reviews show the change on the doc
 	assert.equal(await propose(owner, "documents.designateCoreValues", { documentId: docs.policy.id }), null);
 });
 
-test("a Member reads documents but gets no document change to propose", async () => {
+test("a Member reads documents and may make a file from a template, but gets no document change to propose", async () => {
 	const member = await actor("member");
 	assert.deepEqual(
 		readCatalog(member)
 			.domains.find((d) => d.domain === "documents")
 			?.operations.map((o) => o.operation),
-		["documents.listOwned", "documents.read", "documents.readCoreValuesEvidence", "documents.templates.list"],
+		[
+			"documents.listOwned",
+			"documents.read",
+			"documents.readCoreValuesEvidence",
+			"documents.templates.list",
+			"documents.templates.contextual",
+			"documents.templates.get",
+			"documents.resolveContext",
+			"documents.preview",
+			"documents.history.list",
+			"documents.history.get",
+			"documents.download",
+		],
 	);
 	assert.deepEqual(
-		allowedWrites(member).filter((w) => w.operation.startsWith("documents.")),
-		[],
+		allowedWrites(member)
+			.map((w) => w.operation)
+			.filter((op) => op.startsWith("documents.")),
+		["documents.generate"],
 	);
 	assert.deepEqual(
 		allowedWrites(await actor("owner"))
 			.filter((w) => w.operation.startsWith("documents."))
 			.map((w) => w.operation),
 		[
+			"documents.saveNative",
+			"documents.generate",
 			"documents.createFromTemplate",
 			"documents.exportNative",
 			"documents.archive",

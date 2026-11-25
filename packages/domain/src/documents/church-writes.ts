@@ -461,7 +461,7 @@ export const churchWriter = {
 		});
 	},
 
-	async saveChurch(db: Database, authority: RequestActor, input: c.ChurchSave, accepted = false) {
+	async saveChurch(db: Database | Transaction, authority: RequestActor, input: c.ChurchSave, accepted = false) {
 		const scope = adminScope(authority);
 		const body = JSON.stringify(input.body);
 		const hash = hashOf(body);

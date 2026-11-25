@@ -872,7 +872,8 @@
         "associations.respondInvitation",
         "associations.resendInvitation",
         "associations.revokeInvitation",
-        "associations.acceptInvitation"
+        "associations.acceptInvitation",
+        "associations.listInvitations"
       ],
       "acceptance_ids": [
         "AC-IDN-020--IDN-020"

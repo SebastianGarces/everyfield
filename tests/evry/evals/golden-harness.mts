@@ -54,7 +54,13 @@ import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
-import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
+import {
+	CONNECTION_READS,
+	SEAT_READS,
+	SETTINGS_COMMANDS,
+	SETTINGS_READS,
+	SHARING_READS,
+} from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
 import { DASHBOARD_READS } from "../../../packages/evry/src/adapters/dashboard/reads/index.ts";
@@ -74,6 +80,8 @@ import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
+	...CONNECTION_READS.map((a) => a.operation),
+	...SETTINGS_READS.map((a) => a.operation),
 	...Object.keys(SETTINGS_COMMANDS),
 	...ONBOARDING_READS.map((a) => a.operation),
 	...Object.keys(ONBOARDING_COMMANDS),
@@ -88,6 +96,15 @@ const LATER = new Set<string>([
 	...Object.keys(INVITATION_COMMANDS),
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
+	"documents.saveNative",
+	"documents.generate",
+	"documents.templates.contextual",
+	"documents.templates.get",
+	"documents.resolveContext",
+	"documents.preview",
+	"documents.history.list",
+	"documents.history.get",
+	"documents.download",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
 	...BROWSE_READS.map((a) => a.operation),
 	"organizationIntelligence.readHistory",

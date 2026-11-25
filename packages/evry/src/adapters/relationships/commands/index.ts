@@ -1,8 +1,19 @@
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { readSharingDisclosure } from "@everyfield/domain/organizations";
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { z } from "zod";
-import { committed, nativeWrite, notes, plantAdmin } from "../../native.ts";
+import type { EvryActor } from "../../../context/actor.ts";
+import {
+	accountContext,
+	change,
+	committed,
+	nativeWrite,
+	notes,
+	organizationAdmin,
+	plantAdmin,
+	rowId,
+	target,
+} from "../../native.ts";
 import { COLUMN } from "../../sharing/commands/index.ts";
 import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
@@ -97,4 +108,92 @@ export const end = nativeWrite({
 	},
 });
 
-export const RELATIONSHIP_COMMANDS = { "associations.invite": invite, "associations.end": end } as const;
+const invitationInput = z.strictObject({
+	invitationId: rowId.describe("From associations.listInvitations"),
+});
+const sender = (actor: EvryActor) => plantAdmin(actor) || organizationAdmin(actor) || accountContext(actor);
+const pending = (
+	id: string,
+) => sql`FROM invitation i JOIN relationship_invitation r ON r.invitation_id=i.id JOIN organization o ON o.id=r.organization_id
+	WHERE i.id=${id}::uuid AND i.state='pending' AND coalesce(i.resent_at,i.created_at)>clock_timestamp()-interval '720 hours'`;
+const sentBy = (actor: EvryActor) =>
+	actor.owner.kind === "plant"
+		? sql`r.plant_id=${actor.owner.id}::uuid`
+		: actor.owner.kind === "organization"
+			? sql`r.sending_church_id=${actor.owner.id}::uuid`
+			: sql`r.account_id=${actor.owner.id}::uuid`;
+const about = (label: SQL) => target("invitation", sql`i.id`, label);
+const invitationArgs = sql`jsonb_build_object('expectedRevision',i.revision::text,'input',jsonb_build_object('invitationId',i.id))`;
+const moved = (after: string) => sql`jsonb_build_array(${change("invitation", sql`'"pending"'::jsonb`, after)})`;
+
+export const resendInvitation = nativeWrite({
+	operation: "associations.resendInvitation",
+	description:
+		"Propose emailing a pending link invitation this side sent again, with a new link; the old link stops working. Nothing is sent until the user approves the exact review.",
+	input: invitationInput,
+	allowed: sender,
+	review(actor, value) {
+		return sql`SELECT jsonb_build_object('target',${about(sql`o.name`)},'changes',${moved("sent_again")},
+				'notes',jsonb_build_array('Everyfield emails '||o.name||' a new link that works for 30 days. The earlier link stops working.')) AS review,
+			${invitationArgs} AS args ${pending(value.invitationId)} AND ${sentBy(actor)}`;
+	},
+	async run(tx, context, request, { ports }) {
+		const sent = await ports.organizations["associations.resendInvitation"](
+			tx,
+			context.session,
+			context.selected,
+			request,
+		);
+		return { receiptId: sent.invitationId, revision: sent.revision };
+	},
+});
+
+export const revokeInvitation = nativeWrite({
+	operation: "associations.revokeInvitation",
+	description:
+		"Propose withdrawing a pending link invitation this side sent, so its link stops working. Nothing changes until the user approves the exact review.",
+	input: invitationInput,
+	allowed: sender,
+	review(actor, value) {
+		return sql`SELECT jsonb_build_object('target',${about(sql`o.name`)},'changes',${moved("revoked")},
+				'notes',jsonb_build_array('The link sent to '||o.name||' stops working. You can invite them again later.')) AS review,
+			${invitationArgs} AS args ${pending(value.invitationId)} AND ${sentBy(actor)}`;
+	},
+	async run(tx, context, request, { ports }) {
+		committed(
+			await ports.organizations["associations.revokeInvitation"](tx, context.session, context.selected, request),
+		);
+	},
+});
+
+export const declineInvitation = nativeWrite({
+	operation: "associations.declineInvitation",
+	description:
+		"Propose declining a pending link invitation this organization received. It ends only that invitation and makes no link. Only the Owner or Admin whose email it was sent to can decline it. Nothing changes until the user approves the exact review.",
+	input: invitationInput,
+	allowed: organizationAdmin,
+	review(actor, value) {
+		return sql`SELECT jsonb_build_object('target',${about(sql`r.inviter_description`)},'changes',${moved("declined")},
+				'notes',jsonb_build_array('No link is made. '||r.inviter_description||' can invite you again.'))
+				||CASE WHEN coalesce(relationship_recipient(${actor.session})=i.recipient_email,false) THEN '{}'::jsonb
+					ELSE jsonb_build_object('refusal','This invitation was sent to someone else here, so only they can decline it.') END AS review,
+			${invitationArgs} AS args ${pending(value.invitationId)} AND r.organization_id=${actor.owner.id}::uuid`;
+	},
+	async run(tx, context, request, { ports }) {
+		const input = request.input as { invitationId: string };
+		committed(
+			await ports.organizations["associations.declineInvitation"](tx, context.session, context.selected, {
+				...request,
+				input: { ...input, decision: "decline" },
+			}),
+		);
+	},
+});
+
+export const RELATIONSHIP_COMMANDS = {
+	"associations.invite": invite,
+	"associations.resendInvitation": resendInvitation,
+	"associations.revokeInvitation": revokeInvitation,
+	"associations.declineInvitation": declineInvitation,
+	"associations.end": end,
+} as const;
