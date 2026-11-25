@@ -54,8 +54,10 @@ import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
+import { OVERSIGHT_COMMANDS } from "../../../packages/evry/src/adapters/oversight/commands/index.ts";
 import {
 	CONNECTION_READS,
+	GEOGRAPHY_READS,
 	SEAT_READS,
 	SETTINGS_COMMANDS,
 	SETTINGS_READS,
@@ -112,6 +114,14 @@ const LATER = new Set<string>([
 	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
+	"intelligence.readAssessmentHistory",
+	"intelligence.readAssessmentRun",
+	"intelligence.readColdStartGuidance",
+	"intelligence.readOwnFeedback",
+	"oversight.listSendingChurches",
+	"oversight.getSendingChurch",
+	...Object.keys(OVERSIGHT_COMMANDS),
+	...GEOGRAPHY_READS.map((a) => a.operation),
 	...Object.keys(PEOPLE_RECORD_COMMANDS),
 	"people.getStatusWarnings",
 	"communication.getDraft",

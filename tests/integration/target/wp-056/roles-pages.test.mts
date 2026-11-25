@@ -417,7 +417,7 @@ const EVERYONE_IN_CHURCH = [
 	"connections",
 	"settings",
 ];
-const LEADERS_ONLY = ["peopleAssessments", "phases", "signals", "intelligence"];
+const LEADERS_ONLY = ["peopleAssessments", "phases", "signals", "intelligence", "geography"];
 test("INV-roles: each of the five roles opens Evry with its own conversations and its own reads", async () => {
 	const church = (...more: string[]) => [...EVERYONE_IN_CHURCH, ...more].sort();
 	const expected: Record<Role, { context: string; domains: string[] }> = {

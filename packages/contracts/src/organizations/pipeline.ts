@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { accountId, personId, recordId, revision } from "../common/values.ts";
 import { localDate } from "../common/time.ts";
+import { counted } from "../common/text.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 import { avatarReference } from "../settings/results.ts";
 import { noteReview } from "./reviews.ts";
@@ -305,3 +306,10 @@ export type PipelineChoices = z.infer<typeof pipelineChoices>;
 export type PipelinePersonRecord = z.infer<typeof pipelinePersonRecord>;
 export type PipelineBoardQuery = z.infer<typeof pipelineBoardQuery>;
 export type PipelineGoals = z.infer<typeof pipelineGoals>;
+
+export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; targetYear: number }) {
+	const leaders = goal.leaderTarget ? `Develop ${counted(goal.leaderTarget, "leader")}` : "";
+	const plants = goal.plantTarget ? `plant ${counted(goal.plantTarget, "church", "churches")}` : "";
+	const aim = leaders && plants ? `${leaders} to ${plants}` : leaders || plants.replace(/^p/, "P");
+	return aim ? `${aim} by ${goal.targetYear}` : `Goal for ${goal.targetYear}`;
+}
