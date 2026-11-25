@@ -21,6 +21,7 @@ type ErrorCode =
 	| "run_active"
 	| "model_unavailable"
 	| "model_paused"
+	| "evry_unavailable"
 	| "mail_paused"
 	| "source_unavailable"
 	| "interrupted"
@@ -296,6 +297,7 @@ export function retryable(state: State, turns: readonly Turn[]) {
 	return last.end.error?.retry !== "never";
 }
 
+export const NOT_AVAILABLE = "Evry isn't available yet";
 export type Notice = { tone: "neutral" | "error"; title: string; text: string };
 
 export function endNotice(end: TurnEnd | null): Notice | null {
@@ -333,6 +335,12 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 				tone: "neutral",
 				title: "Evry can't answer yet",
 				text: "Evry's AI model is not turned on yet. Your message is saved, so you can try again later.",
+			};
+		case "evry_unavailable":
+			return {
+				tone: "neutral",
+				title: NOT_AVAILABLE,
+				text: "Nothing was read or changed. Your message is saved.",
 			};
 		case "model_paused":
 			return {
@@ -382,6 +390,8 @@ function startNotice(code: ErrorCode | undefined, churchName: string | null): st
 			return `You don't have access to Evry for ${churchName?.trim() || "this church"} yet. Ask whoever manages your church's Everyfield account to add you.`;
 		case "invalid_input":
 			return "Evry couldn't start a new conversation. Please try again.";
+		case "evry_unavailable":
+			return `${NOT_AVAILABLE}, so nothing was saved. Your message is still here.`;
 		case "model_paused":
 			return "Evry is paused for now, so no conversation was started and nothing was saved. Your message is still here. Send it again later.";
 		default:
@@ -398,6 +408,8 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 			return "Not sent. Evry is still answering your last message. Stop it or wait, then send again.";
 		case "invalid_input":
 			return "Not sent. A message can have up to 8,000 characters.";
+		case "evry_unavailable":
+			return `Not sent. ${NOT_AVAILABLE}, so nothing was saved. Your message is still here.`;
 		case "model_paused":
 			return "Not sent. Evry is paused for now, so nothing was saved. Your message is still here. Send it again later.";
 		case "access_denied":

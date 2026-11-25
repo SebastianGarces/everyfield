@@ -16,6 +16,7 @@ import {
 	endNotice,
 	merge,
 	mergeLive,
+	NOT_AVAILABLE,
 	opened,
 	turnsOf,
 	type Attachment,
@@ -552,7 +553,9 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 										? "Evry is already answering in this conversation."
 										: r.error.code === "model_paused"
 											? "Evry is paused for now, so it did not try again. Nothing was changed. Try again later."
-											: "Evry could not try again. This answer can't be retried.",
+											: r.error.code === "evry_unavailable"
+												? `${NOT_AVAILABLE}. Nothing was changed.`
+												: "Evry could not try again. This answer can't be retried.",
 							});
 						if (get().chat.conversation?.id === conversation.id)
 							update((chat) => ({ ...chat, activeTurnId: r.value.turnId }));
