@@ -312,7 +312,8 @@ export function personasFromSeed(source: string): Map<string, SeedPersona> {
 	}
 	for (const m of source.matchAll(/account\((\w+)\.name,\s*\1\.login,\s*\{\s*kind:\s*"discovery"/g)) {
 		const login = new RegExp(`const ${m[1]} = \\{[^}]*login: QA_LOGINS\\.(\\w+)`).exec(source)?.[1];
-		if (login) out.set(login, { name: names.get(login) ?? login, context: "account", ...out.get(login), discovery: true });
+		if (login)
+			out.set(login, { name: names.get(login) ?? login, context: "account", ...out.get(login), discovery: true });
 	}
 	for (const m of source.matchAll(/church\([^)]*QA_LOGINS\.(\w+)/g))
 		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "plant", role: "owner" });

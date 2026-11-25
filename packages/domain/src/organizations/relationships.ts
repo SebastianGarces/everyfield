@@ -506,7 +506,11 @@ export function relationshipCommands(
 			c.writes.push(
 				tx
 					.update(tables.affiliation)
-					.set({ ended_at: sql`clock_timestamp()`, share_foundations: false, revision: bump(tables.affiliation.revision) })
+					.set({
+						ended_at: sql`clock_timestamp()`,
+						share_foundations: false,
+						revision: bump(tables.affiliation.revision),
+					})
 					.where(eq(tables.affiliation.id, a.id)),
 			);
 			const event = await appendEvent(tx, c, a.id, "remove", "affiliation.ended", a.revision, next);
