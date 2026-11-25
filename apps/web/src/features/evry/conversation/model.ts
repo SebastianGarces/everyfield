@@ -1,3 +1,4 @@
+import { appPage } from "@everyfield/contracts/wiki";
 import { plainText } from "../../../components/markdown.ts";
 import type { Review } from "../review/model.ts";
 
@@ -39,7 +40,8 @@ export type ProjectedError = {
 	outcome: "unknown" | "refused";
 };
 
-export type Reference = { kind: "person" | "photo"; id: string } | { kind: "article"; slug: string };
+export type Reference =
+	{ kind: "person" | "photo"; id: string } | { kind: "article"; slug: string } | { kind: "page"; route: string };
 export type SourceRow = {
 	kind:
 		| "person"
@@ -412,11 +414,13 @@ export const resendable = (send: Send) =>
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 const ARTICLE_PAGE = /^\/wiki\/(.+?)\/?$/;
 
-export function pageReferences(pathname: string | null): Reference[] {
+export function pageReferences(pathname: string | null, inPlant: boolean): Reference[] {
+	const route = pathname && inPlant ? appPage(pathname)?.route : undefined;
+	const page: Reference[] = route ? [{ kind: "page", route }] : [];
 	const id = pathname ? PERSON_PAGE.exec(pathname)?.[1] : undefined;
-	if (id) return [{ kind: "person", id: id.toLowerCase() }];
+	if (id) return [{ kind: "person", id: id.toLowerCase() }, ...page];
 	const path = pathname ? ARTICLE_PAGE.exec(pathname)?.[1] : undefined;
-	if (!path || path.endsWith("/edit")) return [];
+	if (!path || path.endsWith("/edit")) return page;
 	try {
 		const slug = path.split("/").map(decodeURIComponent).join("/");
 		return slug.length <= 300 ? [{ kind: "article", slug }] : [];

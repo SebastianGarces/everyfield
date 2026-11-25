@@ -10,7 +10,9 @@ import {
 	neighborsResult,
 	previewResult,
 	publicPreviewRequest,
+	readingRecentRequest,
 	recentResult,
+	relatedArticles,
 	recommendRequest,
 	recommendResult,
 	referenceExcerptRequest,
@@ -20,10 +22,13 @@ import {
 	searchRequest,
 	searchResult,
 	statsResult,
+	stepsAround,
 	tocResult,
+	treeModel,
 	wikiArticle,
 	wikiBlocks,
 	type SourceView,
+	type Step,
 	type WikiArticle,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
@@ -46,12 +51,13 @@ import {
 	articleJson,
 	catalogQuery,
 	corpusCtes,
+	navigationJson,
 	navigationQuery,
 	pageQuery,
 	visibleBodySql,
 	type CorpusAccess,
 } from "./corpus.ts";
-import { sectionExcerpt } from "./excerpt.ts";
+import { articleHeadings, namedSection, sectionExcerpt } from "./excerpt.ts";
 import { guideFor } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
@@ -91,35 +97,6 @@ function displayBody(contentType: unknown, hidden: unknown, body: unknown): stri
 		return text;
 	}
 }
-function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
-	if (!body) return [];
-	if (contentType === "safe_nodes") {
-		try {
-			const found: { level: 2 | 3; text: string }[] = [];
-			const walk = (value: unknown) => {
-				if (Array.isArray(value)) return value.forEach(walk);
-				if (!value || typeof value !== "object") return;
-				const node = value as { type?: string; level?: number; text?: string };
-				if (
-					typeof node.text === "string" &&
-					(node.level === 2 || node.level === 3 || node.type === "h2" || node.type === "h3")
-				)
-					found.push({ level: node.type === "h3" || node.level === 3 ? 3 : 2, text: node.text });
-				for (const child of Object.values(node)) walk(child);
-			};
-			walk(JSON.parse(body));
-			return found;
-		} catch {
-			return [];
-		}
-	}
-	return body.split("\n").flatMap((line) => {
-		const match = /^(#{2,3})\s+(.+)$/.exec(line);
-		const marks = match?.[1];
-		const text = match?.[2];
-		return marks && text ? [{ level: marks.length === 3 ? 3 : 2, text: text.trim() }] : [];
-	});
-}
 function present(raw: Record<string, unknown>): WikiArticle {
 	const body = displayBody(raw.contentType, raw.hidden, raw.body);
 	return wikiArticle.parse({
@@ -153,6 +130,7 @@ async function readPage(
 function listValue(articles: WikiArticle[], nextCursor: string | null, row: z.infer<typeof loaded>) {
 	return {
 		articles,
+		total: row.total,
 		nextCursor,
 		churches: row.churches ?? [],
 		networks: row.networks ?? [],
@@ -191,7 +169,7 @@ export function getArticle(db: Database | Transaction, authority: RequestActor, 
 		};
 	});
 }
-export function bookmarksList(db: Database, authority: RequestActor, raw: unknown) {
+export function bookmarksList(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(listArticlesRequest, raw);
 		const page = await readPage(
@@ -419,72 +397,83 @@ function groupName(article: { sectionKey: string; phase: number | null }): strin
 }
 const navRow = z.object({
 	articleId: z.uuid(),
+	revisionId: z.uuid(),
+	sourceKind: z.enum(["church", "network", "global"]),
+	hidden: z.boolean(),
 	title: z.string(),
 	slug: z.string(),
 	phase: z.coerce.number().int().nullable(),
 	sectionKey: z.string(),
 });
-export function navigation(db: Database, authority: RequestActor, raw: unknown) {
+function navGroups(articles: z.infer<typeof navRow>[]) {
+	const groups = new Map<string, z.infer<typeof navRow>[]>();
+	for (const article of articles) {
+		const name = groupName(article);
+		groups.set(name, [...(groups.get(name) ?? []), article]);
+	}
+	return navigationResult.parse({
+		groups: [...groups.entries()].map(([name, items]) => ({
+			name,
+			articles: items.map(({ sectionKey: _sectionKey, ...item }) => ({
+				...item,
+				encodedSlug: encodeURIComponent(item.slug),
+			})),
+		})),
+	}).groups;
+}
+export function navigation(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(navigationRequest, raw);
 		const access = accessFor(authority);
 		const result = await db.execute(navigationQuery(access, sourceOf(input.source)));
 		const row = z.object({ allowed: z.boolean(), articles: z.array(navRow).nullable() }).parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
-		const articles = row.articles ?? [];
-		const groups = new Map<string, typeof articles>();
-		for (const article of articles) {
-			const name = groupName({ sectionKey: article.sectionKey, phase: article.phase });
-			groups.set(name, [...(groups.get(name) ?? []), article]);
-		}
-		return navigationResult.parse({
-			groups: [...groups.entries()].map(([name, items]) => ({
-				name,
-				articles: items.map((item) => ({
-					articleId: item.articleId,
-					title: item.title,
-					slug: item.slug,
-					encodedSlug: encodeURIComponent(item.slug),
-					phase: item.phase,
-				})),
-			})),
-		});
+		return { groups: navGroups(row.articles ?? []) } satisfies z.output<typeof navigationResult>;
 	});
 }
-export function articleNeighbors(db: Database, authority: RequestActor, raw: unknown) {
+export function articleNeighbors(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(articleRequest, raw);
 		const access = accessFor(authority);
 		const result = await db.execute(sql`WITH ${corpusCtes(access, sourceOf(input.source))}
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
-				EXISTS (SELECT FROM picked WHERE article_id = ${input.articleId}::uuid) AS entitled,
-				COALESCE((
-					SELECT json_agg(json_build_object(
-						'articleId', n.article_id, 'title', n.title, 'slug', n.slug, 'position', n.position
-					) ORDER BY n.position, n.title)
-					FROM picked n
-					WHERE n.parent_article_id IS NOT DISTINCT FROM (
-						SELECT parent_article_id FROM picked WHERE article_id = ${input.articleId}::uuid
-					)
-					AND n.article_id <> ${input.articleId}::uuid
-					AND EXISTS (SELECT FROM picked WHERE article_id = ${input.articleId}::uuid)
-				), '[]'::json) AS articles`);
+				(SELECT related_ids FROM picked WHERE article_id = ${input.articleId}::uuid AND NOT hidden) AS related,
+				${navigationJson()} AS articles`);
 		const row = z
-			.object({
-				allowed: z.boolean(),
-				entitled: z.boolean(),
-				articles: z.array(z.object({ articleId: z.uuid(), title: z.string(), slug: z.string(), position: z.number() })),
-			})
+			.object({ allowed: z.boolean(), related: z.array(z.uuid()).nullable(), articles: z.array(navRow) })
 			.parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
+		const value: z.output<typeof neighborsResult> = {
+			previous: null,
+			next: null,
+			related: [],
+			errorCode: row.related ? null : "content_access_denied",
+		};
+		if (!row.related) return value;
+		const groups = navGroups(row.articles);
+		const byId = new Map(row.articles.map((article) => [article.articleId, article]));
+		const link = ({ articleId, revisionId, sourceKind, title, slug }: Omit<z.infer<typeof navRow>, "sectionKey">) => ({
+			articleId,
+			revisionId,
+			sourceKind,
+			title,
+			slug,
+		});
+		const steps = stepsAround(treeModel(groups, new Set()), input.articleId);
+		const stepOf = (step: Step | null) => {
+			const article = step && byId.get(step.id);
+			return article ? { ...link(article), group: step.group } : null;
+		};
 		return {
-			articles: row.entitled ? row.articles : [],
-			errorCode: row.entitled ? null : "content_access_denied",
-		} satisfies z.output<typeof neighborsResult>;
+			...value,
+			previous: stepOf(steps.previous),
+			next: stepOf(steps.next),
+			related: relatedArticles(groups, row.related).map(link),
+		};
 	});
 }
-export function tableOfContents(db: Database, authority: RequestActor, raw: unknown) {
+export function tableOfContents(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(articleRequest, raw);
 		const page = await readPage(
@@ -496,20 +485,32 @@ export function tableOfContents(db: Database, authority: RequestActor, raw: unkn
 		);
 		const article = page.articles[0] ?? null;
 		return {
-			headings: article ? headings(article.contentType, article.body) : [],
+			headings: article?.body ? articleHeadings(article.contentType, article.body) : [],
 			errorCode: article ? null : "content_access_denied",
 		} satisfies z.output<typeof tocResult>;
 	});
 }
 const guideRow = z.object({
 	articleId: z.uuid(),
+	revisionId: z.uuid(),
+	sourceKind: z.enum(["church", "network", "global"]),
 	title: z.string(),
 	slug: z.string(),
 	contentType: z.enum(["safe_mdx", "safe_nodes"]),
 	body: z.string().nullable(),
 });
-const noGuide = { found: false, missing: true, citation: null, articleId: null, title: null, slug: null, body: null };
-export function contextGuide(db: Database, authority: RequestActor, raw: unknown) {
+const noGuide = {
+	found: false,
+	missing: true,
+	citation: null,
+	articleId: null,
+	revisionId: null,
+	sourceKind: null,
+	title: null,
+	slug: null,
+	body: null,
+};
+export function contextGuide(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(contextGuideRequest, raw);
 		const access = accessFor(authority);
@@ -527,6 +528,8 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 				(
 					SELECT json_build_object(
 						'articleId', p.article_id,
+						'revisionId', p.revision_id,
+						'sourceKind', p.source_kind,
 						'title', p.title,
 						'slug', p.slug,
 						'contentType', p.content_type,
@@ -539,18 +542,18 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 		if (!row.allowed) deny("access_denied");
 		const article = row.article;
 		if (!article?.body) return guideResult.parse(noGuide);
+		const body = displayBody(article.contentType, false, article.body) ?? "";
+		const section = namedSection(article.contentType, body, entry.heading);
 		return {
 			found: true,
 			missing: false,
-			citation: entry.heading,
+			citation: section === null ? null : entry.heading,
 			articleId: article.articleId,
+			revisionId: article.revisionId,
+			sourceKind: article.sourceKind,
 			title: article.title,
 			slug: article.slug,
-			body: sectionExcerpt(
-				article.contentType,
-				displayBody(article.contentType, false, article.body) ?? "",
-				entry.heading,
-			),
+			body: section ?? sectionExcerpt(article.contentType, body),
 		} satisfies z.output<typeof guideResult>;
 	});
 }
@@ -568,41 +571,53 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 		if (!article?.body)
 			return excerptResult.parse({ excerpt: null, errorCode: article ? null : "content_access_denied" });
 		return {
-			excerpt: sectionExcerpt(article.contentType, article.body, input.heading),
+			excerpt: input.heading
+				? namedSection(article.contentType, article.body, input.heading)
+				: sectionExcerpt(article.contentType, article.body),
 			errorCode: null,
 		} satisfies z.output<typeof excerptResult>;
 	});
 }
 export function readingRecent(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		parse(z.strictObject({}).optional(), raw ?? {});
+		const input = parse(readingRecentRequest, raw ?? {});
+		const page = input.page ?? 1;
 		const access = accessFor(authority);
 		const result = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })},
-			recent AS (
-				SELECT p.*, NULL::text AS snippet
+			viewed AS (
+				SELECT p.*, NULL::text AS snippet, r.last_viewed_at
 				FROM picked p
 				JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
 				WHERE r.last_viewed_at IS NOT NULL AND NOT p.hidden
-				ORDER BY r.last_viewed_at DESC
-				LIMIT ${PAGE}
+			),
+			recent AS (
+				SELECT * FROM viewed ORDER BY last_viewed_at DESC, article_id OFFSET ${(page - 1) * PAGE} LIMIT ${PAGE}
 			)
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
+				(SELECT count(*)::int FROM viewed) AS total,
 				COALESCE((
-					SELECT json_agg(${articleJson({ body: false })} ORDER BY r.last_viewed_at DESC)
+					SELECT json_agg(${articleJson({ body: false })} ORDER BY p.last_viewed_at DESC, p.article_id)
 					FROM recent p
-					JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
-					LEFT JOIN reading rd ON rd.account_id = r.account_id AND rd.article_id = p.article_id
+					LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
 					LEFT JOIN LATERAL (
 						SELECT v.source_credit FROM reference_version v WHERE v.item_id = p.article_id
 						ORDER BY v.version_number DESC LIMIT 1
 					) cr ON true
 				), '[]'::json) AS articles`);
 		const row = z
-			.object({ allowed: z.boolean(), articles: z.array(z.record(z.string(), z.unknown())).nullable() })
+			.object({
+				allowed: z.boolean(),
+				total: z.number().int(),
+				articles: z.array(z.record(z.string(), z.unknown())).nullable(),
+			})
 			.parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
-		return { articles: (row.articles ?? []).map(present) } satisfies z.output<typeof recentResult>;
+		return {
+			articles: (row.articles ?? []).map(present),
+			total: row.total,
+			nextCursor: page * PAGE < row.total ? String(page + 1) : null,
+		} satisfies z.output<typeof recentResult>;
 	});
 }
 export async function readingResume(db: Database | Transaction, authority: RequestActor, raw: unknown) {
@@ -613,7 +628,7 @@ export async function readingResume(db: Database | Transaction, authority: Reque
 		value: { article: recent.value.articles[0] ?? null } satisfies z.output<typeof resumeResult>,
 	};
 }
-export function readingStats(db: Database, authority: RequestActor, raw: unknown) {
+export function readingStats(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		parse(z.strictObject({}).optional(), raw ?? {});
 		const access = accessFor(authority);

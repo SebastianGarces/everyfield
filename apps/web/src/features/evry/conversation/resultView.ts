@@ -684,6 +684,29 @@ const VIEWS: Record<string, OpView> = {
 	"wiki.referenceExcerpt": wiki("From the Wiki", { empty: "This article is not in your Wiki, or you can't read it." }),
 	"wiki.recommendForPhase": wiki("Suggested reading", { empty: "The Wiki has no suggestions for your phase." }),
 	"wiki.reading.resume": wiki("Where you left off", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.navigation": wiki("What's in the Wiki", {
+		noun: ["section", "sections"],
+		counts: "item",
+		empty: "The Wiki has no articles yet.",
+	}),
+	"wiki.articles.list": wiki("Wiki articles", { empty: "The Wiki has no articles there." }),
+	"wiki.tableOfContents": wiki("Sections in this article", {
+		noun: ["section", "sections"],
+		empty: "This article has no sections, or you can't read it.",
+	}),
+	"wiki.articleNeighbors": wiki("Around this article", { empty: "Nothing comes before or after this article." }),
+	"wiki.contextGuide": wiki("Page guide", {
+		noun: ["guide", "guides"],
+		empty: "That page has no guide.",
+	}),
+	"wiki.bookmarks.list": wiki("Your bookmarks", { empty: "You haven't bookmarked a Wiki article yet." }),
+	"wiki.reading.recent": wiki("Read recently", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.reading.stats": wiki("Your Wiki reading", {
+		noun: ["phase", "phases"],
+		counts: "item",
+		empty: "The Wiki has no phase articles yet.",
+	}),
+	"wiki.feedback.getMine": wiki("Your Wiki feedback", { empty: "You haven't left feedback on a Wiki article yet." }),
 	"wiki.article.exportPdf": wiki("Wiki PDF", {
 		noun: ["file", "files"],
 		empty: "This article is not in your Wiki, or you can't read it.",
@@ -1044,6 +1067,49 @@ export type CardView = {
 	facts: string[];
 	links: { href: string; label: string }[];
 };
+
+const WIKI_READING = new Set(["wiki.reading.resume", "wiki.bookmarks.list", "wiki.reading.recent"]);
+const WIKI_VOTE: Record<string, string> = {
+	helpful: "You found it helpful",
+	unhelpful: "You found it not helpful",
+	none: "No feedback from you",
+};
+function wikiLine(operation: string, { label, fields }: SourceRow): string | null {
+	if (operation === "wiki.tableOfContents") return label;
+	if (operation === "wiki.feedback.getMine") return WIKI_VOTE[String(fields.vote)] ?? null;
+	if (operation === "wiki.articleNeighbors")
+		return joined(
+			fields.relation === "previous" ? "Previous" : fields.relation === "next" ? "Next" : "Related",
+			text(fields.section),
+		);
+	return null;
+}
+function emptyText(view: OpView, operation: string, facts: Record<string, unknown>): string {
+	if (operation === "wiki.contextGuide" && text(facts.page)) return `${String(facts.page)} has no guide.`;
+	if (operation === "wiki.articles.list" && text(facts.section))
+		return facts.sectionFound === false
+			? `The Wiki has no section called ${String(facts.section)}.`
+			: `The Wiki has no articles in ${String(facts.section)}.`;
+	if (operation === "wiki.referenceExcerpt" && text(facts.unknownSection))
+		return `This article has no section called ${String(facts.unknownSection)}.`;
+	return view.empty;
+}
+function wikiFacts(operation: string, facts: Record<string, unknown>): string[] {
+	if (operation === "wiki.navigation") return [`${counted(num(facts.articles), "article")} in all.`];
+	if (operation === "wiki.articleNeighbors")
+		return [
+			...(facts.firstArticle === true ? ["This is the first article. Nothing comes before it."] : []),
+			...(facts.lastArticle === true ? ["This is the last article. Nothing comes after it."] : []),
+		];
+	if (operation === "wiki.reading.stats")
+		return [
+			`${num(facts.articlesRead)} of ${counted(num(facts.articlesTotal), "article")} read.`,
+			num(facts.discoveryTotal) > 0
+				? `Discovery reading: ${num(facts.discoveryRead)} of ${counted(num(facts.discoveryTotal), "article")} read${facts.discoveryComplete === true ? ", complete" : ""}.`
+				: "There is no Discovery reading yet.",
+		];
+	return [];
+}
 
 const plainExcerpt = (excerpt: string) =>
 	excerpt
@@ -1653,7 +1719,12 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "item":
 			return {
 				...plain,
-				href: /^(dashboard|feedback|organizationIntelligence)\./.test(operation) ? text(fields.href) : null,
+				href:
+					operation === "wiki.navigation"
+						? "/wiki"
+						: /^(dashboard|feedback|organizationIntelligence)\./.test(operation)
+							? text(fields.href)
+							: null,
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
@@ -1831,7 +1902,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			const line =
 				operation === "wiki.search"
 					? text(fields.snippet)
-					: operation === "wiki.reading.resume"
+					: WIKI_READING.has(operation)
 						? joined(text(fields.read) && `${String(fields.read)} read`, fields.completed === true ? "Finished" : null)
 						: operation === "wiki.recommendForPhase"
 							? text(fields.phase)
@@ -1840,12 +1911,15 @@ function rowView(operation: string, row: SourceRow): RowView {
 								: text(fields.section);
 			return {
 				...plain,
-				name: row.label,
-				line: joined(line, whose),
+				...(operation === "wiki.tableOfContents" || operation === "wiki.articleNeighbors"
+					? { key: `${key}:${String(fields.position ?? fields.relation)}` }
+					: {}),
+				name: operation === "wiki.tableOfContents" ? plainExcerpt(String(fields.heading)) : row.label,
+				line: joined(wikiLine(operation, row) ?? line, whose),
 				avatar: "article",
 				href: operation === "wiki.article.exportPdf" ? null : text(fields.href),
 				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref) ?? "" } : {}),
-				...(operation === "wiki.referenceExcerpt" && text(fields.excerpt)
+				...((operation === "wiki.referenceExcerpt" || operation === "wiki.contextGuide") && text(fields.excerpt)
 					? { quote: plainExcerpt(text(fields.excerpt) ?? "") }
 					: {}),
 			};
@@ -2144,6 +2218,10 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 	switch (operation) {
 		case "dashboard.metrics":
 			return String(f.count);
+		case "wiki.navigation":
+			return counted(num(f.articles), "article");
+		case "wiki.reading.stats":
+			return `${num(f.read)} of ${num(f.total)} read`;
 		case "feedback.listOwn":
 		case "feedback.getOwnStatus":
 			return joined(`Sent ${String(f.sent)}`, text(f.status));
@@ -2287,7 +2365,9 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 						? counted(rowCount, one, many)
 						: `${rowCount.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
-	if (missing || !result.rows.length) facts.push(view.empty);
+	const totals = result.facts ?? {};
+	if (missing || !result.rows.length) facts.push(emptyText(view, operation, totals));
+	if (!missing) facts.push(...wikiFacts(operation, totals));
 	if (result.withheldRows)
 		facts.push(`${counted(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
 	if (result.completeness === "partial")
@@ -2296,7 +2376,6 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 				? `More ${many} match. Ask Evry for page ${result.next}.`
 				: "Only the first matches are shown.",
 		);
-	const totals = result.facts ?? {};
 	if (typeof totals.phase === "string")
 		facts.push(
 			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}${typeof totals.resumeAt === "string" && !totals.finished ? ` Setup picks up at ${totals.resumeAt}.` : ""}`,

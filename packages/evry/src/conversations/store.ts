@@ -25,6 +25,7 @@ export const reference = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("photo"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("article"), slug: z.string().min(1).max(300) }),
+	z.strictObject({ kind: z.literal("page"), route: z.string().min(1).max(200) }),
 ]);
 export type Reference = z.infer<typeof reference>;
 export const userMessageBody = z.strictObject({

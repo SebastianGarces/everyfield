@@ -2,13 +2,19 @@ import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
 import { randomUUID } from "node:crypto";
-import { feedbackVote, setBookmarkRequest, feedbackSetMineRequest, type WikiReply } from "@everyfield/contracts/wiki";
+import {
+	articlePath,
+	feedbackVote,
+	setBookmarkRequest,
+	feedbackSetMineRequest,
+	type WikiReply,
+} from "@everyfield/contracts/wiki";
 import { createWikiProducer, wikiEffects } from "@everyfield/domain/wiki";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { approvedNow } from "../../native.ts";
-import { articleHref, inPlant } from "../reads/index.ts";
+import { inPlant } from "../shared.ts";
 import {
 	bodyFits,
 	editorBody,
@@ -30,7 +36,7 @@ async function target(db: Database, actor: EvryActor, id: string) {
 		id: article.revisionId,
 		label: article.title,
 		articleId: article.articleId,
-		href: articleHref(article.slug),
+		href: articlePath(article.slug),
 	};
 }
 function done<T>(reply: WikiReply<T>, readable: (v: T) => boolean): EffectResult {

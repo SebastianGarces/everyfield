@@ -190,6 +190,7 @@ export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; c
 						stopping={chat.stopping}
 						disabled={load !== "ready" || moved}
 						conversationId={chat.conversation?.id ?? null}
+						inPlant={inPlant}
 						canAttach={canAttach}
 						onSend={(text, references) => {
 							stick();
@@ -545,12 +546,20 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 	);
 }
 
+const USING: Record<Reference["kind"], string> = {
+	article: "Using the article on this page",
+	person: "Using the person on this page",
+	photo: "Using this page",
+	page: "Using this page",
+};
+
 function Composer({
 	ref,
 	busy,
 	stopping,
 	disabled,
 	conversationId,
+	inPlant,
 	canAttach,
 	onSend,
 	onStop,
@@ -561,6 +570,7 @@ function Composer({
 	stopping: boolean;
 	disabled: boolean;
 	conversationId: string | null;
+	inPlant: boolean;
 	canAttach: boolean;
 	onSend: (text: string, references: Reference[]) => void;
 	onStop: () => void;
@@ -574,7 +584,7 @@ function Composer({
 	const fileNotice = Panel.useSelect((s) => s.fileNotice);
 	const pathname = usePathname();
 	const [usePage, setUsePage] = useState(true);
-	const page = pageReferences(pathname);
+	const page = pageReferences(pathname, inPlant);
 	const hint = useId();
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
@@ -630,7 +640,7 @@ function Composer({
 				<div className="flex items-center gap-2">
 					{usePage ? (
 						<Tag tone="green" icon={Link01Icon}>
-							{page[0]?.kind === "article" ? "Using the article on this page" : "Using the person on this page"}
+							{USING[page[0]?.kind ?? "page"]}
 						</Tag>
 					) : (
 						<Tag icon={Unlink01Icon}>Page left out</Tag>
