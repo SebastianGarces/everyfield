@@ -171,14 +171,15 @@ test("AC:EVRY-FAMILY-COMMUNICATION the reviewed audience and words are what is h
 	await w.admin.execute(
 		sql`UPDATE mail SET scheduled_at='2026-10-12T00:00:00Z' WHERE communication_id=${D} AND state='scheduled'`,
 	);
-	assert.equal(await runDueScheduled(w.db, email.port.transport, email.port.keys, 1, Date.now() + 30_000), 1);
+	const handOff = () => runDueScheduled(w.db, email.port.transport, email.port.keys, 1, Infinity);
+	assert.equal(await handOff(), 1);
 	assert.deepEqual(
 		email.calls.send.flatMap((s) => s.to),
 		[SHARED],
 		"the frozen eligible address only",
 	);
 	assert.match(email.calls.send[0]!.text[0]!, /^Hi Alex Chen,\s+Come on Sunday at 4 pm\./);
-	assert.equal(await runDueScheduled(w.db, email.port.transport, email.port.keys, 1, Date.now() + 30_000), 0);
+	assert.equal(await handOff(), 0);
 	assert.equal(
 		(await mailOf(D)).some((m) => m.name === "Late Joiner"),
 		false,
