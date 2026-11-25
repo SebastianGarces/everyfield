@@ -12,6 +12,7 @@ import { sessionId } from "../../../packages/contracts/src/common/values.ts";
 import type { SourceView } from "../../../packages/contracts/src/wiki/index.ts";
 import type { SQL } from "../../../packages/db/src/query.ts";
 import { stepsAround, treeModel } from "../../../packages/contracts/src/wiki/index.ts";
+import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
@@ -42,7 +43,7 @@ const sibling = randomUUID();
 const orgChurch = randomUUID();
 const orgNet = randomUUID();
 const departed = randomUUID();
-const discovery = Array.from({ length: 6 }, () => randomUUID());
+const discovery = foundations.articles.map((article) => article.id);
 const release = randomUUID();
 const links: Record<string, string> = {};
 const people = {

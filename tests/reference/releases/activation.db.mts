@@ -2,6 +2,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { referenceService, ReferenceRefusal } from "../../../packages/reference/src/server.ts";
 import type { Promotion } from "../../../packages/contracts/src/reference/release.ts";
 import { hash, canonical } from "../../../packages/reference/src/hash.ts";
@@ -80,6 +81,33 @@ test("AC:REFREL-001 initial install, exact replay and changed immutable hash ref
 		querySql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM task) AS tasks`,
 	);
 	assert.deepEqual(sideEffects.rows[0], { mail: 0, tasks: 1 });
+});
+
+test("AC:CONTENT50-001 an activated generation keeps the 96 starter articles, 21 sections and 7 mail templates beside 11 separate document templates", async () => {
+	const { cases } = JSON.parse(
+		await readFile(new URL("../../../docs/acceptance/knowledge.json", import.meta.url), "utf8"),
+	) as { cases: { id: string; expected: { result: Record<string, number> } }[] };
+	const result = cases.find((row) => row.id === "CONTENT50-001")!.expected.result;
+	const bytes = await readFile(
+		new URL("../../../docs/reference/bootstrap/global-seed-payload.json", import.meta.url),
+		"utf8",
+	);
+	assert.equal(hash(bytes), "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59");
+	const starter = JSON.parse(bytes) as Record<"articles" | "sections", { id: string }[]>;
+	const { rows } = await db.execute<{ id: string; kind: string; tenant_id: string }>(
+		querySql`SELECT id,kind,tenant_id FROM reference_item`,
+	);
+	const ids = (kind: string) => rows.filter((row) => row.kind === kind).map((row) => row.id);
+	assert.equal(ids("article").filter((id) => starter.articles.some((a) => a.id === id)).length, result.article_count);
+	assert.deepEqual(ids("section").toSorted(), starter.sections.map((s) => s.id).toSorted());
+	assert.deepEqual(
+		[ids("section").length, ids("mail_template").length, ids("document_template").length],
+		[result.section_count, result.mail_template_count, result.base_document_template_count],
+	);
+	assert.equal(
+		rows.filter((row) => row.tenant_id !== "00000000-0000-0000-0000-000000000000").length,
+		result.customer_rows,
+	);
 });
 
 test("AC:REFREL-004 concurrent promotions have one winner and the loser must be reviewed again", async () => {
