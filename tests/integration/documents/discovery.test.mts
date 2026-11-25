@@ -4,6 +4,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { DISCOVERY_TEMPLATE_IDS } from "../../../packages/domain/src/documents/own-templates.ts";
 import { LEGAL_NOTICE, nativeFromText, nativeText } from "../../../packages/contracts/src/documents/index.ts";
+import { MemoryClient } from "./storage.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -126,6 +127,34 @@ test("INV-tenancy AC:CASE-DOC-016: documents written in Discovery stay the plant
 		const church = await titles(other, false);
 		assert.equal(Array.isArray(church) && church.includes("Call notes"), false);
 	}
+
+	const storage = { bucket: "synthetic-only", client: new MemoryClient() };
+	const imported = ok(
+		await documentsWriter.importMine(
+			db,
+			own,
+			{
+				title: "Imported notes",
+				format: "text",
+				bytes: Buffer.from("Read in the church"),
+				expectedRevision: "0",
+				requestKey: randomUUID(),
+			},
+			storage,
+		),
+	);
+	assert.equal(imported.tenantId, planter.id);
+	const values = ok(
+		await documentsWriter.designateMine(db, own, { documentId: imported.id, expectedRevision: imported.revision }),
+	);
+	assert.equal(values.kind, "core_values");
+	ok(await documentsWriter.archiveMine(db, own, { documentId: imported.id, expectedRevision: values.revision }));
+	refused(
+		await documentsWriter.archiveMine(db, await authority(teamAdmin), {
+			documentId: written.id,
+			expectedRevision: edited.revision,
+		}),
+	);
 
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${planter.id}::uuid`);
 	assert.ok(((await titles(planter, false)) as string[]).includes("Call notes"));
