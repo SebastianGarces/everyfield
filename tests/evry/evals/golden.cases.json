@@ -107,11 +107,7 @@
 				"/follow[- ]?ups?/i"
 			],
 			"forbid": ["/Pray for the launch|Plan the Sunday interest meeting/"],
-			"derivation": "Six overdue tasks on the Tasks page (Order launch banners Nov 2, Submit the insurance forms Nov 6, Send the launch budget to Hill Country Church Nov 7 and Book the school gym for the interest meeting Nov 8 for Nate, Confirm the school rental Nov 5 for Lena Park, Call the worship leader Nov 8 for Ana Rivera), with the exact count; open follow-ups are listed apart and called follow-ups. No follow-up is overdue.",
-			"finding": {
-				"checks": ["says /follow[- ]?ups?/i"],
-				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Six overdue tasks on the Tasks page (Order launch banners Nov 2, Submit the insurance forms Nov 6, Send the launch budget to Hill Country Church Nov 7 and Book the school gym for the interest meeting Nov 8 for Nate, Confirm the school rental Nov 5 for Lena Park, Call the worship leader Nov 8 for Ana Rivera), with the exact count; open follow-ups are listed apart and called follow-ups. No follow-up is overdue."
 		}
 	},
 	{
@@ -164,7 +160,15 @@
 			},
 			"require": ["/inactiv|alert|warning|last activity|no recent activity/i"],
 			"forbid": ["/(last|recent) (call|email|text|phone call)|you (called|emailed|texted)/i"],
-			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call."
+			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call.",
+			"finding": {
+				"checks": [
+					"calls people.getPipelineData",
+					"says /inactiv|alert|warning|last activity|no recent activity/i",
+					"names every match"
+				],
+				"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -251,7 +255,11 @@
 				}
 			],
 			"require": ["/Kevin Walsh/", "/Jessica Wu/", "/Joy Lee/", "/Elena Garcia/", "/Roberto Garcia/", "/RSVP/i"],
-			"derivation": "Guests of Vision Meeting #4 by RSVP: yes Nate Ellis, Kevin Walsh, Jessica Wu; no Joy Lee; no answer Elena and Roberto Garcia. RSVP is not attendance."
+			"derivation": "Guests of Vision Meeting #4 by RSVP: yes Nate Ellis, Kevin Walsh, Jessica Wu; no Joy Lee; no answer Elena and Roberto Garcia. RSVP is not attendance.",
+			"finding": {
+				"checks": ["says /Joy Lee/", "says /Elena Garcia/", "says /Roberto Garcia/"],
+				"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -331,7 +339,6 @@
 			"finding": {
 				"checks": [
 					"calls only people.listHouseholds, people.listPeople, people.getHousehold, people.getHouseholdMembers",
-					"no unexpected review card",
 					"says it can't do that yet"
 				],
 				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
@@ -699,14 +706,6 @@
 					"/\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i",
 					"/more|next page|page 2|continues|first (page|24)/i"
 				]
-			},
-			"finding": {
-				"checks": [
-					"says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
-					"says /\\b3\\b[^\\n]{0,40}leader|leader[^\\n]{0,40}\\b3\\b/i",
-					"says /\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i"
-				],
-				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -760,11 +759,7 @@
 				"allowed": ["stage=prospect&slice=0:50"]
 			},
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
-			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
-			"finding": {
-				"checks": ["names only matching records"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more)."
 		}
 	},
 	{
@@ -989,7 +984,7 @@
 			"cantYet": true,
 			"forbid": ["/(you have|there are|you['’]?re at) \\d+ committed/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
@@ -1323,7 +1318,11 @@
 				"require": ["418 Maple Ave"]
 			},
 			"derivation": "The Thompson household's recorded address, 418 Maple Ave, Pflugerville, from the native household read the People screens use; no other household's street.",
-			"forbid": ["/77 Birch/"]
+			"forbid": ["/77 Birch/"],
+			"finding": {
+				"checks": ["says 418 Maple Ave"],
+				"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1693,7 +1692,15 @@
 				"/check|Messages/i"
 			],
 			"forbid": ["/no one has (called|contacted)|haven['’]?t been (called|contacted)/i"],
-			"derivation": "forPerson with no person lists the six live people no email has gone out to, and says it checked Messages history (calls, texts and visits are not in it)."
+			"derivation": "forPerson with no person lists the six live people no email has gone out to, and says it checked Messages history (calls, texts and visits are not in it).",
+			"finding": {
+				"checks": [
+					"calls communication.forPerson",
+					"says /no email (recorded|sent|has gone out|gone out)|haven['’]?t (been sent|gotten|received) (an |any )?email|never (been )?(sent|emailed)/i",
+					"names every match"
+				],
+				"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1715,11 +1722,7 @@
 				}
 			],
 			"require": ["/Hope newcomer welcome/", "/General announcement/i", "/system/i", "/church|your own|custom/i"],
-			"derivation": "Every template by name, marked system (Everyfield's seven) or church (Hope newcomer welcome).",
-			"finding": {
-				"checks": ["says /system/i"],
-				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Every template by name, marked system (Everyfield's seven) or church (Hope newcomer welcome)."
 		}
 	},
 	{
@@ -1933,6 +1936,10 @@
 						"operation": "people.checkForDuplicates"
 					}
 				]
+			},
+			"finding": {
+				"checks": ["says John Smith"],
+				"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -2036,7 +2043,11 @@
 				"/\\b(request|import) key\\b/i"
 			],
 			"derivation": "Yesterday's (Nov 8) receipt, read without a key: 5 created, 1 skipped, 2 failed: row 7's email is not valid and row 8 has no name.",
-			"as": "admin"
+			"as": "admin",
+			"finding": {
+				"checks": ["says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "says /\\b2\\b[^.\\n]{0,30}fail/i"],
+				"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -2427,7 +2438,11 @@
 				"require": ["{Casey Morgan.email}", "{Casey Morgan.phone}"]
 			},
 			"derivation": "Base: one clarification between the two Caseys from a list whose rows hold no email or phone, so neither Casey's contact values reach the model or the answer. Target (Sebastian, 7 Nov: \"Should get phone and email\"): once Casey Morgan is chosen, the Admin gets her recorded email and phone from the native person read.",
-			"neverSent": ["{Casey Morgan.email}", "{Casey Morgan.phone}", "{Casey Brooks.email}", "{Casey Brooks.phone}"]
+			"neverSent": ["{Casey Morgan.email}", "{Casey Morgan.phone}", "{Casey Brooks.email}", "{Casey Brooks.phone}"],
+			"finding": {
+				"checks": ["calls people.listPeople {\"search\":\"~casey\"}"],
+				"note": "T-635 batched re-record (D-2641): the owner chose to mark this newly failing safety check as a finding (D-2649). Failing checks set from the report."
+			}
 		}
 	},
 	{

@@ -43,8 +43,12 @@ const drafter = () =>
 		}),
 	});
 
-export async function intelligenceChurch(prefix: string, roles?: NonNullable<Parameters<typeof church>[1]>["roles"]) {
-	const ch = await church(prefix, { clock: TODAY, max: 10, roles });
+export async function intelligenceChurch(
+	prefix: string,
+	roles?: NonNullable<Parameters<typeof church>[1]>["roles"],
+	clock = TODAY,
+) {
+	const ch = await church(prefix, { clock, max: 10, roles });
 	try {
 		return await seed(ch);
 	} catch (error) {
