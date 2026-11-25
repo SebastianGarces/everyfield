@@ -9,6 +9,7 @@ export function removedLines(report: PipelineRemovalReport): string[] {
 		[r.notes, "staff note", "staff notes"],
 		[r.conversations, "conversation", "conversations"],
 		[r.enrollments, "enrollment in progress", "enrollments in progress"],
+		[r.withdrawnEnrollments, "withdrawn enrollment", "withdrawn enrollments"],
 		[r.milestoneMarks, "milestone mark", "milestone marks"],
 		[r.feedback, "piece of feedback", "pieces of feedback"],
 		[r.mergedRecords, "duplicate record merged in earlier", "duplicate records merged in earlier"],

@@ -65,7 +65,7 @@ const exportRow = z.object({
 					program: z.string(),
 					kind: z.string(),
 					cohort: z.string(),
-					status: z.string(),
+					status: C.enrollmentStatus,
 					started: z.string(),
 					expected: z.string(),
 					stage: text,
@@ -143,7 +143,7 @@ FROM g`);
 					record: "enrollment",
 					...who,
 					...program,
-					status: e.status,
+					status: C.ENROLLMENT_STATUS[e.status],
 					cohort: e.cohort,
 					started_on: e.started,
 					expected_end_on: e.expected,
@@ -191,6 +191,7 @@ function removePerson(db: Database, authority: RequestActor, raw: unknown) {
 				notes: z.coerce.number(),
 				link: z.boolean(),
 				invitations: z.coerce.number(),
+				withdrawn: z.coerce.number(),
 			}),
 			sql`WITH x AS (SELECT pp.person_id,pp.revision FROM pipeline_person pp JOIN person q ON q.id=pp.person_id
   AND q.tenant_id=pp.organization_id WHERE pp.organization_id=${o}::uuid AND pp.person_id=${input.personId}::uuid
@@ -221,7 +222,8 @@ i AS (UPDATE invitation SET state='revoked',acted_at=clock_timestamp(),revision=
 n AS (DELETE FROM person_note n USING g WHERE n.tenant_id=${o}::uuid AND n.person_id=g.id RETURNING n.id)
 SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,EXISTS(SELECT FROM p) AS removed,
  (SELECT count(*) FROM n) AS notes,EXISTS(SELECT FROM cur WHERE cur.active) AND EXISTS(SELECT FROM l) AS link,
- (SELECT count(*) FROM i) AS invitations`,
+ (SELECT count(*) FROM i) AS invitations,(SELECT count(*) FROM development_enrollment e JOIN g ON e.person_id=g.id
+  WHERE e.organization_id=${o}::uuid AND e.status='withdrawn') AS withdrawn`,
 		);
 		if (!first.found) refuse();
 		if (!first.removed) refuse({ code: "conflict" });
@@ -250,7 +252,8 @@ SELECT f.r FROM f WHERE EXISTS(SELECT FROM a)`,
 				stageMoves: r.stageMoves,
 				notes: first.notes,
 				conversations: r.conversations,
-				enrollments: r.enrollments,
+				enrollments: r.enrollments - first.withdrawn,
+				withdrawnEnrollments: first.withdrawn,
 				milestoneMarks: r.milestoneMarks,
 				feedback: r.feedback,
 				residencyLinkEnded: first.link,
