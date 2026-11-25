@@ -377,7 +377,7 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 	);
 	if ("refused" in result) throw new EvryRefusal("review_closed");
 	await db.execute(sql`
-		UPDATE proposal p SET receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
+		UPDATE proposal p SET receipt=p.receipt||${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
 		WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.outcome='completed'
 			AND p.receipt->'report'->>'confirmation'='not_confirmed'`);
 	return { proposal: await readReview(db, actor, proposalId) };

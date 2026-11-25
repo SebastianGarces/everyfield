@@ -38,6 +38,12 @@ export const sharingEnded = (tool: SQL, tenant: SQL) =>
 				sql` OR `,
 			)}))`;
 
+export const leadBeforeIntelligence = (tool: SQL, activeTurn: SQL) =>
+	sql`(EXISTS(SELECT FROM jsonb_array_elements(coalesce(${tool}.body->'result'->'rows','[]'::jsonb)) lr
+			WHERE lr->'fields'->>'leadPlanter' IS NOT NULL)
+		AND EXISTS(SELECT FROM conversation_event ni WHERE ni.conversation_id=${tool}.conversation_id AND ni.turn_id=${activeTurn}
+			AND ni.kind='tool_result' AND ni.body->>'operation' LIKE 'organizationIntelligence.%'))`;
+
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	person: (id, plant) =>
 		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND coalesce(p.plant_id,p.organization_id)=${plant} AND p.state='live')`,

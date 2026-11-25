@@ -1,0 +1,38 @@
+{
+	"family": "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-people.test.mts",
+			"test": "AC:EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES ",
+			"operations": [
+				"people.addNote",
+				"people.addSkill",
+				"people.addToHousehold",
+				"people.assignTag",
+				"people.createHouseholdWithHead",
+				"people.createTag",
+				"people.deleteHousehold",
+				"people.deleteNote",
+				"people.deleteTag",
+				"people.editNote",
+				"people.getActivities",
+				"people.getHousehold",
+				"people.getHouseholdMembers",
+				"people.getPersonSkills",
+				"people.getPersonTags",
+				"people.listHouseholds",
+				"people.listTags",
+				"people.propagateAddress",
+				"people.removeFromHousehold",
+				"people.removeSkill",
+				"people.removeTag",
+				"people.setHouseholdRole",
+				"people.updateHousehold",
+				"people.updateSkill",
+				"people.updateTag"
+			]
+		}
+	],
+	"excluded": [],
+	"withheld": []
+}
