@@ -49,7 +49,7 @@ test(
 		const backup = backupConfig(join(dir, "backup"), {
 			...shared,
 			context: "restricted-backup",
-			operations: ["backup-capture", "backup-copy", "backup-daily", "backup-status"],
+			operations: ["backup-capture", "backup-copy", "backup-daily"],
 		});
 		const recovery = backupConfig(join(dir, "recovery"), {
 			...shared,
@@ -84,9 +84,8 @@ test(
 		const recopied = JSON.parse(await run([...copy, "--recopy", sealed.location], key, 0));
 		assert.notEqual(recopied.location, sealed.location);
 
-		const { backup: taken } = JSON.parse(await run(["backup-daily", "--config", backup], key, 0));
+		const { backup: taken, status } = JSON.parse(await run(["backup-daily", "--config", backup], key, 0));
 		assert.deepEqual([taken.copy_complete, taken.files], [true, 1]);
-		const status = JSON.parse(await run(["backup-status", "--config", backup], key, 2));
 		assert.deepEqual(status.failing, ["app_key_restriction_open"]);
 
 		files.objects.clear();

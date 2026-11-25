@@ -141,7 +141,7 @@ test("the restricted CLI refuses copy and readiness without their control with t
 		const open = join(dir, "control.json");
 		await writeFile(open, JSON.stringify({ version: 1 }), { mode: 0o644 });
 		const key = Buffer.alloc(32, 7).toString("hex");
-		for (const args of [
+		const refusals = [
 			["backup-copy", "--control", join(dir, "missing.json"), "--out", dir, "--snapshot", dir],
 			["backup-copy", "--control", open, "--out", dir, "--snapshot", dir],
 			["backup-copy", "--out", dir, "--snapshot", dir],
@@ -150,7 +150,7 @@ test("the restricted CLI refuses copy and readiness without their control with t
 			["readiness"],
 			["backup-copy", "--control", open, "--key", join(dir, "backup.key"), "--out", dir, "--snapshot", dir],
 			["backup-key-create", "--config", dir],
-		]) {
+		].map(async (args) => {
 			const { code, stdout, stderr } = await new Promise<{ code: number | null; stdout: string; stderr: string }>(
 				(resolve) =>
 					execFile(
@@ -164,7 +164,8 @@ test("the restricted CLI refuses copy and readiness without their control with t
 			assert.equal(stdout, "");
 			assert.equal(stderr, "Operations command refused or failed. No credentials or raw errors were logged.\n");
 			assert.equal(stderr.includes(key), false);
-		}
+		});
+		await Promise.all(refusals);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
