@@ -1276,7 +1276,8 @@ async function discoveryPlanter(
 			AND tenant_id=${GLOBAL} LIMIT 1) AS section FROM reference_activation a ORDER BY a.activation_number DESC LIMIT 1`,
 	);
 	for (const [position, article] of FOUNDATIONS.entries()) {
-		if (!active?.section || (await rows(admin, sql`SELECT 1 FROM reference_item WHERE id=${article.id}`)).length) continue;
+		if (!active?.section || (await rows(admin, sql`SELECT 1 FROM reference_item WHERE id=${article.id}`)).length)
+			continue;
 		const body = corpus.articles.find((a) => a.slug === article.slug);
 		if (!body) continue;
 		await admin.transaction(async (tx) => {
