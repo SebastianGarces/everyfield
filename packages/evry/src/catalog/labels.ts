@@ -50,3 +50,14 @@ export const TYPE_LABEL: Record<string, string> = {
 	team_meeting: "Team meeting",
 	prelaunch_practice: "Pre-launch practice",
 };
+
+export const localWhenText = (local: string) =>
+	new Intl.DateTimeFormat("en-US", {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		timeZone: "UTC",
+	}).format(new Date(`${local}Z`));

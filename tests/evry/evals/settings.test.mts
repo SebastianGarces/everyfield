@@ -37,6 +37,7 @@ import {
 	type SettingsOperation,
 } from "../../../apps/web/src/features/evry/review/model.ts";
 import { withSwitchOff } from "../../support/flags.mts";
+import { installGeographyRelease, readReportingLocation } from "../../../packages/domain/src/organizations/index.ts";
 import { nativePorts } from "./settings-ports.mts";
 import { goldenChurch, NETWORK, PLANT, type GoldenChurch } from "./golden-church.mts";
 
@@ -96,6 +97,7 @@ const noPorts = {
 before(async () => {
 	church = await goldenChurch({ seatNames: true });
 	db = church.db;
+	await installGeographyRelease(church.admin);
 });
 after(() => church?.close());
 
@@ -309,6 +311,15 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	},
 	"SET-28": {
 		after: async () => assert.deepEqual(await digest(), { digest_cadence: "off", digest_weekday: 1, digest_hour: 7 }),
+	},
+	"SET-38": {
+		after: async (a) => {
+			const saved = await readReportingLocation(db, a.authority);
+			assert.deepEqual(
+				[saved?.locality.city, saved?.locality.stateProvince, saved?.region?.code],
+				["Round Rock", "TX", "12420"],
+			);
+		},
 	},
 	"SET-32": {
 		after: async () => assert.deepEqual(mail.at(-1), { to: "maya@example.test", purpose: "seat_invitation" }),

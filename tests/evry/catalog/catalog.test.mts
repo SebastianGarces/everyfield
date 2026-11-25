@@ -165,16 +165,24 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"pipeline.readGoals",
+		"pipeline.readConversationCounts",
 		"intelligence.readCommittedAdultCohort",
 		"intelligence.readScorecard",
 		"intelligence.readAssessment",
 		"intelligence.readAssessmentDelta",
+		"intelligence.readAssessmentHistory",
+		"intelligence.readAssessmentRun",
+		"intelligence.readColdStartGuidance",
+		"intelligence.readOwnFeedback",
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
 		"organizationIntelligence.readHistory",
 		"organizationIntelligence.readLocations",
 		"organizationIntelligence.readLocationHistory",
+		"oversight.listSendingChurches",
+		"oversight.getSendingChurch",
 		"calendar.getContext",
 		"calendar.resolve",
 		"wiki.search",
@@ -211,6 +219,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"settings.getSection",
 		"organizations.getProfile",
 		"account.getAvatar",
+		"geography.listReportingRegionCandidates",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -400,7 +409,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the link invitation changes, the stage move, the program create and the four organization Wiki writes; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the link invitation changes, the stage, goal and program writes, the Network Intelligence writes and the four organization Wiki writes; every seat reads its pipeline and programs and may propose a next version or an enrollment change, which only a program's director gets a card for, and only a network seat reads its sending churches", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -425,12 +434,20 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"pipeline.readGoals",
+		"pipeline.readConversationCounts",
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
 		"organizationIntelligence.readHistory",
 		"organizationIntelligence.readLocations",
 		"organizationIntelligence.readLocationHistory",
+	];
+	const directed = [
+		"development.updateEnrollment",
+		"development.applyVersion",
+		"development.confirmMilestone",
+		"development.completeMilestone",
 	];
 	const ownReads = ["associations.listInvitations", "associations.getHistory", "settings.getSection"];
 	const orgWiki = [
@@ -457,9 +474,15 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 				"account.removeAvatar",
 				"organizations.updateProfile",
 				"pipeline.proposeStageMove",
+				"pipeline.saveGoal",
+				"pipeline.saveStages",
 				"development.saveProgram",
 				"development.draftNextVersion",
+				"development.enroll",
+				...directed,
 				...orgWiki,
+				"organizationIntelligence.requestRefresh",
+				"organizationIntelligence.submitFeedback",
 			],
 			role,
 		);
@@ -471,7 +494,29 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"settings.saveSection",
 		"account.removeAvatar",
 		"development.draftNextVersion",
+		...directed,
 	]);
+	assert.deepEqual(
+		tools(
+			actor(
+				{ kind: "organization", id, organizationKind: "sending_network" } as EvryActor["owner"],
+				"sending_network",
+				"member",
+			),
+		),
+		[
+			...pipeline,
+			"oversight.listSendingChurches",
+			"oversight.getSendingChurch",
+			...ownReads,
+			"organizations.getProfile",
+			"account.getAvatar",
+			"settings.saveSection",
+			"account.removeAvatar",
+			"development.draftNextVersion",
+			...directed,
+		],
+	);
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
 		"discovery.getProfile",
 		...ownReads,
@@ -559,7 +604,7 @@ test("INV-row-liveness: no liveness rule names a table r or c, which the queries
 	assert.deepEqual(outerAliases("FROM person live_r WHERE live_r.kind='r'"), []);
 });
 
-const TOOL_SCHEMA_BUDGET = 215_000;
+const TOOL_SCHEMA_BUDGET = 222_000;
 
 test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within their byte budget", async () => {
 	const idle = {

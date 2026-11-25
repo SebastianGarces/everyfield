@@ -3,15 +3,16 @@ import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { coldStartGuidance, coldStartTitle } from "../../../packages/contracts/src/intelligence/cold-start.ts";
 import {
-	coldStartTitle,
 	factText,
 	newestText,
-	nextSteps,
 	refreshProblem,
 	trendText,
 } from "../../../apps/web/src/features/intelligence/assessment-model.ts";
 import { facts } from "./views-fixture.mjs";
+
+const nextSteps = (measured) => coldStartGuidance(null, measured).steps;
 
 test("AC:PI-CASE-025 cold start says not prepared, on its way or couldn't be prepared, never a result", () => {
 	assert.equal(coldStartTitle(null).title, "Your first assessment hasn't been prepared yet");

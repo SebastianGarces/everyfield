@@ -196,6 +196,19 @@ async function seed(ch: Church) {
 		timezone: "America/Chicago",
 	});
 	const otherDirector = await ch.database.actor(otherNetwork, "admin");
+	async function churchLinked() {
+		const church = await ch.database.organization("sending_church", {
+			name: "Grace Austin",
+			timezone: "America/Chicago",
+		});
+		const none = sql`false,false,false,false,false,false,false`;
+		const shares = sql`share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings`;
+		await admin.execute(sql`INSERT INTO affiliation(sending_church_id,organization_id,accepted_at,${shares})
+			VALUES(${church.id},${network.id},clock_timestamp(),${none})`);
+		for (const name of ["Harvest Point", "Hill Country Church"])
+			await admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,${shares})
+				VALUES(${plants[name]!.id},${church.id},clock_timestamp(),${none})`);
+	}
 	const names = async () =>
 		(
 			await ch.rows(
@@ -224,6 +237,7 @@ async function seed(ch: Church) {
 		meetingHeld,
 		finalizeMeeting,
 		meetingsHeld,
+		churchLinked,
 		names,
 	};
 }

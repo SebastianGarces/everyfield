@@ -75,6 +75,19 @@ export const enrollRequest = z
 	})
 	.refine((e) => e.expectedEndOn >= e.startedOn, { path: ["expectedEndOn"] });
 
+export const updateEnrollmentRequest = z.strictObject({
+	enrollmentId: recordId,
+	expectedRevision: revision,
+	changes: z
+		.strictObject({
+			cohort: z.string().trim().min(1).max(80).optional(),
+			expectedEndOn: localDate.optional(),
+			stageId: recordId.optional(),
+			nextMeetingAt: localDateTime.nullable().optional(),
+		})
+		.refine((c) => Object.keys(c).length > 0),
+});
+
 export const recordMilestoneRequest = z.strictObject({
 	enrollmentId: recordId,
 	milestoneId: recordId,
@@ -224,6 +237,7 @@ export const enrollmentMilestone = z.strictObject({
 export const earlierMilestone = enrollmentMilestone.extend({ versionNumber: z.int().min(1) });
 export const enrollmentDetail = z.strictObject({
 	id: recordId,
+	revision,
 	person: z.strictObject({ personId, name: z.string() }),
 	program: z.strictObject({ id: recordId, name: z.string(), kind: programKind, director: person }),
 	versionNumber: z.int().min(1),
@@ -232,6 +246,7 @@ export const enrollmentDetail = z.strictObject({
 	expectedEndOn: localDate,
 	status: z.enum(["active", "completed"]),
 	stage: z.strictObject({ id: recordId, label: z.string() }),
+	stages: z.array(z.strictObject({ id: recordId, label: z.string() })),
 	nextMeeting: z.strictObject({ at: localDateTime, timezone: z.string() }).nullable(),
 	milestones: z.array(enrollmentMilestone),
 	resident: residentView,

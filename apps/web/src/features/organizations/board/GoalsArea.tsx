@@ -1,7 +1,7 @@
 "use client";
 
 import { counted, countWord, dayText } from "@everyfield/contracts/common";
-import type { PipelineGoals } from "@everyfield/contracts/organizations";
+import { goalHeadline, type PipelineGoals } from "@everyfield/contracts/organizations";
 import { Delete02Icon, Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -26,7 +26,7 @@ import {
 import { useActionState, useState } from "react";
 import { saveGoal } from "./actions";
 import { readGoals } from "./fetch.ts";
-import { goalHeadline, KIND_LABEL, monthLabel, refusalText } from "./model";
+import { KIND_LABEL, monthLabel, refusalText } from "./model";
 
 type Goal = PipelineGoals["goals"][number];
 const MAX_COUNTS = 4;

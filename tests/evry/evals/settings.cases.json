@@ -50,6 +50,46 @@
 			"answer": ["Only an Owner or Admin can", "change this church's settings"]
 		},
 		{
+			"id": "SET-35",
+			"criterion": 11,
+			"actor": "member",
+			"ask": "change our reporting region to Round Rock, TX",
+			"operation": "organizations.correctReportingLocation",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can", "change this church's settings"]
+		},
+		{
+			"id": "SET-36",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "our reporting region is wrong. it should be Springfield",
+			"operation": "geography.listReportingRegionCandidates",
+			"calls": ["geography.listReportingRegionCandidates"],
+			"answer": ["More than one Region fits Springfield", "Which one is it?"]
+		},
+		{
+			"id": "SET-37",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "change our reporting region to Nowhereville, TX",
+			"operation": "geography.listReportingRegionCandidates",
+			"calls": ["geography.listReportingRegionCandidates"],
+			"answer": ["The official Region list has no Region for Nowhereville, TX", "Nothing changed."]
+		},
+		{
+			"id": "SET-38",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "our reporting region is wrong, change our reporting region to Round Rock, TX",
+			"operation": "organizations.correctReportingLocation",
+			"calls": ["geography.listReportingRegionCandidates"],
+			"proposal": {
+				"operation": "organizations.correctReportingLocation",
+				"target": "Reporting Region"
+			},
+			"approve": true
+		},
+		{
 			"id": "SET-04",
 			"criterion": 2,
 			"actor": "owner",

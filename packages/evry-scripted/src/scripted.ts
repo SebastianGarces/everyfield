@@ -14,6 +14,7 @@ import { launchStep } from "./scripted-launch.ts";
 import { intelligenceStep } from "./scripted-intelligence.ts";
 import { overviewStep } from "./scripted-overview.ts";
 import { invitationStep } from "./scripted-invitation.ts";
+import { networkStep } from "./scripted-network.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { wikiBrowseStep } from "./scripted-wiki-browse.ts";
 import { wikiEditorStep } from "./scripted-wiki-editor.ts";
@@ -973,6 +974,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const network = networkStep(options, text);
+	if (network) return network;
 	const documents = documentTurn(options, text);
 	if (documents) return documents;
 	const connection = connectionStep(options, text);

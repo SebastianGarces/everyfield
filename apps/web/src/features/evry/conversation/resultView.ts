@@ -437,6 +437,51 @@ const VIEWS: Record<string, OpView> = {
 		icon: "item",
 		empty: "Nothing measured changed since the assessment before.",
 	}),
+	"intelligence.readAssessmentHistory": items("Assessments over time", {
+		noun: ["assessment", "assessments"],
+		icon: "item",
+		empty: "No assessment has been published yet.",
+	}),
+	"intelligence.readAssessmentRun": items("Assessment", {
+		noun: ["finding or lens", "findings and lenses"],
+		icon: "item",
+		empty: "That assessment isn't available.",
+	}),
+	"intelligence.readColdStartGuidance": items("Where to start", {
+		noun: ["step", "steps"],
+		icon: "item",
+		empty: "Your records show no gap to act on yet.",
+	}),
+	"intelligence.readOwnFeedback": items("Your ratings", {
+		noun: ["rating", "ratings"],
+		icon: "item",
+		empty: "You gave no rating yet.",
+	}),
+	"geography.listReportingRegionCandidates": items("Reporting Regions", {
+		noun: ["Region", "Regions"],
+		icon: "item",
+		empty: "The official Region list has no Region for that place.",
+	}),
+	"oversight.listSendingChurches": items("Sending churches", {
+		noun: ["sending church", "sending churches"],
+		icon: "item",
+		empty: "No sending church is linked to this network yet.",
+	}),
+	"oversight.getSendingChurch": items("Sending church", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "No plant is linked to both that church and this network.",
+	}),
+	"pipeline.readGoals": items("Sending goals", {
+		noun: ["goal", "goals"],
+		icon: "item",
+		empty: "This organization has no sending goal yet.",
+	}),
+	"pipeline.readConversationCounts": items("Leadership conversations", {
+		noun: ["period", "periods"],
+		icon: "item",
+		empty: "No conversation counts to show.",
+	}),
 	"oversight.listPlants": items("Your plants", {
 		noun: ["plant", "plants"],
 		icon: "item",
@@ -1904,7 +1949,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				href:
 					operation === "wiki.navigation"
 						? "/wiki"
-						: /^(dashboard|feedback|organizationIntelligence)\./.test(operation)
+						: /^(dashboard|feedback|organizationIntelligence|oversight)\.|\.readColdStartGuidance$/.test(operation)
 							? text(fields.href)
 							: null,
 				name: row.label,
@@ -2483,6 +2528,35 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(text(f.severity), text(f.cites));
 		case "intelligence.readAssessmentDelta":
 			return `${String(f.before)} → ${String(f.after)}`;
+		case "intelligence.readAssessmentHistory":
+			return joined(
+				text(f.phase),
+				...Object.entries(f).flatMap(([k, v]) =>
+					k === "latest" || k === "phase" || v === null ? [] : [`${k}: ${String(v)}`],
+				),
+			);
+		case "intelligence.readAssessmentRun":
+			return f.role ? joined(text(f.severity), text(f.cites)) : joined(text(f.standing), text(f.evidence));
+		case "intelligence.readColdStartGuidance":
+			return text(f.detail);
+		case "intelligence.readOwnFeedback":
+			return joined(text(f.rating), text(f.comment), `Assessment measured ${String(f.assessment)}`);
+		case "geography.listReportingRegionCandidates":
+			return f.saved === true ? "Saved now" : null;
+		case "oversight.listSendingChurches":
+			return counted(Number(f.plants), "linked plant");
+		case "oversight.getSendingChurch":
+			return joined(
+				`Health ${String(f.health)}`,
+				f.launchSunday
+					? `Launch Sunday ${String(f.launchSunday)}`
+					: joined(text(f.milestone), text(f.milestoneProgress)),
+				text(f.place),
+			);
+		case "pipeline.readGoals":
+			return joined(`Counting from ${civilDay(String(f.countingFrom))}`, text(f.counts) ?? "No counts chosen");
+		case "pipeline.readConversationCounts":
+			return counted(Number(f.count), "conversation");
 		case "oversight.listPlants":
 			return joined(`Health ${String(f.health)}`, `Launch ${String(f.launch)}`, text(f.region));
 		case "oversight.getPlant":
@@ -2522,6 +2596,11 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 					typeof f.publishedVersion === "number" ? `Version ${f.publishedVersion} published` : "Not published",
 					f.draft ? "Draft in progress" : null,
 				);
+			if (f.part === "candidate") return "Can be enrolled";
+			if (f.part === "enrollment") return joined(text(f.cohort), text(f.stage), `Version ${String(f.version)}`);
+			if (f.progress) return text(f.progress);
+			if (f.part === "stage" && f.minMonths === undefined)
+				return joined(`Version ${String(f.version)}`, f.current ? "Current stage" : "Stage");
 			return joined(
 				`Version ${String(f.version)}`,
 				f.part === "stage"

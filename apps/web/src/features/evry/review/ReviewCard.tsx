@@ -2,6 +2,7 @@
 
 import {
 	Alert02Icon,
+	AnalyticsUpIcon,
 	ArrowRight02Icon,
 	BookOpen01Icon,
 	Calendar03Icon,
@@ -83,7 +84,9 @@ import {
 	isIntelligence,
 	isMail,
 	isMeetings,
+	isNetwork,
 	isNotification,
+	networkRefusalText,
 	isTeams,
 	isRequired,
 	isTasks,
@@ -251,6 +254,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "refused":
 			if (review && isPipeline(review.operation))
 				return pipelineRefusalText(review.receipt?.code, review.operation, who);
+			if (review && isNetwork(review.operation)) return networkRefusalText(review.receipt?.code);
 			if (review && isLaunch(review.operation)) return launchRefusalText(review.receipt?.code);
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
@@ -683,6 +687,13 @@ function Footer({
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
+				) : isNetwork(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href="/network/intelligence">
+							Open Network Intelligence
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : isPipeline(review.operation) ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={pipelineLink(review).href}>
@@ -832,33 +843,40 @@ function Affects({ review }: { review: Review }) {
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
-	const program = review.operation === "development.saveProgram" || review.operation === "development.draftNextVersion";
+	const program = isPipeline(review.operation) && kind !== "person";
+	const region = review.operation === "organizations.correctReportingLocation";
 	const task = isTasks(review.operation) && kind !== "person";
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
 		? Notification01Icon
 		: (record ??
 			(program
-				? Mortarboard01Icon
-				: isLaunch(review.operation)
-					? StartUp02Icon
-					: isInvitation(review.operation)
-						? Calendar03Icon
-						: imported
-							? FileImportIcon
-							: task
-								? Task01Icon
-								: kind === "household" || kind === "article"
-									? RECORD_GLYPH[kind]
-									: kind === "tag" || tag
-										? Tag01Icon
-										: mail
-											? Mail01Icon
-											: isDocument(review.operation)
-												? File02Icon
-												: create
-													? UserAdd01Icon
-													: null));
+				? review.operation.startsWith("pipeline.")
+					? Briefcase01Icon
+					: Mortarboard01Icon
+				: isNetwork(review.operation)
+					? AnalyticsUpIcon
+					: region
+						? Location01Icon
+						: isLaunch(review.operation)
+							? StartUp02Icon
+							: isInvitation(review.operation)
+								? Calendar03Icon
+								: imported
+									? FileImportIcon
+									: task
+										? Task01Icon
+										: kind === "household" || kind === "article"
+											? RECORD_GLYPH[kind]
+											: kind === "tag" || tag
+												? Tag01Icon
+												: mail
+													? Mail01Icon
+													: isDocument(review.operation)
+														? File02Icon
+														: create
+															? UserAdd01Icon
+															: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
