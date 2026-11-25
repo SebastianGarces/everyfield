@@ -71,6 +71,11 @@ const datedTasks = (tx: Tx, plant: string, gate: SQL = sql`true`) =>
 		.orderBy(asc(t.task.id))
 		.for("share");
 const datedTask = z.object({ id: z.string(), date: z.string().nullable(), revision: z.string() });
+const reminderDays = (due: string) =>
+	[
+		["due", due],
+		["overdue", addCivilDays(localDate.parse(due), 1)],
+	] as const;
 function schedule(plant: typeof t.plant.$inferSelect, zone: string, asOf: string, tasks: z.infer<typeof datedTask>[]) {
 	const reminders = [];
 	const preservedTaskDates = [];
@@ -82,7 +87,7 @@ function schedule(plant: typeof t.plant.$inferSelect, zone: string, asOf: string
 	for (const row of tasks) {
 		if (row.date === null) throw Error("date_only_task_missing_date");
 		if (preservedTaskDates.length < 100) preservedTaskDates.push({ id: row.id, date: row.date });
-		for (const day of [row.date, addCivilDays(localDate.parse(row.date), 1)]) {
+		for (const [, day] of reminderDays(row.date)) {
 			const before = automatic(day, 9, plant.timezone),
 				after = automatic(day, 9, zone);
 			if (before.occurrence.instant <= asOf) continue;
@@ -125,6 +130,26 @@ function schedule(plant: typeof t.plant.$inferSelect, zone: string, asOf: string
 		completeness: bounded ? ("bounded" as const) : ("complete" as const),
 		warnings: [...warnings],
 	};
+}
+function movedReminders(plant: string, zone: string, at: string, tasks: z.infer<typeof datedTask>[]): SQL[] {
+	const slots = tasks.flatMap(({ id, date }) => {
+		if (date === null) throw Error("date_only_task_missing_date");
+		return reminderDays(date).map(([slot, day]) => ({
+			task: id,
+			slot,
+			at: automatic(day, 9, zone).occurrence.instant,
+		}));
+	});
+	if (!slots.length) return [];
+	const waiting = sql`FROM jsonb_to_recordset(${JSON.stringify(slots)}::jsonb) s(task uuid,slot text,at timestamptz)`;
+	const undelivered = sql`n.tenant_id=${plant}::uuid AND n.source_record_id=s.task AND n.purpose='task_due'
+		AND split_part(n.logical_key,'/',2)='task_'||s.slot AND n.cancelled_at IS NULL AND n.eligible_at>${at}::timestamptz
+		AND NOT EXISTS(SELECT FROM mail d WHERE d.notice_id=n.id AND d.state IN ('dispatched','unknown','accepted','scheduled','sent'))`;
+	return [
+		sql`UPDATE notice n SET eligible_at=s.at,timezone=${zone},revision=n.revision+1 ${waiting} WHERE ${undelivered}`,
+		sql`UPDATE job j SET eligible_at=s.at,revision=j.revision+1 ${waiting} JOIN notice n ON ${undelivered}
+			JOIN mail m ON m.notice_id=n.id WHERE j.id=m.job_id AND j.state='ready'`,
+	];
 }
 async function readClock(tx: Tx, id: string, clock?: Clock) {
 	if (clock) return { at: new Date(clock.now()) };
@@ -211,7 +236,8 @@ export function timezoneOperations(
 				const saved = found.saved;
 				const plan = parse(z.object({ preview: q.plantTimezonePreview, sources: z.string() }), saved.value);
 				if (plan.preview.newZone !== zone || saved.expected_revision !== a.plant.revision) deny("stale_preview");
-				const current = schedule(a.plant, zone, plan.preview.asOf, z.array(datedTask).parse(found.tasks));
+				const dated = z.array(datedTask).parse(found.tasks);
+				const current = schedule(a.plant, zone, plan.preview.asOf, dated);
 				if (current.sources !== plan.sources) deny("stale_preview");
 				const changed = a.plant.timezone !== zone;
 				const next = changed ? String(BigInt(a.plant.revision) + 1n) : a.plant.revision;
@@ -223,6 +249,7 @@ export function timezoneOperations(
 							.update(t.plant)
 							.set({ timezone: zone, revision: next, material_revision: sql`${t.plant.material_revision}+1` })
 							.where(eq(t.plant.id, a.plant.id)),
+						...movedReminders(a.plant.id, zone, at.toISOString(), dated),
 					);
 					replanIntentId = await effects.replan(s, {
 						owner: v.input.plant,

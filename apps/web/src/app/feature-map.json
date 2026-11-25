@@ -623,7 +623,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/communication/delivery.test.mts",
-								"name": "AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing"
+								"name": "AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 callbacks in any order keep one outcome, a soft bounce blocks nobody, and a bad signature or an unsaved event writes nothing"
 							}
 						],
 						"cases": ["CASE-NTF-010"]

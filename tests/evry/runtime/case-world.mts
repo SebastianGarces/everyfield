@@ -460,13 +460,13 @@ export async function caseWorld(
 				);
 			assert.equal(await effect(), null);
 		}
-		async function effectOutage(p: Proposal, table: string) {
+		async function effectOutage(p: Proposal, table: string, mail: MailPort | null = null) {
 			const kept = await rows(sql`SELECT * FROM proposal WHERE tenant_id=${P.id} AND outcome='completed' ORDER BY id`);
 			const before = await touched(admin, async () => {
 				await approveProposal(db, Aa, p.id, witness(p), null);
 				await admin.execute(sql.raw(`ALTER TABLE ${table} RENAME TO ${table}_away`));
 				try {
-					assert.equal(await effect(), "failed");
+					assert.equal(await effect(mail), "failed");
 				} finally {
 					await admin.execute(sql.raw(`ALTER TABLE ${table}_away RENAME TO ${table}`));
 				}

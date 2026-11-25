@@ -27,6 +27,7 @@ import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
 import { mailDelay, readSwitches } from "../flags/index.ts";
+import { logFailure } from "../log.ts";
 import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, deny, identityRefusals, transaction } from "./budget.ts";
@@ -142,13 +143,18 @@ export function createIdentityService(config: IdentityConfig) {
 		const h = new Headers({ origin, "content-type": "application/json" });
 		const cookie = request.headers.get("cookie");
 		if (cookie) h.set("cookie", cookie);
-		return auth.handler(
-			new Request(`${origin}/api/auth/${path}`, {
-				method: body === undefined ? "GET" : "POST",
-				headers: h,
-				...(body === undefined ? {} : { body: JSON.stringify(body) }),
-			}),
-		);
+		try {
+			return await auth.handler(
+				new Request(`${origin}/api/auth/${path}`, {
+					method: body === undefined ? "GET" : "POST",
+					headers: h,
+					...(body === undefined ? {} : { body: JSON.stringify(body) }),
+				}),
+			);
+		} catch (error) {
+			logFailure({ component: "identity", event: "auth_request_failed" }, error);
+			return new Response(null, { status: 500 });
+		}
 	}
 	async function session(request: Request) {
 		const response = await call(request, "get-session");

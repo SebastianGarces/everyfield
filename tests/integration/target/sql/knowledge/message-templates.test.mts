@@ -97,15 +97,42 @@ before(async () => {
 });
 after(() => database.close());
 
-test("AC:GAP-REF-006 seven system templates install twice without overwriting a church's copy-on-write fork", async (step) => {
+test("AC:GAP-REF-006 AC:CASE-COM-008 seven system templates install twice without overwriting a church's copy-on-write fork", async (step) => {
 	const installer = messageTemplateInstaller(admin);
+	const { expected, given } = JSON.parse(
+		await readFile(new URL("docs/acceptance/communications-notifications.json", repository), "utf8"),
+	).cases.find((c: { id: string }) => c.id === "CASE-COM-008");
+	const systemRows = () =>
+		rows(sql`SELECT id, canonical_key FROM reference_item WHERE kind = 'mail_template' ORDER BY canonical_key`);
+
+	await step.test("an altered source, or an altered checksum for the approved one, installs nothing", async () => {
+		const before = await writes();
+		const altered = Buffer.from("export const altered = [];\n");
+		const alteredSha = createHash("sha256").update(altered).digest("hex");
+		const swapped = messageTemplateInstaller(admin, { readSource: async () => altered });
+		for (const [with_, sha256] of [
+			[installer, alteredSha],
+			[swapped, alteredSha],
+			[swapped, SOURCE.sha256],
+		] as const) {
+			const r = await attempt(
+				with_.installMessageTemplates(caller(publisher), { source: { path: SOURCE.path, sha256 } }),
+			);
+			assert.deepEqual([r.status, "code" in r && r.code], ["refused", "digest_conflict"]);
+		}
+		assert.deepEqual(await writes(), before);
+	});
 
 	await step.test("a repeated install yields seven system templates and keeps the fork's subject", async () => {
 		const first = ok(await attempt(installer.installMessageTemplates(caller(publisher), { source: SOURCE })));
 		assert.equal(first.installed, 7);
 		const afterFirst = await writes();
+		const items = await systemRows();
+		assert.equal(items.length, expected.result.installed_template_count);
+		assert.equal(items.length, given["behavior-inputs"].template_ids.length);
 		const second = ok(await attempt(installer.installMessageTemplates(caller(publisher), { source: SOURCE })));
-		assert.equal(second.installed, 0);
+		assert.equal(second.installed, expected.result.replay_new_rows);
+		assert.deepEqual(await systemRows(), items, "the same seven ids");
 		assert.deepEqual(await writes(), afterFirst);
 		assert.equal(second.systemTemplateCount, 7);
 		assert.equal(await installedTemplates(), 7);
@@ -120,6 +147,14 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 			sql`SELECT subject, body_html FROM message_template WHERE id = ${fork.templateId}::uuid`,
 		);
 		assert.deepEqual(stored, { subject: "Our invitation", body_html: "<p>Welcome {{name}}.</p>" });
+		const invitation = ok(
+			await gatedTransaction(db, (tx) =>
+				communicationWriter.readMeetingTemplate(tx, A.actor, { meetingType: "vision_meeting" }),
+			),
+		);
+		const label = new Map([[fork.templateId, given["behavior-inputs"].plant_fork]]);
+		assert.equal(label.get(invitation.templateId), expected.result.selected_template);
+		assert.equal(invitation.bodyHtml, "<p>Welcome {{name}}.</p>");
 		const shownSystem = listed.templates.filter((t) => t.origin === "system");
 		assert.equal(shownSystem.length, 6);
 		const approved = new Map(systemTemplates.map((t) => [t.sourceKey, t.subject]));
@@ -155,6 +190,17 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 			assert.equal(shown.previewBody, "<p>Welcome Alex.</p>");
 		},
 	);
+
+	await step.test("an altered source after the install changes no row and no fork", async () => {
+		const before = await writes();
+		const items = await systemRows();
+		const swapped = messageTemplateInstaller(admin, { readSource: async () => Buffer.from('    name: "Changed",\n') });
+		const r = await attempt(swapped.installMessageTemplates(caller(publisher), { source: SOURCE }));
+		assert.deepEqual([r.status, "code" in r && r.code], ["refused", "digest_conflict"]);
+		assert.deepEqual([await writes(), await systemRows()], [before, items]);
+		const [row] = await rows(sql`SELECT subject FROM message_template WHERE id = ${fork.templateId}::uuid`);
+		assert.deepEqual(row, { subject: "Our invitation" });
+	});
 
 	await step.test("foreign-context-refused: a Member of church Q cannot install and learns nothing of P", async () => {
 		const before = await writes();

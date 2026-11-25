@@ -15,7 +15,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "Standalone approved source/hash manifest and known unavailable original-source marker",
       "given": {
         "P": {
@@ -404,7 +407,10 @@
         "WP-033",
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/starter/cases.db.mts"
+      ],
       "description": "Six approved canonical foundation articles with exact source hashes; org edition exists",
       "given": {
         "P": {
@@ -587,7 +593,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "Approved original-template package PDF/XLSX manifests under the current format rule",
       "given": {
         "P": {
@@ -767,7 +776,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "Twenty approved phase/launch template manifests; tenant task edited after earlier copy",
       "given": {
         "P": {
@@ -983,7 +995,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "Ten templates registered; plant has three custom teams covering multiple lens areas",
       "given": {
         "P": {
@@ -1474,7 +1489,10 @@
       "work_packages": [
         "WP-041"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/starter/cases.db.mts"
+      ],
       "description": "Approved corpus release R1; embeddings older R0; inaccessible org article",
       "given": {
         "P": {
@@ -1652,7 +1670,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "Bundle with exact hashes but unresolved editorial conflict and unavailable original",
       "given": {
         "P": {
@@ -1886,7 +1907,10 @@
         "WP-034",
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/activation.db.mts"
+      ],
       "description": "Initial manifest installs twice then same ID/hash mismatch attempted.",
       "given": {
         "P": {
@@ -2017,7 +2041,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/church-cases.db.mts"
+      ],
       "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing custom org version/hide and completed reader.",
       "given": {
         "P": {
@@ -2142,7 +2169,10 @@
         "WP-034",
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/activation.db.mts"
+      ],
       "description": "Candidate missing chunk/hash/dimension or embedding request timeout.",
       "given": {
         "P": {
@@ -2268,7 +2298,10 @@
         "WP-034",
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/activation.db.mts"
+      ],
       "description": "Two reviewed complete candidates promote same expected activation; stale build worker resumes.",
       "given": {
         "P": {
@@ -2425,7 +2458,10 @@
         "WP-034",
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/church-cases.db.mts"
+      ],
       "description": "New generation active then reviewed rollback to old complete compatible generation.",
       "given": {
         "P": {
@@ -2551,7 +2587,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/church-cases.db.mts"
+      ],
       "description": "Rollback with previously departed organization cited in old cached/export/Evry context.",
       "given": {
         "P": {
@@ -2687,7 +2726,10 @@
         "WP-034",
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/activation.db.mts"
+      ],
       "description": "Candidate carries wrong rubric/playbook/template hash or tenant/token/executable MDX canary.",
       "given": {
         "P": {
@@ -2813,7 +2855,10 @@
         "WP-043",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/church-cases.db.mts"
+      ],
       "description": "Assessment pins old reference; activation changes before publication.",
       "given": {
         "P": {

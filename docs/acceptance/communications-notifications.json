@@ -23,7 +23,10 @@
         "WP-024",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/calendar-cases.test.mts"
+      ],
       "description": "Chicago all-day deadlines 2026-03-08 and 2026-11-01, 23/25 hour days, compare next local midnight.",
       "given": {
         "P": {
@@ -150,7 +153,10 @@
         "WP-020",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/calendar-cases.test.mts"
+      ],
       "description": "Recurring Chicago 02:30  spring gap and 01:30  autumn fold; retry same logical period/recipient.",
       "given": {
         "P": {
@@ -276,7 +282,10 @@
         "WP-020",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/reminder-cases.test.mts"
+      ],
       "description": "Reschedule/retry after provider accepted/unknown/delivered outcome for same logical reminder.",
       "given": {
         "P": {
@@ -406,7 +415,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/calendar-cases.test.mts"
+      ],
       "description": "Pending and delivered old logical reminders when zone changes; duplicate sweep/response loss.",
       "given": {
         "P": {
@@ -531,7 +543,10 @@
       "work_packages": [
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Same plant history has incomplete draft, partial accepted message, confirmed sent message and unknown attempt; query malformed limit/filter and zero reached recipients.",
       "given": {
         "P": {
@@ -652,7 +667,10 @@
       "work_packages": [
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "A Person changes address after send; another plant guesses linked Person/meeting/message IDs; provider facts arrive later.",
       "given": {
         "P": {
@@ -764,7 +782,10 @@
       "work_packages": [
         "WP-027"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Preview sanitized rich HTML with person/church/meeting merges, malformed recipient JSON, foreign meeting ID and edited approved audience.",
       "given": {
         "P": {
@@ -886,7 +907,10 @@
       "work_packages": [
         "WP-027"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Team group contains duplicate role joins, paused team, more than 20 people, deleted Person and missing-email member; unknown group token.",
       "given": {
         "P": {
@@ -1345,7 +1369,10 @@
       "work_packages": [
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts"
+      ],
       "description": "Immediate compose and reviewed non-opener resend each receive all permanent refusals, partial success, or all unknown.",
       "given": {
         "P": {
@@ -1559,7 +1586,10 @@
       "work_packages": [
         "WP-027"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Two same-plant concurrent forks of one system template; foreign editor; referenced template archive; unreferenced fork deletion.",
       "given": {
         "P": {
@@ -1675,7 +1705,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/message-templates.test.mts"
+      ],
       "description": "Install seven template IDs twice, change same immutable ID checksum, select meeting invitation with existing plant fork.",
       "given": {
         "P": {
@@ -1828,7 +1861,10 @@
       "work_packages": [
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Original sent 25 hours ago with delivered-no-open, clicked, no delivery, missing/deleted/suppressed address; two replays of one review.",
       "given": {
         "P": {
@@ -2321,7 +2357,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Two independently affiliated organizations share recipient but same occurrence key; forged kind/ID and revoked category input.",
       "given": {
         "P": {
@@ -2486,7 +2525,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/reminder-cases.test.mts"
+      ],
       "description": "Concurrent tick claims, lease expiry after provider acceptance, stale claimant resume and canceled live entity.",
       "given": {
         "P": {
@@ -2639,7 +2681,10 @@
       "work_packages": [
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Self feed includes future, read, canceled, revoked organization and foreign-recipient entries; mark-all unread page.",
       "given": {
         "P": {
@@ -2949,7 +2994,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/calendar-cases.test.mts"
+      ],
       "description": "Task reassign/reschedule then complete while old due/overdue claim is pending; timezone calendar day crosses DST.",
       "given": {
         "P": {
@@ -3118,7 +3166,10 @@
         "WP-020",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Meeting moves after 7 day reminder queued; linked guest account removed; meeting completed; CRM-only address present.",
       "given": {
         "P": {
@@ -3259,7 +3310,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/calendar-cases.test.mts"
+      ],
       "description": "Planter weekly Sunday 16 local with DST transition and multi-day missed tick; completed tasks in old interval.",
       "given": {
         "P": {
@@ -3584,7 +3638,10 @@
         "WP-045",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Actual advance, declaration, backward correction and own-link removal each replay; surviving affiliate stays.",
       "given": {
         "P": {
@@ -3863,7 +3920,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts"
+      ],
       "description": "Signed delivered event before accepted, repeated event ID, soft bounce, hard bounce and callback storage failure.",
       "given": {
         "P": {
@@ -4110,7 +4170,10 @@
       "work_packages": [
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/unsubscribe.test.mts"
+      ],
       "description": "Disable token at 180 day boundary, undo token at 1 hour, wrong purpose/tamper/old key; scanner GET and RFC8058 POST.",
       "given": {
         "P": {
@@ -4348,7 +4411,10 @@
         "WP-031",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notifications.test.mts"
+      ],
       "description": "Global typo-only and meaningful updates behind customized org article; generic email prefs ON; unused team helpers.",
       "given": {
         "P": {
@@ -4509,7 +4575,10 @@
         "WP-030",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/notifications.test.mts"
+      ],
       "description": "Seatless Discovery acceptance occurrence with account also org Owner; duplicate receipt trigger, invalid org owner linkage.",
       "given": {
         "A": {
@@ -4650,7 +4719,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/messages-unsubscribe.test.mts"
+      ],
       "description": "Person in plant P unsubscribes from P's Messages email by its one-click token; later P send to that Person and another, same address in Q, address change, merge, wrong-purpose and expired undo tokens.",
       "given": {
         "P": {
@@ -4760,7 +4832,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/children.test.mts"
+      ],
       "description": "Admin A in plant P sends and schedules Messages email to people marked as a child (recorded, or by a birth date) together with adults, people whose Adult or child is not recorded and an adult whose household role is child; to only children; and changes markings between scheduling and the send time and after the send.",
       "given": {
         "P": {
@@ -4853,7 +4928,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/guardians.test.mts"
+      ],
       "description": "Admin A in plant P sends and schedules Messages email to people marked as a child whose household has parent or guardian contacts, to a child alone, to an adult who is both in the audience and a contact of several children, to children whose contacts cannot be emailed, and changes contacts between scheduling and the send time and after the send.",
       "given": {
         "P": {
@@ -5338,7 +5416,10 @@
         "WP-029",
         "WP-071"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-messages.test.mts"
+      ],
       "operation_ids": [
         "communication.get",
         "people.listPeople"
@@ -5612,7 +5693,10 @@
       "work_packages": [
         "WP-071"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "operation_ids": [
         "communication.list"
       ],
@@ -5870,7 +5954,10 @@
       "work_packages": [
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "operation_ids": [
         "communication.get",
         "meetings.list",
@@ -6163,7 +6250,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "operation_ids": [],
       "description": "Exact trusted approved meeting invitation to two recipients; two concurrent confirm requests; observer reconnect",
       "given": {
@@ -6393,7 +6483,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "operation_ids": [],
       "description": "Proposal created T0; approval witness expiry T0+15min; clock exactly expiry",
       "given": {
@@ -6609,7 +6702,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "operation_ids": [],
       "description": "Approved review has recipients Alex+Casey; edit replaces Casey with Jamie",
       "given": {
@@ -6835,7 +6931,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "operation_ids": [],
       "description": "Pending review subject Old, two core recipients, time 10am; user changes subject",
       "given": {
@@ -7078,7 +7177,10 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts"
+      ],
       "description": "Unknown whole-batch response at 23 hours 50 minutes then 23 hours 56 minutes from first dispatch, with account-private security member from another scope.",
       "given": {
         "P": {
@@ -7238,7 +7340,10 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-communication.test.mts"
+      ],
       "description": "Native and Evry dispatch same approved receipt, transport accepted before crash, webhook late and old lease resumes.",
       "given": {
         "P": {
@@ -7418,7 +7523,10 @@
       "work_packages": [
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Incomplete subject/body/audience draft persists, reloads, edits, deletes and conflicting edits.",
       "given": {
         "P": {
@@ -7506,7 +7614,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Resolved recipient address/content/time changes after exact review but before handoff.",
       "given": {
         "P": {
@@ -7928,7 +8039,10 @@
       "work_packages": [
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Batch provider results short/mixed, late sent/delivered and per-intent provider IDs.",
       "given": {
         "P": {
@@ -8163,7 +8277,10 @@
         "WP-029",
         "WP-071"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/message-cases.test.mts"
+      ],
       "description": "Current authorized Person/meeting/detail reads versus foreign/departed/private/token canaries.",
       "given": {
         "P": {
@@ -8265,7 +8382,10 @@
         "WP-055",
         "WP-072"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-messages.test.mts"
+      ],
       "description": "Evry saves draft and separately reviews schedule, reschedule, cancel, replace exact effects.",
       "given": {
         "P": {
@@ -8388,7 +8508,10 @@
         "WP-081",
         "WP-082"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Self/foreign recipient inbox with future/cancelled entries, unread pagination and mark-all-visible.",
       "given": {
         "P": {
@@ -8600,7 +8723,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts"
+      ],
       "description": "Security/invitation purpose and seatless Discovery receipt with optional category email OFF.",
       "given": {
         "P": {
@@ -8915,7 +9041,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/calendar-cases.test.mts"
+      ],
       "description": "Three-day outage with completed task/cancelled meeting and still-authorized dated org activity.",
       "given": {
         "P": {
@@ -9064,7 +9193,10 @@
         "WP-020",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Task/meeting complete, cancel, reschedule while queued reminder awaits handoff.",
       "given": {
         "P": {
@@ -9205,7 +9337,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts"
+      ],
       "description": "Lost provider acceptance response, out-of-order callback, suppression and webhook persistence outage.",
       "given": {
         "P": {
@@ -9300,7 +9435,10 @@
         "WP-030",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notice-cases.test.mts"
+      ],
       "description": "Category/helper catalog contains unused team health/training/assessment helpers plus live milestones.",
       "given": {
         "P": {
@@ -9407,7 +9545,10 @@
         "WP-081",
         "WP-082"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/adapters/notifications/notifications.test.mts"
+      ],
       "description": "Native and reviewed Evry own markread; foreign recipient and revoked oversight grant.",
       "given": {
         "P": {

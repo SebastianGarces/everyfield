@@ -14,6 +14,7 @@ export async function fakeBucket(name = BACKUP_BUCKET) {
 		snapshots: false,
 		versioning: false,
 		put: ((_key, bytes) => bytes) as Put,
+		admits: (_accessKey: string | undefined): boolean => true,
 	};
 	const xml = (body: string) => `<?xml version="1.0" encoding="UTF-8"?>${body}`;
 	let requests = 0;
@@ -28,7 +29,8 @@ export async function fakeBucket(name = BACKUP_BUCKET) {
 			response.end(request.method === "HEAD" ? undefined : body);
 		};
 		const fail = (status: number, code: string) => answer(status, xml(`<Error><Code>${code}</Code></Error>`));
-		if (bucket !== name) return fail(403, "AccessDenied");
+		const accessKey = /Credential=([^/]+)\//.exec(request.headers.authorization ?? "")?.[1];
+		if (bucket !== name || !settings.admits(accessKey)) return fail(403, "AccessDenied");
 		if (!key) {
 			if (request.method === "HEAD") {
 				response.setHeader("x-tigris-enable-snapshot", String(settings.snapshots));

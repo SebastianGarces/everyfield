@@ -1185,10 +1185,12 @@ export function sendTransactionalMail(
 					INSERT INTO mail (id, tenant_id, recipient_account_id, purpose, logical_key, payload_hash, audience_hash,
 						frozen_payload, recipient_address_encrypted, address_hash, state, created_at)
 					SELECT ${id}::uuid, ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'password_reset', ${logical}, ${payloadHash}, ${hashValue},
-						${JSON.stringify({ v: 1, sealed })}::jsonb, ${sealedAddress}, ${hashValue}, 'dispatched', clock_timestamp()
+						${JSON.stringify({ v: 1, sealed })}::jsonb, ${sealedAddress}, ${hashValue},
+						CASE WHEN EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = ${hashValue} AND s.cleared_at IS NULL)
+							THEN 'refused' ELSE 'dispatched' END, clock_timestamp()
 					FROM gate g WHERE g.allowed
 					ON CONFLICT (tenant_id, logical_key) DO NOTHING
-					RETURNING id
+					RETURNING id, state
 				), req AS (
 					INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
 					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${resetKey}, ${payloadHash}, clock_timestamp()
@@ -1197,9 +1199,11 @@ export function sendTransactionalMail(
 					INSERT INTO mail_request_member (request_id, tenant_id, mail_id, position)
 					SELECT r.id, ${actor.plantId}::uuid, i.id, 0 FROM req r JOIN ins i ON true RETURNING mail_id
 				), attempt AS (
-					INSERT INTO mail_attempt (id, tenant_id, request_id, attempt_number, claim_generation, started_at, outcome)
-					SELECT ${attemptId}::uuid, ${actor.plantId}::uuid, r.id, 1, 1, clock_timestamp(), 'in_flight'
-					FROM req r RETURNING id
+					INSERT INTO mail_attempt (id, tenant_id, request_id, attempt_number, claim_generation, started_at, outcome, completed_at)
+					SELECT ${attemptId}::uuid, ${actor.plantId}::uuid, r.id, 1, 1, clock_timestamp(),
+						CASE i.state WHEN 'refused' THEN 'refused' ELSE 'in_flight' END,
+						CASE i.state WHEN 'refused' THEN clock_timestamp() END
+					FROM req r JOIN ins i ON true RETURNING id
 				), audited AS (
 					INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 					SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.send_intended', 'outcome', 'record', i.id,
@@ -1208,11 +1212,11 @@ export function sendTransactionalMail(
 					ON CONFLICT (subject_id, event_key) DO NOTHING
 					RETURNING id
 				)
-				SELECT (SELECT allowed FROM gate) AS allowed, (SELECT count(*)::int FROM ins) AS inserted`),
-		) as { allowed?: boolean; inserted?: number };
+				SELECT (SELECT allowed FROM gate) AS allowed, (SELECT state FROM ins) AS state`),
+		) as { allowed?: boolean; state?: string | null };
 		if (stored?.allowed !== true) deny("access_denied");
-		let deliveryStatus: "unknown" | "accepted" | "refused" = "unknown";
-		if ((stored.inserted ?? 0) > 0) {
+		let deliveryStatus: "unknown" | "accepted" | "refused" = stored.state === "refused" ? "refused" : "unknown";
+		if (stored.state === "dispatched") {
 			try {
 				const batch = await transport.send(
 					{

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { mock } from "node:test";
 import type { SQL } from "../../../packages/db/src/query.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
@@ -72,4 +74,20 @@ export function sendOnly(send: DeliveryTransport["send"]): DeliveryTransport {
 		throw new Error("unexpected provider call");
 	};
 	return { send, cancel: unused, reschedule: unused, paused: false };
+}
+
+export type AcceptanceCase = {
+	id: string;
+	given: Record<string, Record<string, unknown>>;
+	clock: { now: string };
+	expected: { result: Record<string, unknown>; event: null };
+};
+const { cases } = JSON.parse(
+	readFileSync(new URL("../../../docs/acceptance/communications-notifications.json", import.meta.url), "utf8"),
+) as { cases: AcceptanceCase[] };
+export const caseOf = (id: string) => cases.find((c) => c.id === id) ?? assert.fail(`no case ${id}`);
+
+export function pinnedDate(instant: string): Date {
+	mock.timers.enable({ apis: ["Date"], now: Date.parse(instant) });
+	return new Date(instant);
 }
