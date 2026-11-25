@@ -1,6 +1,6 @@
 "use client";
 
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import { Delete02Icon, Edit02Icon, UserIcon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
@@ -12,12 +12,24 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Select,
 	Skeleton,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
+import {
+	changesKept,
+	CHOOSE_FIRST,
+	mergeDraft,
+	pickField,
+	pickTyped,
+	type ConflictField,
+	type Picks,
+} from "../../components/save/conflict.ts";
+import { useProblemFocus } from "../../components/save/parts.tsx";
+import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 import type { z } from "zod";
 import { classifyAdult, restorePerson, retirePerson, updatePerson, type Receipt } from "./actions.ts";
 import type { EntryFields } from "./ActivityCard.tsx";
@@ -48,7 +60,7 @@ const PROFILE = [
 ] as const;
 type ProfileKey = (typeof PROFILE)[number];
 type Profile = Record<ProfileKey, string>;
-type ProfileDraft = { base: Profile; values: Profile };
+type ProfileDraft = { base: Profile; values: Profile; picks?: Picks };
 
 function profileOf(p: PlantPerson): Profile {
 	const out = {} as Profile;
@@ -76,6 +88,27 @@ const LABEL: Record<Exclude<ProfileKey, "source" | "summaryNotes" | "sourceDetai
 	country: "Country",
 };
 
+const PERSON = "this person";
+const PROFILE_FIELDS: readonly ConflictField<Profile>[] = PROFILE.map((key) => ({
+	key,
+	label:
+		key === "source"
+			? "Source"
+			: key === "sourceDetails"
+				? "Source details"
+				: key === "summaryNotes"
+					? "Summary"
+					: key === "birthDate"
+						? "Birth date"
+						: LABEL[key],
+	text: (p) =>
+		key === "source"
+			? (SOURCE_LABEL[p.source as keyof typeof SOURCE_LABEL] ?? p.source)
+			: key === "birthDate" && p.birthDate
+				? dayText(p.birthDate)
+				: p[key],
+}));
+
 export function EditProfileDialog({
 	open,
 	onOpenChange,
@@ -91,12 +124,34 @@ export function EditProfileDialog({
 	const person = state.saved;
 	const pending = state.pending === "profile";
 	const draft = state.drafts.profile as ProfileDraft | undefined;
-	const values = draft?.values ?? profileOf(person);
+	const latest = profileOf(person);
+	const base = draft?.base ?? latest;
+	const picks = draft?.picks ?? {};
+	const { values, rows, unchosen } = mergeDraft({
+		base,
+		mine: draft?.values ?? latest,
+		latest,
+		picks,
+		fields: PROFILE_FIELDS,
+	});
+	const conflicted = state.errors.profile === "conflict";
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const [touched, setTouched] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 	const dirty = draft ? Object.keys(changedFields(draft.base, draft.values)).length > 0 : false;
 	const set = (k: ProfileKey, v: string) =>
-		store.getState().actions.edit("profile", { base: draft?.base ?? profileOf(person), values: { ...values, [k]: v } });
+		store.getState().actions.edit("profile", {
+			base,
+			values: { ...(draft?.values ?? latest), [k]: v },
+			picks: pickTyped(picks, latest, { [k]: v }),
+		});
+	const choose = (field: string, pick: "saved" | "mine") =>
+		draft && store.getState().actions.edit("profile", { ...draft, picks: pickField(picks, latest, field, pick) });
+	const discard = () => {
+		store.getState().actions.discard("profile");
+		setTouched(false);
+		onOpenChange(false);
+	};
 	const nameMissing = values.displayName.trim() === "";
 
 	const close = (next: boolean) => {
@@ -110,9 +165,10 @@ export function EditProfileDialog({
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
 		setTouched(true);
-		if (nameMissing || !draft) return;
-		const patch = patchOf(draft);
-		if (!Object.keys(patch).length) return close(false);
+		if (!draft) return;
+		if (nameMissing || unchosen) return refuseProblem();
+		const patch = patchOf({ base: latest, values });
+		if (!Object.keys(patch).length) return discard();
 		const rev = person.revision;
 		const result = await runSave(store, "profile", { patch, rev }, (key) => updatePerson(key, rev, person.id, patch), {
 			fresh,
@@ -122,7 +178,10 @@ export function EditProfileDialog({
 			setTouched(false);
 			onOpenChange(false);
 			onSaved(result.value.receipt, { kind: "activity", action: "updated" });
-		} else if (isConflict(result)) onConflict();
+		} else if (isConflict(result)) {
+			setTouched(false);
+			onConflict();
+		}
 	}
 
 	const text = (k: keyof typeof LABEL, props: Partial<React.ComponentProps<typeof Input>> = {}) => (
@@ -146,9 +205,18 @@ export function EditProfileDialog({
 		<>
 			<Dialog open={open} onOpenChange={close}>
 				<DialogContent size="lg" aria-busy={pending || undefined}>
-					<form onSubmit={save} noValidate className="contents">
+					<form ref={focusProblem} onSubmit={save} noValidate className="contents">
 						<DialogHeader icon={Edit02Icon} title="Edit profile" description={person.displayName} />
 						<DialogBody className="flex flex-col gap-5">
+							<SaveConflict
+								what={PERSON}
+								rows={rows}
+								asked={touched}
+								focus={conflicted}
+								disabled={pending}
+								onPick={choose}
+								onKeepSaved={discard}
+							/>
 							<fieldset className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 								<legend className="sr-only">Name</legend>
 								<div className="col-span-2 max-app-sm:col-span-1">{text("displayName")}</div>
@@ -207,7 +275,13 @@ export function EditProfileDialog({
 									/>
 								</Field>
 							</fieldset>
-							<FormProblem code={state.errors.profile} />
+							{conflicted || rows.length ? (
+								<InlineAlert>
+									{rows.length ? (touched && unchosen ? CHOOSE_FIRST : null) : changesKept(PERSON)}
+								</InlineAlert>
+							) : (
+								<FormProblem code={state.errors.profile} />
+							)}
 						</DialogBody>
 						<DialogFooter>
 							<Button variant="secondary" type="button" onClick={() => close(false)} disabled={pending}>
@@ -228,11 +302,7 @@ export function EditProfileDialog({
 				confirmLabel="Discard changes"
 				cancelLabel="Keep editing"
 				tone="danger"
-				onConfirm={() => {
-					store.getState().actions.discard("profile");
-					setTouched(false);
-					onOpenChange(false);
-				}}
+				onConfirm={discard}
 			/>
 		</>
 	);

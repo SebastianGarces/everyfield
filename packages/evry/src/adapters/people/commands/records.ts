@@ -36,12 +36,14 @@ function recordWrite<I>(spec: {
 	description: string;
 	input: z.ZodType<I>;
 	prepare(db: Database, actor: EvryActor, input: I): Promise<Prepared | null>;
+	again?(request: unknown): I;
 	run(
 		tx: WriteTx,
 		context: PeopleContext,
 		request: { requestKey: string; expectedRevision: string; input: unknown },
 	): Promise<PeopleReply<{ receiptId: string }>>;
 }): ReviewedWrite<I> {
+	const { again } = spec;
 	return {
 		operation: spec.operation,
 		description: spec.description,
@@ -59,6 +61,7 @@ function recordWrite<I>(spec: {
 			const args = { request: p.request, expectedRevision: p.expectedRevision };
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(args)}::jsonb AS args`;
 		},
+		...(again && { again: (args: unknown) => again(savedRecord.parse(args).request) }),
 		async execute(tx, context, args, effectKey): Promise<EffectResult> {
 			const { request, expectedRevision } = savedRecord.parse(args);
 			const reply = await spec.run(tx, context, { requestKey: effectKey, expectedRevision, input: request });
@@ -205,6 +208,7 @@ export const recordAdultClassification = recordWrite({
 	description: `Propose recording whether one person is an adult or a child, when nothing is recorded. ${CLASSIFY_ASK}`,
 	input: classifyInput,
 	prepare: (db, actor, input) => prepareClassification(db, actor, input, false),
+	again: (request) => classifyInput.parse(request),
 	run: (tx, context, request) =>
 		peopleWriter.recordAdultClassification(tx, context, classifyAdultRequest.parse(request)),
 });
@@ -213,6 +217,7 @@ export const correctAdultClassification = recordWrite({
 	description: `Propose correcting a recorded adult or child status that is wrong; unknown sets it back to Not recorded. ${CLASSIFY_ASK}`,
 	input: classifyInput,
 	prepare: (db, actor, input) => prepareClassification(db, actor, input, true),
+	again: (request) => classifyInput.parse(request),
 	run: (tx, context, request) =>
 		peopleWriter.correctAdultClassification(tx, context, classifyAdultRequest.parse(request)),
 });

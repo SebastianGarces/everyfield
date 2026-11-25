@@ -107,6 +107,8 @@ const CAN_EMAIL: Record<string, string> = {
 	can_email: "can get email",
 	no_address: "has no email address, so they can't get email",
 	unsubscribed: "unsubscribed from this church's email",
+	"marked as a child": "marked as a child, so no email goes to them",
+	"sent to a parent or guardian instead": "a child, so the email goes to a parent or guardian instead",
 };
 const OUTCOME_WORDS: [RegExp, string][] = [
 	[/\b(no answer|voicemail|didn['’]?t pick up|no one picked up)\b/i, "attempted_no_contact"],

@@ -116,6 +116,11 @@ export function entryText(e: ActivityEntry): { title: string; href: string } {
 					: "Launch Sunday recorded",
 				href: "/launch",
 			};
+		case "launch_corrected":
+			return {
+				title: c.date ? `Launch Sunday corrected to ${dayText(c.date, { year: "never" })}` : "Launch Sunday corrected",
+				href: "/launch",
+			};
 		case "phase_changed":
 			return { title: `Phase saved as ${phaseText(c.phase)}`, href: "/intelligence" };
 	}

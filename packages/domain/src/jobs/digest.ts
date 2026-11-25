@@ -112,6 +112,8 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 		const read = await tx.execute(sql`WITH cov AS MATERIALIZED (
 				SELECT id, covered_through, revision FROM digest_coverage
 				WHERE tenant_id = ${tenant}::uuid AND recipient_id = ${recipient}::uuid FOR UPDATE
+			), reader AS MATERIALIZED (
+				SELECT id FROM account WHERE id = ${recipient}::uuid FOR KEY SHARE
 			), category AS (SELECT CASE kind WHEN 'plant' THEN 'planter_digest' ELSE 'oversight_digest' END AS name
 				FROM tenant WHERE id = ${tenant}::uuid)
 			SELECT t.kind, o.kind AS organization_kind, coalesce(p.timezone, o.timezone, 'UTC') AS zone,
@@ -123,7 +125,7 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 				(SELECT n.enabled FROM notification_preference n WHERE n.account_id = ${recipient}::uuid
 					AND n.category = (SELECT name FROM category) AND n.channel = 'email') AS email,
 				(SELECT c.email FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c
-					WHERE a.id = ${recipient}::uuid) AS address,
+					WHERE a.id = (SELECT id FROM reader)) AS address,
 				(SELECT id FROM cov) AS coverage, (SELECT covered_through::text FROM cov) AS covered_through,
 				(SELECT revision::text FROM cov) AS revision
 			FROM tenant t LEFT JOIN plant p ON p.id = t.id LEFT JOIN organization o ON o.id = t.id

@@ -87,6 +87,7 @@ export function reviewed<I>(spec: {
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
 	review(actor: EvryActor, input: I, context: ReviewContext): Promise<SQL | null>;
+	again?(args: unknown): I;
 	run(
 		tx: WriteTx,
 		context: PeopleContext,
@@ -101,6 +102,7 @@ export function reviewed<I>(spec: {
 		input: spec.input,
 		allowed: spec.allowed,
 		review: spec.review,
+		...(spec.again && { again: spec.again }),
 		execute: (tx, context, args, effectKey, ports) =>
 			spec.run(tx, context, args, (step) => `${effectKey}:${step}`, ports.reminders),
 	};
@@ -306,18 +308,28 @@ const configureRecurrence = reviewed<z.infer<typeof recurrenceInput>>({
 	},
 });
 
+const editPatch = z.strictObject({
+	title: title.optional(),
+	description: z.string().trim().max(5_000).nullable().optional(),
+	priority: priority.optional(),
+	category: category.optional(),
+	due: localDue.optional(),
+	assigneeIds: z.array(assignee).max(10).optional().describe("The whole new set of owners; [] for nobody"),
+});
 const editInput = z.strictObject({
 	taskId,
-	patch: z
-		.strictObject({
-			title: title.optional(),
-			description: z.string().trim().max(5_000).nullable().optional(),
-			priority: priority.optional(),
-			category: category.optional(),
-			due: localDue.optional(),
-			assigneeIds: z.array(assignee).max(10).optional().describe("The whole new set of owners; [] for nobody"),
-		})
-		.refine((p) => Object.keys(p).length > 0, "empty patch"),
+	patch: editPatch.refine((p) => Object.keys(p).length > 0, "empty patch"),
+});
+const storedEdit = z.strictObject({
+	taskId,
+	patch: editPatch.extend({
+		due: z
+			.discriminatedUnion("kind", [
+				z.strictObject({ kind: z.literal("local_date"), date: localDue }),
+				z.strictObject({ kind: z.literal("resolved_instant"), local: z.string() }),
+			])
+			.optional(),
+	}),
 });
 const editTask = reviewed<z.infer<typeof editInput>>({
 	operation: "tasks.edit",
@@ -345,6 +357,14 @@ const editTask = reviewed<z.infer<typeof editInput>>({
 		return sql`SELECT jsonb_build_object('target',${taskTarget},'changes',jsonb_build_array(${sql.join(rows, sql`,`)})) AS review,
 			jsonb_build_object('expectedRevision',t.revision::text,'input',jsonb_build_object('taskId',t.id,'patch',${json(patch)})) AS args
 			${liveTask(actor, v.taskId)}`;
+	},
+	again(args) {
+		const { taskId: edited, patch } = storedEdit.parse(saved.parse(args).input);
+		const { due, ...rest } = patch;
+		return editInput.parse({
+			taskId: edited,
+			patch: { ...rest, ...(due && { due: due.kind === "local_date" ? due.date : due.local.slice(0, 16) }) },
+		});
 	},
 	async run(tx, context, args, key, reminders) {
 		const a = saved.parse(args);

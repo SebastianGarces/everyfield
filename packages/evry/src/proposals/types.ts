@@ -86,6 +86,7 @@ export type ReviewedWrite<I> = {
 		ports: EffectPorts,
 		native: NativeContext,
 	): Promise<EffectResult>;
+	again?(args: unknown, changes: readonly { field: string; before?: unknown; after?: unknown }[]): I;
 	approveNow?: {
 		reason: boolean;
 		run(db: Database, authority: RequestActor, args: unknown, reason: string | null): Promise<EffectResult>;

@@ -51,10 +51,10 @@ function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 }
 const queued: ProposalSubject = { now: false, lapsed: false, jobLive: false };
 const now: ProposalSubject = { ...queued, now: true };
-const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
-const digest = (revision: SQL) =>
-	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
-const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
+export const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
+export const digest = (revision: SQL, review: SQL = sql`r.review`) =>
+	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',${review})::text,'UTF8')),'hex')`;
+export const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
 const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<AliasName>) =>
 	queueJobsFor(sql`FROM ${sql.raw(alias)}`, {
 		kind: "evry_effect",
@@ -65,7 +65,7 @@ const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<Alia
 		maxAttempts: 1,
 		conflict: "fail",
 	});
-const audit = <AliasName extends string>(action: string, kind: string, alias: SqlLiteral<AliasName>) =>
+export const audit = <AliasName extends string>(action: string, kind: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;

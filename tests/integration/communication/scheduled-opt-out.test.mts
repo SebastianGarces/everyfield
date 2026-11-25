@@ -278,7 +278,9 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 	);
 
 	const found = ok(await read(ownerA, "readRecipients", { query: "Anabel" })).people;
-	assert.deepEqual(found, [{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at, guardians: [] }]);
+	assert.deepEqual(found, [
+		{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at, child: false, guardians: [] },
+	]);
 	const audience = ok(await read(ownerA, "readAudience", { groups: [], teamIds: [], personIds: [ana.id, ben.id] }));
 	assert.equal(audience.resolvedDistinctPeople, 2);
 	assert.equal(audience.eligibleRecipients, 1, "Will get this email leaves her out");

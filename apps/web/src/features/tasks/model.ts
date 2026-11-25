@@ -541,13 +541,6 @@ export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
 	return true;
 }
 
-export function rebase<T extends object>(mine: T, base: T, latest: T): T {
-	const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-	const out = { ...latest };
-	for (const k of Object.keys(mine) as (keyof T)[]) if (!same(mine[k], base[k])) out[k] = mine[k];
-	return out;
-}
-
 export function checklistGroups(list: readonly ChecklistSummary[]) {
 	const phases = new Map<number, Map<Category, ChecklistSummary[]>>();
 	for (const k of list) {
