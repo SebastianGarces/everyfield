@@ -87,12 +87,11 @@ export function EndDialog({
 				`${otherName} stops seeing anything your church shares, right away.`,
 				"Your other connections do not change.",
 				`Your sharing choices are kept. If you connect with ${otherName} again, they come back.`,
-				`${otherName} gets a notice that the connection ended.`,
 			]
 		: [
 				`You stop seeing anything ${otherName} shared, right away.`,
 				`${otherName}'s other connections do not change.`,
-				`${otherName} gets a notice that the connection ended.`,
+				...(relationship.pair.kind === "plant" ? [`${otherName} gets a notice that the connection ended.`] : []),
 			];
 
 	return (

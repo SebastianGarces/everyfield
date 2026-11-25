@@ -59,6 +59,7 @@ const SIDES = [
 		otherName: "First Church",
 		title: "Leave First Church?",
 		confirm: "Leave",
+		relationship,
 		consequences: [
 			"First Church stops seeing anything your church shares, right away.",
 			"Your other connections do not change.",
@@ -70,17 +71,36 @@ const SIDES = [
 		otherName: "Harvest",
 		title: "End the connection with Harvest?",
 		confirm: "End connection",
+		relationship,
 		consequences: [
 			"You stop seeing anything Harvest shared, right away.",
 			"Harvest's other connections do not change.",
 			"Harvest gets a notice that the connection ended.",
 		],
 	},
+	{
+		side: "organization",
+		otherName: "First Church",
+		title: "End the connection with First Church?",
+		confirm: "End connection",
+		relationship: {
+			...relationship,
+			pair: {
+				kind: "sending_church",
+				subject: { kind: "organization", id: id(2), organizationKind: "sending_church" },
+				organization: { kind: "organization", id: id(3), organizationKind: "sending_network" },
+			},
+		},
+		consequences: [
+			"You stop seeing anything First Church shared, right away.",
+			"First Church's other connections do not change.",
+		],
+	},
 ];
 type Node = Parameters<typeof propsOf>[0];
 
-for (const { side, otherName, title, confirm, consequences } of SIDES)
-	test(`AC:AF-020 the ${side} side sees the exact connection and its consequences before anything ends, and a retry sends the same request`, async () => {
+for (const { side, otherName, title, confirm, consequences, relationship } of SIDES)
+	test(`AC:AF-020 the ${side} side of a ${relationship.pair.kind} connection sees the exact connection and its consequences before anything ends, and a retry sends the same request`, async () => {
 		const sent: { requestKey: string; expectedRevision: string; input: unknown }[] = [];
 		const ended: unknown[] = [];
 		const page = await mount(EndDialog, {
@@ -105,6 +125,10 @@ for (const { side, otherName, title, confirm, consequences } of SIDES)
 			});
 		await page.click("Open");
 		for (const line of [title, ...consequences]) assert.ok(body.textContent!.includes(line), line);
+		assert.equal(
+			body.textContent!.includes("gets a notice"),
+			side === "organization" && relationship.pair.kind === "plant",
+		);
 		assert.equal(sent.length, 0, "opening the confirmation ends nothing");
 		await press("Cancel");
 		assert.deepEqual([sent.length, body.textContent], [0, ""]);
