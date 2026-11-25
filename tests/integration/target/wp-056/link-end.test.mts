@@ -1,6 +1,7 @@
 import "../../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { AsyncResource } from "node:async_hooks";
 import { randomBytes, randomUUID } from "node:crypto";
 import * as Q from "../../../../packages/contracts/src/organizations/index.ts";
 import type { Level } from "../../../../packages/contracts/src/oversight/health.ts";
@@ -17,7 +18,11 @@ import { authorizeNoticeMail } from "../../../../packages/domain/src/jobs/notice
 import { createNotificationService } from "../../../../packages/domain/src/jobs/notifications.ts";
 import { claimDue } from "../../../../packages/domain/src/jobs/queue.ts";
 import { seatedNotificationService } from "../../../../packages/domain/src/jobs/seated-notifications.ts";
-import { createLaunchReader, createLaunchWriter } from "../../../../packages/domain/src/launch/index.ts";
+import {
+	authorizeLaunchNotices,
+	createLaunchReader,
+	createLaunchWriter,
+} from "../../../../packages/domain/src/launch/index.ts";
 import {
 	createNotificationProducer,
 	previewOversightDigest,
@@ -43,7 +48,7 @@ import {
 	requestIntelligenceRefresh,
 } from "../../../../packages/domain/src/oversight/index.ts";
 import { peopleReader, searchPeople } from "../../../../packages/domain/src/people/index.ts";
-import { createPhaseWriter, phaseReader } from "../../../../packages/domain/src/phases/index.ts";
+import { authorizePhaseNotices, createPhaseWriter, phaseReader } from "../../../../packages/domain/src/phases/index.ts";
 import { connectionLink } from "../../../../packages/domain/src/proofs.ts";
 import { scriptedAssessmentDrafter } from "../../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { launchNotices } from "../../../../apps/web/src/features/launch/notices.ts";
@@ -108,13 +113,11 @@ before(async () => {
 		return hour >= 9 && hour <= 16;
 	})!;
 	assert.ok(zone);
-	mail = createMailService({
+	const config: Omit<Parameters<typeof createMailService>[0], "authorize"> = {
 		db: ch.db,
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "links@example.test",
-		authorize: async (tx, list) =>
-			new Set([...(await authorizeDigestMail(tx, list)), ...(await authorizeNoticeMail(tx, list))]),
 		unsubscribe: { origin: "https://everyfield.test", keys: { current: randomBytes(32) } },
 		transport: {
 			async send(payload) {
@@ -125,10 +128,19 @@ before(async () => {
 				return { kind: "unknown" };
 			},
 		},
+	};
+	mail = createMailService({
+		...config,
+		authorize: async (tx, list) => {
+			const digest = await authorizeDigestMail(tx, list);
+			return digest.size === list.length ? digest : new Set([...digest, ...(await authorizeNoticeMail(tx, list))]);
+		},
 	});
+	const phaseMail = createMailService({ ...config, authorize: authorizePhaseNotices });
+	const launchMail = createMailService({ ...config, authorize: authorizeLaunchNotices });
 	digests = createDigestWorker({ mail, origin: "https://everyfield.test" });
-	launches = createLaunchWriter({ notices: launchNotices(seatedNotificationService(mail)) });
-	const notices = phaseNotices((eligible) => createNotificationService({ mail, eligible }));
+	launches = createLaunchWriter({ notices: launchNotices(seatedNotificationService(launchMail)) });
+	const notices = phaseNotices((eligible) => createNotificationService({ mail: phaseMail, eligible }));
 	phases = createPhaseWriter({
 		async notices(tx, advance) {
 			await midMove(tx);
@@ -642,10 +654,11 @@ test("INV-link-end: a phase move that committed first tells the director once, a
 	for (const [kind] of [SCENARIOS[1]!, SCENARIOS[3]!]) {
 		const w = await world(kind);
 		let ending: Promise<unknown> | undefined;
-		midMove = async () => {
+		const startEnd = AsyncResource.bind(async () => {
 			ending ??= end(w, "organization");
 			await waitingOnLock(ch.db);
-		};
+		});
+		midMove = () => startEnd();
 		try {
 			ok(await move(w.leaving, 3));
 		} finally {

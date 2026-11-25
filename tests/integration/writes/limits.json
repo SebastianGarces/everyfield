@@ -741,8 +741,8 @@
 		"repeats": "Each of the three committed stages runs its claim fence and re-reads the account, the plant and the deletion request, so those statements repeat once per stage, three times, not per row."
 	},
 	"mail.dispatch": {
-		"limit": 20,
-		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, one locked read of the mail with its lifecycle barriers, notice and email preference, the mount's authorization, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue. Its largest first run: 4 transaction, 8 locked read, 3 read, 5 write.",
+		"limit": 21,
+		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, one locked read of the mail with its lifecycle barriers, notice and email preference, the mount's authorization, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue. Its largest first run: 4 transaction, 10 locked read, 3 read, 4 write, with the notice pass's own authorization.",
 		"reads": "2 reads in a row: the one locked read of the mail with everything the mail service checks, then the mount's authorization. They cannot be one statement: each mail mount supplies its own authorize callback (seat, invitation, identity-proof, notice, affiliation or residency checks), and it runs only after code finds the mail current. When a mount's check sends no statement, the next is the address lock, which may be taken only after authorization passes.",
 		"repeats": "The queue's claim fence (lockClaim) opens each transaction of one mail's dispatch: before the provider call, after it, and in finishClaim, with a fourth when the job checkpoints. A fixed count per mail, not per row."
 	},
@@ -909,7 +909,7 @@
 		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
-		"limit": 5,
+		"limit": 6,
 		"retry": 9
 	},
 	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {

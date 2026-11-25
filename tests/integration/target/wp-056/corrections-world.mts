@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { withPeopleWrite } from "../../../../packages/domain/src/people/index.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
@@ -123,7 +124,7 @@ export async function world(prefix: string) {
 	const attendance = createAttendanceWriter({ reminders });
 
 	const people = <T,>(op: (tx: WriteTx, ctx: never, raw: never) => Promise<T>, raw: unknown, who: Seat = boss) =>
-		gatedTransaction(db, (tx) => op(tx, who.ctx as never, raw as never));
+		withPeopleWrite(db, who.actor, (tx) => op(tx, who.ctx as never, raw as never) as never) as Promise<T>;
 	const meeting = <T,>(
 		op: (tx: WriteTx, ctx: MeetingsContext, raw: unknown) => Promise<T>,
 		raw: unknown,
