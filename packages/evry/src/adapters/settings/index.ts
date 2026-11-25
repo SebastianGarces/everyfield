@@ -6,8 +6,9 @@ import { RELATIONSHIP_COMMANDS } from "../relationships/commands/index.ts";
 import { SHARING_READS } from "../sharing/reads/index.ts";
 import { SHARING_COMMANDS } from "../sharing/commands/index.ts";
 import { CHURCH_COMMANDS } from "./commands/index.ts";
+import { GEOGRAPHY_READS } from "./reads/index.ts";
 
-export { SEAT_READS, SHARING_READS };
+export { GEOGRAPHY_READS, SEAT_READS, SHARING_READS };
 export const SETTINGS_COMMANDS = {
 	...SEAT_COMMANDS,
 	...CHURCH_COMMANDS,

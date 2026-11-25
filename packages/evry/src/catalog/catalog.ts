@@ -20,7 +20,7 @@ import { OVERSIGHT_READS } from "../adapters/oversight/reads/index.ts";
 import { WIKI_READS } from "../adapters/wiki/reads/index.ts";
 import { LAUNCH_READS } from "../adapters/launch/reads/index.ts";
 import { allowedWrites, everyOperation, type Offered } from "../proposals/store.ts";
-import { SEAT_READS, SHARING_READS } from "../adapters/settings/index.ts";
+import { GEOGRAPHY_READS, SEAT_READS, SHARING_READS } from "../adapters/settings/index.ts";
 import type { ReadAdapter } from "./types.ts";
 
 export const READ_DOMAINS = {
@@ -48,6 +48,7 @@ export const READ_DOMAINS = {
 	wiki: WIKI_READS,
 	documents: DOCUMENTS_READS,
 	launch: LAUNCH_READS,
+	geography: GEOGRAPHY_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";

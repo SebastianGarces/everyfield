@@ -144,6 +144,14 @@ export const ownFeedback = z.strictObject({
 	recordedAt: instant,
 });
 export type OwnFeedback = z.infer<typeof ownFeedback>;
+export const OWN_FEEDBACK_MAX = 60;
+export const ratedFinding = ownFeedback.extend({ runId: recordId, measuredOn: localDate, title: z.string() });
+export type RatedFinding = z.infer<typeof ratedFinding>;
+export const ratedFindings = z.strictObject({
+	timeZone: z.string(),
+	findings: z.array(ratedFinding).max(OWN_FEEDBACK_MAX),
+});
+export const readOwnFeedbackRequest = z.strictObject({});
 export const submitFeedbackRequest = z.strictObject({
 	runId: recordId,
 	ordinal: z.int().min(0).max(5),

@@ -21,6 +21,7 @@ import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { FEEDBACK_COMMANDS } from "../adapters/feedback/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
+import { OVERSIGHT_COMMANDS } from "../adapters/oversight/commands/index.ts";
 import { LAUNCH_COMMANDS } from "../adapters/launch/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 import { WIKI_COMMANDS } from "../adapters/wiki/commands/index.ts";
@@ -49,6 +50,7 @@ export const REVIEWED_WRITES = {
 	...WIKI_COMMANDS,
 	...DOCUMENTS_COMMANDS,
 	...LAUNCH_COMMANDS,
+	...OVERSIGHT_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);

@@ -10,6 +10,7 @@ import type {
 	OwnFeedback,
 	PlantFacts,
 } from "@everyfield/contracts/intelligence";
+import { coldStartGuidance } from "@everyfield/contracts/intelligence";
 import type { Catalog } from "@everyfield/contracts/phases";
 import {
 	ArrowRight01Icon,
@@ -58,11 +59,9 @@ import { markAssessmentSeen, submitAssessmentFeedback } from "./assessment-actio
 import type { ActionOutcome } from "./assessment-model.ts";
 import { resolveAssessmentCitation } from "./fetch.ts";
 import {
-	coldStartTitle,
 	CRITERION,
 	factText,
 	newestText,
-	nextSteps,
 	QUALITY,
 	SEVERITY_LABEL,
 	STANDING,
@@ -693,13 +692,12 @@ function CitationBody({ view }: { view: CitationView }) {
 }
 
 function ColdStart({ view, facts }: { view: AssessmentView; facts: PlantFacts }) {
-	const { title, body } = coldStartTitle(view.newest);
-	const steps = nextSteps(facts);
+	const { title, body, results, steps, noSteps } = coldStartGuidance(view.newest, facts);
 	return (
 		<div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 			<Card as="section" data-cold-start={view.newest?.state ?? "not_generated"}>
 				<StatePanel tone="neutral" title={title} headingLevel="h2">
-					{body} Until then there are no results to show, so nothing here is met or unmet.
+					{body} {results}
 				</StatePanel>
 			</Card>
 			<Card as="section" aria-labelledby="next-heading">
@@ -724,7 +722,7 @@ function ColdStart({ view, facts }: { view: AssessmentView; facts: PlantFacts })
 						))}
 					</ul>
 				) : (
-					<p className="text-sm text-text-3">Your records show no gap to act on yet.</p>
+					<p className="text-sm text-text-3">{noSteps}</p>
 				)}
 			</Card>
 		</div>

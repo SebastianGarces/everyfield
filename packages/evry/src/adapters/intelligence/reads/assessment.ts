@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
+import { present } from "../../../runtime/captured.ts";
 import { plantAdmin } from "../../native.ts";
 
 const assessments = createAssessments();
@@ -84,6 +85,9 @@ const CRITERION: Record<c.AssessedCriterion["status"], string> = {
 };
 const evidence = (e: readonly c.EvidenceFact[]) => e.map((x) => `${x.label}: ${factText(x.value)}`).join("; ") || null;
 
+export const RATING = { useful: "Useful", not_useful: "Not useful" } as const;
+const PRIVATE = ["the names a fact counted, which stay on the Plant Intelligence screen", "private weekly check-ins"];
+
 const none = z.strictObject({});
 
 export const readCommittedAdultCohort: ReadAdapter<Record<string, never>> = {
@@ -132,6 +136,28 @@ const assessedFacts = (a: c.Assessment) => ({
 	screen: SCREEN,
 });
 
+function scorecardRows(a: c.Assessment): SourceRow[] {
+	return [
+		...a.lenses.map((l) => ({
+			kind: "item" as const,
+			id: `${a.runId}:${l.key}`,
+			label: l.label,
+			fields: {
+				lens: l.key,
+				standing: STANDING[l.standing],
+				evidence: QUALITY[l.quality],
+				facts: evidence(l.evidence),
+			},
+		})),
+		...a.criteria.map((x) => ({
+			kind: "criterion" as const,
+			id: `${a.runId}:${x.key}`,
+			label: x.label,
+			fields: { status: CRITERION[x.status], facts: evidence(x.evidence) },
+		})),
+	];
+}
+
 export const readScorecard: ReadAdapter<Record<string, never>> = {
 	operation: "intelligence.readScorecard",
 	description:
@@ -141,24 +167,7 @@ export const readScorecard: ReadAdapter<Record<string, never>> = {
 	async invoke(tx, actor): Promise<SourceResult> {
 		const a = await currentOf(tx, actor);
 		if (!a) return noAssessment("intelligence.readScorecard");
-		const lenses: SourceRow[] = a.lenses.map((l) => ({
-			kind: "item",
-			id: `${a.runId}:${l.key}`,
-			label: l.label,
-			fields: {
-				lens: l.key,
-				standing: STANDING[l.standing],
-				evidence: QUALITY[l.quality],
-				facts: evidence(l.evidence),
-			},
-		}));
-		const criteria: SourceRow[] = a.criteria.map((x) => ({
-			kind: "criterion",
-			id: `${a.runId}:${x.key}`,
-			label: x.label,
-			fields: { status: CRITERION[x.status], facts: evidence(x.evidence) },
-		}));
-		return result("intelligence.readScorecard", [...lenses, ...criteria], {
+		return result("intelligence.readScorecard", scorecardRows(a), {
 			...assessedFacts(a),
 			summary: a.summary,
 		});
@@ -166,6 +175,39 @@ export const readScorecard: ReadAdapter<Record<string, never>> = {
 };
 
 const CITED = 16;
+async function findingRows(tx: Transaction, actor: EvryActor, a: c.Assessment): Promise<SourceRow[]> {
+	const points = [
+		{ role: "focus", p: a.focus },
+		...a.supporting.map((p) => ({ role: "supporting", p })),
+		...a.positives.map((p) => ({ role: "positive", p })),
+	];
+	const keys = [
+		...new Set(points.flatMap(({ p }) => p.citations.filter((x) => x.kind === "fact").map((x) => x.key))),
+	];
+	const values = new Map<string, string | number>();
+	for (const key of keys.slice(0, CITED)) {
+		const v = await assessments.resolveCitation(tx, actor.authority, { runId: a.runId, key });
+		if (v.status === "ok" && v.value.status === "verified" && v.value.kind === "fact")
+			values.set(key, factText(v.value.value));
+	}
+	return points.map(({ role, p }, ordinal) => ({
+		kind: "item",
+		id: `${a.runId}:${ordinal}`,
+		label: p.title,
+		fields: {
+			role,
+			ordinal,
+			severity: SEVERITY[p.severity] ?? p.severity,
+			body: p.body,
+			cites: p.citations
+				.map((x) =>
+					x.kind === "fact" ? `${x.label}: ${values.get(x.key) ?? "not resolved"}` : `Methodology: ${x.label}`,
+				)
+				.join("; "),
+		},
+	}));
+}
+
 export const readAssessment: ReadAdapter<Record<string, never>> = {
 	operation: "intelligence.readAssessment",
 	description:
@@ -175,40 +217,8 @@ export const readAssessment: ReadAdapter<Record<string, never>> = {
 	async invoke(tx, actor): Promise<SourceResult> {
 		const a = await currentOf(tx, actor);
 		if (!a) return noAssessment("intelligence.readAssessment");
-		const points = [
-			{ role: "focus", p: a.focus },
-			...a.supporting.map((p) => ({ role: "supporting", p })),
-			...a.positives.map((p) => ({ role: "positive", p })),
-		];
-		const keys = [
-			...new Set(points.flatMap(({ p }) => p.citations.filter((x) => x.kind === "fact").map((x) => x.key))),
-		];
-		const values = new Map<string, string | number>();
-		for (const key of keys.slice(0, CITED)) {
-			const v = await assessments.resolveCitation(tx, actor.authority, { runId: a.runId, key });
-			if (v.status === "ok" && v.value.status === "verified" && v.value.kind === "fact")
-				values.set(key, factText(v.value.value));
-		}
-		const rows: SourceRow[] = points.map(({ role, p }, ordinal) => ({
-			kind: "item",
-			id: `${a.runId}:${ordinal}`,
-			label: p.title,
-			fields: {
-				role,
-				ordinal,
-				severity: SEVERITY[p.severity] ?? p.severity,
-				body: p.body,
-				cites: p.citations
-					.map((x) =>
-						x.kind === "fact" ? `${x.label}: ${values.get(x.key) ?? "not resolved"}` : `Methodology: ${x.label}`,
-					)
-					.join("; "),
-			},
-		}));
-		return result("intelligence.readAssessment", rows, { ...assessedFacts(a), runId: a.runId, summary: a.summary }, [
-			"the names a fact counted, which stay on the Plant Intelligence screen",
-			"private weekly check-ins",
-		]);
+		const rows = await findingRows(tx, actor, a);
+		return result("intelligence.readAssessment", rows, { ...assessedFacts(a), runId: a.runId, summary: a.summary }, PRIVATE);
 	},
 };
 
@@ -235,9 +245,145 @@ export const readAssessmentDelta: ReadAdapter<Record<string, never>> = {
 	},
 };
 
+const newerText = (newest: c.NewestRun | null) =>
+	newest?.state === "preparing"
+		? "A newer assessment is being prepared."
+		: newest?.state === "deferred"
+			? "A newer assessment is waiting for the assessment service and will try again shortly."
+			: null;
+const trendText = (v: c.TrendValue) =>
+	v.state === "measured" ? v.value : v.state === "unknown" ? "Unknown" : "Not measured";
+
+export const readAssessmentHistory: ReadAdapter<Record<string, never>> = {
+	operation: "intelligence.readAssessmentHistory",
+	description:
+		"How this church's assessments changed over time, as the Plant Intelligence Trends screen shows it: its published assessments, newest first, up to twelve (item rows, one per assessment with its date, phase and the six trend facts it measured then; Not measured means that assessment was made before Everyfield measured the fact, and is not a zero). Give a row's id to intelligence.readAssessmentRun for that assessment itself. When newer says one is being prepared or waiting, say so and say the answer uses the published assessment it names. Owners and Admins",
+	input: none,
+	allowed: plantAdmin,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const operation = "intelligence.readAssessmentHistory";
+		const history = valueOf(await assessments.readHistory(tx, actor.authority, {}));
+		const view = valueOf(await assessments.readAssessment(tx, actor.authority, {}));
+		const [latest] = history.runs;
+		if (!latest) return noAssessment(operation);
+		return result(
+			operation,
+			history.runs.map((r, n) => ({
+				kind: "item",
+				id: r.runId,
+				label: dayText(r.measuredOn),
+				fields: {
+					latest: n === 0,
+					phase: `Phase ${r.phase}`,
+					...Object.fromEntries(c.TREND_FACTS.map((f, i) => [f.label, trendText(present(r.values[i]))])),
+				},
+			})),
+			{
+				assessed: true,
+				newer: newerText(view.newest),
+				published: `The latest published assessment was measured ${dayText(latest.measuredOn)}.`,
+				screen: "[Trends](/intelligence/trends)",
+			},
+		);
+	},
+};
+
+export const readAssessmentRun: ReadAdapter<{ runId: string }> = {
+	operation: "intelligence.readAssessmentRun",
+	description:
+		"One published assessment of this church, an earlier one or the latest, by its id from intelligence.readAssessmentHistory: its summary, date and phase in facts, its findings (item rows with a role, as intelligence.readAssessment gives them) and its scorecard (lens and criterion rows), all from that assessment's own snapshot. Say the date it measured. When newer says one is being prepared or waiting, say so and say which assessment this is. Owners and Admins",
+	input: z.strictObject({ runId: z.uuid() }),
+	allowed: plantAdmin,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const operation = "intelligence.readAssessmentRun";
+		const read = await assessments.readRun(tx, actor.authority, input);
+		if (read.status !== "ok" && read.error.code === "not_found")
+			return { ...result(operation, [], { screen: SCREEN }), status: "not_found", total: 0 };
+		const a = valueOf(read);
+		const view = valueOf(await assessments.readAssessment(tx, actor.authority, {}));
+		return result(
+			operation,
+			[...(await findingRows(tx, actor, a)), ...scorecardRows(a)],
+			{
+				...assessedFacts(a),
+				runId: a.runId,
+				summary: a.summary,
+				latest: view.current?.runId === a.runId,
+				newer: newerText(view.newest),
+				published: `This is the published assessment measured ${dayText(a.measuredOn)}.`,
+			},
+			PRIVATE,
+		);
+	},
+};
+
+export const readColdStartGuidance: ReadAdapter<Record<string, never>> = {
+	operation: "intelligence.readColdStartGuidance",
+	description:
+		"Where to start while this church has no published assessment, as the Plant Intelligence screen says it: the title and body for the actual state in facts (not prepared yet, on its way, or couldn't be prepared) and the next steps from the church's own records (step rows, in order, each with its detail and href). Say them as returned, in their order, and call nothing met or unmet. When assessed is true the church has an assessment: use intelligence.readAssessment instead. It asks for no new assessment. Owners and Admins",
+	input: none,
+	allowed: plantAdmin,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const operation = "intelligence.readColdStartGuidance";
+		const view = valueOf(await assessments.readAssessment(tx, actor.authority, {}));
+		if (view.current) return result(operation, [], assessedFacts(view.current));
+		const guidance = c.coldStartGuidance(view.newest, valueOf(await facts.readFacts(tx, actor.authority, {})));
+		return result(
+			operation,
+			guidance.steps.map((s, n) => ({
+				kind: "item",
+				id: `step:${n + 1}`,
+				label: s.title,
+				fields: { step: n + 1, detail: s.detail, href: s.href },
+			})),
+			{
+				assessed: false,
+				title: guidance.title,
+				body: guidance.body,
+				results: guidance.results,
+				noSteps: guidance.steps.length ? null : guidance.noSteps,
+				screen: SCREEN,
+			},
+		);
+	},
+};
+
+export const readOwnFeedback: ReadAdapter<Record<string, never>> = {
+	operation: "intelligence.readOwnFeedback",
+	description:
+		"The signed-in user's own ratings of this church's published assessments, newest assessment first: each finding they rated with their rating, their comment and the day they saved it, and which assessment it was. Empty means they gave none. Nobody else's rating is ever read. Owners and Admins",
+	input: none,
+	allowed: plantAdmin,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const own = valueOf(await assessments.readOwnFeedback(tx, actor.authority, {}));
+		return result(
+			"intelligence.readOwnFeedback",
+			own.findings.map((f) => ({
+				kind: "item",
+				id: `${f.runId}:${f.ordinal}`,
+				label: f.title,
+				fields: {
+					assessment: dayText(f.measuredOn),
+					rating: RATING[f.rating],
+					comment: f.comment,
+					ratedOn: new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: own.timeZone }).format(
+						new Date(f.recordedAt),
+					),
+				},
+			})),
+			{ rated: own.findings.length, screen: SCREEN },
+			["anyone else's rating"],
+		);
+	},
+};
+
 export const ASSESSMENT_INTELLIGENCE_READS = [
 	readCommittedAdultCohort,
 	readScorecard,
 	readAssessment,
 	readAssessmentDelta,
+	readAssessmentHistory,
+	readAssessmentRun,
+	readColdStartGuidance,
+	readOwnFeedback,
 ] as const;

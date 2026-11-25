@@ -47,7 +47,8 @@ import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
-import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
+import { OVERSIGHT_COMMANDS } from "../../../packages/evry/src/adapters/oversight/commands/index.ts";
+import { GEOGRAPHY_READS, SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
 import { DASHBOARD_READS } from "../../../packages/evry/src/adapters/dashboard/reads/index.ts";
@@ -85,6 +86,14 @@ const LATER = new Set<string>([
 	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
+	"intelligence.readAssessmentHistory",
+	"intelligence.readAssessmentRun",
+	"intelligence.readColdStartGuidance",
+	"intelligence.readOwnFeedback",
+	"oversight.listSendingChurches",
+	"oversight.getSendingChurch",
+	...Object.keys(OVERSIGHT_COMMANDS),
+	...GEOGRAPHY_READS.map((a) => a.operation),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);

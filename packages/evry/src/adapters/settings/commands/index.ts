@@ -4,7 +4,9 @@ import { owner, timeZone as timeZoneValue } from "@everyfield/contracts/common";
 import { digestSchedule as digestScheduleValue, plantProfile } from "@everyfield/contracts/settings";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { change, nativeWrite, patchChanges, plantAdmin, settled } from "../../native.ts";
+import { regionLabel } from "@everyfield/contracts/oversight";
+import { change, committed, nativeWrite, patchChanges, plantAdmin, reviewed, settled } from "../../native.ts";
+import { placeText, regionCandidates, statedLocality } from "../reads/index.ts";
 import { ZONE_NAME } from "../../../catalog/labels.ts";
 
 const PROFILE_COLUMN = {
@@ -159,8 +161,58 @@ export const setDigestSchedule = nativeWrite({
 	},
 });
 
+export const correctReportingLocation = nativeWrite({
+	operation: "organizations.correctReportingLocation",
+	description:
+		"Propose correcting this church's reporting place and Region, as Settings > Church saves them: the Region (regionItemId, a candidate row of geography.listReportingRegionCandidates) and the same city, state or province and country it was listed for (leave them out for the saved place). The history keeps the earlier place. Owner or Admin. Nothing changes until the user approves the exact review.",
+	input: statedLocality.extend({ regionItemId: z.uuid() }),
+	allowed: plantAdmin,
+	async review(actor, { regionItemId, ...stated }, { db }) {
+		const { saved, locality, candidates } = await regionCandidates(db, actor, stated);
+		const region = candidates.find((x) => x.regionItemId === regionItemId);
+		if (!region) throw new EvryRefusal("invalid_input");
+		if (!saved.referenceVersionId) throw new EvryRefusal("source_unavailable");
+		const before = { place: placeText(saved.locality), region: saved.region ? regionLabel(saved.region) : null };
+		const after = { place: placeText(locality), region: regionLabel(region.area) };
+		const same = before.place === after.place && before.region === after.region;
+		return reviewed(
+			{
+				target: { kind: "church", id: actor.owner.id, label: "Reporting Region" },
+				changes: [
+					{ field: "reportingPlace", before: before.place, after: after.place },
+					{ field: "reportingRegion", before: before.region, after: after.region },
+				],
+				notes: [
+					"It takes effect when you approve. The earlier place and Region stay in the history, and earlier Network Intelligence runs keep them.",
+				],
+				...(same && { refusal: "The reporting place and Region are already this, so nothing would change." }),
+			},
+			{
+				expectedRevision: saved.revision,
+				input: {
+					plant: { kind: "plant", id: actor.owner.id },
+					locality,
+					referenceVersionId: saved.referenceVersionId,
+					regionItemId,
+				},
+			},
+		);
+	},
+	async run(tx, context, request, { ports }) {
+		committed(
+			await ports.organizations["organizations.correctReportingLocation"](
+				tx,
+				context.session,
+				context.selected,
+				request,
+			),
+		);
+	},
+});
+
 export const CHURCH_COMMANDS = {
 	"plant.updateProfile": updateProfile,
 	"plant.setTimezone": setTimezone,
 	"church.digestSchedule.set": setDigestSchedule,
+	"organizations.correctReportingLocation": correctReportingLocation,
 } as const;

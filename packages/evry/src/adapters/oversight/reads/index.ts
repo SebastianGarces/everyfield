@@ -1,10 +1,18 @@
 import { counted, dayText } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/oversight";
-import { getPlant, listPlants, placedIn, readIntelligence, readLocationHistory } from "@everyfield/domain/oversight";
+import {
+	getPlant,
+	getSendingChurch,
+	listPlants,
+	listSendingChurches,
+	placedIn,
+	readIntelligence,
+	readLocationHistory,
+} from "@everyfield/domain/oversight";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { organizationSeat } from "../../native.ts";
+import { networkSeat, organizationSeat } from "../../native.ts";
 
 const NOT_SHARED = "Not shared";
 const HEALTH: Record<C.Health, string> = {
@@ -22,6 +30,7 @@ const LAUNCH: Record<C.LaunchState, string> = {
 	overdue: "Overdue",
 	completed: "Launched",
 };
+export const RATING = { useful: "Useful", not_useful: "Not useful" } as const;
 const place = (p: C.PlantDirectoryRow) => [p.city, p.stateProvince].filter(Boolean).join(", ") || null;
 const AGGREGATES_ONLY = "names, notes, interviews, private care and assessment text, which oversight never shows";
 
@@ -226,7 +235,7 @@ const plantHref = (id: string) => `/network/plants/${id}`;
 const plantLink = (p: { plantId: string; name: string }) => `[${p.name}](${plantHref(p.plantId)})`;
 const viewHref = (level: C.Level, runId: string | null) =>
 	`/network/intelligence?level=${level}${runId ? `&run=${runId}` : ""}`;
-const runText = (instant: string, timeZone: string) =>
+export const runText = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "medium", timeZone }).format(new Date(instant));
 const fold = (s: string) =>
 	s
@@ -277,6 +286,8 @@ function patternRow(level: C.Level, g: C.IntelligenceGroup, p: C.IntelligencePat
 			plantLinks: p.plants.map(plantLink).join(", "),
 			nextStep: text.nextStep,
 			evidence: text.evidence,
+			patternKey: p.key,
+			yourRating: p.rating === null ? null : RATING[p.rating],
 			href,
 		},
 	};
@@ -291,7 +302,7 @@ const historyInput = z.strictObject({
 export const readIntelligenceHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	operation: "organizationIntelligence.readHistory",
 	description:
-		"Network Intelligence for any run and place, as its page shows it with ?level= and ?run=: give level (region, state, country or portfolio; leave it out for every level, to follow one pattern across them), place to keep only one named group (a Region such as Dallas-Fort Worth, a state such as Texas, a country such as US, or Whole portfolio), runId for an earlier run (default the latest; every run is listed as a run row), and changes: true for the patterns that appeared or went away in each group since the run before it. Each level groups the plants on its own. Group rows name every plant in the group, Not shared ones included, and say why there is no pattern; pattern rows give the rubric's words with the plants they name. A pattern always names two or more plants. Each row has plantLinks and href to link the plants and the page view. No scores, weights or rankings",
+		"Network Intelligence for any run and place, as its page shows it with ?level= and ?run=: give level (region, state, country or portfolio; leave it out for every level, to follow one pattern across them), place to keep only one named group (a Region such as Dallas-Fort Worth, a state such as Texas, a country such as US, or Whole portfolio), runId for an earlier run (default the latest; every run is listed as a run row), and changes: true for the patterns that appeared or went away in each group since the run before it. Each level groups the plants on its own. Group rows name every plant in the group, Not shared ones included, and say why there is no pattern; pattern rows give the rubric's words with the plants they name. A pattern always names two or more plants. Each row has plantLinks and href to link the plants and the page view; a pattern row also has its patternKey and yourRating, the user's own rating of it. No scores, weights or rankings",
 	input: historyInput,
 	allowed: organizationSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -448,6 +459,86 @@ export const readPlantLocationHistory: ReadAdapter<{ plantId: string }> = {
 	},
 };
 
+const churchHref = (id: string) => `/network/sending-churches/${id}`;
+const PROGRESS: Record<C.MilestoneProgress["status"], string> = {
+	withheld: NOT_SHARED,
+	not_reached: "Not reached yet",
+	withdrawn: "No longer offered",
+	reached: "Reached",
+};
+function pathFields(path: C.PlantPath): Record<string, string | null> {
+	if (path.kind === "launch_sunday") return { launchSunday: path.date ? dayText(path.date) : "No date set" };
+	const progress = path.progress;
+	return {
+		milestone: path.name ?? "Chosen milestone",
+		milestoneProgress:
+			progress.status === "reached" ? `Reached ${dayText(progress.date)}` : PROGRESS[progress.status],
+	};
+}
+
+export const listOverseenChurches: ReadAdapter<Record<string, never>> = {
+	operation: "oversight.listSendingChurches",
+	description:
+		"The sending churches linked to this network, by name, as its Sending churches page shows them: each with how many of its plants are linked to this network too, its href, and how many invitations to a sending church are still waiting (pendingInvitations). Only current links of this network",
+	input: z.strictObject({}),
+	allowed: networkSeat,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const roster = (await listSendingChurches(tx, actor.authority)) ?? unavailable();
+		return result(
+			"oversight.listSendingChurches",
+			roster.churches.map((x) => ({
+				kind: "item",
+				id: x.organizationId,
+				label: x.name,
+				fields: { plants: x.plants, href: churchHref(x.organizationId) },
+			})),
+			{ pendingInvitations: roster.pendingInvitations },
+		);
+	},
+};
+
+export const readOverseenChurch: ReadAdapter<{ churchId: string }> = {
+	operation: "oversight.getSendingChurch",
+	description:
+		"One linked sending church as its page in this network shows it, by its churchId from oversight.listSendingChurches: its name and its plants that are linked to this network, each with its health, its Launch Sunday date or milestone, place, Region, phase, how it is linked, the lead planter the page names and href. Health and progress are Not shared when the plant doesn't share Plant Intelligence findings. A church outside this network is not found",
+	input: z.strictObject({ churchId: z.uuid() }),
+	allowed: networkSeat,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const church = await getSendingChurch(tx, actor.authority, input.churchId);
+		if (!church) return { ...result("oversight.getSendingChurch", [], {}), status: "not_found", total: 0 };
+		const rows: SourceRow[] = [];
+		for (const p of church.plants.slice(0, PLANTS)) {
+			const view = (await getPlant(tx, actor.authority, p.plantId)) ?? unavailable();
+			const shares = view.assessment.status !== "withheld";
+			rows.push({
+				kind: "item",
+				id: p.plantId,
+				label: p.name,
+				fields: {
+					health: shares ? HEALTH[p.health] : NOT_SHARED,
+					findings: shares ? "Shared" : NOT_SHARED,
+					...pathFields(p.path),
+					place: place(p),
+					region: p.region ? C.regionLabel(p.region) : null,
+					phase: p.phase,
+					linked: p.provenance.kind === "direct" ? "Directly" : `Through ${p.provenance.sendingChurches.join(", ")}`,
+					leadPlanter: p.leadPlanter,
+					href: plantHref(p.plantId),
+				},
+			});
+		}
+		return {
+			...result("oversight.getSendingChurch", rows, {
+				church: church.name,
+				churchId: church.organizationId,
+				href: churchHref(church.organizationId),
+			}),
+			total: church.plants.length,
+			completeness: church.plants.length > PLANTS ? "partial" : "complete",
+		};
+	},
+};
+
 export const OVERSIGHT_READS = [
 	listOverseenPlants,
 	readOverseenPlant,
@@ -455,4 +546,6 @@ export const OVERSIGHT_READS = [
 	readIntelligenceHistory,
 	readPlantLocations,
 	readPlantLocationHistory,
+	listOverseenChurches,
+	readOverseenChurch,
 ] as const;

@@ -2,14 +2,21 @@ import { dayText } from "@everyfield/contracts/common";
 import { programKind, programRhythm } from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { readPipelineBoard, readProgram as readProgramDetail, readPrograms } from "@everyfield/domain/organizations";
-import type { ProgramVersion } from "@everyfield/contracts/organizations";
+import {
+	readEnrollment,
+	readPipelineBoard,
+	readPipelineGoals,
+	readProgram as readProgramDetail,
+	readPrograms,
+} from "@everyfield/domain/organizations";
+import { goalHeadline, STARTER_STAGES, type EnrollmentDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
+import { localWhenText } from "../../../catalog/labels.ts";
 
 function sixMonthsBefore(day: string) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
@@ -141,16 +148,31 @@ const planRows = (v: ProgramVersion): SourceRow[] => [
 	})),
 ];
 
+export const STAGE_KIND: Record<string, string> = Object.fromEntries([...STARTER_STAGES, ["other", "Other"]]);
+
+const finishedText = (m: EnrollmentDetail["milestones"][number], detail: EnrollmentDetail) => {
+	const c = m.completion;
+	if (!c)
+		return detail.resident.status === "linked" && detail.resident.milestones === "not_shared"
+			? "Progress not shared"
+			: "Not finished";
+	if (c.confirmedOn === null)
+		return `Waiting for confirmation, ${c.recorder ?? detail.person.name} marked it done ${dayText(c.completedOn)}`;
+	return `Finished ${dayText(c.completedOn)}`;
+};
+
 export const readProgram = {
 	operation: "development.readProgram",
 	description:
-		"This organization's development programs as Programs shows them. Without programId: each program with its kind, director, whether the user directs it, its published version number and whether a draft is in progress. With programId (a program row's id): its published version and its draft, each with rhythm and expected length in facts and, as rows, its stages, its milestones (each with its lineage, which carries it across versions) and its reading list, and whether the user directs it. Only the program's current director edits its plan, through development.draftNextVersion. It never returns who is enrolled, completions, feedback, notes or reasons",
+		"This organization's development programs as Programs shows them. Without programId: each program with its kind, director, whether the user directs it, its published version number and whether a draft is in progress. With programId (a program row's id): its published version and its draft, each with rhythm and expected length in facts and, as rows, its stages, its milestones (each with its lineage, which carries it across versions) and its reading list, and whether the user directs it. Only the program's current director edits its plan, through development.draftNextVersion. With programId and enrolled: true, also the enrollments the user's Programs page shows (enrollment rows) and, for an Owner or Admin, the pipeline people who can be enrolled (candidate rows, by personId). With enrollmentId (an enrollment row's id) alone: that one enrollment's cohort, dates, stage, next meeting and version in facts, the stages of its version (stage rows) and its milestones (milestone rows, each with its progress as the page shows it: Not finished, Waiting for confirmation, Finished or Progress not shared). It never returns feedback, notes or reasons",
 	input: z.strictObject({
 		programId: z.uuid().optional(),
+		enrolled: z.boolean().optional(),
+		enrollmentId: z.uuid().optional(),
 	}),
 	allowed: organizationSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
-		const done = (rows: SourceRow[], facts: SourceResult["facts"]): SourceResult => ({
+		const done = (rows: SourceRow[], facts: SourceResult["facts"], exclusion: string): SourceResult => ({
 			operation: "development.readProgram",
 			status: "available",
 			rows,
@@ -158,9 +180,50 @@ export const readProgram = {
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: ["who is enrolled, completions, feedback and notes, which stay in Programs"],
+			exclusions: [exclusion],
 			facts,
 		});
+		const plans = "who is enrolled, completions, feedback and notes, which stay in Programs";
+		const shown = "feedback, notes and progress a resident does not share, which stay in Programs";
+		if (input.enrollmentId) {
+			const read = await readEnrollment(tx, actor.authority, { enrollmentId: input.enrollmentId });
+			if (read.status !== "ok") return { ...done([], {}, shown), status: "not_found", total: 0 };
+			const e = read.value;
+			return done(
+				[
+					...e.stages.map((s) => ({
+						kind: "item" as const,
+						id: s.id,
+						label: s.label,
+						fields: { part: "stage", version: e.versionNumber, current: s.id === e.stage.id },
+					})),
+					...e.milestones.map((m) => ({
+						kind: "item" as const,
+						id: m.id,
+						label: m.title,
+						fields: { part: "milestone", version: e.versionNumber, progress: finishedText(m, e) },
+					})),
+				],
+				{
+					enrollmentId: e.id,
+					person: e.person.name,
+					programId: e.program.id,
+					program: e.program.name,
+					director: e.program.director.name,
+					directedByYou: e.viewer.director,
+					version: e.versionNumber,
+					newerVersion: e.newerVersion?.number ?? null,
+					cohort: e.cohort,
+					startedOn: e.startedOn,
+					expectedEndOn: e.expectedEndOn,
+					status: e.status,
+					stage: e.stage.label,
+					nextMeeting: e.nextMeeting ? `${localWhenText(e.nextMeeting.at)} (${e.nextMeeting.timezone})` : null,
+					account: e.resident.status === "linked" ? "Linked" : "Not linked",
+				},
+				shown,
+			);
+		}
 		if (!input.programId) {
 			const list = value(await readPrograms(tx, actor.authority));
 			return done(
@@ -178,26 +241,129 @@ export const readProgram = {
 					},
 				})),
 				{ organization: list.organizationName },
+				plans,
 			);
 		}
 		const p = value(await readProgramDetail(tx, actor.authority, { programId: input.programId }));
-		return done([...(p.published ? planRows(p.published) : []), ...(p.draft ? planRows(p.draft) : [])], {
-			programId: p.id,
-			program: p.name,
-			kind: p.kind,
-			director: p.director.name,
-			directedByYou: p.viewer.director,
-			publishedVersion: p.published?.number ?? null,
-			publishedRhythm: p.published?.rhythm ?? null,
-			publishedMonths: p.published?.expectedMonths ?? null,
-			draftVersion: p.draft?.number ?? null,
-			draftRhythm: p.draft?.rhythm ?? null,
-			draftMonths: p.draft?.expectedMonths ?? null,
-		});
+		const enrolled: SourceRow[] = input.enrolled
+			? [
+					...p.enrollments.map((e) => ({
+						kind: "item" as const,
+						id: e.id,
+						label: e.name,
+						fields: { part: "enrollment", cohort: e.cohort, status: e.status, stage: e.stage, version: e.versionNumber },
+					})),
+					...p.people.map((x) => ({
+						kind: "item" as const,
+						id: x.personId,
+						label: x.name,
+						fields: { part: "candidate" },
+					})),
+				]
+			: [];
+		return done(
+			[...enrolled, ...(p.published ? planRows(p.published) : []), ...(p.draft ? planRows(p.draft) : [])],
+			{
+				programId: p.id,
+				program: p.name,
+				kind: p.kind,
+				director: p.director.name,
+				directedByYou: p.viewer.director,
+				publishedVersion: p.published?.number ?? null,
+				publishedRhythm: p.published?.rhythm ?? null,
+				publishedMonths: p.published?.expectedMonths ?? null,
+				draftVersion: p.draft?.number ?? null,
+				draftRhythm: p.draft?.rhythm ?? null,
+				draftMonths: p.draft?.expectedMonths ?? null,
+				...(input.enrolled && { today: p.today, timeZone: p.timezone }),
+			},
+			input.enrolled ? shown : plans,
+		);
 	},
-} satisfies ReadAdapter<{ programId?: string }>;
+} satisfies ReadAdapter<{ programId?: string; enrolled?: boolean; enrollmentId?: string }>;
 
-export const PIPELINE_READS = [listPeople, draftPlan, readProgram] as const;
+const monthText = (month: string) =>
+	new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(
+		new Date(`${month}-01T00:00:00Z`),
+	);
+const PLANTS_SENT = "Not available yet";
+export const readGoals = {
+	operation: "pipeline.readGoals",
+	description:
+		"This organization's sending goals as its Pipeline page shows them: each goal's leaders to develop, churches to plant, year, why, the day it counts from and, for each stage kind it counts, how many people reached that kind since then. Facts give today's date there, the people in each stage kind now and the active residents; plants sent is not available yet. Counts only, never a name",
+	input: z.strictObject({}),
+	allowed: organizationSeat,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const g = value(await readPipelineGoals(tx, actor.authority));
+		return {
+			operation: "pipeline.readGoals",
+			status: "available",
+			rows: g.goals.map((x) => ({
+				kind: "item",
+				id: x.id,
+				label: goalHeadline(x),
+				fields: {
+					leaderTarget: x.leaderTarget,
+					plantTarget: x.plantTarget,
+					targetYear: x.targetYear,
+					rationale: x.rationale,
+					countingFrom: x.countingFrom,
+					counts: x.counts.map((c) => `${c.label} (${STAGE_KIND[c.kind]}): ${c.count}`).join("; ") || null,
+				},
+			})),
+			total: g.goals.length,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["the names behind each count"],
+			facts: {
+				asOf: g.asOf,
+				canEdit: g.canEdit,
+				pipelineToday: g.kinds.map((k) => `${STAGE_KIND[k.kind]}: ${k.count}`).join("; ") || null,
+				activeResidents: g.activeResidents,
+				plantsSent: PLANTS_SENT,
+			},
+		};
+	},
+} satisfies ReadAdapter<Record<string, never>>;
+
+export const readConversationCounts = {
+	operation: "pipeline.readConversationCounts",
+	description:
+		"How many leadership conversations staff logged, as the Pipeline page counts them by the day they happened: the last six months (month rows) and the last four quarters (quarter rows). Counts only: never who met whom, a note or whether a note exists",
+	input: z.strictObject({}),
+	allowed: organizationSeat,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const g = value(await readPipelineGoals(tx, actor.authority));
+		const rows: SourceRow[] = [
+			...g.conversations.months.map((m) => ({
+				kind: "item" as const,
+				id: m.month,
+				label: monthText(m.month),
+				fields: { period: "month", count: m.count },
+			})),
+			...g.conversations.quarters.map((q) => ({
+				kind: "item" as const,
+				id: `${q.year}-Q${q.quarter}`,
+				label: `Q${q.quarter} ${q.year}`,
+				fields: { period: "quarter", count: q.count },
+			})),
+		];
+		return {
+			operation: "pipeline.readConversationCounts",
+			status: "available",
+			rows,
+			total: rows.length,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["who met whom, and any conversation note"],
+			facts: { asOf: g.asOf },
+		};
+	},
+} satisfies ReadAdapter<Record<string, never>>;
+
+export const PIPELINE_READS = [listPeople, draftPlan, readProgram, readGoals, readConversationCounts] as const;
 
 export async function pipelineListsPeople(db: Pick<Database, "execute">, actor: EvryActor) {
 	if (!organizationSeat(actor) || !actor.seatId) return false;

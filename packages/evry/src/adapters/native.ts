@@ -15,6 +15,7 @@ export const accountContext = (actor: EvryActor) => actor.owner.kind === "accoun
 export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 export const organizationAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
+export const networkSeat = (actor: EvryActor) => actor.contextKind === "sending_network" && actor.role !== null;
 export const organizationSeat = (actor: EvryActor) => actor.owner.kind === "organization" && actor.role !== null;
 
 export const change = (field: string, before: SQL, after: unknown) =>
@@ -22,6 +23,8 @@ export const change = (field: string, before: SQL, after: unknown) =>
 export const target = (kind: string, id: SQL, label: SQL) =>
 	sql`jsonb_build_object('kind',${kind}::text,'id',${id},'label',${label})`;
 export const notes = (lines: readonly string[]) => sql`${JSON.stringify(lines)}::jsonb`;
+export const reviewed = (review: object, args: object) =>
+	sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(args)}::jsonb AS args`;
 export function patchChanges(patch: Record<string, unknown>, columns: Record<string, string>, row: SQL) {
 	const changes = Object.entries(patch).map(([field, after], n) => ({
 		n,
