@@ -34,7 +34,7 @@ import { MAILING } from "../../communication/church-address.mts";
 import { writeAs } from "../../communication/communication-support.mts";
 import { resendRecorder } from "../../communication/resend-recorder.mts";
 import { MemoryClient } from "../../documents/storage.mts";
-import { church, type ChurchPlant } from "../../intelligence/assessment-church.mts";
+import { church, ZONE, type ChurchPlant } from "../../intelligence/assessment-church.mts";
 
 export type Row = Record<string, unknown>;
 type Seat = {
@@ -63,7 +63,7 @@ const FROZEN = [
 ] as const;
 type Frozen = (typeof FROZEN)[number];
 
-export async function world(prefix: string) {
+export async function world(prefix: string, reminderTime?: string) {
 	const c = await church(prefix, { max: 8 });
 	const { database, admin, db, one, rows } = c;
 	await c.release("methodology-2026.11");
@@ -120,7 +120,27 @@ export async function world(prefix: string) {
 			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient)! } : null));
 		},
 	});
-	const reminders = taskReminders(notifications);
+	const asOf =
+		reminderTime &&
+		new Date(
+			(
+				await one<{ ms: number }>(
+					sql`SELECT (extract(epoch FROM (${`${c.today} ${reminderTime}`}::timestamp AT TIME ZONE ${ZONE}))*1000)::float8 AS ms`,
+				)
+			).ms,
+		).toISOString();
+	const reminders = taskReminders(
+		asOf
+			? {
+					...notifications,
+					syncTaskReminders: (tx, inputs) =>
+						notifications.syncTaskReminders(
+							tx,
+							inputs.map((i) => ({ ...i, asOf })),
+						),
+				}
+			: notifications,
+	);
 	const attendance = createAttendanceWriter({ reminders });
 
 	const people = <T,>(op: (tx: WriteTx, ctx: never, raw: never) => Promise<T>, raw: unknown, who: Seat = boss) =>
