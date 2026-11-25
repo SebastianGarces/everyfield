@@ -644,6 +644,7 @@ async function fill(
 	if (wikiWritten) done.push("wiki");
 	if (await ministryTemplates(admin)) done.push("ministry templates");
 	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
+	await discoveryPlanter(m, onboarding, proofs);
 
 	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
 	const summary = done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
@@ -1189,6 +1190,114 @@ async function expiredRequest(
 	);
 	done.push(`expired request from ${DISCOVERY_SENDER.name} to ${HILL}`);
 	return `/connections/respond?invitation=${invited.invitationId}#${proofs.get(invited.invitationId)!}`;
+}
+
+const DISCOVERY_PLANTER = { name: "Jo Rivera", login: QA_LOGINS.discovery } as const;
+const DISCOVERY_CHURCH = "Grace Church (QA)";
+const DISCOVERY_DOCUMENTS = [
+	["Notes on my calling", "Why I believe God is calling me to plant, and what I still need to test."],
+	["Questions for my sending church", "What support they can give, and what they expect from me before launch."],
+] as const;
+const FOUNDATIONS = (
+	JSON.parse(readFileSync(new URL("../../docs/reference/discovery-foundations.json", import.meta.url), "utf8")) as {
+		articles: { id: string; sort_order: number }[];
+	}
+).articles.sort((a, b) => a.sort_order - b.sort_order);
+
+async function discoveryPlanter(
+	m: Multiplication,
+	onboarding: ReturnType<typeof createOnboardingProducer>,
+	proofs: ReadonlyMap<string, string>,
+): Promise<void> {
+	const { admin, runtime, done } = m;
+	const jo = await m.account(DISCOVERY_PLANTER.name, DISCOVERY_PLANTER.login, { kind: "discovery" }, false);
+	const selected = { kind: "account", id: jo } as const;
+	const revision = async () =>
+		(await rows(admin, sql`SELECT revision::text AS r FROM account WHERE id=${jo}`))[0]!.r as string;
+	if (!(await rows(admin, sql`SELECT 1 FROM discovery WHERE account_id=${jo}`)).length) {
+		const c = { session: await m.sessionOf(DISCOVERY_PLANTER.login), selected };
+		const expectedRevision = await revision();
+		ok(
+			`Discovery ${DISCOVERY_PLANTER.name}`,
+			await gatedTransaction(runtime, (tx) =>
+				onboarding.createDiscovery(
+					tx as never,
+					c as never,
+					{ requestKey: randomUUID(), expectedRevision, input: {} } as never,
+				),
+			),
+		);
+		done.push(`Discovery ${DISCOVERY_PLANTER.name}`);
+	}
+	const church = await m.organizationRow("sending_church", DISCOVERY_CHURCH);
+	const linked = await rows(
+		admin,
+		sql`SELECT 1 FROM affiliation WHERE account_id=${jo} AND organization_id=${church.id} AND ended_at IS NULL`,
+	);
+	if (!linked.length) {
+		const s = (await m.sessionOf(DISCOVERY_PLANTER.login)) as never;
+		const expectedRevision = await revision();
+		const invited = await gatedTransaction(runtime, (tx) =>
+			m.organizations["associations.invite"](
+				tx,
+				s,
+				selected as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision,
+					input: {
+						pair: { kind: "discovery", accountId: jo, organization: church },
+						recipientEmail: QA_LOGINS.sending,
+					},
+				} as never,
+			),
+		);
+		const answer = (await m.sessionOf(QA_LOGINS.sending)) as never;
+		await gatedTransaction(runtime, (tx) =>
+			m.organizations["associations.acceptInvitation"](
+				tx,
+				answer,
+				church as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: invited.revision,
+					input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId)!, decision: "accept" },
+				} as never,
+			),
+		);
+		done.push(`connection ${DISCOVERY_PLANTER.name} to ${DISCOVERY_CHURCH}`);
+	}
+	for (const article of FOUNDATIONS.slice(0, 2)) {
+		const [published] = await rows(
+			admin,
+			sql`SELECT id FROM article_revision WHERE article_id=${article.id} AND published_at IS NOT NULL
+				ORDER BY revision_number DESC LIMIT 1`,
+		);
+		if (!published) continue;
+		const added = await rows(
+			admin,
+			sql`INSERT INTO reading(account_id,article_id,last_revision_id,observed_fraction,completed_at,completed_revision_id,
+				completed_fraction,policy_version,last_read_meaningful_sequence,bookmarked)
+				SELECT ${jo},${article.id},${published.id},1,clock_timestamp(),${published.id},1,'v1',1,false
+				WHERE NOT EXISTS(SELECT FROM reading WHERE account_id=${jo} AND article_id=${article.id})
+				RETURNING 1`,
+		);
+		if (added.length) done.push(`foundation ${article.id} read by ${DISCOVERY_PLANTER.name}`);
+	}
+	for (const [title, text] of DISCOVERY_DOCUMENTS) {
+		if ((await rows(admin, sql`SELECT 1 FROM document WHERE tenant_id=${jo} AND title=${title}`)).length) continue;
+		const actor = await RequestActor.resolve(runtime, (await m.sessionOf(DISCOVERY_PLANTER.login)) as never);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`Discovery document actor: ${JSON.stringify(actor)}`);
+		ok(
+			`Discovery document ${title}`,
+			await documentsWriter.saveNative(runtime, actor, {
+				title,
+				body: nativeFromText(text),
+				expectedRevision: "0",
+			}),
+		);
+		done.push(`Discovery document ${title}`);
+	}
 }
 
 async function bounce(tx: Database, keys: MailKeys, eventKey: string, address: string, daysAgo: number) {

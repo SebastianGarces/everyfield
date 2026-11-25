@@ -33,7 +33,7 @@ const titles = async (who: Actor, own = true) => {
 	return listed.status === "ok" ? listed.value.documents.map((d) => d.title).sort() : listed.error.code;
 };
 
-test("AC:DOC-022 INV-tenancy: a Discovery planter makes a private document from each of the five templates", async () => {
+test("AC:CASE-DOC-022 INV-tenancy: a Discovery planter makes a private document from each of the five templates", async () => {
 	const made = new Map<string, Awaited<ReturnType<typeof make>>>();
 	for (const id of DISCOVERY_TEMPLATE_IDS) made.set(id, await make(planter, id));
 	for (const [id, result] of made) {
@@ -56,7 +56,7 @@ test("AC:DOC-022 INV-tenancy: a Discovery planter makes a private document from 
 	]);
 });
 
-test("AC:DOC-022 a repeated request makes one document, and other templates and accounts are refused", async () => {
+test("AC:CASE-DOC-022 a repeated request makes one document, and other templates and accounts are refused", async () => {
 	const key = randomUUID();
 	const first = ok(await make(planter, "bylaws", key));
 	const again = ok(await make(planter, "bylaws", key));
@@ -75,7 +75,7 @@ test("AC:DOC-022 a repeated request makes one document, and other templates and 
 	refused(await make(director, "bylaws"));
 });
 
-test("INV-tenancy AC:DOC-016: documents written in Discovery stay the planter's own after they start a church", async () => {
+test("INV-tenancy AC:CASE-DOC-016: documents written in Discovery stay the planter's own after they start a church", async () => {
 	const written = ok(
 		await documentsWriter.saveNative(db, await authority(planter), {
 			title: "Call notes",

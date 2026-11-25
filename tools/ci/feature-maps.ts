@@ -65,6 +65,7 @@ type Persona = {
 	context: "plant" | "organization" | "account" | "pending" | "signed-out";
 	role?: "owner" | "admin" | "member";
 	residencyLinked?: boolean;
+	discovery?: boolean;
 	seed?: "qa";
 };
 type LoadedMap = { file: string; map: FeatureMap };
@@ -287,7 +288,7 @@ function withImports(root: string, dir: string): string[] {
 
 type SeedPersona = Omit<Persona, "says" | "seed"> & { name: string };
 const describePersona = (p: Omit<Persona, "says" | "seed">) =>
-	`${p.context}${p.role ? ` ${p.role}` : ""}${p.residencyLinked ? " with a residency link" : ""}`;
+	`${p.context}${p.role ? ` ${p.role}` : ""}${p.residencyLinked ? " with a residency link" : ""}${p.discovery ? " in Discovery" : ""}`;
 
 export function personasFromSeed(source: string): Map<string, SeedPersona> {
 	const names = new Map<string, string>();
@@ -308,6 +309,10 @@ export function personasFromSeed(source: string): Map<string, SeedPersona> {
 	for (const m of source.matchAll(/account\((\w+)\.name,\s*\1\.login,\s*\{\s*kind:\s*"sending_/g)) {
 		const login = new RegExp(`const ${m[1]} = \\{[^}]*login: QA_LOGINS\\.(\\w+)`).exec(source)?.[1];
 		if (login) out.set(login, { name: names.get(login) ?? login, context: "organization" });
+	}
+	for (const m of source.matchAll(/account\((\w+)\.name,\s*\1\.login,\s*\{\s*kind:\s*"discovery"/g)) {
+		const login = new RegExp(`const ${m[1]} = \\{[^}]*login: QA_LOGINS\\.(\\w+)`).exec(source)?.[1];
+		if (login) out.set(login, { name: names.get(login) ?? login, context: "account", ...out.get(login), discovery: true });
 	}
 	for (const m of source.matchAll(/church\([^)]*QA_LOGINS\.(\w+)/g))
 		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "plant", role: "owner" });
@@ -429,7 +434,11 @@ export function viewerOf(persona: Persona): unknown {
 	if (persona.context === "plant") return { context: "plant", role: persona.role };
 	if (persona.context === "organization") return { context: "organization" };
 	if (persona.context === "pending") return { context: "pending" };
-	return { context: "account", residencyLinked: persona.residencyLinked === true };
+	return {
+		context: "account",
+		residencyLinked: persona.residencyLinked === true,
+		discovery: persona.discovery === true,
+	};
 }
 
 export const SPECIAL_VALUE = /^\$(?:login:([A-Za-z0-9]+)|password)$/;
@@ -1088,7 +1097,7 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 	});
 	const personaRows = Object.entries(personas).map(
 		([id, p]) =>
-			`| \`${id}\` | ${p.context}${p.role ? ` ${p.role}` : ""}${p.residencyLinked ? ", residency linked" : ""} | ${p.says} | ${p.seed ? `\`QA_LOGINS.${id}\` and \`QA_PASSWORD\`` : "none"} |`,
+			`| \`${id}\` | ${p.context}${p.role ? ` ${p.role}` : ""}${p.residencyLinked ? ", residency linked" : ""}${p.discovery ? ", in Discovery" : ""} | ${p.says} | ${p.seed ? `\`QA_LOGINS.${id}\` and \`QA_PASSWORD\`` : "none"} |`,
 	);
 	return [
 		"# Feature maps",

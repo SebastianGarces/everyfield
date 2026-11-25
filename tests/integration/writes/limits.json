@@ -1317,6 +1317,9 @@
 	"organizations.associations.revokeInvitation": {
 		"limit": 3
 	},
+	"organizations.discovery.setSharing": {
+		"limit": 5
+	},
 	"organizations.organizations.correctReportingLocation": {
 		"limit": 8,
 		"reason": "The request-key read; the plant locked; one statement that locks the official Region's current reference version and then, when a Region is chosen, the Region item among the official-list candidates (WP-047b); the plant's current geography row locked; then the new geography row, the plant revision, the affiliated organizations' revisions and the superseded digest jobs, one statement each because each table's change is its own invalidation. Its largest first run: 1 read, 3 locked read, 4 write."

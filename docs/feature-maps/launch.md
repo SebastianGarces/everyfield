@@ -33,12 +33,12 @@ Launch Sunday's date and countdown, its readiness, and the outcome form once the
 
 - Routes: `/launch`
 - Endpoints: `/launch/read`
-- Personas: `owner` write, `admin` write, `member` read, `visitor` none
+- Personas: `owner` write, `admin` write, `member` read, `visitor` none, `discovery` read, `resident` read
 - Catalog: LCH-001, LCH-003, LCH-006, LCH-007, LCH-008
 
 Reach:
 
-- Rail "Launch" for `owner`, `admin`, `member`
+- Rail "Launch" for `owner`, `admin`, `member`, `discovery`, `resident`
 - From overview.home as `owner`:
 
 ```bash

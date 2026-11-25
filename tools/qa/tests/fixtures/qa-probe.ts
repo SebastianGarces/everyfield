@@ -11,6 +11,7 @@ import {
 	namesFor,
 	pendingFor,
 	readAnswerableInvitation,
+	readDiscoverySharing,
 	readEnrollment,
 	readHistory,
 	readMyResidency,
@@ -20,6 +21,7 @@ import {
 	type Viewer,
 } from "../../../../packages/domain/src/organizations/index.ts";
 import { peopleReader, readPersonPage } from "../../../../packages/domain/src/people/index.ts";
+import { documentsWriter } from "../../../../packages/domain/src/documents/index.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES, roleUrl } from "../../qa-guard.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
@@ -292,6 +294,33 @@ try {
 			canManage: true,
 			access: liveAccess(nico.authority),
 		} as Viewer),
+	};
+	const jo = await signIn(QA_LOGINS.discovery);
+	const joContext = jo.authority.actor.context;
+	const director = await signIn(QA_LOGINS.sending);
+	const directorViewer = {
+		accountId: director.session.accountId,
+		selected: director.authority.actor.context.owner,
+		access: liveAccess(director.authority),
+	} as Viewer;
+	const joLinks = await readHistory(runtime, director.authority, {
+		organization: director.authority.actor.context.owner,
+	});
+	out.discovery = {
+		signedIn: jo.signedIn,
+		context: { kind: joContext.kind, owner: joContext.owner.kind },
+		documents: value((await documentsWriter.listMine(runtime, jo.authority, {})) as Read, (v) =>
+			(v as { documents: { title: string }[] }).documents.map((d) => d.title).sort(),
+		),
+		sharing: Object.values(await readDiscoverySharing(runtime, jo.authority)).map((r) => r.shareFoundations),
+		seenByDirector:
+			joLinks.status === "available"
+				? ((await namesFor(runtime, directorViewer, [jo.session.accountId]))[jo.session.accountId] ?? null)
+				: null,
+		connected:
+			joLinks.status === "available"
+				? joLinks.activeRelationships.filter((r) => r.pair.kind === "discovery").length
+				: 0,
 	};
 	const expiredLink = {
 		invitationId: process.env.QA_EXPIRED_INVITATION,

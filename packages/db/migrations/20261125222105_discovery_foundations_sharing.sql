@@ -1,0 +1,2 @@
+ALTER TABLE "affiliation" ADD COLUMN "share_foundations" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "affiliation" ADD CONSTRAINT "affiliation_ck_3" CHECK (((account_id IS NOT NULL) OR (NOT share_foundations)));

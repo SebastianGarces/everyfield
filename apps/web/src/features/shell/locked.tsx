@@ -8,13 +8,13 @@ import { getViewer } from "../../server/request-context.ts";
 
 type Locked = { children: ReactNode };
 
-async function discoveryLock(page: string, what: string, children: ReactNode) {
+async function discoveryLock(page: string, title: string, what: string, children: ReactNode) {
 	if (!(await getViewer()).discovery) return children;
 	return (
 		<PageState
 			page={page}
 			icon={ChurchIcon}
-			title={`${page} opens when you start your church`}
+			title={title}
 			actions={
 				<Button asChild variant="primary">
 					<Link href={START_CHURCH}>Start a church</Link>
@@ -27,19 +27,54 @@ async function discoveryLock(page: string, what: string, children: ReactNode) {
 }
 
 export const PeopleLock = ({ children }: Locked) =>
-	discoveryLock("People", "This is where your church keeps track of the people it reaches.", children);
+	discoveryLock(
+		"People",
+		"People opens when you start your church",
+		"This is where your church keeps track of the people it reaches.",
+		children,
+	);
 export const MeetingsLock = ({ children }: Locked) =>
-	discoveryLock("Meetings", "This is where your church plans its gatherings and records who came.", children);
+	discoveryLock(
+		"Meetings",
+		"Meetings opens when you start your church",
+		"This is where your church plans its gatherings and records who came.",
+		children,
+	);
 export const TasksLock = ({ children }: Locked) =>
-	discoveryLock("Tasks", "This is where your church team shares its work and follow-ups.", children);
+	discoveryLock(
+		"Tasks",
+		"Tasks opens when you start your church",
+		"This is where your church team shares its work and follow-ups.",
+		children,
+	);
 export const LaunchLock = ({ children }: Locked) =>
-	discoveryLock("Launch", "This is where your church plans its launch.", children);
+	discoveryLock(
+		"Launch",
+		"Launch opens when you start your church",
+		"This is where your church plans its launch.",
+		children,
+	);
 export const MinistriesLock = ({ children }: Locked) =>
-	discoveryLock("Ministries", "This is where your church organizes its teams and the people who serve.", children);
+	discoveryLock(
+		"Ministries",
+		"Ministries opens when you start your church",
+		"This is where your church organizes its teams and the people who serve.",
+		children,
+	);
 export const MessagesLock = ({ children }: Locked) =>
-	discoveryLock("Messages", "This is where your church sends email to the people it reaches.", children);
+	discoveryLock(
+		"Messages",
+		"Messages opens when you start your church",
+		"This is where your church sends email to the people it reaches.",
+		children,
+	);
 export const IntelligenceLock = ({ children }: Locked) =>
-	discoveryLock("Plant Intelligence", "This is where your church sees how it is growing, phase by phase.", children);
+	discoveryLock(
+		"Plant Intelligence",
+		"Plant Intelligence opens when you start your church",
+		"This is where your church sees how it is growing, phase by phase.",
+		children,
+	);
 
 async function redirectDiscovery(to: string, children: ReactNode) {
 	if ((await getViewer()).discovery) redirect(to);

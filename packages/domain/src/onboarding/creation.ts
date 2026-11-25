@@ -398,6 +398,7 @@ export function creation(effects: OnboardingEffects) {
 							.update(t.affiliation)
 							.set({
 								ended_at: now,
+								share_foundations: false,
 								revision: sql`${t.affiliation.revision}+1`,
 								consent_revision: sql`${t.affiliation.consent_revision}+1`,
 							})
