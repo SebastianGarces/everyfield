@@ -443,8 +443,18 @@ test("AC:CASE-OPS-003 a telemetry sink that never answers leaves the saved docum
 	const invalid = given(c, "execution").invalid_control;
 
 	const { value, lines } = await capturedErrors(async () => {
-		for (const broken of ["not a url", "ftp://sink.example.test", ""])
-			assert.equal(registerTracing({ ...keys, LANGFUSE_BASE_URL: broken }), false);
+		for (const broken of [
+			undefined,
+			"",
+			"not a url",
+			"ftp://sink.example.test",
+			"http://sink.example.test",
+			"https://user@sink.example.test",
+			"https://user:secret@sink.example.test",
+			"https://sink.example.test/?token=secret",
+			"https://sink.example.test/#secret",
+		])
+			assert.equal(registerTracing({ ...keys, LANGFUSE_BASE_URL: broken }), false, broken);
 		assert.equal(registerTracing({ LANGFUSE_BASE_URL: base, LANGFUSE_PUBLIC_KEY: "pk-lf-case" }), false);
 		assert.equal(registerTracing({ ...keys, LANGFUSE_BASE_URL: base }), true);
 		const saved = await traceTurn(

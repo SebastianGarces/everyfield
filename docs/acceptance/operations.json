@@ -4538,7 +4538,7 @@
         "state": {},
         "result": {
           "private_original_retained": true,
-          "public_body": "Save failed",
+          "public_body": "A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: <opaque reference>.",
           "publication_status": "unknown",
           "duplicate_issues": 0
         },
@@ -5971,7 +5971,7 @@
       "expected": {
         "state": {},
         "result": {
-          "public_body": "Save failed",
+          "public_body": "A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: <opaque reference>.",
           "private_names_in_public": false,
           "token_in_public": null
         },

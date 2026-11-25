@@ -237,3 +237,7 @@ Asked on 2026-11-25 (evf D-2693) "CASE-DOC-022 refuses a Church Document from th
 ## D106, 2026-11-25: there is no plant-owned Wiki; a church's entitled Wiki reading is a linked source's published text (D-2694, T-639)
 
 Asked on 2026-11-25 (evf D-2694) "WIKI52-003 says a church still reads its own plant Wiki text. The product has none. What should it prove?", Jonah, as Sebastian's delegate, chose "linked": "Accept a linked church's published text as P1. v3 has no plant Wiki and nothing writes one; keep the edit-refused and own-document asserts. No new plant Wiki read." REQ-KNOW-077 and REQ-KNOW-137 keep their words.
+
+## D107, 2026-11-25: Evry tracing needs an explicit HTTPS base URL and keeps the text the model saw (D-2738, T-640)
+
+Asked on 2026-11-25 (evf D-2738) "CASE-OPS-003: Evry tracing differs from REQ-OPS-003. Which rule holds?", the owner chose "url": "Require an explicit HTTPS LANGFUSE_BASE_URL (loopback excepted), no embedded credentials/query/hash, no implicit cloud fallback; keep prompt text in Evry traces per the earlier C64 ruling." REQ-OPS-003 and REQ-EVR-019 keep their words; their exclusion of model prompts does not cover the text of an Evry turn in a trace.

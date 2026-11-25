@@ -143,6 +143,8 @@ const safeIssue = (reference: unknown) => ({
 	title: "Bug report — Documents",
 	body: `${SENTENCE} Reference: ${text(reference)}.`,
 });
+const publicBody = (issue: { body: string }, reference: unknown) =>
+	issue.body.replace(text(reference), "<opaque reference>");
 
 test("AC:CASE-ADM-001 the dialog keeps the private original once with its trusted details, and the public issue holds none of them", async () => {
 	const c = caseOf("CASE-ADM-001");
@@ -418,12 +420,9 @@ test("AC:FDB56-001 a triager's status change keeps the original and the unknown 
 			private_original_retained: linked.description === input.private_original,
 			publication_status: published,
 			duplicate_issues: seen.issues.length - 1,
+			public_body: publicBody(seen.issues[0]!, linked.reference),
 		},
-		{
-			private_original_retained: result.private_original_retained,
-			publication_status: result.publication_status,
-			duplicate_issues: result.duplicate_issues,
-		},
+		result,
 	);
 	assert.deepEqual(
 		{ title: seen.issues[0]!.title, body: seen.issues[0]!.body },
@@ -587,11 +586,9 @@ test("AC:PUB57-003 neither the automatic issue nor an attempted richer text carr
 		{
 			private_names_in_public: ["Alex", "alex@example.test", "Harvest Point"].some(seen.shows),
 			token_in_public: ["SECRET", "token="].find(seen.shows) ?? null,
+			public_body: publicBody(seen.issues[0]!, saved.reference),
 		},
-		{
-			private_names_in_public: result.private_names_in_public,
-			token_in_public: result.token_in_public,
-		},
+		result,
 	);
 	for (const value of [
 		"Owner",
