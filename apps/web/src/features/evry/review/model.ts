@@ -865,6 +865,7 @@ export function savedText(review: Review): string {
 	if (delayed !== null) return delayed;
 	const who = review.review.target?.label;
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
+	if (review.operation === "documents.generate") return `Saved. The ${who ?? "template"} file is made.`;
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
 	const name = subjectName(review);
 	const status = review.review.changes.find((c) => c.field === "status")?.after;

@@ -231,6 +231,47 @@ test("INV-evry-documents: words that hold a filled-in detail are refused, so a m
 	assert.deepEqual(list.passages, [{ before: "Bring a chair", after: "Bring a chair\nBring a Bible" }]);
 });
 
+test("INV-evry-documents: several edits read the saved text only, and the card shows one passage for each changed paragraph, as it is saved and as it will be", () => {
+	const paragraph = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
+	const bullets = (...texts: string[]) => ({
+		type: "bulletList",
+		content: texts.map((text) => ({ type: "listItem", content: [paragraph(text)] })),
+	});
+	const night = "Team night is every other Thursday at 6 pm.";
+	const doc = { type: "doc", content: [paragraph(night), bullets("Bring a chair", "Bring a friend")] } as never;
+	const apply = (...edits: [string, string][]) =>
+		applyEdits(
+			doc,
+			edits.map(([find, replace]) => ({ find, replace })),
+			plainField,
+		);
+
+	const two = apply(["6 pm", "7 pm"], ["a friend", "a Bible"], ["Thursday", "Tuesday"]);
+	assert.deepEqual(two.passages, [
+		{ before: night, after: "Team night is every other Tuesday at 7 pm." },
+		{ before: "Bring a friend", after: "Bring a Bible" },
+	]);
+	assert.deepEqual(two.body, {
+		type: "doc",
+		content: [paragraph("Team night is every other Tuesday at 7 pm."), bullets("Bring a chair", "Bring a Bible")],
+	});
+
+	const split = apply([" at 6 pm.", ".\nDinner is at 6."], ["Team night", "Prayer"], ["Bring a chair", ""]);
+	assert.deepEqual(split.passages, [
+		{ before: night, after: "Prayer is every other Thursday.\nDinner is at 6." },
+		{ before: "Bring a chair", after: null },
+	]);
+	assert.deepEqual(split.body, {
+		type: "doc",
+		content: [paragraph("Prayer is every other Thursday."), paragraph("Dinner is at 6."), bullets("Bring a friend")],
+	});
+
+	const problem = (text: RegExp) => (error: { problem?: string }) => text.test(error.problem ?? "");
+	assert.throws(() => apply(["chair", "table"], ["table", "desk"]), problem(/"table" is not in one paragraph/));
+	assert.throws(() => apply(["Thursday at", "Friday at"], ["other Thursday", "Monday"]), problem(/same words/));
+	assert.throws(() => apply(["Thursday", "Thursday night"], ["Thursday", "Thursday night"]), problem(/same words/));
+});
+
 test("INV-evry-documents: a document that changed after the card was prepared is refused as a conflict and keeps the newer text, for both kinds", async () => {
 	const owner = church.actors.owner;
 	const policy = docDocument.parse(JSON.parse((await stored(DOCS.policy.id)).body));

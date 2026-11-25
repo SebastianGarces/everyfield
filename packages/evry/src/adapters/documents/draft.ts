@@ -3,7 +3,7 @@ import { EvryRefusal } from "../../context/errors.ts";
 
 type Node = { type: string; text?: string; attrs?: Record<string, unknown>; marks?: unknown[]; content?: Node[] };
 type Unit = { text: string; node: Node };
-type Block = { node: Node; parents: { node: Node; index: number }[]; cell: boolean };
+type Block = { node: Node; parents: Node[]; cell: boolean };
 export type Edit = { find: string; replace: string };
 export type Passage = { before: string | null; after: string | null };
 
@@ -77,7 +77,7 @@ function blocksIn(root: Node): Block[] {
 		else if (node.type === "cell") return;
 		else
 			(node.content ?? []).forEach((child, index) => {
-				const next = [...parents, { node, index }];
+				const next = [...parents, node];
 				if (node.type === "row" && child.type === "cell" && columns?.[index]?.type === "text")
 					found.push({ node: child, parents: next, cell: true });
 				else
@@ -149,13 +149,15 @@ const fill = (node: Node, content: Node[]) => {
 	else delete node.content;
 };
 
-function applyOne(root: Node, edit: Edit, field: (key: string) => string): Passage {
-	const hits = blocksIn(root).flatMap((block) => {
-		const units = unitsOf(block.node, field);
-		const text = textOf(units);
-		const at: number[] = [];
-		for (let i = text.indexOf(edit.find); i >= 0; i = text.indexOf(edit.find, i + 1)) at.push(i);
-		return at.map((from) => ({ block, units, text, from }));
+type Change = { from: number; to: number; added: string };
+type Found = { block: Block; units: Unit[]; text: string; changes: Change[] };
+
+function locate(found: readonly Found[], edit: Edit) {
+	const hits = found.flatMap((into) => {
+		const at: { into: Found; from: number }[] = [];
+		for (let i = into.text.indexOf(edit.find); i >= 0; i = into.text.indexOf(edit.find, i + 1))
+			at.push({ into, from: i });
+		return at;
 	});
 	const [hit] = hits;
 	if (!hit)
@@ -178,26 +180,39 @@ function applyOne(root: Node, edit: Edit, field: (key: string) => string): Passa
 	const to = hit.from + edit.find.length - tail;
 	const added = replace.slice(head, replace.length - tail);
 	if (from === to && !added) return refuse("This edit changes nothing.");
+	if (hit.into.block.cell && added.includes("\n")) return refuse("A table cell holds one line of text.");
+	if (hit.into.changes.some((c) => c.from === from || (c.from < to && from < c.to)))
+		return refuse(`Two edits change the same words near ${quoted(edit.find)}. Put them in one edit.`);
+	hit.into.changes.push({ from, to, added });
+}
 
-	const { before, after, marks } = split(hit.units, from, to);
-	const words = (text: string): Node[] => (text ? [{ type: "text", text, ...(marks?.length && { marks }) }] : []);
-	const parts = added.split(/\n+/);
-	if (parts.length > 1 && hit.block.cell) return refuse("A table cell holds one line of text.");
+function linesWith({ units, changes }: Found, field: (key: string) => string): Node[][] {
+	let lines: Node[][] = [[]];
+	let rest = units;
+	for (const { from, to, added } of changes.toSorted((a, b) => b.from - a.from)) {
+		const { before, after, marks } = split(rest, from, to);
+		const [end = [], ...later] = lines;
+		const parts = added
+			.split(/\n+/)
+			.map((text): Node[] => (text ? [{ type: "text", text, ...(marks?.length && { marks }) }] : []));
+		lines = [...parts.slice(0, -1), [...(parts.at(-1) ?? []), ...after, ...end], ...later];
+		rest = unitsOf({ type: "paragraph", content: before }, field);
+	}
+	const [first = [], ...more] = lines;
+	return [joined([...rest.map((u) => u.node), ...first]), ...more.map(joined).filter((line) => line.length)];
+}
 
-	const { node, parents } = hit.block;
-	const [first = "", ...more] = parts;
-	const last = more.pop();
-	fill(node, joined([...before, ...words(first), ...(last === undefined ? after : [])]));
-	const lines =
-		last === undefined ? [] : [...more.map(words), [...words(last), ...after]].map(joined).filter((l) => l.length);
-	const result = [
-		textOf(unitsOf(node, field)),
-		...lines.map((line) => textOf(unitsOf({ type: "paragraph", content: line }, field))),
-	].filter((line) => line.trim());
-	if (!hit.block.cell) {
+function rewrite(found: Found, field: (key: string) => string): Passage {
+	const { node, parents, cell } = found.block;
+	const [first = [], ...more] = linesWith(found, field);
+	fill(node, first);
+	const result = [first, ...more]
+		.map((line) => textOf(unitsOf({ type: "paragraph", content: line }, field)))
+		.filter((line) => line.trim());
+	if (!cell) {
 		const parent = parents.at(-1);
-		const inItem = parent?.node.type === "listItem" ? parents.at(-2) : undefined;
-		const made = lines.map((line): Node => {
+		const inItem = parent?.type === "listItem" ? parents.at(-2) : undefined;
+		const made = more.map((line): Node => {
 			const paragraph: Node = {
 				type: "paragraph",
 				...(node.type === "paragraph" && node.attrs && { attrs: node.attrs }),
@@ -205,19 +220,25 @@ function applyOne(root: Node, edit: Edit, field: (key: string) => string): Passa
 			};
 			return inItem ? { type: "listItem", content: [paragraph] } : paragraph;
 		});
-		const spot = inItem ?? parent;
-		const list = spot?.node.content;
-		if (spot && list) {
-			const gone = !node.content && (!inItem || parent?.node.content?.length === 1) && list.length + made.length > 1;
-			list.splice(gone ? spot.index : spot.index + 1, gone ? 1 : 0, ...made);
+		const list = (inItem ?? parent)?.content;
+		const at = list && (inItem ? parent : node);
+		if (list && at) {
+			const gone = !node.content && (!inItem || parent?.content?.length === 1) && list.length + made.length > 1;
+			const index = list.indexOf(at);
+			list.splice(gone ? index : index + 1, gone ? 1 : 0, ...made);
 		}
 	}
-	return { before: hit.text, after: result.join("\n") || null };
+	return { before: found.text, after: result.join("\n") || null };
 }
 
 export function applyEdits(body: DocNode, edits: readonly Edit[], field: (key: string) => string) {
 	const next = structuredClone(body) as Node;
-	const passages = edits.map((edit) => applyOne(next, edit, field));
+	const found = blocksIn(next).map((block): Found => {
+		const units = unitsOf(block.node, field);
+		return { block, units, text: textOf(units), changes: [] };
+	});
+	for (const edit of edits) locate(found, edit);
+	const passages = found.filter((f) => f.changes.length).map((f) => rewrite(f, field));
 	const changed: unknown = next;
 	return { body: changed, passages };
 }

@@ -272,9 +272,8 @@ export const templatesContextual: ReadAdapter<z.infer<typeof contextualInput>> =
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		actor.authority.observe(tx);
 		const found = await (await library())["templates.contextual"](tx, actor.authority, input);
-		return reply("documents.templates.contextual", {
-			rows: found.status === "ok" ? found.value.templates.map((t) => templateRow(t)) : [],
-		});
+		if (found.status !== "ok") throw fillRefusal(found.error);
+		return reply("documents.templates.contextual", { rows: found.value.templates.map((t) => templateRow(t)) });
 	},
 };
 
