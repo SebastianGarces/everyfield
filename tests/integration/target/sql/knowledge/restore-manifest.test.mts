@@ -323,8 +323,11 @@ before(async () => {
 	await enqueue(db, "control", "onboarding/" + randomUUID());
 	scheduledF = await schedule("scheduled-f");
 	await schedule("scheduled-control");
+	await grantAccess();
+	await admin.execute(sql`UPDATE auth_session SET expires_at='2027-01-01T00:00:00Z'`);
 	const image = await snapshot(admin, live, { createdAt: IMAGE_AT });
 
+	await withdrawAccess();
 	await admin.execute(sql`UPDATE mail SET state='unknown' WHERE id=${mailE}::uuid`);
 	await admin.execute(sql`UPDATE mail SET state='cancelled', scheduled_at=NULL WHERE id=${scheduledF}::uuid`);
 	const pair = { kind: "plant", subject: g, organization: o };
@@ -422,6 +425,84 @@ after(async () => {
 	await database.close();
 });
 
+type Resident = { actor: Actor; link: string };
+let withdrawn: { seat: Actor; demoted: Actor; left: Resident; grant: string; totals: string };
+let retained: { seat: Actor; resident: Resident };
+async function resident(): Promise<Resident> {
+	const actor = await seed.actor(g, "member");
+	const [person, invitation, id] = [randomUUID(), randomUUID(), randomUUID()];
+	const [joined] = await rows<{ id: string }>(sql`INSERT INTO affiliation(account_id,organization_id,accepted_at,
+		share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${actor.id}::uuid,${o.id}::uuid,clock_timestamp(),false,false,false,false,false,false,false) RETURNING id`);
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,linked_account_id,
+		created_at,revision) VALUES(${person}::uuid,${o.id}::uuid,${o.id}::uuid,'Resident','other','live',${actor.id}::uuid,
+		clock_timestamp(),1)`);
+	await admin.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,
+		accepted_account_id,resident_person_id) VALUES(${invitation}::uuid,${o.id}::uuid,'residency_link',${actor.email},
+		${randomUUID()},'accepted',clock_timestamp(),${actor.id}::uuid,${person}::uuid)`);
+	await admin.execute(sql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,
+		accepted_at,consent_revision,revision,share_foundations,share_milestones) VALUES(${id}::uuid,${o.id}::uuid,
+		${person}::uuid,${actor.id}::uuid,${joined!.id}::uuid,${invitation}::uuid,clock_timestamp(),1,1,true,true)`);
+	return { actor, link: id };
+}
+async function grantAccess() {
+	const operatorSeat = await seed.actor(g, "member");
+	const [grant] = await rows<{ id: string }>(sql`INSERT INTO platform_grant(account_id,capability)
+		VALUES(${operatorSeat.id}::uuid,'feedback_triage') RETURNING id`);
+	const [joined] = await rows<{ id: string }>(sql`INSERT INTO affiliation(sending_church_id,organization_id,accepted_at,
+		share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${o.id}::uuid,${n.id}::uuid,clock_timestamp(),false,false,false,false,false,false,false) RETURNING id`);
+	const [totals] = await rows<{
+		id: string;
+	}>(sql`INSERT INTO pipeline_sharing(id,organization_id,relationship_id,network_id,
+		share_pipeline_totals,revision) VALUES(gen_random_uuid(),${o.id}::uuid,${joined!.id}::uuid,${n.id}::uuid,true,1)
+		RETURNING id`);
+	withdrawn = {
+		seat: await seed.actor(g, "admin"),
+		demoted: await seed.actor(g, "admin"),
+		left: await resident(),
+		grant: grant!.id,
+		totals: totals!.id,
+	};
+	retained = { seat: await seed.actor(g, "admin"), resident: await resident() };
+}
+const seatId = async (who: Actor) =>
+	(await rows<{ id: string }>(sql`SELECT id FROM seat WHERE account_id=${who.id}::uuid`))[0]?.id;
+const accessIn = async (target: string) =>
+	(
+		await rows(sql`SELECT
+	(SELECT ended_at IS NULL FROM ${within(target, "seat")} WHERE account_id=${withdrawn.seat.id}::uuid) AS seat,
+	(SELECT role FROM ${within(target, "seat")} WHERE account_id=${withdrawn.demoted.id}::uuid) AS demoted,
+	(SELECT role FROM ${within(target, "seat")} WHERE account_id=${retained.seat.id}::uuid AND ended_at IS NULL) AS kept,
+	(SELECT revoked_at IS NULL FROM ${within(target, "platform_grant")} WHERE id=${withdrawn.grant}::uuid) AS granted,
+	(SELECT share_pipeline_totals FROM ${within(target, "pipeline_sharing")} WHERE id=${withdrawn.totals}::uuid) AS totals,
+	(SELECT json_build_array(ended_at IS NULL,share_foundations,share_milestones) FROM ${within(target, "residency_link")}
+		WHERE id=${withdrawn.left.link}::uuid) AS "left",
+	(SELECT json_build_array(ended_at IS NULL,share_foundations,share_milestones) FROM ${within(target, "residency_link")}
+		WHERE id=${retained.resident.link}::uuid) AS resident,
+	(SELECT json_build_array(share_people,share_activity) FROM ${within(target, "affiliation")}
+		WHERE plant_id=${g.id}::uuid AND organization_id=${n.id}::uuid) AS sharing`)
+	)[0];
+async function withdrawAccess() {
+	assert.deepEqual(
+		await gatedTransaction(db, (tx) =>
+			organizations["residency.leave"](
+				tx,
+				withdrawn.left.actor.session,
+				{ kind: "account", id: withdrawn.left.actor.id } as never,
+				command({ linkId: withdrawn.left.link, expectedConsentRevision: "1" }),
+			),
+		),
+		{ status: "committed" },
+	);
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${withdrawn.seat.id}::uuid`);
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${withdrawn.demoted.id}::uuid`);
+	await admin.execute(sql`UPDATE platform_grant SET revoked_at=clock_timestamp() WHERE id=${withdrawn.grant}::uuid`);
+	await admin.execute(sql`UPDATE pipeline_sharing SET share_pipeline_totals=false WHERE id=${withdrawn.totals}::uuid`);
+	await admin.execute(sql`UPDATE affiliation SET share_people=false
+		WHERE plant_id=${g.id}::uuid AND organization_id=${n.id}::uuid`);
+}
+
 async function liveState() {
 	return { image: (await snapshot(admin, live, { createdAt: NOW })).image.toString(), files: [...live.keys()] };
 }
@@ -500,6 +581,15 @@ test("AC:EVRY-INTERNAL-RESTOREWITHCURRENTMANIFEST a stored copy restores only wi
 			[1, [null]],
 		);
 		assert.ok(image.auth_session!.some((s) => s.id === a.session));
+		assert.ok(
+			image.auth_session!.every((s) => new Date(s.expires_at as string) > NOW),
+			"only the restore can end these sessions",
+		);
+		assert.deepEqual(
+			[row("seat", (await seatId(withdrawn.seat))!).ended_at, row("platform_grant", withdrawn.grant).revoked_at],
+			[null, null],
+		);
+		assert.equal(row("residency_link", withdrawn.left.link).share_milestones, true);
 		assert.equal((await witnessOf(schema, a.id))!.state, "purged");
 		assert.equal((await witnessOf(schema, p.id))!.state, "pending_deletion");
 		assert.equal(await xActive(db, oOwner.session, o), false);
@@ -666,6 +756,35 @@ test("AC:EVRY-INTERNAL-RESTOREWITHCURRENTMANIFEST a stored copy restores only wi
 				(await rows<{ state: string }>(sql`SELECT state FROM mail WHERE id=${mailE}::uuid`))[0]!.state,
 				"unknown",
 			);
+		},
+	);
+
+	await step.test(
+		"access, sharing and grants withdrawn since the copy stay withdrawn, and the rest is kept",
+		async () => {
+			assert.deepEqual(await accessIn(complete.target), {
+				seat: false,
+				demoted: "member",
+				kept: "admin",
+				granted: false,
+				totals: false,
+				left: [false, false, false],
+				resident: [true, true, true],
+				sharing: [false, true],
+			});
+			const runtime = database.connect("runtime", { schema: complete.target, max: 1 });
+			for (const [who, works] of [
+				[withdrawn.seat, false],
+				[retained.seat, true],
+			] as const) {
+				const session = await signIn(complete.target, who);
+				assert.equal(
+					await gatedTransaction(runtime, async (tx) =>
+						RequestActor.claimWrite(tx, session, g as never).then((write) => write !== null),
+					),
+					works,
+				);
+			}
 		},
 	);
 

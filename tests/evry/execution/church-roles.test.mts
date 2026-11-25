@@ -91,12 +91,14 @@ type Action = {
 	again: object;
 	native: (tx: never, context: never, request: never) => Promise<unknown>;
 	saved: () => Promise<unknown>;
+	audit: string;
 	expected: unknown;
 };
 const one = async (q: ReturnType<typeof sql>) => Object.values((await rows(q))[0]!)[0];
 const ACTIONS: Action[] = [
 	{
 		name: "plant.updateProfile",
+		audit: "plant.profile_changed",
 		write: CHURCH_COMMANDS["plant.updateProfile"] as never,
 		input: { patch: { name: "Harvest Point" } },
 		again: { patch: { name: "Harvest Hill" } },
@@ -106,6 +108,7 @@ const ACTIONS: Action[] = [
 	},
 	{
 		name: "church.digestSchedule.set",
+		audit: "plant.profile_changed",
 		write: CHURCH_COMMANDS["church.digestSchedule.set"] as never,
 		input: { schedule: { cadence: "daily", hour: 6 } },
 		again: { schedule: { cadence: "daily", hour: 5 } },
@@ -115,6 +118,7 @@ const ACTIONS: Action[] = [
 	},
 	{
 		name: "privacy.setSharing",
+		audit: "sharing.changed",
 		write: SHARING_COMMANDS["privacy.setSharing"] as never,
 		input: { organizationId: NETWORK, category: "wiki", enabled: true },
 		again: { organizationId: NETWORK, category: "wiki", enabled: false },
@@ -125,6 +129,7 @@ const ACTIONS: Action[] = [
 	},
 	{
 		name: "associations.end",
+		audit: "affiliation.ended",
 		write: RELATIONSHIP_COMMANDS["associations.end"] as never,
 		input: { organizationId: NETWORK },
 		again: { organizationId: NETWORK },
@@ -149,16 +154,21 @@ async function reviewed(a: Action, input: object) {
 async function nativeWrite(a: Pick<Action, "native">, who: EvryActor, args: object, selected: object = plant) {
 	try {
 		const reply = (await gatedTransaction(church.db, async (tx) => {
-			const context = { session: who.session, selected };
-			if (!(await RequestActor.claimWrite(tx, who.session, selected as never))) return { status: "refused" };
-			return a.native(tx as never, context as never, { ...args, requestKey: randomUUID() } as never);
-		})) as { status: string };
-		return reply.status === "refused" ? "refused" : "allowed";
+			await RequestActor.claimWrite(tx, who.session, selected as never);
+			return a.native(
+				tx as never,
+				{ session: who.session, selected } as never,
+				{ ...args, requestKey: randomUUID() } as never,
+			);
+		})) as { status: string; error?: { code: string } };
+		return reply.status === "refused" ? reply.error!.code : reply.status;
 	} catch (error) {
-		assert.match(String(error), /unavailable|stale_revision|conflict/);
-		return "refused";
+		return (error as Error).message;
 	}
 }
+const ALLOWED = ["ok", "committed"];
+const allowed = async (...call: Parameters<typeof nativeWrite>) =>
+	assert.ok(ALLOWED.includes(await nativeWrite(...call)), call[1].accountId);
 async function turn(who: EvryActor) {
 	const c = await createConversation(church.db, who, { requestKey: randomUUID() });
 	await submitTurn(church.db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -211,8 +221,12 @@ test("AC:TARGET-IDN-029 a Member, another church's Owner, a network Member, a se
 		const args = await reviewed(a, a.input);
 		await nothing(async () => {
 			for (const role of ["member", "foreign", "networkMember", "seatless", "revoked"] as const) {
-				assert.equal(await nativeWrite(a, roles[role], args), "refused", `${a.name} ${role}`);
-				assert.equal(await nativeWrite(a, roles[role], args, roles[role].owner), "refused", `${a.name} ${role} own`);
+				assert.equal(await nativeWrite(a, roles[role], args), "unavailable", `${a.name} ${role}`);
+				assert.equal(
+					await nativeWrite(a, roles[role], args, roles[role].owner),
+					"unavailable",
+					`${a.name} ${role} own`,
+				);
 			}
 			for (const role of ["member", "networkMember", "seatless"] as const) {
 				assert.equal(
@@ -253,7 +267,7 @@ test("AC:TARGET-IDN-029 an Admin revoked between the preview and the approval, o
 				await assert.rejects(approve(roles.admin, early), (e) => e instanceof EvryRefusal, a.name);
 				assert.notEqual(await execute(), "completed", a.name);
 				assert.equal(await execute(), null, a.name);
-				assert.equal(await nativeWrite(a, roles.admin, args), "refused", a.name);
+				assert.equal(await nativeWrite(a, roles.admin, args), "unavailable", a.name);
 			} finally {
 				await seat(roles.admin, false);
 			}
@@ -270,21 +284,23 @@ test("AC:TARGET-IDN-029 an Admin does each routine action as the Owner does, nat
 	for (const a of ACTIONS) {
 		const proposal = await propose(roles.admin, a, a.input);
 		assert.notEqual(await a.saved(), a.expected, `${a.name} waits for approval`);
-		const before = Number((await rows(sql`SELECT count(*)::int n FROM audit_event`))[0]!.n);
+		const before = await state();
+		const seen = new Set(before.audits.map((e) => e.id));
 		await approve(roles.admin, proposal);
 		assert.equal(await execute(), "completed", a.name);
 		assert.equal(await a.saved(), a.expected, a.name);
-		const audits = await rows(
-			sql`SELECT tenant_id,actor_id FROM audit_event WHERE action NOT LIKE 'evry.%' ORDER BY recorded_at DESC LIMIT 1`,
+		const after = await state();
+		assert.deepEqual(
+			after.audits.filter((e) => !seen.has(e.id)).map((e) => [e.action, e.tenant_id, e.actor_id]),
+			[[a.audit, PLANT, roles.admin.accountId]],
 		);
-		assert.ok(Number((await rows(sql`SELECT count(*)::int n FROM audit_event`))[0]!.n) > before);
-		assert.deepEqual(audits, [{ tenant_id: PLANT, actor_id: roles.admin.accountId }]);
+		assert.deepEqual([after.notices, after.mail], [before.notices, before.mail], `${a.name} sends nothing itself`);
 		if (a.name === "associations.end") continue;
 		for (const who of [church.actors.owner, roles.admin]) {
 			for (const input of [a.again, a.input]) {
 				const args = await reviewed(a, input);
-				assert.equal(await nativeWrite(a, who, args), "allowed", a.name);
-				assert.equal(await nativeWrite(a, who, args), "refused", `${a.name} on a changed review`);
+				await allowed(a, who, args);
+				assert.match(await nativeWrite(a, who, args), /^(conflict|stale_revision)$/, `${a.name} on a changed review`);
 			}
 			assert.equal(await a.saved(), a.expected, a.name);
 		}
@@ -293,10 +309,7 @@ test("AC:TARGET-IDN-029 an Admin does each routine action as the Owner does, nat
 	const [{ id, revision }] = (await rows(link)) as [{ id: string; revision: string }];
 	await church.admin.execute(sql`UPDATE affiliation SET ended_at=NULL WHERE id=${id}`);
 	const end = ACTIONS.at(-1)!;
-	assert.equal(
-		await nativeWrite(end, roles.admin, { ...(await reviewed(end, end.input)), expectedRevision: revision }),
-		"allowed",
-	);
+	await allowed(end, roles.admin, { ...(await reviewed(end, end.input)), expectedRevision: revision });
 	assert.equal(await end.saved(), true);
 });
 
@@ -322,7 +335,7 @@ test("AC:TARGET-IDN-029 only the Owner asks to delete the church, natively; Evry
 	const args = { expectedRevision: revision, input: { plant, confirmed: true } };
 	await nothing(async () => {
 		for (const role of ["admin", "member", "foreign", "networkMember", "seatless", "revoked"] as const)
-			assert.equal(await nativeWrite(action, roles[role], args), "refused", role);
+			assert.equal(await nativeWrite(action, roles[role], args), "unavailable", role);
 		for (const who of [church.actors.owner, roles.admin, roles.member, roles.networkMember]) {
 			assert.deepEqual(
 				readCatalog(who)
@@ -337,7 +350,7 @@ test("AC:TARGET-IDN-029 only the Owner asks to delete the church, natively; Evry
 				);
 		}
 	});
-	assert.equal(await nativeWrite(action, church.actors.owner, args), "allowed");
+	await allowed(action, church.actors.owner, args);
 	assert.deepEqual(
 		await rows(sql`SELECT kind,plant_id,state FROM lifecycle_witness WHERE opaque_subject_id=${PLANT}`),
 		[{ kind: "plant", plant_id: PLANT, state: "pending_deletion" }],

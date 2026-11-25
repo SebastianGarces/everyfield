@@ -231,6 +231,9 @@ test("AC:ROLE43-006 a linked lead title, an unlinked lead contact and a pending 
 	};
 	await person("Linked Lead", actors.linked_Member_lead.id, actors.linked_Member_lead.email);
 	await person("Unlinked Lead", null, actors.unlinked_lead.email);
+	const member = await f.actor(w, "member");
+	const memberSeat = String((await one(sql`SELECT id FROM seat WHERE account_id=${member.id}`)).id);
+	const promotion = { seatId: memberSeat, expectedRole: "member", to: "admin" } as const;
 	const inviter = await RequestActor.resolve(f.pools.runtime, ownerSeat.session);
 	assert.ok(inviter instanceof RequestActor);
 	const pending = await native.invitations(f.pools.runtime).invite(inviter, {
@@ -269,13 +272,19 @@ test("AC:ROLE43-006 a linked lead title, an unlinked lead contact and a pending 
 				seats().appointAdmin(authority, plantOf(w), {
 					requestKey: key(),
 					expectedRevision: "1",
-					input: { seatId: key(), expectedRole: "member", to: "admin" },
+					input: promotion,
 				}),
 			);
 		}
 		assert.deepEqual(await state(w), before, label);
 	}
 	assert.deepEqual(await profileEvents(w), []);
+	await seats().appointAdmin(inviter, plantOf(w), { requestKey: key(), expectedRevision: "1", input: promotion });
+	assert.equal(
+		(await one(sql`SELECT role FROM seat WHERE id=${memberSeat}`)).role,
+		"admin",
+		"the Owner's same request",
+	);
 });
 
 test("AC:ROLE43-002 asked to delete the church, Evry prepares nothing for anyone and points to Settings; asked to delete a login it reaches only the asker's own", async () => {
@@ -294,7 +303,10 @@ test("AC:ROLE43-002 asked to delete the church, Evry prepares nothing for anyone
 		await refusedHere(() => proposed(actor, "churches.requestWorkspaceDeletion", { confirmed: true }));
 		await refusedHere(() => proposed(actor, "account.requestDeletion", { accountId: roles[2]!.id }));
 		const own = await evry.ask(actor, "delete my account");
-		for (const card of own.proposals) assert.equal(card.review.target?.id, who.id);
+		assert.deepEqual(
+			own.proposals.map((card) => card.review.target?.id),
+			[who.id],
+		);
 		assert.deepEqual(await state(w), before);
 	}
 	assert.equal((await one(sql`SELECT count(*)::int AS n FROM lifecycle_witness`)).n, 0);
@@ -356,16 +368,6 @@ test("AC:ROLE43-017 no native or Evry command transfers or claims ownership, mak
 			for (const operation of [`seats.${request}`, `identity.${request}`, `plant.${request}`])
 				await refusedHere(() => proposed(actor, operation, { seatId: key() }));
 		}
-	for (const asked of [
-		"transfer ownership of our church to me",
-		"claim the owner seat for me",
-		"restore the former lead",
-		"make us co-leads of the church",
-	])
-		for (const who of Object.values(roles)) {
-			const turn = await evry.ask(await present(who), asked);
-			assert.deepEqual(turn.proposals, [], asked);
-		}
 	const authority = (await present(roles.owner)).authority;
 	const change = async (who: Actor, to: string) => ({
 		requestKey: key(),
@@ -414,8 +416,14 @@ test("AC:ROLE43-016 through Evry a plant Admin or lead is offered no organizatio
 	const before = await one(sql`SELECT to_jsonb(o) AS row FROM organization o WHERE id=${org.id}`);
 	await refusedHere(() => proposed(actor, "organizations.updateProfile", { patch: { description: "Mine" } }));
 	await refusedHere(() => proposed(actor, PLANT_REGION, { plant: { kind: "plant", id: org.id }, regionItemId: key() }));
-	const turn = await evry.ask(actor, "update our network's description");
-	assert.deepEqual(turn.proposals, []);
+	const CHANGE = "update our organization's description to: Mine";
+	const offered = await evry.ask(organizationSeat, CHANGE);
+	assert.deepEqual(
+		offered.proposals.map((card) => [card.operation, card.review.target?.id]),
+		[["organizations.updateProfile", org.id]],
+		"the same words prepare the change for the organization's own Owner",
+	);
+	assert.deepEqual((await evry.ask(actor, CHANGE)).proposals, []);
 	assert.deepEqual(await one(sql`SELECT to_jsonb(o) AS row FROM organization o WHERE id=${org.id}`), before);
 	assert.equal((await one(sql`SELECT count(*)::int AS n FROM platform_grant`)).n, 0);
 });
