@@ -100,6 +100,10 @@ function Frame({
 					? `organization:${settings.organization.id}`
 					: "account",
 	});
+	const { open: evryOpen, toggle: toggleEvry } = evry;
+	const openEvry = useCallback(() => {
+		if (!evryOpen) toggleEvry();
+	}, [evryOpen, toggleEvry]);
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);
@@ -202,7 +206,7 @@ function Frame({
 			banner={banner}
 		>
 			<SettingsOpenerContext value={dialog.open}>
-				<EvryOpenerContext value={privatePage ? null : () => (evry.open ? undefined : evry.toggle())}>
+				<EvryOpenerContext value={privatePage ? null : openEvry}>
 					{children}
 				</EvryOpenerContext>
 			</SettingsOpenerContext>

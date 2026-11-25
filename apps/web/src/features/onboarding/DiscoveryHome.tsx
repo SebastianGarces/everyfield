@@ -129,7 +129,7 @@ export function DiscoveryHome({ data }: { data: DiscoveryHomeData }) {
 								</ul>
 							) : (
 								<p className="mt-1 text-sm text-text-2 text-pretty">
-									Not connected yet. A sending church or network can walk with you, and later cover your church's seat.
+									Not connected yet. A sending church or network can walk with you, and later cover your church’s seat.
 								</p>
 							)}
 						</div>
@@ -145,7 +145,7 @@ export function DiscoveryHome({ data }: { data: DiscoveryHomeData }) {
 						<CardIcon icon={ChurchIcon} tone="amber" size={36} />
 						<div className="min-w-0 flex-1">
 							<h2 id="start-heading" className="font-sans text-md font-semibold tracking-normal text-ink">
-								When you're ready
+								When you’re ready
 							</h2>
 							<p className="mt-1 text-sm text-text-2 text-pretty">
 								Start your church when the time is right. Your documents and your connections come with you, and

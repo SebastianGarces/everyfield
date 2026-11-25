@@ -84,7 +84,7 @@ export function MyDocuments() {
 					{SECTION.account}
 				</h2>
 				<p className="mt-1 text-sm text-text-2 text-pretty">
-					{ONLY_YOU} Your team doesn't see them unless you copy one into this church.
+					{ONLY_YOU} Your team doesn’t see them unless you copy one into this church.
 				</p>
 			</div>
 			{result.status === "ok" ? (

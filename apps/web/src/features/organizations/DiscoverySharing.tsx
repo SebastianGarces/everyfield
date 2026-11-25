@@ -104,7 +104,7 @@ export function FoundationsSwitch({
 }
 
 export function FoundationsView({ shared }: { shared: SharedFoundations | undefined }) {
-	if (!shared) return <p className="mt-1 text-sm text-text-3">Their foundations reading isn't shared with you.</p>;
+	if (!shared) return <p className="mt-1 text-sm text-text-3">Their foundations reading isn’t shared with you.</p>;
 	const done = new Set<string>(shared.completed);
 	return (
 		<div className="mt-2">
