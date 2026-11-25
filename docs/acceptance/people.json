@@ -14071,7 +14071,10 @@
         "WP-011",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -14517,7 +14520,10 @@
         "WP-006",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -15031,7 +15037,10 @@
         "WP-007",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/program-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -15276,7 +15285,10 @@
         "WP-008",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -16213,7 +16225,10 @@
         "WP-011",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -16350,7 +16365,10 @@
         "WP-009",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "layers": [
         "build"
       ]
@@ -16568,7 +16586,10 @@
         "WP-098",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -16897,7 +16918,10 @@
         "WP-098",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -17246,7 +17270,10 @@
         "WP-098",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -17734,7 +17761,10 @@
         "WP-099",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/program-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -18030,7 +18060,10 @@
         "WP-099",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/program-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -18518,7 +18551,11 @@
         "WP-099",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/program-cases.test.mts",
+        "tests/integration/organizations/multiplication.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -19319,7 +19356,10 @@
         "WP-100",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/program-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -19635,7 +19675,10 @@
         "WP-100",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/program-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -19932,7 +19975,10 @@
         "WP-101",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/evals/pipeline.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -20276,7 +20322,10 @@
         "WP-007",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/consent.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -20838,7 +20887,10 @@
         "WP-015",
         "WP-102"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "layers": [
         "domain/contract",
         "PostgreSQL integration",
@@ -21194,7 +21246,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
         "P": {
@@ -21287,7 +21342,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
         "P": {
@@ -21370,7 +21428,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
         "P": {
@@ -21454,7 +21515,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
         "P": {
@@ -21534,7 +21598,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/pipeline-cases.test.mts"
+      ],
       "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
         "P": {
@@ -21628,7 +21695,10 @@
       "work_packages": [
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/onboarding-setup.test.mts"
+      ],
       "description": "Round trip the account-confirmed ordinary plant-creation boundary. Refuse organization-authored creation, seat-transfer, commissioning, geographic attestation and client-chosen phase. Runtime one-seat, transaction and creation-event proof belongs to WP-009/api.",
       "given": {
         "contract": {
@@ -21703,7 +21773,10 @@
       "work_packages": [
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "A failed required receipt or outbox write rolls back resident linking and token consumption. The authenticated original account can resume the same intent.",
       "given": {
         "O": {

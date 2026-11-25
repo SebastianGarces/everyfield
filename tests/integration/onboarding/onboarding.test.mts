@@ -26,8 +26,11 @@ import { sectionOperations, withSettingsWrite } from "../../../packages/domain/s
 import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
+import operationCatalog from "../../../docs/catalog/operations.json" with { type: "json" };
+import { evryActor } from "../../../packages/evry/src/index.ts";
+import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
-import { recorded } from "../../support/recorded.mts";
+import { recorded, untouched } from "../../support/recorded.mts";
 import type { OnboardingContext, OnboardingProducer } from "../../../packages/contracts/src/onboarding/server.ts";
 import type { Tx } from "../../../packages/domain/src/onboarding/core.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -294,6 +297,83 @@ test("AC:ADR1-006 self confirmation, exact identity, live account, no seat trans
 	denied(await call("createPlant", other, q), "active_seat_conflict");
 	denied(await call("createPlant", f.a, q, f.p));
 	denied(await call("complete", other, command({}, "1"), f.p));
+});
+
+test("AC:ADR1-006 a resident creates their own ordinary Phase 1 plant with one seat, and no organization role, operation or Evry tool can create or commission one", async () => {
+	const organization = randomUUID();
+	await admin.execute(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
+		VALUES(${organization},'sending_church','Grace Austin','America/Chicago',1)`);
+	const selected = {
+		kind: "organization",
+		id: tenantId.parse(organization),
+		organizationKind: "sending_church",
+	} as const;
+	const resident = await actor();
+	const q = command({ name: "Harvest Point", confirmed: true });
+	for (const role of ["owner", "admin", "member"] as const) {
+		const staff = await actor("sending_church");
+		await admin
+			.insert(t.seat)
+			.values({ account_id: staff.id, organization_id: organization, role, accepted_at: new Date() });
+		await untouched(admin, async () => {
+			denied(await call("createPlant", staff, q), "active_seat_conflict");
+			denied(await call("createPlant", staff, q, selected as never));
+			denied(await call("createPlant", staff, q, { kind: "account", id: resident.id }));
+		});
+		const viewer = present(await readViewer(db, staff.session), "viewer");
+		const tools = readCatalog(evryActor(viewer.authority!)!);
+		const offered = [...tools.domains.flatMap((d) => d.operations), ...tools.reviewedWrites].map((o) => o.operation);
+		assert.ok(offered.length > 0);
+		assert.equal(
+			offered.some((name) => /commission|onboarding\.|createPlant/i.test(name)),
+			false,
+			`${role}: ${offered.join(" ")}`,
+		);
+	}
+	const { operations } = operationCatalog;
+	assert.deepEqual(
+		operations.filter((o) => o.id === "onboarding.createPlant").map((o) => o.authority.flatMap((a) => a.actors)),
+		[["authenticated_own_preplant_or_discovery_account"]],
+		"only the account itself creates a plant",
+	);
+	assert.equal(
+		operations.some((o) => /commission/i.test(o.id)),
+		false,
+		"commissioning is deferred: no operation delivers it",
+	);
+	for (const extra of [
+		{ organization: selected },
+		{ organizationId: organization },
+		{ seatId: randomUUID() },
+		{ seatTransfer: true },
+		{ commissioning: true },
+		{ lineage: organization },
+		{ geographicAttestation: true },
+		{ phase: 4 },
+	])
+		await untouched(admin, async () =>
+			denied(await call("createPlant", resident, { ...q, input: { ...q.input, ...extra } }), "invalid_input"),
+		);
+	const created = ok(await call("createPlant", resident, q));
+	const plant = present((await admin.select().from(t.plant).where(eq(t.plant.id, created.plant.id)))[0], "plant");
+	assert.equal(plant.phase, 1);
+	const seats = () => admin.select().from(t.seat).where(eq(t.seat.account_id, resident.id));
+	assert.deepEqual(
+		(await seats()).map((s) => [s.plant_id, s.organization_id, s.role, s.ended_at]),
+		[[plant.id, null, "owner", null]],
+	);
+	const [entry, ...more] = await admin
+		.select()
+		.from(t.phase_transition)
+		.where(eq(t.phase_transition.plant_id, plant.id));
+	assert.deepEqual(more, []);
+	assert.deepEqual([entry!.kind, entry!.from_phase, entry!.to_phase], ["creation", null, 1]);
+	const [event] = await admin.select().from(t.audit_event).where(eq(t.audit_event.id, entry!.operation_id));
+	assert.equal(event!.actor_id, resident.id, "the creation is attributed to the resident's own account");
+	await untouched(admin, async () =>
+		denied(await call("createPlant", resident, command(q.input, "2")), "active_seat_conflict"),
+	);
+	assert.equal((await seats()).length, 1);
 });
 
 test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and phase commit together", async () => {

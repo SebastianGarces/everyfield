@@ -1,3 +1,4 @@
+import { recordId } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -560,20 +561,29 @@ function lifecycle(change: "retire" | "restore") {
 	return (db: Database, authority: RequestActor, raw: unknown) =>
 		write(db, authority, true, async (w) => {
 			const input = parse(C.pipelinePersonLifecycleRequest, raw);
-			const [from, to] = change === "retire" ? ["live", "retired"] : ["retired", "live"];
+			const retire = change === "retire";
+			const [from, to] = retire ? ["live", "retired"] : ["retired", "live"];
 			const row = await one(
 				w,
-				changed,
+				changed.extend({ needs_owner: z.array(recordId) }),
 				sql`WITH x AS (${target(w, input.personId, from)}),
 u AS (UPDATE pipeline_person pp SET revision=pp.revision+1 FROM x
  WHERE pp.id=x.id AND x.revision=${input.expectedRevision}::bigint RETURNING pp.revision),
-p AS (UPDATE person p SET state=${to},retired_at=${change === "retire" ? sql`clock_timestamp()` : sql`NULL`},revision=p.revision+1
+p AS (UPDATE person p SET state=${to},retired_at=${retire ? sql`clock_timestamp()` : sql`NULL`},revision=p.revision+1
  FROM x,u WHERE p.id=x.person_id AND p.tenant_id=${w.organization}::uuid RETURNING p.id),
-a AS (${w.audit({ action: change === "retire" ? "people.retired" : "people.restored", kind: change, subject: sql`x.person_id`, before: sql`x.revision`, after: sql`u.revision` })}
+stop AS (UPDATE residency_link l SET share_foundations=false,share_milestones=false,consent_revision=l.consent_revision+1,
+ revision=l.revision+1 FROM x,u WHERE NOT ${retire} AND l.organization_id=${w.organization}::uuid AND l.person_id=x.person_id
+ AND l.ended_at IS NULL AND (l.share_foundations OR l.share_milestones) RETURNING l.id),
+mat AS (UPDATE organization o SET material_revision=o.material_revision+1 WHERE o.id=${w.organization}::uuid
+ AND EXISTS(SELECT FROM stop)),
+a AS (${w.audit({ action: retire ? "people.retired" : "people.restored", kind: change, subject: sql`x.person_id`, before: sql`x.revision`, after: sql`u.revision` })}
  FROM x,u,p RETURNING id)
-SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,(SELECT revision::text FROM u) AS revision`,
+SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,(SELECT revision::text FROM u) AS revision,
+ coalesce((SELECT jsonb_agg(e.id ORDER BY e.id) FROM development_enrollment e JOIN x ON e.person_id=x.person_id
+  WHERE ${retire} AND e.organization_id=${w.organization}::uuid AND e.status='active'),'[]'::jsonb) AS needs_owner`,
 			);
-			return settle(row, input.expectedRevision);
+			const settled = settle(row, input.expectedRevision);
+			return retire ? { ...settled, needsOwner: row.needs_owner } : settled;
 		});
 }
 
@@ -668,7 +678,7 @@ function addNote(db: Database, authority: RequestActor, raw: unknown) {
 n AS (INSERT INTO person_note (id,tenant_id,person_id,author_id,body,occurred_at,recorded_at,revision)
  SELECT ${input.noteId}::uuid,${w.organization}::uuid,x.person_id,${w.actor}::uuid,${input.body},clock_timestamp(),clock_timestamp(),1
  FROM x WHERE ${noteDuty(w)} ON CONFLICT (id) DO NOTHING RETURNING id,person_id),
-a AS (${w.audit({ action: "people.updated", kind: "create", subject: sql`n.person_id`, metadata: { category: "note", noteId: input.noteId } })}
+a AS (${w.audit({ action: "people.updated", kind: "create", subject: sql`n.person_id`, after: sql`1`, metadata: { category: "note", noteId: input.noteId } })}
  FROM n RETURNING id)
 SELECT EXISTS(SELECT FROM x WHERE ${noteDuty(w)}) AS allowed,EXISTS(SELECT FROM n) AS added,
  (SELECT revision::text FROM person_note WHERE id=${input.noteId}::uuid AND tenant_id=${w.organization}::uuid
@@ -772,7 +782,7 @@ function logConversation(db: Database, authority: RequestActor, raw: unknown) {
 c AS (INSERT INTO leadership_conversation (id,organization_id,pipeline_person_id,staff_seat_id,occurred_on,note,revision)
  SELECT ${input.conversationId}::uuid,${w.organization}::uuid,x.id,${w.seatId}::uuid,${input.occurredOn}::date,${input.note},1
  FROM x,d WHERE ${noteDuty(w)} AND d.past ON CONFLICT (id) DO NOTHING RETURNING id),
-a AS (${w.audit({ action: "people.recorded", kind: "create", subject: sql`x.person_id`, metadata: { category: "leadership_conversation", conversationId: input.conversationId } })}
+a AS (${w.audit({ action: "people.recorded", kind: "create", subject: sql`x.person_id`, after: sql`1`, metadata: { category: "leadership_conversation", conversationId: input.conversationId } })}
  FROM c,x RETURNING id)
 SELECT EXISTS(SELECT FROM x WHERE ${noteDuty(w)}) AS allowed,coalesce((SELECT past FROM d),false) AS past,
  EXISTS(SELECT FROM c) AS added,(SELECT c.revision::text FROM leadership_conversation c JOIN x ON c.pipeline_person_id=x.id
