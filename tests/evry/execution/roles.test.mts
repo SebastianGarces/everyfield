@@ -390,19 +390,30 @@ test("AC:ROLE43-016 through Evry a plant Admin or lead is offered no organizatio
 	const org = await f.organization("sending_church", { name: "Grace Sending" });
 	const admin = await f.actor(w, "admin");
 	const director = await f.actor(org, "owner");
+	const PLANT_REGION = "organizations.correctReportingLocation";
 	const orgOnly = (actor: EvryActor) =>
 		allowedWrites(actor)
 			.map((x) => x.operation)
-			.filter((o) =>
-				/^(organizations|pipeline|oversight|wiki\.(add|edit|hide|publish)Organization|residency|platform|flags)\b/.test(
-					o,
-				),
+			.filter(
+				(o) =>
+					o !== PLANT_REGION &&
+					/^(organizations|pipeline|oversight|wiki\.(add|edit|hide|publish)Organization|residency|platform|flags)\b/.test(
+						o,
+					),
 			);
 	const actor = await present(admin);
 	assert.deepEqual(orgOnly(actor), []);
-	assert.ok(orgOnly(await present(director)).includes("organizations.updateProfile"));
+	const organizationSeat = await present(director);
+	assert.ok(orgOnly(organizationSeat).includes("organizations.updateProfile"));
+	const offersRegion = (seat: EvryActor) => allowedWrites(seat).some((x) => x.operation === PLANT_REGION);
+	assert.deepEqual(
+		[offersRegion(actor), offersRegion(organizationSeat)],
+		[true, false],
+		"the reporting Region is the church's own setting, not an organization change",
+	);
 	const before = await one(sql`SELECT to_jsonb(o) AS row FROM organization o WHERE id=${org.id}`);
 	await refusedHere(() => proposed(actor, "organizations.updateProfile", { patch: { description: "Mine" } }));
+	await refusedHere(() => proposed(actor, PLANT_REGION, { plant: { kind: "plant", id: org.id }, regionItemId: key() }));
 	const turn = await evry.ask(actor, "update our network's description");
 	assert.deepEqual(turn.proposals, []);
 	assert.deepEqual(await one(sql`SELECT to_jsonb(o) AS row FROM organization o WHERE id=${org.id}`), before);
