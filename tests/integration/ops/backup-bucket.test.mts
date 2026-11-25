@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { after, test } from "node:test";
+import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
+import { test } from "node:test";
 import { copyStatus, expireCopies, readCopies, runBackup } from "../../../ops/maintenance/backup.mts";
 import { KEEP_MS } from "../../../ops/maintenance/capture.mts";
 import { openEncryptedCopy } from "../../../ops/maintenance/copy.mts";
@@ -12,10 +9,7 @@ import { fakeBucket } from "../../support/fake-bucket.mts";
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const NOW = new Date("2026-11-24T08:30:00.000Z");
-const dir = mkdtempSync(join(tmpdir(), "backup-bucket-"));
-const keyFile = join(dir, "backup.key");
-writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
-after(() => rmSync(dir, { recursive: true, force: true }));
+const key = createSecretKey(randomBytes(32));
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const CHURCH = "Harvest Point private prayer list";
 
@@ -50,7 +44,7 @@ function snapshot(createdAt: Date, subjects: { id: string; expiresAt: string }[]
 async function backup(at: Date, subjects: { id: string; expiresAt: string }[] = []) {
 	fake.settings.now = at;
 	const taken = snapshot(at, subjects);
-	const result = await runBackup({ bucket: fake.bucket, keyFile, capture: async () => taken, clock: () => at });
+	const result = await runBackup({ bucket: fake.bucket, key, capture: async () => taken, clock: () => at });
 	return { taken, result };
 }
 async function complete(at: Date, subjects: { id: string; expiresAt: string }[] = []) {
@@ -67,7 +61,7 @@ test("INV-backup: a copy counts as complete only after its uploaded bytes are re
 			(await readCopies(fake.bucket, NOW)).map(({ location: at, state, expires_at }) => ({ at, state, expires_at })),
 			[{ at: location, state: "complete", expires_at: "2026-12-01T06:30:00.000Z" }],
 		);
-		const opened = await openEncryptedCopy(fake.bucket, location, keyFile);
+		const opened = await openEncryptedCopy(fake.bucket, location, key);
 		assert.deepEqual(opened.image, taken.image);
 		for (const [key, { bytes }] of fake.objects) assert.equal(bytes.indexOf(Buffer.from("Harvest Point")), -1, key);
 	});
