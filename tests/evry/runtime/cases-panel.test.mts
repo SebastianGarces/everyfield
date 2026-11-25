@@ -79,9 +79,9 @@ test("AC:INH-REGRESSION-FOREIGN-SESSION another account, or the same account in 
 				await Promise.all(calls(randomUUID()).map(refusal)),
 			]);
 			assert.deepEqual(real, unknown, "a real conversation answers as a made-up one");
-			assert.ok(
-				real!.every((r) => r === "not_found" || r === "access_denied"),
-				JSON.stringify(real),
+			assert.deepEqual(
+				real,
+				real!.map(() => "not_found"),
 			);
 		}
 	assert.deepEqual((await listConversations(w.db, await w.actorOf(B), { search: "Private" })).items, []);

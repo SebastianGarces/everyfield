@@ -109,10 +109,9 @@ test("AC:INH-NOTIFICATIONS-03 marking those three names each once, marks only th
 	];
 	const said = "Mark those three notifications as read.";
 	const mark = proposes("notifications.markSelectedRead", { noticeIds: [N1, N2, N3] });
-	const doubled = await w.ask(c.A, said, [
+	const asked = await w.ask(c.A, said, [
 		proposes("notifications.markSelectedRead", { noticeIds: [N1, N2, N3, N1, N2] }),
 	]);
-	const asked = doubled.proposals.length ? doubled : await w.ask(c.A, said, [mark]);
 	const [card] = asked.proposals;
 	assert.deepEqual(
 		card!.review.changes.map((x) => [(x.before as { id: string }).id, x.after]).sort(),
@@ -419,6 +418,18 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 		const stats = ok(await wiki.readingStats(w.db, await w.authorityOf(who), {})) as Reply;
 		return [discoveryRead, discoveryTotal, discoveryComplete, churchPhase, stats.qualifyingReader];
 	};
+	const criterion = async () => {
+		const asked = await w.ask(C, said, [
+			reads("phases.readReadiness", { phase: 0 }),
+			reads("intelligence.readExitCriteria", { phase: 0 }),
+		]);
+		return asked.replies.map((r) => {
+			const row = rowsOf(r, "criterion").find((x) => x.id === "foundations_complete");
+			return row && [row.label, row.fields.status, row.fields.reading ?? null];
+		});
+	};
+	const unknown = ["Foundational modules complete", "no data yet", null];
+	assert.deepEqual(await criterion(), [unknown, unknown], "a measure with no record is unknown, never zero");
 	assert.deepEqual(await metric(C), [0, 6, false, 1, false]);
 	await readAs(A, articles.slice(0, 4), "0.9");
 	await readAs(B, articles.slice(4), "0.9");
@@ -447,13 +458,7 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 	await readAs(C, articles.slice(5), "0.81");
 	assert.deepEqual(await metric(C), [6, 6, true, 1, true]);
 	assert.deepEqual(await metric(A), [4, 6, false, 1, false]);
-	const readiness = await w.ask(C, said, [reads("phases.readReadiness", {})]);
-	const criterion = rowsOf(readiness.replies[0]).find((r) => /foundation/i.test(r.label));
-	assert.doesNotMatch(
-		JSON.stringify(criterion ?? {}),
-		/"(value|percent|reading)":0\b/,
-		"an unrecorded criterion is never zero",
-	);
+	assert.deepEqual(await criterion(), [unknown, unknown], "reading does not stand in for the record");
 	assert.equal((await w.one(sql`SELECT phase FROM plant WHERE id=${P.id}`)).phase, 1);
 	await c.foreign(said, [reads("wiki.reading.stats", {}), reads("phases.readReadiness", {})], {
 		secrets: ["Cedar Plant"],

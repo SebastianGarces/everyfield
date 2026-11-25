@@ -1,12 +1,9 @@
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 
-import { namesEndedLink, rowLive, rowUsable } from "./liveness.ts";
+import { rowLive, sharingEnded } from "./liveness.ts";
 
 const live = <RowName extends string>(row: SqlLiteral<RowName>) =>
 	rowLive(sql.raw(row), sql.raw("c.tenant_id"), sql.raw("c.account_id"));
-
-const usable = <RowName extends string>(row: SqlLiteral<RowName>) =>
-	rowUsable(sql.raw(row), sql.raw("c.tenant_id"), sql.raw("c.account_id"));
 
 export function retainedEvents(events: SQL, use: "reader" | "model" = "reader"): SQL {
 	return sql`SELECT e.sequence,e.turn_id,e.kind,e.created_at,
@@ -24,10 +21,10 @@ export function retainedEvents(events: SQL, use: "reader" | "model" = "reader"):
 		) k ON k.conversation_id=e.conversation_id AND k.sequence=e.sequence
 		LEFT JOIN LATERAL (
 			SELECT EXISTS(SELECT FROM conversation_event t CROSS JOIN jsonb_array_elements(coalesce(t.body->'result'->'rows','[]'::jsonb)) r
-				WHERE t.conversation_id=e.conversation_id AND t.turn_id=e.turn_id AND t.kind='tool_result' AND NOT ${use === "model" ? usable("r") : live("r")})${
+				WHERE t.conversation_id=e.conversation_id AND t.turn_id=e.turn_id AND t.kind='tool_result' AND NOT ${live("r")})${
 					use === "model"
 						? sql` OR EXISTS(SELECT FROM conversation_event t WHERE t.conversation_id=e.conversation_id AND t.turn_id=e.turn_id
-					AND t.kind='tool_result' AND ${namesEndedLink(sql`(t.body->'result'->'facts')::text`, sql`c.tenant_id`)})`
+					AND t.kind='tool_result' AND ${sharingEnded(sql.raw("t"), sql.raw("c.tenant_id"))})`
 						: sql``
 				} AS gone
 		) g ON e.kind IN ('assistant_text','status')`;

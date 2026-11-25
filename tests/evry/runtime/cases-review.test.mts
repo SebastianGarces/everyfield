@@ -283,8 +283,10 @@ test("AC:INH-EDGES-12 retrying a confirmation after a disconnect observes the sa
 	assert.equal(rowsOf(status.replies[0])[0].fields.status, "approved");
 	await c.foreignReview(card);
 	await c.foreign(said, [reads("meetings.list", {})], { secrets: ["Vision Meeting 1"] });
-	await c.effectOutage(await city(c, said, "Dallas"), "person");
-	assert.deepEqual(await footprint(c), await footprint(c));
+	const unresolved = await city(c, said, "Dallas");
+	const settled = await footprint(c);
+	await c.effectOutage(unresolved, "person");
+	assert.deepEqual(await footprint(c), settled);
 });
 
 test("AC:INH-REGRESSION-RETRY a retry runs only the unresolved effect under its valid approval: completed work, an unknown send and a stale approval are not repeated", async () => {
@@ -326,10 +328,10 @@ test("AC:INH-REGRESSION-RETRY a retry runs only the unresolved effect under its 
 	await w.admin.execute(sql`UPDATE person SET revision=revision+1 WHERE id=${c.chen}`);
 	await w.effect();
 	const old = await readReview(w.db, c.Aa, stale.id);
-	assert.notEqual(old.outcome, "completed");
 	assert.equal(await cityOf(c.chen), "Evanston");
-	if (old.status === "pending") assert.notEqual(old.digest, stale.digest, "the new state needs a new approval");
-	else assert.equal(await refusal(retryUnresolvedEffects(w.db, c.Aa, stale.id)), "review_closed");
+	assert.deepEqual([old.status, old.outcome, old.revision], ["pending", null, stale.revision + 1]);
+	assert.notEqual(old.digest, stale.digest, "the new state needs a new approval");
+	assert.equal(await refusal(retryUnresolvedEffects(w.db, c.Aa, stale.id)), "review_closed");
 	const late = await city(c, said, "Joliet", c.chen);
 	await approveProposal(w.db, c.Aa, late.id, w.witness(late), null);
 	await w.admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp() WHERE id=${late.id}`);

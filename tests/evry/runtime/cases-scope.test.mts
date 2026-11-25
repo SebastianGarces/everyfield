@@ -1,10 +1,12 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { listPlants } from "../../../packages/domain/src/oversight/index.ts";
 import { readCatalog } from "../../../packages/evry/src/index.ts";
 import { PASTORAL_BOUNDARY } from "../../../packages/evry/src/context/compile.ts";
 import { nativePorts } from "../evals/settings-ports.mts";
-import type { Workspace } from "../../support/fixture.mts";
+import { ok, type Workspace } from "../../support/fixture.mts";
 import { caseWorld, proposes, reads, rowsOf, sql, type CaseWorld, type Church, type Play } from "./case-world.mts";
 
 let w: CaseWorld;
@@ -13,12 +15,12 @@ before(async () => {
 });
 after(() => w?.close());
 
-type Share = "share_people" | "share_meetings" | "share_tasks" | "shared_findings";
-async function link(c: Church, organization: Workspace, shares: Share[]) {
+type Share = "share_people" | "share_meetings" | "share_tasks" | "share_ministry_teams" | "shared_findings";
+async function link(c: Pick<Church, "P">, organization: Workspace, shares: Share[]) {
 	const on = (s: Share) => shares.includes(s);
 	await w.admin
 		.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
-		VALUES(${c.P.id},${organization.id},clock_timestamp()-interval '1 day',${on("share_people")},${on("share_meetings")},${on("share_tasks")},false,false,false,${on("shared_findings")})`);
+		VALUES(${c.P.id},${organization.id},clock_timestamp()-interval '1 day',${on("share_people")},${on("share_meetings")},${on("share_tasks")},${on("share_ministry_teams")},false,false,${on("shared_findings")})`);
 }
 async function directoryLead(c: Church, name: string) {
 	const person = await c.person(name, { stage: "leader" });
@@ -48,6 +50,24 @@ test("AC:EVRY-ORG-CONTEXT each organization reads only its own granted projectio
 	await w.admin.execute(sql`UPDATE plant SET name='Cedar Creek' WHERE id=${c.P.id}`);
 	await w.admin.execute(sql`UPDATE person SET street='12 Private Lane' WHERE id=${c.rivera}`);
 	await directoryLead(c, "Alex Leadname");
+	const planter = await w.seated(c.P, "owner");
+	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${planter.id}`);
+	const planting = await w.authorityOf(planter);
+	const care = createPrivateCare();
+	const week = ok(await care.readCurrent(w.db, planting, {}));
+	const answers = {
+		spiritual: "struggling",
+		family: "struggling",
+		financial: "struggling",
+		pace: "struggling",
+	} as const;
+	ok(
+		await care.save(w.db, planting, {
+			requestKey: randomUUID(),
+			expectedRevision: week.revision,
+			input: { answers, note: "CARE-CANARY" },
+		}),
+	);
 	const S1 = await w.organization("sending_church", { name: "Org A" });
 	const N1 = await w.organization("sending_network", { name: "Org B" });
 	const N0 = await w.organization("sending_network", { name: "Parent network" });
@@ -79,7 +99,7 @@ test("AC:EVRY-ORG-CONTEXT each organization reads only its own granted projectio
 	const native = await listPlants(w.db, authority);
 	assert.match(JSON.stringify(native), /Alex Leadname/, "the directory page names its lead");
 	const told = JSON.stringify([first.prompts, first.saved]);
-	for (const secret of ["Alex Leadname", "Alex Rivera", "Casey Reed", "Private Lane", "CARE"])
+	for (const secret of ["Alex Leadname", "Alex Rivera", "Casey Reed", "Private Lane", "CARE-CANARY", "struggling"])
 		assert.equal(told.includes(secret), false, secret);
 	assert.deepEqual(
 		first.offered.filter((o) => /^people\.|care|interview/i.test(o)),
@@ -99,17 +119,43 @@ test("AC:EVRY-ORG-CONTEXT each organization reads only its own granted projectio
 	assert.equal(JSON.stringify([none.prompts, none.saved]).includes("Cedar Creek"), false);
 
 	const answered = [...look.slice(0, 2), () => "Cedar Creek: CITED-BODY"];
-	const citedOff = await w.ask(b, said, answered);
-	await w.admin.execute(
-		sql`UPDATE affiliation SET share_people=false WHERE plant_id=${c.P.id} AND organization_id=${N1.id}`,
-	);
-	const afterOff = await w.ask(b, "Continue", look, { conversation: citedOff.conversation });
-	assert.equal(JSON.stringify(afterOff.prompts).includes("CITED-BODY"), false, "a category no longer shared");
-	assert.equal(rowsOf(afterOff.replies[1])[0].fields.people, "Not shared");
+	const locations = reads("organizationIntelligence.readLocations", {});
+	const shown: [Share, Play, field: string][] = [
+		["share_people", look.slice(1, 2), "people"],
+		["share_meetings", look.slice(1, 2), "meetings"],
+		["share_tasks", look.slice(1, 2), "tasks"],
+		["share_ministry_teams", look.slice(1, 2), "ministryTeams"],
+		["shared_findings", look.slice(1, 2), "health"],
+		["shared_findings", [locations], "findings"],
+	];
+	for (const [category, play, field] of shown) {
+		const only = (share: Share | null) =>
+			w.admin
+				.execute(sql`UPDATE affiliation SET share_people=${share === "share_people"},share_meetings=${share === "share_meetings"},
+				share_tasks=${share === "share_tasks"},share_ministry_teams=${share === "share_ministry_teams"},shared_findings=${share === "shared_findings"}
+				WHERE plant_id=${c.P.id} AND organization_id=${N1.id}`);
+		await only(category);
+		const told = await w.ask(b, said, [...play, () => "CITED-BODY"]);
+		assert.notEqual(rowsOf(told.replies[0])[0].fields[field], "Not shared", field);
+		const on = { conversation: told.conversation };
+		const still = await w.ask(b, "Continue", [], on);
+		assert.equal(JSON.stringify(still.prompts).includes("CITED-BODY"), true, `${field} kept while it is shared`);
+		await only(null);
+		const off = await w.ask(b, "Continue", play, on);
+		assert.equal(JSON.stringify(off.prompts).includes("CITED-BODY"), false, `${field} no longer shared`);
+		assert.equal(rowsOf(off.replies[0])[0].fields[field], "Not shared");
+	}
 
 	const cited = await w.ask(a, said, answered, { conversation: first.conversation });
 	const kept = await w.ask(a, "Continue", [], { conversation: first.conversation });
 	assert.equal(JSON.stringify(kept.prompts).includes("CITED-BODY"), true, "kept while it is shared");
+	const patterns = await w.ask(a, said, [...look.slice(2), () => "PATTERN-BODY"]);
+	const hills = await w.plant({ name: "Cedar Creek Hills" });
+	await link({ P: hills }, S1, ["shared_findings"]);
+	const lookHills = [reads("oversight.getPlant", { plantId: hills.id })];
+	const aboutHills = await w.ask(a, "How is Cedar Creek Hills doing?", [...lookHills, () => "HILLS-BODY"]);
+	const later = await w.ask(a, "Continue", [], { conversation: patterns.conversation });
+	assert.equal(JSON.stringify(later.prompts).includes("PATTERN-BODY"), true);
 	const saved = async () => JSON.stringify((await w.eventsOf(await w.actorOf(a), first.conversation)).events);
 	const before = await saved();
 	await w.admin.execute(
@@ -117,8 +163,26 @@ test("AC:EVRY-ORG-CONTEXT each organization reads only its own granted projectio
 	);
 	assert.equal(await saved(), before, "what the reader already saw stays as it was");
 	const then = await w.ask(a, "Continue again", look, { conversation: cited.conversation });
-	assert.deepEqual([rowsOf(then.replies[0]), then.replies[1].status], [[], "not_found"]);
-	assert.equal(/CITED-BODY|Cedar Creek/.test(JSON.stringify(then.prompts)), false, "no revoked citation body");
+	assert.deepEqual(
+		[rowsOf(then.replies[0]).map((r) => r.label), then.replies[1].status],
+		[["Cedar Creek Hills"], "not_found"],
+	);
+	assert.equal(
+		/CITED-BODY|Cedar Creek(?! Hills)/.test(JSON.stringify(then.prompts)),
+		false,
+		"no revoked citation body",
+	);
+	const gone = await w.ask(a, "Continue", [], { conversation: patterns.conversation });
+	assert.equal(JSON.stringify(gone.prompts).includes("PATTERN-BODY"), false, "a pattern that named it");
+	const linked = await w.ask(a, "How is Cedar Creek Hills doing?", [look[0]!, ...lookHills], {
+		conversation: aboutHills.conversation,
+	});
+	assert.equal(JSON.stringify(linked.prompts).includes("HILLS-BODY"), true, "a church still linked keeps its answer");
+	assert.deepEqual(
+		linked.replies.map((r) => [rowsOf(r).map((x) => [x.label, x.fields.health]), r.completeness, r.withheldRows ?? 0]),
+		[0, 1].map(() => [[["Cedar Creek Hills", "Not yet assessed"]], "complete", 0]),
+		"and the model gets its fresh rows in full",
+	);
 
 	await c.foreign(said, look, { secrets: ["Cedar Creek", "Alex Leadname"] });
 	await c.outage(said, [reads("oversight.listPlants", {})], "affiliation", { as: b });

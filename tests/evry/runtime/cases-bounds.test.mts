@@ -417,8 +417,24 @@ test("AC:INH-REGRESSION-CONTEXT-RETENTION the meeting's exact facts survive a lo
 		const shown = JSON.stringify(card.review);
 		for (const part of ["Sun, Sep 27, 2026, 10:00 AM", "Church", "Alex Core", "Jordan Core", "Meet your core team"])
 			assert.ok(shown.includes(part), `${part} in ${shown}`);
-		assert.equal(new Date("2026-09-27T10:00:00-04:00").toISOString(), "2026-09-27T14:00:00.000Z");
-		assert.match(shown, /EDT|Eastern/);
+		const [starts] = shown.match(/[A-Z][a-z]{2} \d+, \d{4}, \d+:\d{2} [AP]M E[DS]T/) ?? [];
+		assert.equal(new Date(starts!).toISOString(), "2026-09-27T14:00:00.000Z", "the instant the review names");
+		assert.deepEqual(
+			await w.one(sql`SELECT input#>'{meeting,input}' AS meeting,input#>'{audience,personIds}' AS recipients,input#>>'{custom,subject}' AS subject
+				FROM proposal WHERE id=${card.id}`),
+			{
+				meeting: {
+					type: "orientation",
+					date: "2026-09-27",
+					time: "10:00",
+					venue: { kind: "existing", venueId: venue },
+					guests: [],
+				},
+				recipients: [alex, jordan].sort(),
+				subject: "Meet your core team",
+			},
+			"the exact plan that approval would run",
+		);
 		assert.deepEqual(
 			[card.status, card.approvedAt ?? null, await w.effect()],
 			["pending", null, null],
@@ -426,7 +442,7 @@ test("AC:INH-REGRESSION-CONTEXT-RETENTION the meeting's exact facts survive a lo
 		);
 		assert.equal(await w.count(sql`SELECT count(*)::int AS n FROM meeting WHERE plant_id=${c.P.id}`), 0);
 		await c.foreign(said[3], [readNotes, reads("people.getPerson", { personId: alex })], {
-			secrets: ["Alex Core", "Meet your core team"].slice(0, 1),
+			secrets: ["Alex Core"],
 		});
 		await c.outage(said[3], [readNotes, reads("venues.get", { venueId: venue })], "venue", on);
 	} finally {

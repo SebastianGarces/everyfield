@@ -18,6 +18,7 @@ import {
 	type Church,
 	type Play,
 	type Reply,
+	type Step,
 } from "./case-world.mts";
 
 let w: CaseWorld;
@@ -44,6 +45,8 @@ const meetingOf = async (c: Church, meetingId: string): Promise<Reply> =>
 	(ok(await meetingsReader.get(w.db, await w.authorityOf(c.A), { meetingId })) as Reply).meeting;
 const appointments = () =>
 	w.one(sql`SELECT (SELECT count(*)::int FROM meeting) AS meetings,(SELECT count(*)::int FROM task) AS tasks`);
+const SKIPPED = "That time does not exist on that day, because the clocks change. Pick another time.";
+const TWICE = "That time happens twice on that day, because the clocks change. Pick another time.";
 const instant = (at: string) => new Date(at).toISOString().replace(".000", "");
 const resolve = (date: string, time: string, offset?: string) =>
 	reads("calendar.resolve", { date, time, ...(offset && { offset }) });
@@ -57,24 +60,16 @@ test("AC:B03-008 a time the clocks skip is refused by name in the native and the
 	const [date, time] = split("2026-03-08T02:30:00");
 	const native = [await schedule(c, { date, time }), await createTask(c, "2026-03-08T02:30:00")];
 	for (const reply of native) refused(reply, "nonexistent_local_time");
-	for (const step of [
-		proposes("meetings.schedule", { type: "orientation", date, time }),
-		proposes("tasks.create", { title: "Call", due: `${date}T${time}` }),
-	]) {
-		const asked = await w.ask(c.A, "Schedule it March 8 at 2:30am", [resolve(date, time), step], { onError: "go_on" });
+	const propose = async (step: Step) => {
+		const asked = await w.ask(c.A, "Schedule it March 8 at 2:30am", [resolve(date, time), step]);
 		assert.equal(fieldsOf(asked.replies[0]).status, "nonexistent");
-		const [card] = asked.proposals;
-		if (card) {
-			const { review, outcome } = card.review.refusal
-				? { review: card, outcome: "refused" }
-				: await w.approve(c.A, card);
-			assert.equal(outcome, "refused");
-			assert.match(
-				JSON.stringify([review.review.refusal, review.receipt]),
-				/nonexistent_local_time|That time does not exist on that day/,
-			);
-		} else assert.ok(asked.replies.at(-1).error, JSON.stringify(asked.replies));
-	}
+		return asked.proposals;
+	};
+	const [meeting] = await propose(proposes("meetings.schedule", { type: "orientation", date, time }));
+	assert.equal(meeting!.review.refusal, SKIPPED);
+	const [task] = await propose(proposes("tasks.create", { title: "Call", due: `${date}T${time}` }));
+	const { outcome, review } = await w.approve(c.A, task!);
+	assert.deepEqual([outcome, review.receipt], ["refused", { code: "nonexistent_local_time" }]);
 	assert.deepEqual(await appointments(), before);
 });
 
@@ -276,9 +271,7 @@ test("AC:INH-REGRESSION-DST-FOLD a 1:30am that happens twice is one clarificatio
 	);
 	assert.deepEqual(choices, ["2026-11-01T05:30:00Z", "2026-11-01T06:30:00Z"]);
 	const pushed = await w.ask(c.A, said, [proposes("meetings.schedule", { type: "orientation", date, time })]);
-	const [card] = pushed.proposals;
-	if (card) assert.ok(card.review.refusal, "an unresolved time is never an approvable review");
-	else assert.ok(pushed.replies[0].error);
+	assert.equal(pushed.proposals[0]!.review.refusal, TWICE, "an unresolved time is never an approvable review");
 	assert.deepEqual(await appointments(), before);
 	await c.foreign(said, [resolve(date, time)], { found: ["2026-11-01T01:30"] });
 	await c.outage(said, [resolve(date, time)], "plant");
@@ -297,9 +290,7 @@ test("AC:INH-REGRESSION-DST-GAP a 2:30am the clocks skip is one clarification wi
 		["nonexistent", "2027-03-14T02:30", []],
 	);
 	const pushed = await w.ask(c.A, said, [proposes("meetings.schedule", { type: "orientation", date, time })]);
-	const [card] = pushed.proposals;
-	if (card) assert.ok(card.review.refusal, "a skipped time is never an approvable review");
-	else assert.ok(pushed.replies[0].error);
+	assert.equal(pushed.proposals[0]!.review.refusal, SKIPPED, "a skipped time is never an approvable review");
 	assert.deepEqual(await appointments(), before);
 	const real = await w.ask(c.A, "Then 3:30am", [
 		proposes("meetings.schedule", { type: "orientation", date, time: "03:30" }),
