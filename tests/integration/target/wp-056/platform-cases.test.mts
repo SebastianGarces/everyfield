@@ -1,3 +1,4 @@
+import { AsyncResource } from "node:async_hooks";
 import assert from "node:assert/strict";
 import { createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -292,10 +293,11 @@ test("AC:PLATFORM-002 a private file is one fixed object, opened by a short sign
 	const P = database.tenant;
 	const { owner, member } = database.actors;
 	const Q = await database.actor(await database.plant({ name: "Grace Hill" }), "owner");
-	const seat = (who: Actor, ended: boolean) =>
-		database.admin.execute(
+	const seat = AsyncResource.bind(async (who: Actor, ended: boolean) => {
+		await database.admin.execute(
 			sql`UPDATE seat SET ended_at=${ended ? sql`clock_timestamp()` : sql`NULL`} WHERE account_id=${who.id}`,
 		);
+	});
 	const author = await actorOf(member);
 	const generate = (requestKey: string) =>
 		documentsWriter.generate(db, author, { templateId: "commitment-card", format: input.format, requestKey }, storage);
