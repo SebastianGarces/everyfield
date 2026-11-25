@@ -94,6 +94,7 @@ export function RecordDialog({
 	description,
 	action,
 	problem,
+	conflict,
 	size = "md",
 	wait = null,
 	disabled = false,
@@ -107,6 +108,7 @@ export function RecordDialog({
 	description?: ReactNode;
 	action: string;
 	problem?: string;
+	conflict?: ReactNode;
 	size?: "sm" | "md" | "lg";
 	wait?: Wait;
 	disabled?: boolean;
@@ -124,9 +126,9 @@ export function RecordDialog({
 				onOpenAutoFocus={(e) => {
 					const root = fields.current;
 					if (!root) return;
-					const target = alert.current
-						? (firstProblem(root) ?? alert.current)
-						: root.querySelector<HTMLElement>(FOCUSABLE);
+					const target =
+						root.parentElement?.querySelector<HTMLElement>("[data-conflict]") ??
+						(alert.current ? (firstProblem(root) ?? alert.current) : root.querySelector<HTMLElement>(FOCUSABLE));
 					if (!target) return;
 					e.preventDefault();
 					target.focus();
@@ -150,6 +152,7 @@ export function RecordDialog({
 								{problem}
 							</Alert>
 						) : null}
+						{conflict}
 						<div ref={fields} className="contents">
 							{children}
 						</div>

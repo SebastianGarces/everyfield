@@ -26,7 +26,9 @@ import {
 import { Icon } from "@everyfield/ui/foundations";
 import { startTransition, useState } from "react";
 import type { Wait } from "../../components/save/model.ts";
+import { changesKept, CHOOSE_FIRST, useMergedDraft, type ConflictField } from "../../components/save/conflict.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 import { replaceAgenda } from "./actions.ts";
 import { problemText, type AgendaSection, type Detail } from "./model.ts";
 import type { Change } from "./page-state.ts";
@@ -46,11 +48,9 @@ export function AgendaCard({
 	onSaved: (agenda: Detail["agenda"]) => void;
 	onStale: () => Promise<{ meeting: Detail } | null>;
 }) {
-	const lane = useSaveIntent<{ rows: Row[]; problem?: string }>({ explain: problemText });
-	const rowsOf = (m: Detail): Row[] =>
-		m.agenda.sections.map((s) => ({ id: s.id, title: s.title, minutes: String(s.minutes) }));
-	const edit = () => lane.wait === null && lane.open({ rows: rowsOf(meeting) });
-	const [round, setRound] = useState(0);
+	const lane = useSaveIntent<AgendaEditing>({ explain: problemText });
+	const latest = rowsOf(meeting);
+	const edit = () => lane.wait === null && lane.open({ base: latest, rows: latest });
 	function submit(rows: Row[], sections: AgendaSection[]) {
 		startTransition(async () => {
 			project({
@@ -59,16 +59,15 @@ export function AgendaCard({
 			});
 			await lane.save({
 				what: "The agenda",
-				form: { rows },
+				form: { base: latest, rows },
 				send: (key) => replaceAgenda(key, meeting.revision, meeting.id, sections),
 				ok: (value) => startTransition(() => onSaved(value.agenda)),
 				refused: (code) => {
 					if (code !== "conflict") return;
-					void onStale().then((latest) => {
-						if (!latest) return lane.open({ rows, problem: "conflict_unloaded" });
-						setRound((n) => n + 1);
-						lane.open({ rows: rowsOf(latest.meeting), problem: "conflict" });
-					});
+					lane.close();
+					void onStale().then((now) =>
+						lane.open({ base: latest, rows, problem: now ? "conflict" : "conflict_unloaded" }),
+					);
 				},
 			});
 		});
@@ -143,8 +142,8 @@ export function AgendaCard({
 			<NoticeInDialog {...lane.noticeProps}>
 				{lane.editing ? (
 					<AgendaForm
-						key={round}
-						initial={lane.editing.rows}
+						editing={lane.editing}
+						latest={latest}
 						problem={lane.problem}
 						wait={lane.wait}
 						onClose={lane.close}
@@ -157,21 +156,40 @@ export function AgendaCard({
 }
 
 type Row = { id: string; title: string; minutes: string };
+type AgendaEditing = { base: Row[]; rows: Row[]; problem?: string };
+type AgendaDraft = { rows: Row[] };
+
+const rowsOf = (m: Detail): Row[] =>
+	m.agenda.sections.map((s) => ({ id: s.id, title: s.title, minutes: String(s.minutes) }));
+const AGENDA = "this agenda";
+const AGENDA_FIELDS: readonly ConflictField<AgendaDraft>[] = [
+	{ key: "rows", label: "Sections", text: (d) => d.rows.map((r) => `${r.title} (${r.minutes} min)`).join("\n") },
+];
 
 function AgendaForm({
-	initial,
+	editing,
+	latest,
 	problem,
 	wait,
 	onClose,
 	onSubmit,
 }: {
-	initial: Row[];
+	editing: AgendaEditing;
+	latest: Row[];
 	problem: string | undefined;
 	wait: Wait;
 	onClose: () => void;
 	onSubmit: (rows: Row[], sections: AgendaSection[]) => void;
 }) {
-	const [rows, setRows] = useState(initial);
+	const merged = useMergedDraft({
+		base: { rows: editing.base },
+		latest: { rows: latest },
+		start: { rows: editing.rows },
+		fields: AGENDA_FIELDS,
+	});
+	const { rows } = merged.values;
+	const setRows = (change: (all: Row[]) => Row[]) => merged.set({ rows: change(rows) });
+	const conflicted = editing.problem === "conflict";
 	const [touched, setTouched] = useState(false);
 	const errorOf = (r: Row) => {
 		const m = Number(r.minutes);
@@ -201,12 +219,30 @@ function AgendaForm({
 			title="Edit agenda"
 			description={`${counted(rows.length, "section")} · ${durationText(total)}`}
 			action="Save agenda"
-			problem={problem}
+			problem={
+				merged.rows.length
+					? touched && merged.unchosen
+						? CHOOSE_FIRST
+						: undefined
+					: conflicted
+						? changesKept(AGENDA)
+						: problem
+			}
+			conflict={
+				<SaveConflict
+					what={AGENDA}
+					rows={merged.rows}
+					asked={touched}
+					focus={conflicted}
+					onPick={merged.choose}
+					onKeepSaved={onClose}
+				/>
+			}
 			wait={wait}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (rows.some(errorOf)) return false;
+				if (rows.some(errorOf) || merged.unchosen) return false;
 				onSubmit(
 					rows,
 					rows.map((r) => ({ id: r.id, title: r.title.trim(), minutes: Number(r.minutes) })),

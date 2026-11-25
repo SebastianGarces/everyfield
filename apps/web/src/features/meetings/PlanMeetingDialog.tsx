@@ -1,6 +1,6 @@
 "use client";
 
-import { defaultTitle, timeText } from "@everyfield/contracts/common";
+import { dayText, defaultTitle, timeText } from "@everyfield/contracts/common";
 
 import { CalendarAdd01Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -24,6 +24,7 @@ import { editMeeting, scheduleMeeting } from "./actions.ts";
 import { listMinistries, listVenues } from "./fetch.ts";
 import { offsetText } from "../../components/dates.ts";
 import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
+import { changesKept, CHOOSE_FIRST, useMergedDraft, type ConflictField } from "../../components/save/conflict.ts";
 import {
 	DialogNotice,
 	NoticeInDialog,
@@ -31,22 +32,22 @@ import {
 	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
+import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
 type Fold = { choices: Choice[]; offset: number | null };
 type Ministry = { id: string; name: string };
+type Place = { choice: string; name: string; address: string };
 type Draft = {
 	type: MeetingType;
 	teamId: string;
 	title: string;
 	date: string;
 	time: string;
-	place: string;
-	placeName: string;
-	placeAddress: string;
+	place: Place;
 	notes: string;
 };
-type Kept = { draft: Draft; fold: Fold | null };
+type Kept = { base: Draft; draft: Draft; fold: Fold | null; problem?: "conflict" };
 const blank = (v: string) => (v.trim() === "" ? null : v.trim());
 
 const savedPlaces = createRead(() => listVenues({ limit: 100 }).then((r) => (r.status === "ok" ? r.value.items : [])), {
@@ -68,12 +69,25 @@ function initial(meeting: Detail | undefined, ministry: Ministry | undefined): D
 		title: meeting?.title ?? "",
 		date: meeting?.localDate ?? "",
 		time: meeting?.localTime ?? "18:30",
-		place: meeting ? (meeting.venue ? "keep" : "none") : "none",
-		placeName: "",
-		placeAddress: "",
+		place: placeOf(meeting),
 		notes: meeting?.notes ?? "",
 	};
 }
+
+const NO_PLACE: Place = { choice: "none", name: "", address: "" };
+function placeOf(meeting: Detail | undefined): Place {
+	const venue = meeting?.venue;
+	return venue ? { choice: venue.id ?? "copied", name: venue.name, address: venue.address } : NO_PLACE;
+}
+
+const MEETING = "this meeting";
+const FIELDS: readonly ConflictField<Draft>[] = [
+	{ key: "title", label: "Title", text: (d) => d.title },
+	{ key: "date", label: "Date", text: (d) => (d.date ? dayText(d.date) : "") },
+	{ key: "time", label: "Start time", text: (d) => (d.time ? timeText(d.time) : "") },
+	{ key: "place", label: "Place", text: (d) => d.place.name || "No place yet" },
+	{ key: "notes", label: "Notes", text: (d) => d.notes },
+];
 
 export function PlanMeetingDialog<E extends { problem?: string }>({
 	open,
@@ -108,7 +122,7 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 						meeting={meeting}
 						kept={kept}
 						onClose={close}
-						onReopen={() => onOpenChange(true)}
+
 						onKeep={(next) => {
 							setKept(next);
 							onOpenChange(true);
@@ -129,7 +143,6 @@ function Form<E extends { problem?: string }>({
 	meeting,
 	kept,
 	onClose,
-	onReopen,
 	onKeep,
 	onSaved,
 	onPreview,
@@ -140,7 +153,6 @@ function Form<E extends { problem?: string }>({
 	meeting?: Detail;
 	kept: Kept | null;
 	onClose: () => void;
-	onReopen: () => void;
 	onKeep: (kept: Kept) => void;
 	onSaved?: (meeting: Detail) => void;
 	onPreview?: (meeting: Detail | null) => void;
@@ -148,10 +160,19 @@ function Form<E extends { problem?: string }>({
 	ministry?: Ministry;
 }) {
 	const editing = meeting !== undefined;
-	const [draft, setDraft] = useState(() => kept?.draft ?? initial(meeting, ministry));
-	const [touched, setTouched] = useState(kept !== null);
+	const latest = initial(meeting, ministry);
+	const merged = useMergedDraft({
+		base: kept?.base ?? latest,
+		latest,
+		start: kept?.draft,
+		fields: editing ? FIELDS : [],
+	});
+	const draft = merged.values;
+	const [touched, setTouched] = useState(kept !== null && !kept.problem);
 	const [fold, setFold] = useState<Fold | null>(kept?.fold ?? null);
-	const [problem, setProblem] = useState<string | null>(null);
+	const [problem, setProblem] = useState<string | null>(
+		kept?.problem && !merged.rows.length ? changesKept(MEETING) : null,
+	);
 	const [focusProblem, refuseProblem] = useProblemFocus();
 	const venues = useRead(savedPlaces).value;
 	const ministries = useRead(editing ? null : teamMinistries).value;
@@ -159,7 +180,7 @@ function Form<E extends { problem?: string }>({
 	const offset = fold?.offset ?? null;
 	const pending = lane.saving;
 	const set = (patch: Partial<Draft>) => {
-		setDraft((d) => ({ ...d, ...patch }));
+		merged.set(patch);
 		if ("date" in patch || "time" in patch) setFold(null);
 	};
 
@@ -169,17 +190,18 @@ function Form<E extends { problem?: string }>({
 		teamId: team && draft.teamId === "",
 		date: draft.date === "",
 		time: draft.time === "",
-		placeName: draft.place === "new" && draft.placeName.trim() === "",
-		placeAddress: draft.place === "new" && draft.placeAddress.trim() === "",
+		placeName: draft.place.choice === "new" && draft.place.name.trim() === "",
+		placeAddress: draft.place.choice === "new" && draft.place.address.trim() === "",
 	};
-	const venue =
-		draft.place === "none"
+	const typedPlace = { name: draft.place.name.trim(), address: draft.place.address.trim() };
+	const samePlace = editing && JSON.stringify(draft.place) === JSON.stringify(latest.place);
+	const venue = samePlace
+		? undefined
+		: draft.place.choice === "none"
 			? { kind: "none" as const }
-			: draft.place === "new"
-				? { kind: "new" as const, venue: { name: draft.placeName.trim(), address: draft.placeAddress.trim() } }
-				: draft.place === "keep"
-					? undefined
-					: { kind: "existing" as const, venueId: draft.place };
+			: draft.place.choice === "new" || draft.place.choice === "copied"
+				? { kind: "new" as const, venue: typedPlace }
+				: { kind: "existing" as const, venueId: draft.place.choice };
 	const when = { date: draft.date, time: draft.time, ...(offset !== null ? { offsetSeconds: offset } : {}) };
 
 	async function submit(event: React.FormEvent) {
@@ -187,8 +209,8 @@ function Form<E extends { problem?: string }>({
 		setTouched(true);
 		setProblem(null);
 		if (lane.wait) return;
-		if (Object.values(missing).some(Boolean)) return refuseProblem();
-		if (choices && offset === null) return setProblem("ambiguous_local_time");
+		if (Object.values(missing).some(Boolean) || merged.unchosen) return refuseProblem();
+		if (choices && offset === null) return setProblem(problemText("ambiguous_local_time"));
 		if (editing) {
 			const moved = draft.date !== meeting.localDate || draft.time !== meeting.localTime;
 			const patch = {
@@ -197,7 +219,6 @@ function Form<E extends { problem?: string }>({
 				...(moved || offset !== null ? when : {}),
 				...(venue ? { venue } : {}),
 			};
-			const chosen = venues?.find((v) => v.id === draft.place);
 			onPreview?.({
 				...meeting,
 				title: blank(draft.title),
@@ -205,16 +226,14 @@ function Form<E extends { problem?: string }>({
 				notes: blank(draft.notes),
 				localDate: draft.date as Detail["localDate"],
 				localTime: draft.time,
-				venue:
-					draft.place === "keep"
-						? meeting.venue
-						: draft.place === "none"
-							? null
-							: draft.place === "new"
-								? { id: null, name: draft.placeName.trim(), address: draft.placeAddress.trim() }
-								: chosen
-									? { id: chosen.id, name: chosen.name, address: chosen.address }
-									: meeting.venue,
+				venue: samePlace
+					? meeting.venue
+					: draft.place.choice === "none"
+						? null
+						: {
+								...typedPlace,
+								id: venue?.kind === "existing" ? (venue.venueId as NonNullable<Detail["venue"]>["id"]) : null,
+							},
 			});
 			onClose();
 			let answered: Choice[] | undefined;
@@ -231,8 +250,9 @@ function Form<E extends { problem?: string }>({
 				},
 				refused: (code) => {
 					onPreview?.(null);
-					if (code === "conflict" && onStale) return void onStale().then(onReopen);
-					onKeep({ draft, fold: answered ? { choices: answered, offset } : fold });
+					if (code === "conflict" && onStale)
+						return void onStale().then(() => onKeep({ base: latest, draft, fold, problem: "conflict" }));
+					onKeep({ base: latest, draft, fold: answered ? { choices: answered, offset } : fold });
 				},
 			});
 			return;
@@ -258,11 +278,19 @@ function Form<E extends { problem?: string }>({
 		return r;
 	}
 
+	const held = [latest.place, kept?.base.place, kept?.draft.place, draft.place].filter(
+		(p, i, all): p is Place =>
+			!!p && p.choice !== "none" && p.choice !== "new" && all.findIndex((q) => q?.choice === p.choice) === i,
+	);
+	const pickPlace = (choice: string) => {
+		const known = held.find((p) => p.choice === choice) ?? venues?.find((v) => v.id === choice);
+		return set({ place: known ? { choice, name: known.name, address: known.address } : { ...NO_PLACE, choice } });
+	};
 	const placeOptions = [
-		...(meeting?.venue ? [{ value: "keep", label: `Keep ${meeting.venue.name}` }] : []),
+		...held.map((p) => ({ value: p.choice, label: p === latest.place ? `Keep ${p.name}` : p.name })),
 		{ value: "none", label: "No place yet" },
 		...(venues ?? [])
-			.filter((v) => v.active && v.id !== meeting?.venue?.id)
+			.filter((v) => v.active && !held.some((p) => p.choice === v.id))
 			.map((v) => ({ value: v.id, label: v.name })),
 		{ value: "new", label: "Add a new place" },
 	];
@@ -279,6 +307,18 @@ function Form<E extends { problem?: string }>({
 					}
 				/>
 				<DialogBody className="flex flex-col gap-4">
+					<SaveConflict
+						what={MEETING}
+						rows={merged.rows}
+						asked={touched}
+						focus={kept?.problem === "conflict"}
+						disabled={pending}
+						onPick={(field, pick) => {
+							merged.choose(field, pick);
+							if (field === "date" || field === "time") setFold(null);
+						}}
+						onKeepSaved={onClose}
+					/>
 					{editing ? null : (
 						<Field label="Kind of meeting">
 							<Select
@@ -377,34 +417,29 @@ function Form<E extends { problem?: string }>({
 						</fieldset>
 					) : null}
 					<Field label="Place" hint={venues === undefined ? "Loading saved places…" : undefined}>
-						<Select
-							value={draft.place}
-							disabled={pending}
-							onValueChange={(place) => set({ place })}
-							options={placeOptions}
-						/>
+						<Select value={draft.place.choice} disabled={pending} onValueChange={pickPlace} options={placeOptions} />
 					</Field>
-					{draft.place === "new" ? (
+					{draft.place.choice === "new" ? (
 						<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 							<Field
 								label="Place name"
 								error={touched && missing.placeName ? "Enter a name, such as Reyes home." : null}
 							>
 								<Input
-									value={draft.placeName}
+									value={draft.place.name}
 									maxLength={120}
 									readOnly={pending}
 									autoComplete="off"
-									onChange={(e) => set({ placeName: e.target.value })}
+									onChange={(e) => set({ place: { ...draft.place, name: e.target.value } })}
 								/>
 							</Field>
 							<Field label="Address" error={touched && missing.placeAddress ? "Enter the address." : null}>
 								<Input
-									value={draft.placeAddress}
+									value={draft.place.address}
 									maxLength={500}
 									readOnly={pending}
 									autoComplete="off"
-									onChange={(e) => set({ placeAddress: e.target.value })}
+									onChange={(e) => set({ place: { ...draft.place, address: e.target.value } })}
 								/>
 							</Field>
 						</div>
@@ -419,7 +454,7 @@ function Form<E extends { problem?: string }>({
 						/>
 					</Field>
 					<DialogNotice />
-					<InlineAlert>{problem ? problemText(problem) : undefined}</InlineAlert>
+					<InlineAlert>{problem ?? (touched && merged.unchosen ? CHOOSE_FIRST : undefined)}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

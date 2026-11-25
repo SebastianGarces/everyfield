@@ -192,12 +192,12 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
-	const teamForm = (): TeamForm => ({
+	const teamForm = (team: TeamView["team"]): TeamForm => ({
 		mode: "edit",
-		name: t.name,
-		description: t.description ?? "",
-		icon: iconKey(t),
-		state: t.state,
+		name: team.name,
+		description: team.description ?? "",
+		icon: iconKey(team),
+		state: team.state,
 		reason: "",
 	});
 	function saveTeam(form: TeamForm) {
@@ -208,7 +208,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			state: form.state,
 			reason: form.reason,
 		};
-		const plan = planTeamEdit(teamForm(), form);
+		const plan = planTeamEdit(teamForm(data.team), form);
 		if (plan !== "send") {
 			teamLane.close();
 			if (plan === "close-and-say") toast({ tone: "info", message: "Nothing changed, so nothing was saved." });
@@ -251,6 +251,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
+	const openRole = data.roles?.find((r) => r.id === roleLane.editing?.roleId);
 	function saveRole(form: RoleForm) {
 		const facts = {
 			name: form.name.trim(),
@@ -398,7 +399,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						<IconButton icon={MoreHorizontalIcon} label="More actions" />
 					</MenuTrigger>
 					<MenuContent align="end">
-						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm())}>
+						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm(t))}>
 							Edit details
 						</MenuItem>
 						<MenuSeparator />
@@ -585,6 +586,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				{teamLane.editing ? (
 					<TeamDialog
 						form={teamLane.editing}
+						latest={teamForm(data.team)}
 						problem={teamLane.problem}
 						wait={teamLane.wait}
 						onClose={teamLane.close}
@@ -596,6 +598,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				{roleLane.editing ? (
 					<RoleDialog
 						form={roleLane.editing}
+						latest={openRole ? roleForm(openRole) : undefined}
 						problem={roleLane.problem}
 						wait={roleLane.wait}
 						onClose={roleLane.close}
