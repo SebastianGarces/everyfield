@@ -4731,7 +4731,7 @@
     "id": "DOC-004",
     "title": "Core Group Commitment Card",
     "module": "documents",
-    "behavior": "Core Group Commitment Card \u2014 PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
+    "behavior": "Core Group Commitment Card \u2014 PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-004"
@@ -4785,7 +4785,7 @@
     "id": "DOC-006",
     "title": "Guest Sign-in Sheet",
     "module": "documents",
-    "behavior": "Guest Sign-in Sheet \u2014 PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
+    "behavior": "Guest Sign-in Sheet \u2014 PDF; letter-size real name/contact/inviter, church required, meeting date and number written in by hand.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-006"
