@@ -1,7 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { listPlants } from "../../../packages/domain/src/oversight/index.ts";
+import { listPlants, readIntelligence } from "../../../packages/domain/src/oversight/index.ts";
 import { readCatalog } from "../../../packages/evry/src/index.ts";
 import type { Actor } from "../../support/fixture.mts";
 import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligence-church.mts";
@@ -75,7 +75,7 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 
 	await w.apply(director, "organizationIntelligence.requestRefresh", {});
 	for (const who of [director, member]) {
-		for (const level of ["portfolio", "state", "region"] as const) {
+		for (const level of ["portfolio", "country", "state", "region"] as const) {
 			const got = await w.look(who, "organizationIntelligence.read", { level });
 			assert.deepEqual(
 				rowsOf(got).map((r) => [r.fields.plants, r.fields.evidence]),
@@ -114,6 +114,29 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 		["Harvest Point, Hill Country Church (Not shared), Redeemer Church"],
 	);
 	assert.equal(pattern.fields.plants, "Harvest Point, Redeemer Church", "R is in no arithmetic");
+	assert.deepEqual(Object.keys(pattern.fields).sort(), [
+		"evidence",
+		"group",
+		"href",
+		"level",
+		"nextStep",
+		"pattern",
+		"patternKey",
+		"plantLinks",
+		"plants",
+		"row",
+		"yourRating",
+	]);
+	const whole = (await readIntelligence(w.db, await w.authorityOf(member), { level: "portfolio", runId: null }))!;
+	assert.deepEqual(
+		whole.groups[0]!.rows.map((r) => [r.name, r.status === "shared" ? r.results["NIR-04"] : r.status]),
+		[
+			["Harvest Point", "clear"],
+			["Hill Country Church", "not_shared"],
+			["Redeemer Church", "unknown"],
+		],
+		"an unshared category is Unknown",
+	);
 	assert.deepEqual(
 		(await w.rows(sql`SELECT plant_id FROM network_intelligence_plant WHERE run_id=${history.facts.runId}`))
 			.map((r) => r.plant_id)
@@ -176,16 +199,24 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 		[],
 	);
 
+	const rate = "organizationIntelligence.submitFeedback";
 	const feedback = { runId: history.facts.runId, patternKey: pattern.fields.patternKey, rating: "useful" };
-	await w.apply(director, "organizationIntelligence.submitFeedback", feedback);
-	const rated = await w.look(director, "organizationIntelligence.readHistory", { level: "portfolio" });
-	assert.equal(rowsOf(rated).find((r) => r.fields.row === "pattern")!.fields.yourRating, "Useful");
-	const others = await w.look(member, "organizationIntelligence.readHistory", { level: "portfolio" });
-	assert.equal(
-		rowsOf(others).find((r) => r.fields.row === "pattern")!.fields.yourRating,
-		null,
-		"only its own author's",
-	);
+	const ratings = async () => {
+		const seen = [];
+		for (const who of [member, director]) {
+			const got = await w.look(who, "organizationIntelligence.readHistory", { level: "portfolio" });
+			seen.push(rowsOf(got).find((r) => r.fields.row === "pattern")!.fields.yourRating);
+		}
+		return seen;
+	};
+	assert.ok(asked.offered.includes(rate), "a Member may rate what it reads");
+	await w.apply(member, rate, feedback);
+	assert.deepEqual(await ratings(), ["Useful", null], "only its own author's");
+	const unsaved = await w.prepare(member, rate, { ...feedback, rating: "not_useful" });
+	await c.failedWrite(unsaved, "network_intelligence_feedback", { as: member, atApproval: true });
+	assert.deepEqual(await ratings(), ["Useful", null], "the saved rating stays");
+	await w.apply(director, rate, { ...feedback, rating: "not_useful" });
+	assert.deepEqual(await ratings(), ["Useful", "Not useful"]);
 	for (const [operation, input] of [
 		["organizationIntelligence.requestRefresh", {}],
 		["organizations.updateProfile", { patch: { description: "Admin words" } }],
@@ -196,7 +227,11 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 	}
 	await w.apply(director, "organizations.updateProfile", { patch: { description: "Admin words" } });
 
-	await c.foreign(said, look, { secrets: ["Harvest Point", "Alex Leadname", "Springfield"], on: { onError: "go_on" } });
+	await c.foreign(
+		said,
+		[...look, () => propose(rate, feedback), () => propose("organizationIntelligence.requestRefresh", {})],
+		{ secrets: ["Harvest Point", "Alex Leadname", "Springfield"], on: { onError: "go_on" } },
+	);
 	const refresh = await w.prepare(director, "organizationIntelligence.requestRefresh", {});
 	await c.foreignReview(refresh);
 	const runs = () => w.rows(sql`SELECT id FROM network_intelligence_run ORDER BY ran_at,id`);
@@ -207,6 +242,9 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 	assert.equal((await runs()).length, kept.length + 1, "only the failed write stood in the way");
 
 	const saved = (await listPlants(w.db, (await w.actorOf(member)).authority))!.plants.length;
+	const pending = await w.prepare(member, rate, { ...feedback, rating: "not_useful" });
+	const ratingRows = () => w.rows(sql`SELECT * FROM network_intelligence_feedback ORDER BY account_id`);
+	const rated = await ratingRows();
 	await w.admin.execute(sql`UPDATE affiliation SET shared_findings=false WHERE id=${P.affiliation}`);
 	const then = await w.ask(member, "Continue", look, { conversation: asked.conversation });
 	assert.doesNotMatch(JSON.stringify(then.prompts), /Alex Leadname/);
@@ -219,10 +257,13 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 			"no old pattern either",
 		);
 	}
-	const lost = await w.ask(director, "Rate it", [
-		() => propose("organizationIntelligence.submitFeedback", { ...feedback, rating: "not_useful" }),
-	]);
-	assert.deepEqual([lost.replies[0].error, lost.proposals], ["not_found", []]);
+	for (const who of [member, director]) {
+		const lost = await w.ask(who, "Rate it", [() => propose(rate, feedback)]);
+		assert.deepEqual([lost.replies[0].error, lost.proposals], ["not_found", []]);
+	}
+	const { review: late } = await w.approve(member, pending);
+	assert.deepEqual([late.outcome, late.receipt?.code], ["refused", "access_denied"]);
+	assert.deepEqual(await ratingRows(), rated, "a rating of the old pattern saves nothing");
 	await w.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${P.affiliation}`);
 	const ended = await w.ask(member, "Continue", look, { conversation: asked.conversation });
 	assert.doesNotMatch(JSON.stringify(ended.prompts), /PATTERN-BODY|Harvest Point/, "no cached answer names it");

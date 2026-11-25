@@ -489,6 +489,7 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"account.removeAvatar",
 		"development.draftNextVersion",
 		...directed,
+		"organizationIntelligence.submitFeedback",
 	]);
 	assert.deepEqual(
 		tools(
@@ -509,6 +510,7 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 			"account.removeAvatar",
 			"development.draftNextVersion",
 			...directed,
+			"organizationIntelligence.submitFeedback",
 		],
 	);
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
@@ -540,6 +542,40 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		const plantSeat = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", role));
 		for (const op of orgWiki) assert.equal(plantSeat.includes(op), false, `${role} ${op}`);
 	}
+});
+
+test("INV-evry-ni-feedback: a Member's prompt and tools offer their own rating and name only a refresh as an Owner's or Admin's", async () => {
+	const { capabilitiesAnswer, compileContext } = await import("../../../packages/evry/src/context/compile.ts");
+	const feedback = "organizationIntelligence.submitFeedback";
+	const id = "0f8fad5b-d9cb-469f-a165-70867728950e";
+	for (const kind of ["sending_church", "sending_network"] as const)
+		for (const role of ["owner", "admin", "member"] as const) {
+			const actor = {
+				owner: { kind: "organization", id, organizationKind: kind },
+				contextKind: kind,
+				role,
+			} as unknown as EvryActor;
+			const catalog = readCatalog(actor);
+			const { system } = compileContext({
+				actor,
+				catalog,
+				history: [],
+				text: "x",
+				references: [],
+				now: new Date("2026-11-09T15:00:00Z"),
+				state: null,
+			});
+			const described = catalog.reviewedWrites.find((w) => w.operation === feedback)!.description;
+			const member = role === "member";
+			assert.match(described, /their own rating|user's own rating/);
+			assert.equal(/Owner or Admin/.test(described), !member, `${kind} ${role}`);
+			const refresh = "Only an Owner or Admin can refresh Network Intelligence. Nothing was requested.";
+			assert.equal(system.includes(refresh), member, `${kind} ${role}`);
+			assert.equal(/refresh Network Intelligence or rate its patterns/.test(system), !member, `${kind} ${role}`);
+			const can = capabilitiesAnswer(catalog, actor);
+			assert.match(can, /your own rating of a Network Intelligence pattern/);
+			assert.equal(/Network Intelligence refresh/.test(can), !member, `${kind} ${role}`);
+		}
 });
 
 test("INV-golden-guidance: the prompt and tools an Owner's model gets name the next weekday, the follow-up owner check, private care, sending a draft as shown, missed notifications, the import header, a new person's source and an invitation's meeting; a seat without the tool or context gets none of it", async () => {

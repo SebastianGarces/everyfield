@@ -84,7 +84,10 @@ export function readCatalog(actor: EvryActor, offered: Offered = everyOperation)
 		context: actor.contextKind,
 		domains,
 		selection: domains.length > 0 ? [SELECT_RETURNED_ROWS] : [],
-		reviewedWrites: allowedWrites(actor, offered).map((w) => ({ operation: w.operation, description: w.description })),
+		reviewedWrites: allowedWrites(actor, offered).map((w) => ({
+			operation: w.operation,
+			description: (actor.role === "member" && w.memberDescription) || w.description,
+		})),
 		withheld: actor.owner.kind === "plant" && actor.role === "member" ? [MEMBER_PHASES, MEMBER_INTELLIGENCE] : [],
 	};
 }

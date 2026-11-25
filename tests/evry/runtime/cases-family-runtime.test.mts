@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { runDueObjectCleanup } from "../../../packages/domain/src/jobs/object-cleanup.ts";
 import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.ts";
+import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/index.ts";
 import { peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { readAttachment } from "../../../packages/evry/src/attachments/store.ts";
 import type { ReadAdapter } from "../../../packages/evry/src/catalog/types.ts";
@@ -65,6 +66,24 @@ const linked = (plant: Workspace, organization: Workspace) =>
 	w.admin
 		.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${plant.id},${organization.id},clock_timestamp()-interval '1 day',true,true,true,true,false,false,true)`);
+async function patternToRate(organization: Workspace) {
+	for (const name of ["Cedar East", "Cedar West"]) {
+		const plant = await w.plant({ name, city: "Austin", state_province: "TX", country: "US" });
+		await linked(plant, organization);
+		await w.admin.execute(
+			sql`INSERT INTO launch(plant_id,status,target_date) VALUES(${plant.id},'scheduled','2026-10-23')`,
+		);
+		const { id } = await w.one(
+			sql`INSERT INTO team(plant_id,name,state,sort_order) VALUES(${plant.id},'Children','active',1) RETURNING id`,
+		);
+		await w.admin.execute(sql`INSERT INTO team_role(plant_id,team_id,name,leadership,sort_order,responsibility_key)
+			VALUES(${plant.id},${id},'Children lead',true,1,'children')`);
+	}
+	const admin = await w.authorityOf(await w.seated(organization, "admin"));
+	ok(await requestIntelligenceRefresh(w.db, admin, { runId: randomUUID() }));
+	const view = (await readIntelligence(w.db, admin, { level: "portfolio", runId: null }))!;
+	return { runId: view.run!.runId, patternKey: view.groups[0]!.patterns[0]!.key, rating: "useful" };
+}
 async function task(plant: string, title: string, owner: string) {
 	const id = randomUUID();
 	await w.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind)
@@ -115,7 +134,9 @@ test("AC:EVRY-FAMILY-RUNTIME-CATALOG each seat is offered only its own reads and
 		[c.P.id],
 		"exactly its own linked plants",
 	);
-	for (const operation of ["oversight.listPlants", "organizationIntelligence.read"])
+	const rate = "organizationIntelligence.submitFeedback";
+	const REFRESH = "organizationIntelligence.requestRefresh";
+	for (const operation of ["oversight.listPlants", "organizationIntelligence.read", rate])
 		assert.ok(org.offered.includes(operation), operation);
 	assert.deepEqual(
 		org.offered.filter((o) =>
@@ -126,11 +147,29 @@ test("AC:EVRY-FAMILY-RUNTIME-CATALOG each seat is offered only its own reads and
 		[],
 		"no raw church read and no Admin command",
 	);
+	const rating = await patternToRate(S1);
+	const seatWrites = async (a: typeof B) => readCatalog(await w.actorOf(a)).reviewedWrites.map((x) => x.operation);
+	const ownWrites = await seatWrites(B);
+	for (const admin of [
+		"organizations.updateProfile",
+		"pipeline.saveGoal",
+		"development.saveProgram",
+		"wiki.organizationArticles.publish",
+		REFRESH,
+	])
+		assert.ok((await seatWrites(await w.seated(S1, "admin"))).includes(admin) && !ownWrites.includes(admin), admin);
+	const prepared = await w.quiet(() => w.ask(B, "Rate it", [proposes(rate, rating)]), ["proposal"]);
+	assert.deepEqual(
+		prepared.proposals.map((p) => [p.operation, p.status, p.review.changes]),
+		[[rate, "pending", [{ field: "rating", before: null, after: "Useful" }]]],
+	);
+	const refresh = await w.quiet(() => w.ask(B, "Refresh it", [proposes(REFRESH, {})]));
+	assert.deepEqual([refresh.replies[0].error, refresh.proposals], ["not_offered", []]);
 
 	const floor = await w.ask(M, "Finish my task", [proposes("tasks.complete", { taskId: own })]);
 	assert.equal(floor.proposals.length, 1);
 	assert.ok(floor.offered.includes("tasks.complete"));
-	for (const denied of ["people.updatePerson", "tasks.create", "seats.invite"])
+	for (const denied of ["people.updatePerson", "tasks.create", "seats.invite", rate, REFRESH])
 		assert.equal(floor.offered.includes(denied), false, denied);
 	const theirs = await w.quiet(() => w.ask(M, "Finish that one too", [proposes("tasks.complete", { taskId: other })]));
 	assert.deepEqual([theirs.replies[0].error, theirs.proposals], ["not_assigned", []]);
@@ -143,6 +182,16 @@ test("AC:EVRY-FAMILY-RUNTIME-CATALOG each seat is offered only its own reads and
 	await submitTurn(w.db, await w.actorOf(D), conversation, { requestKey: randomUUID(), text: "Show people" });
 	await w.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${D.id}`);
 	const removed = await w.work([reads("people.listPeople", {})]);
+	const exMember = await w.seated(S1, "member");
+	const exTurn = await w.converse(await w.actorOf(exMember));
+	await submitTurn(w.db, await w.actorOf(exMember), exTurn, { requestKey: randomUUID(), text: "Rate it" });
+	await w.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${exMember.id}`);
+	const removedMember = await w.work([proposes(rate, rating)]);
+	assert.deepEqual(
+		[removedMember.outcome, [...removedMember.played.offered], removedMember.played.prompts],
+		["failed", [], []],
+		"a removed organization Member is offered no rating",
+	);
 	assert.deepEqual(
 		[removed.outcome, [...removed.played.offered], removed.played.prompts],
 		["failed", [], []],
@@ -154,7 +203,9 @@ test("AC:EVRY-FAMILY-RUNTIME-CATALOG each seat is offered only its own reads and
 				...readCatalog(gone).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 				...readCatalog(gone).reviewedWrites.map((x) => x.operation),
 			].filter((o) =>
-				/^(people|tasks|teams|meetings|communication|launch|phases|intelligence|followups|seats)\./.test(o),
+				/^(people|tasks|teams|meetings|communication|launch|phases|intelligence|organizationIntelligence|followups|seats)\./.test(
+					o,
+				),
 			)
 		: [];
 	assert.deepEqual(left, []);

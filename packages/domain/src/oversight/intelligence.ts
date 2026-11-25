@@ -72,8 +72,9 @@ SELECT EXISTS(SELECT FROM r) AS added,
 }
 
 export async function submitIntelligenceFeedback(db: Database, authority: RequestActor, raw: unknown) {
-	return write(db, authority, true, async (w) => {
+	return write(db, authority, false, async (w) => {
 		const input = parse(C.feedbackRequest, raw);
+		if (!(await readPattern(w.tx, authority, input))) refuse();
 		const row = await one(
 			w,
 			z.object({ found: z.boolean(), changed: z.boolean() }),
@@ -133,6 +134,15 @@ const unshared = z.object({
 });
 const iso = <VName extends string>(v: SqlLiteral<VName>) =>
 	sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
+export async function readPattern(db: Reader, authority: RequestActor, input: { runId: string; patternKey: string }) {
+	const level = input.patternKey.split(":").find((part) => C.LEVELS.some((l) => l === part)) as C.Level | undefined;
+	const view = level ? await readIntelligence(db, authority, { level, runId: input.runId }) : null;
+	const group = view?.groups.find((g) => g.patterns.some((p) => p.key === input.patternKey));
+	const pattern = group?.patterns.find((p) => p.key === input.patternKey);
+	if (!view?.run || !group || !pattern) return null;
+	return { pattern, level: view.level, group: group.label, ranAt: view.run.ranAt, timeZone: view.timeZone };
+}
 
 export async function readIntelligence(
 	db: Reader,

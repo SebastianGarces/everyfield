@@ -15,7 +15,7 @@ blob that can match a push-protection pattern by chance. `recorder.test.mts` (`t
 
 | Suite                    | Cases                                                                                                                    | What it scores                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (424 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (425 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
 | `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
@@ -43,7 +43,7 @@ The recorded suites offer every tool these four tasks added (T-635). Their golde
 
 - T-630, a planter's week: ADP-C-15 to ADP-C-20, ADP-R-23, ADP-M-38, ADP-LA-01 to ADP-LA-04 and ADP-S-02 to ADP-S-05.
   The harness runs the real planning notes, review outcomes and composed reads; ADP-S-05 is one composed answer.
-- T-631, network: ADP-NW-01 to ADP-NW-13, ADP-GE-01 to ADP-GE-04, ADP-AS-01 to ADP-AS-06 and ADP-OV-01 to ADP-OV-06.
+- T-631, network: ADP-NW-01 to ADP-NW-13, ADP-GE-01 to ADP-GE-04, ADP-AS-01 to ADP-AS-06 and ADP-OV-01 to ADP-OV-07.
 - T-632, documents and settings: ADP-CN-01 to ADP-CN-15 and ADP-DT-01 to ADP-DT-13.
 - T-633, Wiki browsing: ADP-WK-10 to ADP-WK-27. A case's `page` is an article's slug, or an app route when it starts
   with `/`.
@@ -56,7 +56,7 @@ the seed makes, so the harness pins them in what the model sees (`withPinnedSeed
 cards. The document templates render TSX, so `golden.test.mts` runs in the `tsx` half of `test:db`.
 
 Tools other tasks hold in `LATER` (`golden-harness.mts`) stay out of the recorded suites, except where a case names one
-in `eval.offer`: ADP-LA-03 and ADP-LA-04, ADP-NW-06 to ADP-NW-13 and ADP-OV-06 do.
+in `eval.offer`: ADP-LA-03 and ADP-LA-04, ADP-NW-06 to ADP-NW-13, ADP-OV-06 and ADP-OV-07 do.
 
 ## The settings suite (scripted model)
 
@@ -129,7 +129,7 @@ pages' own reads. Two more tests hold the boundaries: the read takes no search t
 every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
 
 The NET cases (T-631) ask the same suite for sending goals, conversation counts, goal and stage changes, enrollments and
-milestones. OVS-33 to OVS-44 do the same for sending churches, how a plant changed, and a Network Intelligence refresh or
+milestones. OVS-33 to OVS-45 do the same for sending churches, how a plant changed, and a Network Intelligence refresh or
 rating; INT-13 to INT-19 for past assessments, where to start and the asker's own ratings; SET-35 to SET-38 for the
 reporting Region. `tests/evry/adapters/{pipeline,oversight,intelligence/reads,settings}` hold each tool's comparison with
 its native command and every refusal. The recorded suites score T-631's tools on the real model (above).
