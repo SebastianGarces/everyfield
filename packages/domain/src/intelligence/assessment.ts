@@ -199,7 +199,7 @@ function newestOf(r: z.infer<typeof readRow>): c.NewestRun | null {
 export function createAssessments(config: { clock?: Clock } = {}) {
 	const now = () =>
 		config.clock ? sql`${new Date(config.clock.now()).toISOString()}::timestamptz` : sql`clock_timestamp()`;
-	const publishedJson = sql`json_build_object('runId',cur.id,'asOf',${iso("cur.as_of")},'phase',cur.phase,
+	const publishedJson = () => sql`json_build_object('runId',cur.id,'asOf',${iso("cur.as_of")},'phase',cur.phase,
 		'rubricVersion',cur.rubric_version,'release',cur.reference_release,'activation',cur.reference_activation,
 		'result',cur.result,'delta',cur.delta,
 		'measuredOn',cur.facts->>'today','daysToLaunch',cur.facts->'launch'->'daysToLaunch',
@@ -247,7 +247,7 @@ cur AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outco
 nw AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome<>'superseded'
 	ORDER BY r.captured_at DESC,r.id DESC LIMIT 1)
 SELECT (SELECT ok FROM gate) AS ok,
-	(SELECT ${publishedJson} FROM cur,x) AS current,
+	(SELECT ${publishedJson()} FROM cur,x) AS current,
 	(SELECT x.phase FROM x) AS current_phase,
 	EXISTS(SELECT FROM assessment_seen v JOIN cur ON cur.id=v.run_id WHERE v.account_id=${s.me}::uuid) AS seen,
 	(SELECT coalesce(json_agg(json_build_object('ordinal',f.ordinal,'rating',f.rating,'comment',f.comment,
@@ -278,7 +278,7 @@ SELECT (SELECT ok FROM gate) AS ok,
 				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
 x AS (SELECT pl.id,pl.timezone FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
 cur AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome='published' AND r.id=${q.data.runId}::uuid)
-SELECT (SELECT ok FROM gate) AS ok,(SELECT ${publishedJson} FROM cur,x) AS run`);
+SELECT (SELECT ok FROM gate) AS ok,(SELECT ${publishedJson()} FROM cur,x) AS run`);
 				const r = z.object({ ok: z.boolean(), run: storedCurrent.nullable() }).parse(rows[0]);
 				if (!r.ok) deny("access_denied");
 				if (!r.run) deny("not_found");
