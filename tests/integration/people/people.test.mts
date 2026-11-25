@@ -2053,6 +2053,10 @@ async function caseMeeting(plant: { id: string } = P) {
 const quiet = async () => undefined;
 const attendance = createAttendanceWriter({ reminders: quiet }),
 	tasks = createTaskWriter({ reminders: quiet });
+const revised = async <T,>(personId: string, body: (t: WriteTx, c: PeopleContext, revision: string) => Promise<T>) => {
+	const revision = await caseRevision(personId);
+	return caseWrite(alexAccount, (t, c) => body(t, c, revision));
+};
 const meetingWrite = async <T,>(who: Actor, body: (t: WriteTx, c: MeetingsContext) => Promise<T>) =>
 	withMeetingsWrite(caseDb, await authorityOf(caseDb, who), body as never) as Promise<T>;
 const taskWrite = async <T,>(who: Actor, body: (t: WriteTx, c: TaskContext) => Promise<T>) =>
@@ -2253,8 +2257,8 @@ test("AC:TARGET-PPL-002 a create or edit that names an account, a file, a creato
 		[{ actor_id: alexAccount.id, kind: "create" }],
 	);
 	const patch = (values: object) =>
-		caseWrite(alexAccount, async (t, c) =>
-			write.updatePerson(t, c, envelope(await caseRevision(person.id), { personId: person.id, patch: values })),
+		revised(person.id, (t, c, revision) =>
+			write.updatePerson(t, c, envelope(revision, { personId: person.id, patch: values })),
 		);
 	for (const extra of forged) await refusedUntouched(() => patch({ phone: "555-0100", ...extra }), "invalid_input");
 	await refusedUntouched(() => patch({ stage: "leader" }), "invalid_input");
@@ -2313,8 +2317,8 @@ test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep histor
 		);
 	ok(await checkIn(pastMeeting, p.id));
 	const note = ok(
-		await caseWrite(alexAccount, async (t, c) =>
-			write.addNote(t, c, envelope(await caseRevision(p.id), { personId: p.id, body: "Kept note" })),
+		await revised(p.id, (t, c, revision) =>
+			write.addNote(t, c, envelope(revision, { personId: p.id, body: "Kept note" })),
 		),
 	);
 	const duty = await personTask(p.id, "Call Alex");
@@ -2371,12 +2375,8 @@ test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep histor
 	).tag.id;
 	const head = await casePerson("Household head");
 	const made = ok(
-		await caseWrite(alexAccount, async (t, c) =>
-			fields.createHouseholdWithHead(
-				t,
-				c,
-				envelope(await caseRevision(head.id), { name: "Head household", headPersonId: head.id }),
-			),
+		await revised(head.id, (t, c, revision) =>
+			fields.createHouseholdWithHead(t, c, envelope(revision, { name: "Head household", headPersonId: head.id })),
 		),
 	);
 	assert.ok(made.result.status === "available");
@@ -2396,8 +2396,8 @@ test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep histor
 		[
 			"unavailable",
 			(id) =>
-				caseWrite(alexAccount, async (t, c) =>
-					fields.addToHousehold(t, c, envelope(await caseRevision(id), { householdId, personId: id, role: "other" })),
+				revised(id, (t, c, revision) =>
+					fields.addToHousehold(t, c, envelope(revision, { householdId, personId: id, role: "other" })),
 				),
 		],
 		[
@@ -2410,9 +2410,7 @@ test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep histor
 		[
 			"unavailable",
 			(id) =>
-				caseWrite(alexAccount, async (t, c) =>
-					write.addNote(t, c, envelope(await caseRevision(id), { personId: id, body: "Late note" })),
-				),
+				revised(id, (t, c, revision) => write.addNote(t, c, envelope(revision, { personId: id, body: "Late note" }))),
 		],
 	];
 	for (const [code, refer] of references) {
@@ -2433,12 +2431,8 @@ test("AC:TARGET-PPL-003 an ordinary retired person is restored once without seat
 	const p = await casePerson("Ordinary Alex");
 	await cases.admin.execute(sql`UPDATE person SET linked_account_id=${member.id} WHERE id=${p.id}::uuid`);
 	const made = ok(
-		await caseWrite(alexAccount, async (t, c) =>
-			fields.createHouseholdWithHead(
-				t,
-				c,
-				envelope(await caseRevision(p.id), { name: "Alex household", headPersonId: p.id }),
-			),
+		await revised(p.id, (t, c, revision) =>
+			fields.createHouseholdWithHead(t, c, envelope(revision, { name: "Alex household", headPersonId: p.id })),
 		),
 	);
 	assert.ok(made.result.status === "available");

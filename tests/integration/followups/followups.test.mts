@@ -203,19 +203,21 @@ async function emailed(c: Church, personId: string, at: string) {
 		VALUES(gen_random_uuid(),${c.w.id},${personId},'communication',${communication},${"communication/" + communication},
 			'payload','audience','sent',${at},${at},${at},${at},${at})`);
 }
-const changeStage = async (c: Church, personId: string, stage: string, handoffs: object[] = []) =>
-	withPeopleWrite(f.db, c.owner.actor, async (tx, ctx) =>
+const changeStage = async (c: Church, personId: string, stage: string, handoffs: object[] = []) => {
+	const { r } = await one(sql`SELECT revision::text r FROM person WHERE id=${personId}`);
+	return withPeopleWrite(f.db, c.owner.actor, (tx, ctx) =>
 		peopleWriter.changeStatus(
 			tx,
 			ctx,
 			{
 				requestKey: key(),
-				expectedRevision: (await one(sql`SELECT revision::text r FROM person WHERE id=${personId}`)).r,
+				expectedRevision: r,
 				input: { personId, stage, reason: "Stepped back", handoffs },
 			},
 			reminders,
 		),
 	);
+};
 const followUps = async (c: Church, personId: string) =>
 	ok(
 		await gatedTransaction(f.db, (tx) =>
@@ -2019,11 +2021,12 @@ test("AC:TARGET-TSK-004 AC:TARGET-TSK-011 a waived follow-up earns no credit and
 		evaluation: { assigneeIds: [] },
 	});
 	await closed();
+	const attendanceRevision = (await one(sql`SELECT attendance_revision::text r FROM meeting WHERE id=${v}`)).r;
 	const reconciled = await recorded(f.admin, () =>
-		withMeetingsWrite(f.db, c.admin.actor, async (tx, ctx) =>
+		withMeetingsWrite(f.db, c.admin.actor, (tx, ctx) =>
 			createAttendanceWriter({ reminders }).reconcileAttendance(tx, ctx, {
 				requestKey: key(),
-				expectedRevision: (await one(sql`SELECT attendance_revision::text r FROM meeting WHERE id=${v}`)).r,
+				expectedRevision: attendanceRevision,
 				input: { meetingId: v, attendeeIds: [alex, bea, cy, dee], reason: "Sign-in sheet checked" },
 			}),
 		),

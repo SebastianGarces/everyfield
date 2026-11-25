@@ -1020,12 +1020,14 @@ test("AC:TARGET-PPL-019 each filter exports exactly its people, with tags joined
 			}),
 		),
 	);
+	const [{ r: alexRevision }] = (await rows(sql`SELECT revision::text r FROM person WHERE id=${alex.id}`)) as [
+		{ r: string },
+	];
 	ok(
-		await write(4, async (t, c) =>
+		await write(4, (t, c) =>
 			people.addNote(t, c, {
 				requestKey: randomUUID(),
-				expectedRevision: (await rows<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${alex.id}`))[0]!
-					.r,
+				expectedRevision: alexRevision,
 				input: { personId: alex.id, body: "CARE-CANARY" },
 			}),
 		),

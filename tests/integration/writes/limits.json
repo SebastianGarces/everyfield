@@ -1491,7 +1491,7 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 10
+		"retry": 9
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
@@ -1864,7 +1864,8 @@
 	"teams.attestCompletion": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "A ministry's linked leader attests: BEGIN, the gate, the read of the program's team, the read that the caller leads it, the receipt read, the locked training read, one write and COMMIT. An Owner or Admin needs neither authority read. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "A ministry's linked leader attests: BEGIN, the gate, the read of the program's team, the read that the caller leads it, the receipt read, the locked training read, one write and COMMIT. An Owner or Admin needs neither authority read. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "The program's team is read before the caller can be judged as that team's linked leader, so the leader read takes the team id the first read returned. An Owner or Admin sends neither."
 	},
 	"teams.completeResponsibility": {
 		"limit": 7,
@@ -1973,7 +1974,8 @@
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,
 		"retry": 8,
-		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "The program is locked before its current roster is read, so a save that waited for the lock reads the roster the earlier save left. One statement would read the roster from a snapshot taken before the lock."
 	},
 	"venues.archive": {
 		"limit": 6
