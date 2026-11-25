@@ -9365,5 +9365,32 @@
 			"require": ["/review|approv/i"],
 			"derivation": "The Texas pattern's key and run come from the history read."
 		}
+	},
+	{
+		"case_id": "ADP-OV-07",
+		"extra": true,
+		"adapter": "oversight/commands",
+		"operation": "organizationIntelligence.submitFeedback",
+		"near_miss": false,
+		"question": "Rate the stalled growth pattern in Texas as useful.",
+		"eval": {
+			"church": "assessed",
+			"as": "networkMember",
+			"offer": ["organizationIntelligence.readHistory"],
+			"calls": [
+				{
+					"operation": "organizationIntelligence.readHistory"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "organizationIntelligence.submitFeedback",
+					"target": "Acquisition growth stalled",
+					"changes": [["rating", "Useful"]]
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "A Member's own rating is one review card, the same as an Admin's."
+		}
 	}
 ]

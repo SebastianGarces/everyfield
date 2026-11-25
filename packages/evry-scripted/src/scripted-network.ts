@@ -110,7 +110,7 @@ function oversightStep(t: Turn): Step {
 	const plantNamed = (name: string) => rows(plants).find((r) => holds(r.label, name));
 	const refreshed = REFRESH_PLANT.exec(t.text);
 	if (refreshed || REFRESH_NETWORK.test(t.text)) {
-		if (!t.offers("organizationIntelligence.requestRefresh")) return say(OVERSIGHT_RULES.intelligenceOwnerOnly);
+		if (!t.offers("organizationIntelligence.requestRefresh")) return say(OVERSIGHT_RULES.refreshOwnerOnly);
 		if (t.last?.proposalId)
 			return say(
 				refreshed
@@ -124,8 +124,7 @@ function oversightStep(t: Turn): Step {
 		return propose("organizationIntelligence.requestRefresh", { plantId: plant.id });
 	}
 	const rate = RATE.exec(t.text);
-	if (rate) {
-		if (!t.offers("organizationIntelligence.submitFeedback")) return say(OVERSIGHT_RULES.intelligenceOwnerOnly);
+	if (rate && t.offers("organizationIntelligence.submitFeedback")) {
 		if (t.last?.refusal) return say(t.last.refusal);
 		if (t.last?.proposalId) return say(CARD);
 		const place = captured(rate, 2).trim();

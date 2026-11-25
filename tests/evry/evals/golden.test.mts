@@ -1305,6 +1305,7 @@ test("INV-evry-golden: a case offers beyond the recorded catalog only the reads 
 			["ADP-NW-06", ["pipeline.listPeople"]],
 			...["07", "08", "09", "10", "11", "12", "13"].map((n) => [`ADP-NW-${n}`, ["development.readProgram"]]),
 			["ADP-OV-06", ["organizationIntelligence.readHistory"]],
+			["ADP-OV-07", ["organizationIntelligence.readHistory"]],
 		],
 	);
 	for (const c of offering)

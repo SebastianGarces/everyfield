@@ -102,8 +102,28 @@
 			"criterion": 10,
 			"actor": "networkMember",
 			"ask": "rate the stalled growth pattern in Texas useful",
-			"calls": [],
-			"answer": ["Only an Owner or Admin can refresh Network Intelligence or rate its patterns. Nothing was requested."]
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "organizationIntelligence.submitFeedback",
+				"target": "Acquisition growth stalled",
+				"changes": [{ "field": "rating", "before": null, "after": "Useful" }]
+			},
+			"approve": true
+		},
+		{
+			"id": "OVS-45",
+			"operation": "organizationIntelligence.submitFeedback",
+			"criterion": 10,
+			"actor": "networkMember",
+			"ask": "rate the stalled growth pattern in Texas useful",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["You already rated this pattern that way, so nothing would change."],
+			"proposal": {
+				"operation": "organizationIntelligence.submitFeedback",
+				"target": "Acquisition growth stalled",
+				"refusal": "You already rated this pattern that way, so nothing would change."
+			}
 		},
 		{
 			"id": "OVS-05",
@@ -572,7 +592,7 @@
 			"actor": "networkMember",
 			"ask": "refresh Network Intelligence",
 			"calls": [],
-			"answer": ["Only an Owner or Admin can refresh Network Intelligence or rate its patterns. Nothing was requested."]
+			"answer": ["Only an Owner or Admin can refresh Network Intelligence. Nothing was requested."]
 		}
 	]
 }

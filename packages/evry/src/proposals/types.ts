@@ -80,6 +80,7 @@ export type EffectResult = EffectDone | OwnSettingsDone | { refused: string };
 export type ReviewedWrite<I> = {
 	operation: string;
 	description: string;
+	memberDescription?: string;
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
 	sendsMail?: true;
