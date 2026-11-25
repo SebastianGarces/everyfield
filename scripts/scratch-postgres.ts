@@ -5,19 +5,18 @@ import {
 	DatabaseError,
 	databaseEnv,
 	migrate,
-	type PostgresOptions,
 	sleepSync,
 	startPostgres,
 	urlOf,
 	watchProcess,
 } from "./throwaway-postgres.ts";
 
-export const PG_LABEL = "everyfield.pg";
-export const USAGE = "usage: dev pg up [--name <n>] | run [--name <n>] -- <cmd> [args...] | status | down [--name <n>]";
+const PG_LABEL = "everyfield.pg";
+const USAGE = "usage: dev pg up [--name <n>] | run [--name <n>] -- <cmd> [args...] | status | down [--name <n>]";
 
 export class PgError extends Error {}
 
-export type Pg = { root: string; run: Runner; database?: Partial<PostgresOptions> };
+type Pg = { root: string; run: Runner };
 type Scratch = { id: string; container: string; name: string; state: string };
 
 const docker = ({ root, run }: Pg, ...args: string[]) => {
@@ -68,7 +67,6 @@ export function up(pg: Pg, name: string): string {
 			readyTimeoutMs: 60_000,
 			sleep: sleepSync,
 			watch: watchProcess,
-			...pg.database,
 			scope: `pg-${name}`,
 			labels: ["--label", `${PG_LABEL}=${name}`],
 		});

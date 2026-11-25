@@ -1,18 +1,9 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import {
-	chmodSync,
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, delimiter, dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnRunner, type Runner } from "../../scripts/check.ts";
@@ -325,7 +316,6 @@ test("INV-containers: an old app container and an unlabeled t<id> Postgres follo
 		start([], `t${LANDED}-pg-${tag}`),
 		start([], `t${ABANDONED}-pg-${tag}`, true),
 	];
-	const { common } = deps(root);
 	const landedPath = worktree(`t${LANDED}-a`);
 	const landed = ownerLabels(landedPath);
 	const stays = [
@@ -339,7 +329,6 @@ test("INV-containers: an old app container and an unlabeled t<id> Postgres follo
 		start(landed, `qa-test-sweep-${tag}`),
 		start(["--label", `${LABELS.repository}=/another/.git`, ...landed.slice(2)]),
 	];
-	assert.ok(common);
 	drop(plain);
 	const image = `evf-sweep-test:${tag}`;
 	sh("docker", "tag", IMAGE, image);
@@ -405,8 +394,6 @@ process.exitCode = checkCommand([], ${JSON.stringify(root)});`;
 	assert.equal(failing.stdout, working.stdout);
 	assert.match(failing.stderr, /containers sweep: Docker cannot be reached: broken/);
 
-	const web = join(root, "apps/web");
-	assert.equal(existsSync(web), false);
 	const apps = ["exit 0", "exit 1"].map((docker) => {
 		const { env } = shim({ docker });
 		return spawnSync(join(source, "bin/app"), ["up"], { cwd: root, encoding: "utf8", env });
@@ -443,5 +430,4 @@ test("INV-containers: bin/dev pg reuses a running database, keeps to its worktre
 	);
 	assert.match(down(here).join("\n"), /^pg down one: removed/);
 	gone(container);
-	assert.equal(basename(here.root), `t${OPEN}-a`);
 });

@@ -57,7 +57,7 @@ export function ownerLabels(root: string, env: Env = process.env): string[] {
 	return Object.entries(labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]);
 }
 
-export type Inspected = {
+type Inspected = {
 	Id: string;
 	Name: string;
 	Created: string;
@@ -71,7 +71,7 @@ const onlyImageLabels = (labels: Record<string, string>) =>
 		(key) => key.startsWith("desktop.docker.io/") || key.startsWith("org.opencontainers.image."),
 	);
 
-export function ownerOf(container: Inspected, common: string): Owned | null {
+function ownerOf(container: Inspected, common: string): Owned | null {
 	const name = container.Name.replace(/^\//, "");
 	const labels = container.Config.Labels ?? {};
 	if (name.startsWith("qa-test-") || Object.keys(labels).some((k) => k.startsWith("dev.evf."))) return null;
@@ -93,8 +93,8 @@ export function ownerOf(container: Inspected, common: string): Owned | null {
 	return null;
 }
 
-export type Answer<T> = { value: T } | { problem: string };
-export type Facts = { tasks: () => Answer<Map<number, string>>; worktrees: () => Answer<string[]> };
+type Answer<T> = { value: T } | { problem: string };
+type Facts = { tasks: () => Answer<Map<number, string>>; worktrees: () => Answer<string[]> };
 
 function readTasks(r: Result): Answer<Map<number, string>> {
 	if (r.status !== 0) return { problem: `evf cannot be read: ${firstLine(r)}` };
@@ -129,7 +129,7 @@ function readWorktrees(r: Result, common: string): Answer<string[]> {
 	return { value: listed };
 }
 
-export type Verdict = { remove: boolean; reason: string; blocked?: boolean };
+type Verdict = { remove: boolean; reason: string; blocked?: boolean };
 
 function worktreeGone(owned: Owned, worktrees: string[]): boolean {
 	return !worktrees.some((path) => (owned.match === "path" ? path : basename(path)) === owned.worktree);
@@ -143,7 +143,7 @@ function fromThisRepository(owned: Owned, common: string): boolean {
 	);
 }
 
-export function judge(owned: Owned, common: string, facts: Facts): Verdict {
+function judge(owned: Owned, common: string, facts: Facts): Verdict {
 	const { tasks, worktree } = owned;
 	if (!tasks.length) {
 		const worktrees = facts.worktrees();
@@ -205,7 +205,7 @@ function inspect(docker: Tool, id: string): Inspected | null {
 	throw new DockerProblem(`docker inspect of ${id} cannot be parsed`);
 }
 
-export type Entry = { id: string; name: string; owner: string; ageMinutes: number; verdict: Verdict };
+type Entry = { id: string; name: string; owner: string; ageMinutes: number; verdict: Verdict };
 
 function describe(container: Inspected, owned: Owned, verdict: Verdict): Entry {
 	const owner = [
@@ -216,7 +216,7 @@ function describe(container: Inspected, owned: Owned, verdict: Verdict): Entry {
 	return { id: container.Id, name: container.Name.replace(/^\//, ""), owner, ageMinutes, verdict };
 }
 
-export type Survey = { entries: Entry[]; problems: string[] };
+type Survey = { entries: Entry[]; problems: string[] };
 
 export function survey(deps: Deps): Survey {
 	const entries: Entry[] = [],
@@ -239,7 +239,7 @@ export function survey(deps: Deps): Survey {
 	return { entries, problems };
 }
 
-export function sweep(deps: Deps): Survey & { removed: Entry[] } {
+function sweep(deps: Deps): Survey & { removed: Entry[] } {
 	const { entries, problems } = survey(deps);
 	const removed: Entry[] = [],
 		kept: Entry[] = [];
@@ -280,9 +280,9 @@ export function reportSweep(deps: Deps, log: (line: string) => void): number {
 	return problems.length ? 1 : 0;
 }
 
-export function sweepQuietly(root: string, log: (line: string) => void = console.error, deps?: Deps): void {
+export function sweepQuietly(root: string, log: (line: string) => void = console.error): void {
 	try {
-		reportSweep(deps ?? realDeps(root), log);
+		reportSweep(realDeps(root), log);
 	} catch (error) {
 		log(`containers sweep skipped: ${error instanceof Error ? error.message : String(error)}`);
 	}
