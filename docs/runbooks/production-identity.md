@@ -56,6 +56,25 @@ already has it.
 
 5. Set the "set by hand" settings the dry run listed (for example `IDENTITY_MAIL_FROM`, `RESEND_API_KEY`,
    `RESEND_WEBHOOK_SECRET`, `FEEDBACK_*`, `AWS_*`) with `vercel env add <NAME> --environment production`.
+   Leave `AI_PROVIDER_RECORD` unset. It is optional, and it keeps production Evry and the Wiki embeddings off until it
+   holds a verified record (D107). Set it only after Sebastian says in his own words that provider
+   settings are verified, and never put an account, project or key identifier in it.
+   The record is one line of JSON. Each path is the exact model, endpoint and SDK the operator verified, and a path
+   that is not named stays off. `region` is "us" or "global" and `cache` is "none" or "in-memory":
+
+   ```json
+   {
+     "verifiedOn": "YYYY-MM-DD",
+     "programSharing": "off",
+     "zeroDataRetention": "verified",
+     "region": "us",
+     "cache": "in-memory",
+     "paths": [
+       { "model": "gpt-6-luna", "endpoint": "https://api.openai.com/v1/responses", "sdk": "@ai-sdk/openai" },
+       { "model": "text-embedding-3-small", "endpoint": "https://api.openai.com/v1/embeddings", "sdk": "fetch" }
+     ]
+   }
+   ```
 6. Redeploy production (`vercel redeploy` on the current production deployment, or push to main), then
    `unset PROD_IDENTITY_ADMIN_URL`.
 

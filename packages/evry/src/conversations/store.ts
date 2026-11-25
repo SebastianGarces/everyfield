@@ -1,4 +1,5 @@
 import type { Database } from "@everyfield/db/client";
+import { evryAvailable } from "@everyfield/db/deployment";
 import { readSwitches, switchedOff } from "@everyfield/domain/flags";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { queueJobsFor } from "@everyfield/domain/jobs";
@@ -47,6 +48,7 @@ const listInput = z.strictObject({
 });
 
 async function admitTurn(db: Database, action: "evry.createConversation" | "evry.submitTurn" | "evry.retryTurn") {
+	if (!evryAvailable()) throw new EvryRefusal("evry_unavailable");
 	if (switchedOff(await readSwitches(db), "evry-model-calls", action)) throw new EvryRefusal("model_paused");
 }
 

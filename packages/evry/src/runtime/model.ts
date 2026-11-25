@@ -1,5 +1,6 @@
 import type { LanguageModelV4, LanguageModelV4Middleware } from "@ai-sdk/provider";
 import { createOpenAI } from "@ai-sdk/openai";
+import { chatPath, evryAvailable, providerAllowed } from "@everyfield/db/deployment";
 import { APICallError, wrapLanguageModel } from "ai";
 import { LIMITS } from "../context/limits.ts";
 
@@ -7,7 +8,7 @@ export type Price = { input: number; output: number; longContextAbove: number };
 export type Spend = { price: Price; capMicroUsd: number };
 export type QualifiedModel =
 	| { status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend }
-	| { status: "unavailable" }
+	| { status: "unavailable"; releaseGate?: "blocked" }
 	| { status: "paused" };
 
 const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5, longContextAbove: 272_000 } };
@@ -15,7 +16,8 @@ const DEFAULT_CAP_USD = 20;
 
 export function selectQualifiedModel(env: Record<string, string | undefined> = process.env): QualifiedModel {
 	const paid = paidModel(env);
-	return paid ? { status: "qualified", ...paid, model: withTransientRetry(paid.model) } : { status: "unavailable" };
+	if (paid) return { status: "qualified", ...paid, model: withTransientRetry(paid.model) };
+	return evryAvailable(env) ? { status: "unavailable" } : { status: "unavailable", releaseGate: "blocked" };
 }
 
 export function paidModel(
@@ -24,12 +26,27 @@ export function paidModel(
 	const id = env.EVRY_MODEL ?? "";
 	const price = Object.hasOwn(OPENAI, id) ? OPENAI[id] : undefined;
 	const cap = Number(env.EVRY_MONTHLY_CAP_USD || DEFAULT_CAP_USD);
+	const path = chatPath(id);
+	if (!providerAllowed(env, path)) return null;
 	if (!price || !env.OPENAI_API_KEY || !(cap >= 0)) return null;
 	return {
 		id,
-		model: createOpenAI({ apiKey: env.OPENAI_API_KEY })(id),
+		model: withoutProviderState(createOpenAI({ apiKey: env.OPENAI_API_KEY, baseURL: path.baseURL })(id)),
 		spend: { price, capMicroUsd: Math.round(cap * 1_000_000) },
 	};
+}
+
+function withoutProviderState(model: LanguageModelV4): LanguageModelV4 {
+	return wrapLanguageModel({
+		model,
+		middleware: {
+			specificationVersion: "v4",
+			transformParams: async ({ params }) => ({
+				...params,
+				providerOptions: { ...params.providerOptions, openai: { ...params.providerOptions?.openai, store: false } },
+			}),
+		},
+	}) as LanguageModelV4;
 }
 
 const transient = (error: unknown) => APICallError.isInstance(error) && error.isRetryable;
