@@ -471,8 +471,7 @@ function pathFields(path: C.PlantPath): Record<string, string | null> {
 	const progress = path.progress;
 	return {
 		milestone: path.name ?? "Chosen milestone",
-		milestoneProgress:
-			progress.status === "reached" ? `Reached ${dayText(progress.date)}` : PROGRESS[progress.status],
+		milestoneProgress: progress.status === "reached" ? `Reached ${dayText(progress.date)}` : PROGRESS[progress.status],
 	};
 }
 
@@ -533,6 +532,9 @@ export const readOverseenChurch: ReadAdapter<{ churchId: string }> = {
 				churchId: church.organizationId,
 				href: churchHref(church.organizationId),
 			}),
+			exclusions: [
+				"names other than the lead planter, notes, private care and assessment text, which oversight never shows",
+			],
 			total: church.plants.length,
 			completeness: church.plants.length > PLANTS ? "partial" : "complete",
 		};

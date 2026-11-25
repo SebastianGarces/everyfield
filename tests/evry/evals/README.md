@@ -93,6 +93,12 @@ with the reason typed on the card for a stage move, and each result is read back
 pages' own reads. Two more tests hold the boundaries: the read takes no search text and matches the native board for
 every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
 
+The NET cases (T-631) ask the same suite for sending goals, conversation counts, goal and stage changes, enrollments and
+milestones. OVS-33 to OVS-44 do the same for sending churches, how a plant changed, and a Network Intelligence refresh or
+rating; INT-13 to INT-19 for past assessments, where to start and the asker's own ratings; SET-35 to SET-38 for the
+reporting Region. `tests/evry/adapters/{pipeline,oversight,intelligence/reads,settings}` hold each tool's comparison with
+its native command and every refusal. The recorded suites leave these tools out too.
+
 ## The Wiki meaning suite (scripted model, fixed vectors)
 
 `wiki-meaning.test.mts` scores meaning-based `wiki.search` (T-339) on the scripted model with no provider call. It gives
