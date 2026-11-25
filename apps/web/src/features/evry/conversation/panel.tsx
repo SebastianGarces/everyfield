@@ -42,12 +42,13 @@ export const Panel = storeContext<EvryPanelState>("EvryPanel");
 
 const panel = lazyModule(() => import("./EvryPanel.tsx"));
 
-type PanelProps = { inPlant: boolean; canAttach: boolean; context: string };
+type PanelProps = { inPlant: boolean; canAttach: boolean; context: string; available: boolean };
 
 export function useEvryPanel({
 	inPlant,
 	canAttach = false,
 	off = false,
+	available,
 	context,
 }: Omit<PanelProps, "canAttach"> & { canAttach?: boolean; off?: boolean }) {
 	const store = useLocalStore(() => createEvryPanelStore({ context, port: PORT }));
@@ -63,7 +64,7 @@ export function useEvryPanel({
 			<Panel.Provider value={store}>
 				<Opened open={open}>
 					<Suspense fallback={null}>
-						<Loaded inPlant={inPlant} canAttach={canAttach} context={context} />
+						<Loaded inPlant={inPlant} canAttach={canAttach} context={context} available={available} />
 					</Suspense>
 				</Opened>
 			</Panel.Provider>

@@ -1,7 +1,7 @@
-const MODEL = "text-embedding-3-small";
+import { EMBEDDING_PATH } from "@everyfield/db/provider";
+
 const PROFILE = "openai-text-embedding-3-small";
 const DIMENSIONS = 1536;
-const ENDPOINT = "https://api.openai.com/v1/embeddings";
 const BATCH = 64;
 
 export type WikiEmbedFetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -35,13 +35,13 @@ async function requestBatch(
 ): Promise<{ vectors: number[][]; totalTokens: number }> {
 	let response: Response;
 	try {
-		response = await fetchImpl(ENDPOINT, {
+		response = await fetchImpl(EMBEDDING_PATH.endpoint, {
 			method: "POST",
 			headers: {
 				authorization: `Bearer ${key}`,
 				"content-type": "application/json",
 			},
-			body: JSON.stringify({ model: MODEL, input, encoding_format: "float" }),
+			body: JSON.stringify({ model: EMBEDDING_PATH.model, input, encoding_format: "float" }),
 			...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
 		});
 	} catch (error) {

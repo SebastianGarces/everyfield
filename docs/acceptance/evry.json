@@ -228,7 +228,10 @@
         "WP-050",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -382,7 +385,10 @@
         "WP-050",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -538,7 +544,10 @@
         "WP-050",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -695,7 +704,10 @@
         "WP-050",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -851,7 +863,10 @@
         "WP-050",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -1019,7 +1034,10 @@
         "WP-050",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
