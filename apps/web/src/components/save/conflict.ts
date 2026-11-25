@@ -43,3 +43,11 @@ export function pickTyped<T extends object>(picks: Picks, latest: T, patch: Part
 export const changesKept = (what: string) =>
 	`Someone else saved ${what} while you were editing. Your changes are kept. Check them, then save again.`;
 export const CHOOSE_FIRST = "Choose a version for each field below, then save again.";
+
+export const conflictProblem = (
+	{ rows, unchosen }: { rows: readonly ConflictRow[]; unchosen: boolean },
+	what: string,
+	asked: boolean,
+	conflicted: boolean,
+	problem: string | undefined,
+) => (rows.length ? (asked && unchosen ? CHOOSE_FIRST : undefined) : conflicted ? changesKept(what) : problem);

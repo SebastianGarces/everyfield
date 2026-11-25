@@ -20,7 +20,7 @@ import {
 	createLaunchWriter,
 } from "../../../../packages/domain/src/launch/index.ts";
 import { createSignals } from "../../../../packages/domain/src/intelligence/index.ts";
-import { guestsWriter, meetingsWriter, withMeetingsWrite } from "../../../../packages/domain/src/meetings/index.ts";
+import { meetingsWriter, withMeetingsWrite } from "../../../../packages/domain/src/meetings/index.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 import { createOrganizationAdapter } from "../../../../packages/domain/src/organizations/index.ts";
 import {
@@ -44,7 +44,7 @@ import { MemoryClient } from "../../documents/storage.mts";
 
 export const ROLES = ["owner", "admin", "lead", "member", "director"] as const;
 export type Role = (typeof ROLES)[number];
-export const NAMES: Record<Role, string> = {
+const NAMES: Record<Role, string> = {
 	owner: "Olivia Owner",
 	admin: "Adam Admin",
 	lead: "Lena Lead",
@@ -539,7 +539,6 @@ async function seed(database: Awaited<ReturnType<typeof fixture>>) {
 	await connect(hidden, hiddenOwner, []);
 
 	return {
-		database,
 		admin,
 		db,
 		plant,
@@ -579,7 +578,6 @@ async function seed(database: Awaited<ReturnType<typeof fixture>>) {
 			values,
 			articles,
 		},
-		guestsWriter,
 		close: database.close,
 	};
 }

@@ -123,7 +123,6 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 						meeting={meeting}
 						kept={kept}
 						onClose={close}
-
 						onKeep={(next) => {
 							setKept(next);
 							onOpenChange(true);

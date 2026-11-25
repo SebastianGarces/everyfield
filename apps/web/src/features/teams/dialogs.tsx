@@ -5,7 +5,7 @@ import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea, ProblemTex
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
-import { changesKept, CHOOSE_FIRST, type ConflictField } from "../../components/save/conflict.ts";
+import { conflictProblem, type ConflictField } from "../../components/save/conflict.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
 import { SaveConflict } from "../../components/save/SaveConflict.tsx";
@@ -84,15 +84,7 @@ export function TeamDialog({
 			title={copy.title}
 			description={copy.description}
 			action={copy.action}
-			problem={
-				merged.rows.length
-					? touched && merged.unchosen
-						? CHOOSE_FIRST
-						: undefined
-					: conflicted
-						? changesKept(TEAM)
-						: problem
-			}
+			problem={conflictProblem(merged, TEAM, touched, conflicted, problem)}
 			conflict={
 				<SaveConflict
 					what={TEAM}
@@ -224,15 +216,7 @@ export function RoleDialog({
 			title={form.roleId ? "Edit role" : "New role"}
 			description="Each role is one place for one person."
 			action={form.roleId ? "Save changes" : "Add role"}
-			problem={
-				merged.rows.length
-					? touched && merged.unchosen
-						? CHOOSE_FIRST
-						: undefined
-					: conflicted
-						? changesKept(ROLE)
-						: problem
-			}
+			problem={conflictProblem(merged, ROLE, touched, conflicted, problem)}
 			conflict={
 				<SaveConflict
 					what={ROLE}

@@ -37,7 +37,7 @@ import { MemoryClient } from "../../documents/storage.mts";
 import { church, type ChurchPlant } from "../../intelligence/assessment-church.mts";
 
 export type Row = Record<string, unknown>;
-export type Seat = {
+type Seat = {
 	id: string;
 	actor: RequestActor;
 	ctx: { session: string; selected: { kind: "plant"; id: string } };
@@ -172,8 +172,7 @@ export async function world(prefix: string) {
 	async function evry(operation: string, input: unknown = {}, who: RequestActor = boss.actor) {
 		const adapter = operations.get(operation);
 		assert.ok(adapter, operation);
-		const r = await invokeRead(db, evryActor(who), adapter, adapter.input.parse(input));
-		return r;
+		return invokeRead(db, evryActor(who), adapter, adapter.input.parse(input));
 	}
 
 	const shown = async (operation: string, input: unknown, fields: readonly string[], who: RequestActor = boss.actor) =>
@@ -350,9 +349,7 @@ export async function world(prefix: string) {
 		boss,
 		sent,
 		resend,
-		storage,
 		attendance,
-		reminders,
 		people,
 		meeting,
 		read,
@@ -360,13 +357,11 @@ export async function world(prefix: string) {
 		held,
 		evry,
 		shown,
-		assess,
 		stale,
 		factsNow,
 		audience,
 		schedule,
 		keys,
-		digests,
 		document,
 		documentsReader,
 		publish,

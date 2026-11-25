@@ -26,7 +26,7 @@ import {
 import { Icon } from "@everyfield/ui/foundations";
 import { startTransition, useState } from "react";
 import type { Wait } from "../../components/save/model.ts";
-import { changesKept, CHOOSE_FIRST, type ConflictField } from "../../components/save/conflict.ts";
+import { conflictProblem, type ConflictField } from "../../components/save/conflict.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
 import { SaveConflict } from "../../components/save/SaveConflict.tsx";
@@ -220,15 +220,7 @@ function AgendaForm({
 			title="Edit agenda"
 			description={`${counted(rows.length, "section")} · ${durationText(total)}`}
 			action="Save agenda"
-			problem={
-				merged.rows.length
-					? touched && merged.unchosen
-						? CHOOSE_FIRST
-						: undefined
-					: conflicted
-						? changesKept(AGENDA)
-						: problem
-			}
+			problem={conflictProblem(merged, AGENDA, touched, conflicted, problem)}
 			conflict={
 				<SaveConflict
 					what={AGENDA}
