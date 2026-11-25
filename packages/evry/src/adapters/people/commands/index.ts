@@ -4,6 +4,8 @@ import type { TaskReminders } from "@everyfield/domain/tasks";
 import {
 	changeStatusRequest,
 	createPersonRequest,
+	moveWarningLines,
+	moveWarnings,
 	removePersonPhotoRequest,
 	retirePersonRequest,
 	setPersonPhotoRequest,
@@ -15,6 +17,9 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { savedRevision, type EffectResult, type ReviewedWrite } from "../../../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
+import { PEOPLE_RECORD_COMMANDS } from "./records.ts";
+import { stageWarnings } from "../stage-warnings.ts";
 import { claimStagedPhoto, requireStagedPhoto, stagedPhotoIn } from "../../../attachments/store.ts";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
@@ -124,10 +129,13 @@ const changeStatus = reviewed({
 	description:
 		"Propose moving one person to another pipeline stage, with the reason. Leaving the core stages hands their open tasks back as needing an owner. Nothing changes until the user approves the exact review.",
 	input: changeStatusInput,
-	review(actor, value) {
+	async review(actor, value, context) {
+		const found = await gatedTransaction(context.db, (tx) => stageWarnings(tx, actor, value.personId));
+		const lines = found ? moveWarningLines(moveWarnings(found.person.stage, value.stage, found.warnings)) : [];
+		const notes = lines.length ? sql`||jsonb_build_object('notes',${JSON.stringify(lines)}::jsonb)` : sql``;
 		const handoffs = sql`CASE WHEN p.stage IN ${core} AND ${value.stage}::text NOT IN ${core} THEN ${openTasks} ELSE '[]'::jsonb END`;
 		return sql`SELECT jsonb_build_object('target',${person},'changes',
-				jsonb_build_array(${change("stage", sql`to_jsonb(p.stage)`, value.stage)},${change("reason", sql`NULL`, value.reason)})||${tasksChange(sql`h.handoffs`)}) AS review,
+				jsonb_build_array(${change("stage", sql`to_jsonb(p.stage)`, value.stage)},${change("reason", sql`NULL`, value.reason)})||${tasksChange(sql`h.handoffs`)})${notes} AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'stage',${value.stage}::text,'reason',${value.reason}::text,'handoffs',h.handoffs)) AS args
 			FROM person p CROSS JOIN LATERAL (SELECT ${handoffs} AS handoffs) h
 			WHERE p.id=${value.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
@@ -195,4 +203,5 @@ export const PEOPLE_COMMANDS = {
 	"people.deletePerson": deletePerson,
 	"people.setPersonPhoto": setPersonPhoto,
 	"people.removePersonPhoto": removePersonPhoto,
+	...PEOPLE_RECORD_COMMANDS,
 } as const;

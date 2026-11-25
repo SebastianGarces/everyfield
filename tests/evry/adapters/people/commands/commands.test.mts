@@ -49,6 +49,7 @@ const counted = (start: number) =>
 
 type Photos = ReturnType<typeof bucket>;
 type Attached = Awaited<ReturnType<Photos["attach"]>>;
+const PREPARES: Record<string, number> = { "people.setPersonPhoto": 2, "people.changeStatus": 4 };
 async function turn(who: EvryActor, photos?: Photos, attach: [string, Buffer][] = []) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	const attached: Attached[] = [];
@@ -69,7 +70,7 @@ async function turn(who: EvryActor, photos?: Photos, attach: [string, Buffer][] 
 		async propose(operation: string, input: unknown) {
 			const start = queries.length;
 			const proposal = await prepareProposal(db, who, run, c.id, { operation, input });
-			assert.equal(counted(start), operation === "people.setPersonPhoto" ? 2 : 1, operation);
+			assert.equal(counted(start), PREPARES[operation] ?? 1, operation);
 			return proposal;
 		},
 	};

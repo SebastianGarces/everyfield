@@ -886,7 +886,14 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 
 test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change, and only an approved card completes a milestone", async () => {
 	const tools = async (who: LaunchName) =>
-		modelTools(await actorOf(who), { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
+		modelTools(await actorOf(who), {
+			read: async () => ({}),
+			select: async () => ({}),
+			propose: async () => ({}),
+			readNotes: async () => ({}),
+			updateNotes: async () => ({}),
+			readReview: async () => ({}),
+		});
 	const member = await tools("member");
 	assert.ok(member.launch_read, "a Member reads the Launch plan");
 	assert.ok(

@@ -65,6 +65,7 @@ const INSIDE: Seen = {
 		"communication.list all": ["draft"],
 		"communication.list subject": ["draft"],
 		"communication.get communicationId": ["draft"],
+		"communication.getDraft communicationId": ["draft"],
 		"communication.forMeeting all": ["draft"],
 		"communication.forMeeting meetingId": ["draft"],
 		"communication.deliveryTotals communicationId": ["draft"],

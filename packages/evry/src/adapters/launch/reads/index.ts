@@ -216,6 +216,23 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				label: `Guest named${ch.name ? `: ${ch.name}` : ""}`,
 				fields: { ...base, change: "guest" },
 			};
+		case "guest_correction":
+			return {
+				kind: "activity",
+				id: e.id,
+				label:
+					ch.event === "voided"
+						? `Guest removed from the list${ch.from ? `: ${ch.from}` : ""}`
+						: `Guest corrected: ${ch.from ?? "A guest"} to ${ch.to ?? "A guest"}`,
+				fields: {
+					...base,
+					change: "guest",
+					from: ch.from,
+					to: ch.to,
+					guestsBefore: ch.countBefore,
+					guestsAfter: ch.countAfter,
+				},
+			};
 		case "debrief":
 			return {
 				kind: "activity",

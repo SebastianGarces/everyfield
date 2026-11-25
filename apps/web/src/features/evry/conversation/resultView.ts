@@ -128,6 +128,7 @@ const VIEWS: Record<string, OpView> = {
 	}),
 	"people.getPipelineData": people("Pipeline"),
 	"evry.selectReturnedRows": people("Selected people"),
+	"people.getStatusWarnings": people("Before a stage move"),
 	"people.listHouseholds": {
 		title: "Households",
 		noun: ["household", "households"],
@@ -544,6 +545,13 @@ const VIEWS: Record<string, OpView> = {
 		icon: "message",
 		empty: "No email in Messages matches, or you can't see it.",
 	}),
+	"communication.getDraft": {
+		title: "Email",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "message",
+		empty: "No email in Messages matches, or you can't see it.",
+	},
 	"communication.forPerson": {
 		title: "Emails",
 		noun: ["email", "emails"],

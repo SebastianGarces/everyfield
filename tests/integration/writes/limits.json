@@ -2101,6 +2101,10 @@
 		"limit": 5,
 		"retry": 8
 	},
+	"launch.correctGuestAttendance": {
+		"limit": 5,
+		"retry": 4
+	},
 	"launch.saveDebriefDraft": {
 		"limit": 5,
 		"retry": 4

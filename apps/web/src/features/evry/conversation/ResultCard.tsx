@@ -42,6 +42,7 @@ import { cardView, type Glyph, type RowView } from "./resultView.ts";
 
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
+	retired_person: UserIcon,
 	person: UserIcon,
 	people: UserMultipleIcon,
 	household: Home01Icon,

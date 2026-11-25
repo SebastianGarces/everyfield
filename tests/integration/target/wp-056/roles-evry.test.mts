@@ -135,6 +135,12 @@ const READS: Row[] = [
 		expected: church(["Welcome letter", "Alma Reyes"]),
 	},
 	{
+		operation: "communication.getDraft",
+		input: (i) => ({ communicationId: i.letter }),
+		project: (r) => r.rows.map((row) => row.label),
+		expected: church(["Welcome letter"]),
+	},
+	{
 		operation: "communication.searchRecipients",
 		input: () => ({ query: "Ben" }),
 		expected: leaders([["Ben Cole"], 1]),
