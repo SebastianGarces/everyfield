@@ -16,11 +16,11 @@ import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { liveRowKeys } from "../../../packages/evry/src/conversations/liveness.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
-import { church } from "../../integration/intelligence/assessment-church.mts";
+import { church } from "../intelligence/assessment-church.mts";
 import { ok, type Actor } from "../../support/fixture.mts";
 import { recorded, untouched } from "../../support/recorded.mts";
-import { fixture, revised } from "./fixtures.mts";
-import { promotions } from "./promotions.mts";
+import { fixture, revised } from "../../reference/releases/fixtures.mts";
+import { promotions } from "../../reference/releases/promotions.mts";
 
 const { cases } = JSON.parse(
 	await readFile(new URL("../../../docs/acceptance/reference-release.json", import.meta.url), "utf8"),

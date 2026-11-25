@@ -2043,7 +2043,7 @@
       ],
       "status": "run",
       "run_by": [
-        "tests/reference/releases/church-cases.db.mts"
+        "tests/integration/wiki/release-cases.test.mts"
       ],
       "description": "Second complete candidate: one meaningful global update, one typo, one mail template; existing custom org version/hide and completed reader.",
       "given": {
@@ -2460,7 +2460,7 @@
       ],
       "status": "run",
       "run_by": [
-        "tests/reference/releases/church-cases.db.mts"
+        "tests/integration/wiki/release-cases.test.mts"
       ],
       "description": "New generation active then reviewed rollback to old complete compatible generation.",
       "given": {
@@ -2589,7 +2589,7 @@
       ],
       "status": "run",
       "run_by": [
-        "tests/reference/releases/church-cases.db.mts"
+        "tests/integration/wiki/release-cases.test.mts"
       ],
       "description": "Rollback with previously departed organization cited in old cached/export/Evry context.",
       "given": {
@@ -2857,7 +2857,7 @@
       ],
       "status": "run",
       "run_by": [
-        "tests/reference/releases/church-cases.db.mts"
+        "tests/integration/wiki/release-cases.test.mts"
       ],
       "description": "Assessment pins old reference; activation changes before publication.",
       "given": {
