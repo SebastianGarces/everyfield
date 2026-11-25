@@ -150,12 +150,15 @@ function plantBasics(value: Basics) {
 const NEXT_STEPS =
 	"Setup then goes on with: where you are, your launch date and your team. Ask me where you are in setup, or open setup.";
 
+/** A Discovery planter starts a church by converting the space, and never sets one up again. */
+const seatlessExplorer = (actor: EvryActor) => accountContext(actor) && !actor.discovery;
+
 export const createPlant = nativeWrite({
 	operation: "onboarding.createPlant",
 	description:
 		"Propose starting a new church in Everyfield with the user as its Owner: its name and, if given, its city, state or province and country. Only an account with no church seat can start one. Nothing changes until the user approves the exact review.",
 	input: z.strictObject(basics),
-	allowed: accountContext,
+	allowed: seatlessExplorer,
 	review(actor, value) {
 		const b = plantBasics(value);
 		const discovery =
@@ -178,7 +181,7 @@ export const createDiscovery = nativeWrite({
 	description:
 		"Propose a private Discovery space for the user to explore church planting first: the foundation articles at their own pace, with no church and nothing shared. Everyfield emails a receipt. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({}),
-	allowed: accountContext,
+	allowed: seatlessExplorer,
 	review(actor) {
 		return sql`SELECT jsonb_build_object('target',${you},'changes',jsonb_build_array(${change("discovery", sql`'null'::jsonb`, "Discovery space")}),
 				'notes',${notes([

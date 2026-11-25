@@ -12,9 +12,11 @@ export type EvryActor = {
 	readonly role: "owner" | "admin" | "member" | null;
 	readonly seatId: string | null;
 	readonly selfPersonId: string | null;
+	/** An open Discovery profile without a seat: start a church by converting it, never a second space. */
+	readonly discovery?: boolean;
 };
 
-export function evryActor(authority: RequestActor): EvryActor {
+export function evryActor(authority: RequestActor, discovery = false): EvryActor {
 	const { actor } = authority;
 	const owner = actor.context.owner;
 	return {
@@ -26,6 +28,7 @@ export function evryActor(authority: RequestActor): EvryActor {
 		role: actor.context.kind === "seat" ? actor.context.role : null,
 		seatId: actor.context.kind === "seat" ? actor.context.seatId : null,
 		selfPersonId: null,
+		...(discovery && actor.context.kind === "account" ? { discovery: true } : {}),
 	};
 }
 
