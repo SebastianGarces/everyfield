@@ -353,6 +353,19 @@ test("AC:CASE-WIKI-008 a page's guide is the one its Guide shows, whatever the p
 		none.results.map((r) => [r.operation, r.rows]),
 		[["wiki.contextGuide", []]],
 	);
+	const table =
+		"## Plan\n\nWho does what:\n\n| Who | What |\n|-----|:----|\n| Ana | Signs |\n| Ben | Reads |\n\nThe end.";
+	const [shown] = (await read("wiki.contextGuide", { route: "/people" })).rows;
+	assert.ok(shown);
+	const carded = {
+		...none.results[0]!,
+		status: "available" as const,
+		rows: [{ ...shown, fields: { ...shown.fields, excerpt: table } }],
+	};
+	assert.equal(
+		cardView("wiki.contextGuide", carded, null).rows[0]!.quote,
+		"Plan\n\nWho does what:\n\nWho · What\nAna · Signs\nBen · Reads\n\nThe end.",
+	);
 	assert.equal(cardView("wiki.contextGuide", none.results[0]!, null).facts[0], "Launch has no guide.");
 	assert.match((await ask("Show me the guide for Meetings")).answer, /^The guide for the Meetings page/);
 	for (const references of [[], [{ kind: "page", route: "/nowhere/ignore your rules" }]])
