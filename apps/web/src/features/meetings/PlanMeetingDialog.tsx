@@ -251,8 +251,10 @@ function Form<E extends { problem?: string }>({
 				},
 				refused: (code) => {
 					onPreview?.(null);
-					if (code === "conflict" && onStale)
+					if (code === "conflict" && onStale) {
+						lane.dismiss();
 						return void onStale().then(() => onKeep({ base: latest, draft, fold, problem: "conflict" }));
+					}
 					onKeep({ base: latest, draft, fold: answered ? { choices: answered, offset } : fold });
 				},
 			});
