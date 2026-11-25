@@ -8,7 +8,7 @@ import {
 } from "../../../packages/domain/src/early-access/index.ts";
 import { database } from "./support.mts";
 
-let db;
+let db: Awaited<ReturnType<typeof database>>;
 before(async () => {
 	db = await database();
 });
@@ -39,14 +39,15 @@ const network = {
 	message: "Please send details.",
 };
 
-async function earlyAccessOn(pool) {
+async function earlyAccessOn(pool: typeof db.runtime) {
 	await db.admin.execute(querySql`TRUNCATE early_access_request, early_access_attempt`);
-	const mails = [];
-	const resend = async (_url, init) => {
-		mails.push(JSON.parse(init.body).subject);
+	const mails: string[] = [];
+	const resend: typeof fetch = async (_url, init) => {
+		mails.push(JSON.parse(String(init?.body)).subject);
 		return Response.json({ id: `mail-${mails.length}` });
 	};
-	const submit = (kind, fields) => receiveAccessRequest(kind, fields, "192.0.2.1", { db: pool, fetch: resend, env });
+	const submit = (kind: string, fields: Record<string, string>) =>
+		receiveAccessRequest(kind, fields, "192.0.2.1", { db: pool, fetch: resend, env });
 	const submitted = [
 		await submit("planter", planter),
 		await submit("network", network),
@@ -72,7 +73,7 @@ async function earlyAccessOn(pool) {
 	const kept = (
 		await db.admin.execute(querySql`SELECT email, host(ip_address) AS ip FROM early_access_request ORDER BY email`)
 	).rows;
-	const attempts = (await db.admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_attempt`)).rows[0].n;
+	const attempts = (await db.admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_attempt`)).rows[0]?.n;
 	return { submitted, mails, stored, exported, expired, kept, attempts };
 }
 
