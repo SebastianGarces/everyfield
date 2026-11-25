@@ -1,4 +1,6 @@
 import { ownResidencyLinks } from "../organizations/mount";
+import { evryAvailable } from "@everyfield/db/provider";
+import { serverEnv } from "@/server/config";
 import { getViewer } from "@/server/request-context";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import type { ReactNode } from "react";
@@ -27,6 +29,7 @@ export async function ProductFrameLayout({
 			settingsDialog={settingsDialog}
 			residency={residency}
 			discovery={v.discovery}
+			evryAvailable={evryAvailable(serverEnv())}
 		>
 			{children}
 		</ProductFrame>

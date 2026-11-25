@@ -339,6 +339,7 @@ export type Review = {
 		notes?: string[];
 		refusal?: string;
 		earlier?: Change[];
+		private?: true;
 		withheld?: true;
 	};
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
@@ -1590,6 +1591,8 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 		"Approving makes the file from exactly these values and saves it with your church's files. A template is starting text, not legal advice.",
 };
 
+const PRIVATE_DOCUMENT = "The new document opens in Documents. It's private: only you can open it.";
+
 export function documentResult(review: Review): { href: string; label: string; file?: true } | null {
 	if (
 		review.operation === "documents.importTextOrWord" ||
@@ -1624,13 +1627,13 @@ export function documentResult(review: Review): { href: string; label: string; f
 	}
 }
 
-export function documentRefusalText(code: string | undefined): string {
+export function documentRefusalText(code: string | undefined, own = false): string {
 	switch (code) {
 		case "revision_conflict":
 		case "conflict":
 			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		case "access_denied":
-			return "Your seat no longer allows this change, so nothing was saved.";
+			return `Your ${own ? "account" : "seat"} no longer allows this change, so nothing was saved.`;
 		case "render_failed":
 			return "The file could not be made, so nothing was saved. Try again later.";
 		case "exports_paused":
@@ -1648,7 +1651,10 @@ export function consequence(review: Review): string | null {
 	if (review.operation === "documents.saveNative")
 		return review.review.target
 			? "Approving saves this as the document's current text."
-			: "The new document opens in Documents for your church to edit.";
+			: review.review.private
+				? PRIVATE_DOCUMENT
+				: "The new document opens in Documents for your church to edit.";
+	if (review.operation === "documents.importTextOrWord" && review.review.private) return PRIVATE_DOCUMENT;
 	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";

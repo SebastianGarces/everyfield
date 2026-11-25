@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { search } from "../../../packages/domain/src/wiki/reads.ts";
+import { neverCalled, PRODUCTION, RECORD, recorded, withEnv, withProvider } from "../../evry/runtime/provider.mts";
 import { wikiQueryEmbedder } from "../../../packages/reference/src/starter/verify/query.ts";
 import type { WikiEmbedFetch } from "../../../packages/reference/src/starter/verify/openai.ts";
 
@@ -284,6 +285,22 @@ test("with the provider unconfigured, search is exactly today's keyword search a
 	assert.deepEqual(value.value, baseline.value);
 	assert.deepEqual(lines, []);
 	assert.equal(calls.count, 0);
+});
+
+test("in production without a verified record a member's search is never sent, and the keyword results answer it", async () => {
+	for (const kind of ["production", "staging", ""]) {
+		const env = { ...OPENAI, VERCEL_ENV: kind };
+		assert.equal(wikiQueryEmbedder(env, openAi(counter())), null, kind);
+		assert.equal(wikiQueryEmbedder({ ...env, AI_PROVIDER_RECORD: JSON.stringify({ store: false }) }), null);
+	}
+	const baseline = await keywordOnly("vision meeting");
+	const { value: found, sent } = await withProvider(neverCalled, () =>
+		withEnv(PRODUCTION, async () => ok(await search(db, await reader(), { query: "vision meeting" }))),
+	);
+	assert.deepEqual([found, sent], [baseline.value, []]);
+	const calls = counter();
+	const { hits } = await searched(wikiQueryEmbedder(recorded(RECORD), openAi(calls)), QUESTION);
+	assert.deepEqual([hits[0]?.articleId, calls.count], [A.vision.id, 1]);
 });
 
 for (const [name, env, fetcher, reason] of FAILURES)

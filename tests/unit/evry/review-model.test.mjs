@@ -7,6 +7,7 @@ import {
 	consequence,
 	delayedText,
 	digestSchedule,
+	documentRefusalText,
 	draftRows,
 	editableChanges,
 	fieldLabel,
@@ -550,4 +551,21 @@ test("an approved end shows plain words, and a withdrawn person never reads as h
 	assert.equal(refusal("enrollment_ended"), "Maria Santos's enrollment has already ended, so nothing was saved.");
 	assert.match(refusal("revision_conflict"), /^Maria Santos's enrollment changed after Evry prepared this/);
 	assert.match(refusal("access_denied"), /^Your seat no longer allows this change/);
+});
+
+test("an account's own document review says it is private, never that it is for a church to edit", () => {
+	const saving = (operation, over) =>
+		review({
+			operation,
+			review: { target: null, changes: [{ field: "title", before: null, after: "Hopes" }], ...over },
+		});
+	for (const operation of ["documents.saveNative", "documents.importTextOrWord"]) {
+		assert.equal(
+			consequence(saving(operation, { private: true })),
+			"The new document opens in Documents. It's private: only you can open it.",
+		);
+		assert.match(consequence(saving(operation, {})), /for your church to edit\.$/);
+	}
+	assert.match(documentRefusalText("access_denied", true), /^Your account no longer allows/);
+	assert.match(documentRefusalText("access_denied"), /^Your seat no longer allows/);
 });

@@ -1,7 +1,7 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { COMPOSE_READS, readCatalog, READ_DOMAINS, READ_DRAFT, READ_REVIEW, UPDATE_DRAFT } from "../catalog/catalog.ts";
-import type { ReadAdapter, SourceResult, SourceRow } from "../catalog/types.ts";
+import { worded, type ReadAdapter, type SourceResult, type SourceRow } from "../catalog/types.ts";
 import { outcomeOf } from "../context/compile.ts";
 import type { ReviewOutcome } from "../conversations/store.ts";
 import type { EvryActor } from "../context/actor.ts";
@@ -14,9 +14,9 @@ type ModelReply = Record<string, unknown>;
 export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: Offered = everyOperation): ToolSet {
 	const tools: ToolSet = {};
 	for (const [domain, adapters] of Object.entries(READ_DOMAINS)) {
-		const allowed = (adapters as readonly ReadAdapter<unknown>[]).filter(
-			(a) => offered(a.operation) && a.allowed(actor),
-		);
+		const allowed = (adapters as readonly ReadAdapter<unknown>[])
+			.filter((a) => offered(a.operation) && a.allowed(actor))
+			.map((a) => worded(actor, a));
 		if (!allowed.length) continue;
 		const options = allowed.map((a) => z.strictObject({ operation: z.literal(a.operation), input: a.input }));
 		const [only] = options;
@@ -80,9 +80,9 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Of
 			}),
 			execute: async (call) => handlers.select(call),
 		});
-	const reads = (Object.values(READ_DOMAINS).flat() as readonly ReadAdapter<unknown>[]).filter(
-		(a) => offered(a.operation) && a.allowed(actor),
-	);
+	const reads = (Object.values(READ_DOMAINS).flat() as readonly ReadAdapter<unknown>[])
+		.filter((a) => offered(a.operation) && a.allowed(actor))
+		.map((a) => worded(actor, a));
 	if (reads.length && offered(COMPOSE_READS))
 		tools.compose_reads = tool({
 			description: `Run two to ${LIMITS.composedReads} of your declared reads together when a question needs several and none needs another's result. Each read counts as one tool call, keeps its own resultId and access check, and fails on its own. Reads only: changes and approvals can't be composed.`,

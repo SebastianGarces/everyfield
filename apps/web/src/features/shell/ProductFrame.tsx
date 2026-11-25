@@ -35,6 +35,7 @@ type FrameProps = {
 	settingsDialog?: ReactNode;
 	residency?: { organizationName: string } | null;
 	discovery?: boolean;
+	evryAvailable: boolean;
 	children: ReactNode;
 };
 
@@ -83,6 +84,7 @@ function Frame({
 	settingsDialog,
 	seedFits,
 	discovery = false,
+	evryAvailable,
 	children,
 }: FrameProps & { seedFits: boolean }) {
 	const dialog = useProductSettings(settings, seedFits);
@@ -93,6 +95,7 @@ function Frame({
 		inPlant: settings?.context === "plant",
 		canAttach: settings?.context === "plant" && (role === "owner" || role === "admin"),
 		off: privatePage,
+		available: evryAvailable,
 		context:
 			settings?.context === "plant"
 				? `plant:${settings.plant.id}`

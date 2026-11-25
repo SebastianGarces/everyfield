@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-25T11:10:21.570Z",
+	"recordedAt": "2026-11-09T15:00:38.466Z",
 	"spend": {
-		"newCalls": 103,
-		"newMicroUsd": 53969,
-		"allCalls": 2485,
-		"allMicroUsd": 9206085
+		"newCalls": 38,
+		"newMicroUsd": 18613,
+		"allCalls": 2523,
+		"allMicroUsd": 9224698
 	},
 	"calls": {
 		"00674bd72e7d629a": {
@@ -5007,6 +5007,98 @@
 				"output": 12
 			}
 		},
+		"0939db99a6870343": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_03a6e075c6a07a1d006b074b46260c87d2891fadbaa195a147",
+					"timestamp": "2026-11-25T20:55:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_28843ffeb74547d8a2ff339077b39a0d",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_28843ffeb74547d8a2ff339077b39a0d",
+					"delta": "{\"operation\":\"pipeline.readConversationCounts\",\"input\":{} }"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_28843ffeb74547d8a2ff339077b39a0d"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_28843ffeb74547d8a2ff339077b39a0d",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"pipeline.readConversationCounts\",\"input\":{} }",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_03a6e075c6a07a1d006b074b4cbb4887d2bd4e4b49dd913eba"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4246,
+							"noCache": 3,
+							"cacheRead": 4229,
+							"cacheWrite": 14
+						},
+						"outputTokens": {
+							"total": 25,
+							"text": 25,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4246,
+							"input_tokens_details": {
+								"cached_tokens": 4229,
+								"cache_write_tokens": 14,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 14,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 25,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4271
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_03a6e075c6a07a1d006b074b46260c87d2891fadbaa195a147",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4246,
+				"output": 25
+			}
+		},
 		"093e1544bf182d1b": {
 			"kind": "stream",
 			"parts": [
@@ -8548,6 +8640,116 @@
 			"usage": {
 				"input": 228,
 				"output": 12
+			}
+		},
+		"0e0d8fff6c4fe36b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_039993456a5fc3a1006b074b4d5cf087d2abeacbc881e58813",
+					"timestamp": "2026-11-25T20:55:41.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_039993456a5fc3a1006b074b4eaf8c87d2880c3f3abac3072b:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b4eaf8c87d2880c3f3abac3072b"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_039993456a5fc3a1006b074b4eaf8c87d2880c3f3abac3072b:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b4eaf8c87d2880c3f3abac3072b"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_e2d15a8f50ff4ed0a131d9cebb209951",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_e2d15a8f50ff4ed0a131d9cebb209951",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_e2d15a8f50ff4ed0a131d9cebb209951"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_e2d15a8f50ff4ed0a131d9cebb209951",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_039993456a5fc3a1006b074b4ec1a887d2b28d5027dc538d99"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4872,
+							"noCache": 3,
+							"cacheRead": 4845,
+							"cacheWrite": 24
+						},
+						"outputTokens": {
+							"total": 86,
+							"text": 26,
+							"reasoning": 60
+						},
+						"raw": {
+							"input_tokens": 4872,
+							"input_tokens_details": {
+								"cached_tokens": 4845,
+								"cache_write_tokens": 24,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 24,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 86,
+							"output_tokens_details": {
+								"reasoning_tokens": 60
+							},
+							"total_tokens": 4958
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_039993456a5fc3a1006b074b4d5cf087d2abeacbc881e58813",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4872,
+				"output": 86
 			}
 		},
 		"0e2f8d7dc50d1d9b": {
@@ -14091,6 +14293,98 @@
 				"output": 12
 			}
 		},
+		"1713ad49dcf323bd": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0b26b4a6aea92b0d006b074b4e609087d2a4ddfe7825c7bc2b",
+					"timestamp": "2026-11-25T20:55:42.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_2c632dd00efd4cae8c18f8dd794b2fd4",
+					"toolName": "oversight_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_2c632dd00efd4cae8c18f8dd794b2fd4",
+					"delta": "{\"operation\":\"oversight.listSendingChurches\",\"input\":{} }"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_2c632dd00efd4cae8c18f8dd794b2fd4"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_2c632dd00efd4cae8c18f8dd794b2fd4",
+					"toolName": "oversight_read",
+					"input": "{\"operation\":\"oversight.listSendingChurches\",\"input\":{} }",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0b26b4a6aea92b0d006b074b4ec89887d2a8370f86dfc57cb1"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4603,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 4600
+						},
+						"outputTokens": {
+							"total": 29,
+							"text": 29,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4603,
+							"input_tokens_details": {
+								"cached_tokens": 0,
+								"cache_write_tokens": 4600,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 4600,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 29,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4632
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0b26b4a6aea92b0d006b074b4e609087d2a4ddfe7825c7bc2b",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4603,
+				"output": 29
+			}
+		},
 		"172724887dc9c043": {
 			"kind": "stream",
 			"parts": [
@@ -14549,6 +14843,116 @@
 			"usage": {
 				"input": 64548,
 				"output": 98
+			}
+		},
+		"17996170c81f4c67": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ade6cc6e261c05e006b074b50727887d294e33ffb46a6adb5",
+					"timestamp": "2026-11-25T20:55:44.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0ade6cc6e261c05e006b074b50f0f487d2acaa06f37ae32a27:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ade6cc6e261c05e006b074b50f0f487d2acaa06f37ae32a27"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0ade6cc6e261c05e006b074b50f0f487d2acaa06f37ae32a27:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ade6cc6e261c05e006b074b50f0f487d2acaa06f37ae32a27"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_aoAP4qc2kCgBoDNoMU1RT2nT",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_aoAP4qc2kCgBoDNoMU1RT2nT",
+					"delta": "{\"operation\":\"organizationIntelligence.submitFeedback\",\"input\":{\"runId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"patternKey\":\"NIR-05:stalled:state:US:TX\",\"rating\":\"useful\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_aoAP4qc2kCgBoDNoMU1RT2nT"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_aoAP4qc2kCgBoDNoMU1RT2nT",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"organizationIntelligence.submitFeedback\",\"input\":{\"runId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"patternKey\":\"NIR-05:stalled:state:US:TX\",\"rating\":\"useful\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0ade6cc6e261c05e006b074b5116d887d2ac121fa412c8f005"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5888,
+							"noCache": 3,
+							"cacheRead": 5191,
+							"cacheWrite": 694
+						},
+						"outputTokens": {
+							"total": 89,
+							"text": 75,
+							"reasoning": 14
+						},
+						"raw": {
+							"input_tokens": 5888,
+							"input_tokens_details": {
+								"cache_write_tokens": 694,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 694
+								},
+								"cached_tokens": 5191
+							},
+							"output_tokens": 89,
+							"output_tokens_details": {
+								"reasoning_tokens": 14
+							},
+							"total_tokens": 5977
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ade6cc6e261c05e006b074b50727887d294e33ffb46a6adb5",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5888,
+				"output": 89
 			}
 		},
 		"17b450eb220390e3": {
@@ -17638,6 +18042,98 @@
 			"usage": {
 				"input": 228,
 				"output": 12
+			}
+		},
+		"1d3800a45a8de6af": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01d17e04648f4ff3006b074b4a9cec87d28982a444b5ce2743",
+					"timestamp": "2026-11-25T20:55:38.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_01d17e04648f4ff3006b074b4b479887d2afa47ca3aa0b9203",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_01d17e04648f4ff3006b074b4b479887d2afa47ca3aa0b9203",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_01d17e04648f4ff3006b074b4b479887d2afa47ca3aa0b9203",
+					"delta": "Prepared a review card to change Sam Patel’s residency cohort from **Fall cohort** to **Winter cohort**. It’s awaiting your approval in the app; nothing has changed yet."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_01d17e04648f4ff3006b074b4b479887d2afa47ca3aa0b9203",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_01d17e04648f4ff3006b074b4b479887d2afa47ca3aa0b9203",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6289,
+							"noCache": 3,
+							"cacheRead": 6077,
+							"cacheWrite": 209
+						},
+						"outputTokens": {
+							"total": 40,
+							"text": 40,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 6289,
+							"input_tokens_details": {
+								"cache_write_tokens": 209,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 209
+								},
+								"cached_tokens": 6077
+							},
+							"output_tokens": 40,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 6329
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01d17e04648f4ff3006b074b4a9cec87d28982a444b5ce2743",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6289,
+				"output": 40
 			}
 		},
 		"1d6e2831d4806dcd": {
@@ -21422,6 +21918,116 @@
 			"usage": {
 				"input": 268,
 				"output": 138
+			}
+		},
+		"22937ce503758a6e": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0001d2d606aa219d006b074b48e21887d28f6d95dd0e4253a4",
+					"timestamp": "2026-11-25T20:55:37.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0001d2d606aa219d006b074b498b5087d2afa7c83fb392d815:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b498b5087d2afa7c83fb392d815"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0001d2d606aa219d006b074b498b5087d2afa7c83fb392d815:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b498b5087d2afa7c83fb392d815"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_jnzRRpfB1vpl92tpGRdi7TyJ",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_jnzRRpfB1vpl92tpGRdi7TyJ",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900001\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_jnzRRpfB1vpl92tpGRdi7TyJ"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_jnzRRpfB1vpl92tpGRdi7TyJ",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900001\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0001d2d606aa219d006b074b49acd887d2a04060b84babb125"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6064,
+							"noCache": 3,
+							"cacheRead": 5077,
+							"cacheWrite": 984
+						},
+						"outputTokens": {
+							"total": 61,
+							"text": 51,
+							"reasoning": 10
+						},
+						"raw": {
+							"input_tokens": 6064,
+							"input_tokens_details": {
+								"cache_write_tokens": 984,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 984
+								},
+								"cached_tokens": 5077
+							},
+							"output_tokens": 61,
+							"output_tokens_details": {
+								"reasoning_tokens": 10
+							},
+							"total_tokens": 6125
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0001d2d606aa219d006b074b48e21887d28f6d95dd0e4253a4",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6064,
+				"output": 61
 			}
 		},
 		"22b52ceb6e0d9003": {
@@ -34995,6 +35601,116 @@
 				"output": 335
 			}
 		},
+		"34ecdcf83a446a98": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_008f40f6d85a8d1d006b074b4d201c87d280768508707872d8",
+					"timestamp": "2026-11-25T20:55:41.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_008f40f6d85a8d1d006b074b55fccc87d28aca4404eadb7665:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_008f40f6d85a8d1d006b074b55fccc87d28aca4404eadb7665"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_008f40f6d85a8d1d006b074b55fccc87d28aca4404eadb7665:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_008f40f6d85a8d1d006b074b55fccc87d28aca4404eadb7665"
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_008f40f6d85a8d1d006b074b56018887d28d620613ea57955f",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_008f40f6d85a8d1d006b074b56018887d28d620613ea57955f",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_008f40f6d85a8d1d006b074b56018887d28d620613ea57955f",
+					"delta": "You’ve logged **3 leadership conversations this quarter (Q4 2026)**, through November 9."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_008f40f6d85a8d1d006b074b56018887d28d620613ea57955f",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_008f40f6d85a8d1d006b074b56018887d28d620613ea57955f",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4639,
+							"noCache": 3,
+							"cacheRead": 4243,
+							"cacheWrite": 393
+						},
+						"outputTokens": {
+							"total": 64,
+							"text": 28,
+							"reasoning": 36
+						},
+						"raw": {
+							"input_tokens": 4639,
+							"input_tokens_details": {
+								"cached_tokens": 4243,
+								"cache_write_tokens": 393,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 393,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 64,
+							"output_tokens_details": {
+								"reasoning_tokens": 36
+							},
+							"total_tokens": 4703
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_008f40f6d85a8d1d006b074b4d201c87d280768508707872d8",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4639,
+				"output": 64
+			}
+		},
 		"34edd7a965bf202e": {
 			"kind": "stream",
 			"parts": [
@@ -35820,6 +36536,116 @@
 			"usage": {
 				"input": 64443,
 				"output": 159
+			}
+		},
+		"3593adede5724a6b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ec3aa4802880976006b074b4648b087d288eef627527649fc",
+					"timestamp": "2026-11-25T20:55:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0ec3aa4802880976006b074b4db17887d28425fb91208f8559:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ec3aa4802880976006b074b4db17887d28425fb91208f8559"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0ec3aa4802880976006b074b4db17887d28425fb91208f8559:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ec3aa4802880976006b074b4db17887d28425fb91208f8559"
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0ec3aa4802880976006b074b4dba4887d29fad6e0f5208aaa6",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ec3aa4802880976006b074b4dba4887d29fad6e0f5208aaa6",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0ec3aa4802880976006b074b4dba4887d29fad6e0f5208aaa6",
+					"delta": "I can’t change sending goals from here. I can read the current goals, but there’s no tool available to prepare an edit."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0ec3aa4802880976006b074b4dba4887d29fad6e0f5208aaa6",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ec3aa4802880976006b074b4dba4887d29fad6e0f5208aaa6",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4248,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 4245
+						},
+						"outputTokens": {
+							"total": 112,
+							"text": 33,
+							"reasoning": 79
+						},
+						"raw": {
+							"input_tokens": 4248,
+							"input_tokens_details": {
+								"cached_tokens": 0,
+								"cache_write_tokens": 4245,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 4245,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 112,
+							"output_tokens_details": {
+								"reasoning_tokens": 79
+							},
+							"total_tokens": 4360
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ec3aa4802880976006b074b4648b087d288eef627527649fc",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4248,
+				"output": 112
 			}
 		},
 		"35940a97993b04bb": {
@@ -42357,6 +43183,116 @@
 				"output": 111
 			}
 		},
+		"405619ca30d634ae": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01ccee135eda5c3e006b074b4953cc87d2adf06c01bab1a815",
+					"timestamp": "2026-11-25T20:55:37.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_01ccee135eda5c3e006b074b49d42087d2b92493ca61f15252:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01ccee135eda5c3e006b074b49d42087d2b92493ca61f15252"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_01ccee135eda5c3e006b074b49d42087d2b92493ca61f15252:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01ccee135eda5c3e006b074b49d42087d2b92493ca61f15252"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_vwLzxyzMa6ohDBy08RatciiP",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_vwLzxyzMa6ohDBy08RatciiP",
+					"delta": "{\"operation\":\"development.applyVersion\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900001\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_vwLzxyzMa6ohDBy08RatciiP"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_vwLzxyzMa6ohDBy08RatciiP",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"development.applyVersion\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900001\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01ccee135eda5c3e006b074b4a183487d290b3ab56c4a2f241"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6042,
+							"noCache": 3,
+							"cacheRead": 5055,
+							"cacheWrite": 984
+						},
+						"outputTokens": {
+							"total": 77,
+							"text": 52,
+							"reasoning": 25
+						},
+						"raw": {
+							"input_tokens": 6042,
+							"input_tokens_details": {
+								"cache_write_tokens": 984,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 984
+								},
+								"cached_tokens": 5055
+							},
+							"output_tokens": 77,
+							"output_tokens_details": {
+								"reasoning_tokens": 25
+							},
+							"total_tokens": 6119
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01ccee135eda5c3e006b074b4953cc87d2adf06c01bab1a815",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6042,
+				"output": 77
+			}
+		},
 		"406f92a137845f8d": {
 			"kind": "stream",
 			"parts": [
@@ -45198,6 +46134,25 @@
 				"output": 28
 			}
 		},
+		"4401a14591b4cf6b": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is clear, brief, and neutral.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It did not make the requested change and added an approval step even though the director can change the enrollment.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0eb741a723b2e0bc006b074b4e2c3487d28973b959647d49d8",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 296,
+				"output": 240
+			}
+		},
 		"44418b51a02a4b66": {
 			"kind": "stream",
 			"parts": [
@@ -46508,6 +47463,98 @@
 			"usage": {
 				"input": 315,
 				"output": 389
+			}
+		},
+		"47101bcd0a61b0ec": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_039993456a5fc3a1006b074b531bec87d29cafe59ba443b67f",
+					"timestamp": "2026-11-25T20:55:47.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_039993456a5fc3a1006b074b53bf4887d2b76078e253b2f4a9",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_039993456a5fc3a1006b074b53bf4887d2b76078e253b2f4a9",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_039993456a5fc3a1006b074b53bf4887d2b76078e253b2f4a9",
+					"delta": "Prepared the review for Sam Patel’s milestone, **“Start a small group and raise a replacement,”** marked finished on November 9, 2026. It’s awaiting your approval in the app; nothing has changed yet."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_039993456a5fc3a1006b074b53bf4887d2b76078e253b2f4a9",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_039993456a5fc3a1006b074b53bf4887d2b76078e253b2f4a9",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 7007,
+							"noCache": 3,
+							"cacheRead": 6738,
+							"cacheWrite": 266
+						},
+						"outputTokens": {
+							"total": 50,
+							"text": 50,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 7007,
+							"input_tokens_details": {
+								"cache_write_tokens": 266,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 266
+								},
+								"cached_tokens": 6738
+							},
+							"output_tokens": 50,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 7057
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_039993456a5fc3a1006b074b531bec87d29cafe59ba443b67f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 7007,
+				"output": 50
 			}
 		},
 		"4710e2b63d3fa225": {
@@ -49426,6 +50473,116 @@
 			"usage": {
 				"input": 315,
 				"output": 191
+			}
+		},
+		"4bcbc975592e9fa2": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_039993456a5fc3a1006b074b506dd487d28ccaee6f49964da5",
+					"timestamp": "2026-11-25T20:55:44.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_039993456a5fc3a1006b074b50f5b087d2807b18bb636ab90d:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b50f5b087d2807b18bb636ab90d"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_039993456a5fc3a1006b074b50f5b087d2807b18bb636ab90d:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b50f5b087d2807b18bb636ab90d"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_p0Kl3RULpH8JrPO9hDC2N2fS",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_p0Kl3RULpH8JrPO9hDC2N2fS",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900002\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_p0Kl3RULpH8JrPO9hDC2N2fS"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_p0Kl3RULpH8JrPO9hDC2N2fS",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900002\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_039993456a5fc3a1006b074b5132a487d2b0afb651b487a357"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6085,
+							"noCache": 3,
+							"cacheRead": 5099,
+							"cacheWrite": 983
+						},
+						"outputTokens": {
+							"total": 85,
+							"text": 51,
+							"reasoning": 34
+						},
+						"raw": {
+							"input_tokens": 6085,
+							"input_tokens_details": {
+								"cache_write_tokens": 983,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 983
+								},
+								"cached_tokens": 5099
+							},
+							"output_tokens": 85,
+							"output_tokens_details": {
+								"reasoning_tokens": 34
+							},
+							"total_tokens": 6170
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_039993456a5fc3a1006b074b506dd487d28ccaee6f49964da5",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6085,
+				"output": 85
 			}
 		},
 		"4c2fa347f7d9fe40": {
@@ -53116,6 +54273,116 @@
 				"output": 100
 			}
 		},
+		"53093ddedb1c7c60": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_039993456a5fc3a1006b074b4f207487d2931a7a946222d879",
+					"timestamp": "2026-11-25T20:55:43.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_039993456a5fc3a1006b074b4fbc3c87d28cc3e5550d4a0a77:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b4fbc3c87d28cc3e5550d4a0a77"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_039993456a5fc3a1006b074b4fbc3c87d28cc3e5550d4a0a77:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b4fbc3c87d28cc3e5550d4a0a77"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_q4cb6Lh89bl2MuxFzenD7F6u",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_q4cb6Lh89bl2MuxFzenD7F6u",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_q4cb6Lh89bl2MuxFzenD7F6u"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_q4cb6Lh89bl2MuxFzenD7F6u",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_039993456a5fc3a1006b074b4fd81487d2912257edcf4de005"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5102,
+							"noCache": 3,
+							"cacheRead": 4869,
+							"cacheWrite": 230
+						},
+						"outputTokens": {
+							"total": 69,
+							"text": 55,
+							"reasoning": 14
+						},
+						"raw": {
+							"input_tokens": 5102,
+							"input_tokens_details": {
+								"cache_write_tokens": 230,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 230
+								},
+								"cached_tokens": 4869
+							},
+							"output_tokens": 69,
+							"output_tokens_details": {
+								"reasoning_tokens": 14
+							},
+							"total_tokens": 5171
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_039993456a5fc3a1006b074b4f207487d2931a7a946222d879",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5102,
+				"output": 69
+			}
+		},
 		"532076f531801cb4": {
 			"kind": "stream",
 			"parts": [
@@ -53903,6 +55170,25 @@
 			"usage": {
 				"input": 64251,
 				"output": 125
+			}
+		},
+		"53c1c9bc502a5076": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is brief, plain, and clear about the review’s status.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It leaves the requested rating unsaved instead of submitting the member’s review card.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0d8433d81290a348006b074b58951887d2b2299ec5232b374c",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 296,
+				"output": 765
 			}
 		},
 		"53d2e2c79530e510": {
@@ -57264,6 +58550,25 @@
 			"usage": {
 				"input": 228,
 				"output": 13
+			}
+		},
+		"59fe0f3ee9abc4a7": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and matter-of-fact without pressure or filler.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains the proposed change and makes clear that the move is only prepared, with approval needed in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0eed5de5ba59f084006b074b4c731087d2b2908e89ef98bb08",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 300,
+				"output": 63
 			}
 		},
 		"5a40ef4c2523c30e": {
@@ -63953,6 +65258,98 @@
 				"output": 175
 			}
 		},
+		"627dbd8fc0bcc440": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0de3a5cd9321c354006b074b463e1c87d29ac360632f02791f",
+					"timestamp": "2026-11-25T20:55:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_4d112fa973d846158f48c24c7c8ad78a",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_4d112fa973d846158f48c24c7c8ad78a",
+					"delta": "{\"operation\":\"pipeline.readGoals\",\"input\":{} }"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_4d112fa973d846158f48c24c7c8ad78a"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_4d112fa973d846158f48c24c7c8ad78a",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"pipeline.readGoals\",\"input\":{} }",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0de3a5cd9321c354006b074b4d310887d2a87f49bd511e4657"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4242,
+							"noCache": 3,
+							"cacheRead": 4229,
+							"cacheWrite": 10
+						},
+						"outputTokens": {
+							"total": 24,
+							"text": 24,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4242,
+							"input_tokens_details": {
+								"cached_tokens": 4229,
+								"cache_write_tokens": 10,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 10,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 24,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4266
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0de3a5cd9321c354006b074b463e1c87d29ac360632f02791f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4242,
+				"output": 24
+			}
+		},
 		"6280fa9425fefb5a": {
 			"kind": "stream",
 			"parts": [
@@ -64951,6 +66348,116 @@
 				"output": 363
 			}
 		},
+		"6453c9f7b9ca4a48": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01d17e04648f4ff3006b074b494a4087d285a1e4905e3de5f0",
+					"timestamp": "2026-11-25T20:55:37.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_01d17e04648f4ff3006b074b49cfd087d29e18e70b330702ff:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01d17e04648f4ff3006b074b49cfd087d29e18e70b330702ff"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_01d17e04648f4ff3006b074b49cfd087d29e18e70b330702ff:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01d17e04648f4ff3006b074b49cfd087d29e18e70b330702ff"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_49VIm41UtJ7bL4IawHjm2gxW",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_49VIm41UtJ7bL4IawHjm2gxW",
+					"delta": "{\"operation\":\"development.updateEnrollment\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900002\",\"changes\":{\"cohort\":\"Winter cohort\"}}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_49VIm41UtJ7bL4IawHjm2gxW"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_49VIm41UtJ7bL4IawHjm2gxW",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"development.updateEnrollment\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900002\",\"changes\":{\"cohort\":\"Winter cohort\"}}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01d17e04648f4ff3006b074b49fdc087d2bda50937a7ff3a86"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6080,
+							"noCache": 3,
+							"cacheRead": 5094,
+							"cacheWrite": 983
+						},
+						"outputTokens": {
+							"total": 84,
+							"text": 61,
+							"reasoning": 23
+						},
+						"raw": {
+							"input_tokens": 6080,
+							"input_tokens_details": {
+								"cache_write_tokens": 983,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 983
+								},
+								"cached_tokens": 5094
+							},
+							"output_tokens": 84,
+							"output_tokens_details": {
+								"reasoning_tokens": 23
+							},
+							"total_tokens": 6164
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01d17e04648f4ff3006b074b494a4087d285a1e4905e3de5f0",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6080,
+				"output": 84
+			}
+		},
 		"647d144dc2e80e46": {
 			"kind": "generate",
 			"content": [
@@ -64968,6 +66475,98 @@
 			"usage": {
 				"input": 303,
 				"output": 177
+			}
+		},
+		"6499aff8fa79ce0c": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_026ce32624dddbc4006b074b5009cc87d2991281b80f5c35a3",
+					"timestamp": "2026-11-25T20:55:44.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_026ce32624dddbc4006b074b50a12c87d2a611a2fe448157e5",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_026ce32624dddbc4006b074b50a12c87d2a611a2fe448157e5",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_026ce32624dddbc4006b074b50a12c87d2a611a2fe448157e5",
+					"delta": "Grace Austin has **two plants linked to this network**:\n\n- **Harvest Point** — Fort Worth, TX; health: **Watch**; launch Sunday: **November 29, 2026**.\n- **Hill Country Church** — Austin, TX; health and progress are **not shared**; launch Sunday: **November 19, 2026**."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_026ce32624dddbc4006b074b50a12c87d2a611a2fe448157e5",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_026ce32624dddbc4006b074b50a12c87d2a611a2fe448157e5",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5223,
+							"noCache": 3,
+							"cacheRead": 4785,
+							"cacheWrite": 435
+						},
+						"outputTokens": {
+							"total": 79,
+							"text": 79,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 5223,
+							"input_tokens_details": {
+								"cached_tokens": 4785,
+								"cache_write_tokens": 435,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 435,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 79,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 5302
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_026ce32624dddbc4006b074b5009cc87d2991281b80f5c35a3",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5223,
+				"output": 79
 			}
 		},
 		"64c08caf2b60157f": {
@@ -70868,6 +72467,116 @@
 			"usage": {
 				"input": 300,
 				"output": 159
+			}
+		},
+		"6b72b504a273b98c": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0edf245f25891787006b074b4ec9dc87d287e8fcc2961bc0a1",
+					"timestamp": "2026-11-25T20:55:42.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0edf245f25891787006b074b4fd1e087d29daa2c990124433d:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0edf245f25891787006b074b4fd1e087d29daa2c990124433d"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0edf245f25891787006b074b4fd1e087d29daa2c990124433d:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0edf245f25891787006b074b4fd1e087d29daa2c990124433d"
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0edf245f25891787006b074b4fda8887d293600e353438b2b2",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0edf245f25891787006b074b4fda8887d293600e353438b2b2",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0edf245f25891787006b074b4fda8887d293600e353438b2b2",
+					"delta": "I can’t trigger a refresh. I can read the latest Network Intelligence run if you’d like."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0edf245f25891787006b074b4fda8887d293600e353438b2b2",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0edf245f25891787006b074b4fda8887d293600e353438b2b2",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4590,
+							"noCache": 3,
+							"cacheRead": 4579,
+							"cacheWrite": 8
+						},
+						"outputTokens": {
+							"total": 104,
+							"text": 26,
+							"reasoning": 78
+						},
+						"raw": {
+							"input_tokens": 4590,
+							"input_tokens_details": {
+								"cached_tokens": 4579,
+								"cache_write_tokens": 8,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 8,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 104,
+							"output_tokens_details": {
+								"reasoning_tokens": 78
+							},
+							"total_tokens": 4694
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0edf245f25891787006b074b4ec9dc87d287e8fcc2961bc0a1",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4590,
+				"output": 104
 			}
 		},
 		"6b9e0d81419b10ff": {
@@ -77980,6 +79689,116 @@
 				"output": 139
 			}
 		},
+		"74b56bd5d679e9b8": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01d17e04648f4ff3006b074b466de487d28ddc9716a8f68698",
+					"timestamp": "2026-11-25T20:55:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_01d17e04648f4ff3006b074b47479487d29bde82d3149f32df:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01d17e04648f4ff3006b074b47479487d29bde82d3149f32df"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_01d17e04648f4ff3006b074b47479487d29bde82d3149f32df:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01d17e04648f4ff3006b074b47479487d29bde82d3149f32df"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_7c0b8aabfd17458faa844773548d6ea3",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_7c0b8aabfd17458faa844773548d6ea3",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{} }"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_7c0b8aabfd17458faa844773548d6ea3"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_7c0b8aabfd17458faa844773548d6ea3",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{} }",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01d17e04648f4ff3006b074b4759a887d29da97e2c20a30b9f"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4864,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 4861
+						},
+						"outputTokens": {
+							"total": 89,
+							"text": 26,
+							"reasoning": 63
+						},
+						"raw": {
+							"input_tokens": 4864,
+							"input_tokens_details": {
+								"cached_tokens": 0,
+								"cache_write_tokens": 4861,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 4861,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 89,
+							"output_tokens_details": {
+								"reasoning_tokens": 63
+							},
+							"total_tokens": 4953
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01d17e04648f4ff3006b074b466de487d28ddc9716a8f68698",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4864,
+				"output": 89
+			}
+		},
 		"74d5cd6d939f2aec": {
 			"kind": "generate",
 			"content": [
@@ -78218,6 +80037,116 @@
 			"usage": {
 				"input": 64177,
 				"output": 57
+			}
+		},
+		"75c150cf9ec24937": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0001d2d606aa219d006b074b46758087d2a003516e3d90850b",
+					"timestamp": "2026-11-25T20:55:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0001d2d606aa219d006b074b4731e087d2916749262c6fcba7:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b4731e087d2916749262c6fcba7"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0001d2d606aa219d006b074b4731e087d2916749262c6fcba7:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b4731e087d2916749262c6fcba7"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_e93125a2d7a9448fa7bdc89a166cc425",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_e93125a2d7a9448fa7bdc89a166cc425",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{} }"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_e93125a2d7a9448fa7bdc89a166cc425"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_e93125a2d7a9448fa7bdc89a166cc425",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{} }",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0001d2d606aa219d006b074b47480487d29a963504fbfc8b4f"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4869,
+							"noCache": 3,
+							"cacheRead": 4845,
+							"cacheWrite": 21
+						},
+						"outputTokens": {
+							"total": 67,
+							"text": 26,
+							"reasoning": 41
+						},
+						"raw": {
+							"input_tokens": 4869,
+							"input_tokens_details": {
+								"cached_tokens": 4845,
+								"cache_write_tokens": 21,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 21,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 67,
+							"output_tokens_details": {
+								"reasoning_tokens": 41
+							},
+							"total_tokens": 4936
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0001d2d606aa219d006b074b46758087d2a003516e3d90850b",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4869,
+				"output": 67
 			}
 		},
 		"75c52847a300f226": {
@@ -83134,6 +85063,116 @@
 			"usage": {
 				"input": 229,
 				"output": 12
+			}
+		},
+		"7e13545780a1c5e9": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01ccee135eda5c3e006b074b462c0487d2b11db3ace19087f6",
+					"timestamp": "2026-11-25T20:55:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_01ccee135eda5c3e006b074b471e2c87d29e7fbb8e998c0edb:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01ccee135eda5c3e006b074b471e2c87d29e7fbb8e998c0edb"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_01ccee135eda5c3e006b074b471e2c87d29e7fbb8e998c0edb:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01ccee135eda5c3e006b074b471e2c87d29e7fbb8e998c0edb"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_dbf9cc5622384b1296bdb05073ed2e42",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_dbf9cc5622384b1296bdb05073ed2e42",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{} }"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_dbf9cc5622384b1296bdb05073ed2e42"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_dbf9cc5622384b1296bdb05073ed2e42",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{} }",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01ccee135eda5c3e006b074b47302887d2a6234b83fbb66820"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4863,
+							"noCache": 3,
+							"cacheRead": 4845,
+							"cacheWrite": 15
+						},
+						"outputTokens": {
+							"total": 51,
+							"text": 26,
+							"reasoning": 25
+						},
+						"raw": {
+							"input_tokens": 4863,
+							"input_tokens_details": {
+								"cached_tokens": 4845,
+								"cache_write_tokens": 15,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 15,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 51,
+							"output_tokens_details": {
+								"reasoning_tokens": 25
+							},
+							"total_tokens": 4914
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01ccee135eda5c3e006b074b462c0487d2b11db3ace19087f6",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4863,
+				"output": 51
 			}
 		},
 		"7e4f2bce5e20dfba": {
@@ -88728,6 +90767,98 @@
 				"output": 90
 			}
 		},
+		"866545cb030b29fd": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0001d2d606aa219d006b074b4c0e1887d29c7424571956702c",
+					"timestamp": "2026-11-25T20:55:40.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0001d2d606aa219d006b074b4c94e887d294084905ca98f83c",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0001d2d606aa219d006b074b4c94e887d294084905ca98f83c",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0001d2d606aa219d006b074b4c94e887d294084905ca98f83c",
+					"delta": "I prepared the review to confirm Casey Lee’s “Write a church planting prospectus” milestone. It’s awaiting your approval in the app; nothing has changed yet."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0001d2d606aa219d006b074b4c94e887d294084905ca98f83c",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0001d2d606aa219d006b074b4c94e887d294084905ca98f83c",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6958,
+							"noCache": 3,
+							"cacheRead": 6713,
+							"cacheWrite": 242
+						},
+						"outputTokens": {
+							"total": 37,
+							"text": 37,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 6958,
+							"input_tokens_details": {
+								"cache_write_tokens": 242,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 242
+								},
+								"cached_tokens": 6713
+							},
+							"output_tokens": 37,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 6995
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0001d2d606aa219d006b074b4c0e1887d29c7424571956702c",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6958,
+				"output": 37
+			}
+		},
 		"866d65174d5bf887": {
 			"kind": "generate",
 			"content": [
@@ -89187,6 +91318,98 @@
 			"usage": {
 				"input": 65012,
 				"output": 93
+			}
+		},
+		"8725ee5c48530ea2": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01ccee135eda5c3e006b074b4aa60887d29f850a9bfd289648",
+					"timestamp": "2026-11-25T20:55:38.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_01ccee135eda5c3e006b074b4b42dc87d28c9ebf6d459bd080",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_01ccee135eda5c3e006b074b4b42dc87d28c9ebf6d459bd080",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_01ccee135eda5c3e006b074b4b42dc87d28c9ebf6d459bd080",
+					"delta": "I prepared a review to move Casey Lee from residency Version 1 to Version 2. The stage stays Assimilating, and “Lead a vision night” will be added. Nothing changes unless you approve the review in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_01ccee135eda5c3e006b074b4b42dc87d28c9ebf6d459bd080",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_01ccee135eda5c3e006b074b4b42dc87d28c9ebf6d459bd080",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6281,
+							"noCache": 3,
+							"cacheRead": 6039,
+							"cacheWrite": 239
+						},
+						"outputTokens": {
+							"total": 51,
+							"text": 51,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 6281,
+							"input_tokens_details": {
+								"cache_write_tokens": 239,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 239
+								},
+								"cached_tokens": 6039
+							},
+							"output_tokens": 51,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 6332
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01ccee135eda5c3e006b074b4aa60887d29f850a9bfd289648",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6281,
+				"output": 51
 			}
 		},
 		"87422a9ad7df1903": {
@@ -111853,6 +114076,25 @@
 				"output": 327
 			}
 		},
+		"a855a4430dce6bfc": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"adequate\",\"reason\":\"The reply is brief and plain, but it doesn’t sound especially warm.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It says the milestone is awaiting approval instead of confirming it was marked done on October 1, 2026.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0613bd37956aa75b006b074b4e85a087d29b8f309154d68188",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 299,
+				"output": 197
+			}
+		},
 		"a890a4988d3c45c2": {
 			"kind": "generate",
 			"content": [
@@ -112166,6 +114408,116 @@
 			"usage": {
 				"input": 225,
 				"output": 12
+			}
+		},
+		"a9582d1e05410de3": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ade6cc6e261c05e006b074b4f6ef887d286c2ddaae3bf34a6",
+					"timestamp": "2026-11-25T20:55:43.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0ade6cc6e261c05e006b074b4ff38487d2b24658d2eb1897d2:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ade6cc6e261c05e006b074b4ff38487d2b24658d2eb1897d2"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0ade6cc6e261c05e006b074b4ff38487d2b24658d2eb1897d2:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ade6cc6e261c05e006b074b4ff38487d2b24658d2eb1897d2"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_436a481585ab410c8566ca1ccb628026",
+					"toolName": "oversight_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_436a481585ab410c8566ca1ccb628026",
+					"delta": "{\"operation\":\"organizationIntelligence.readHistory\",\"input\":{\"level\":\"state\",\"place\":\"Texas\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_436a481585ab410c8566ca1ccb628026"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_436a481585ab410c8566ca1ccb628026",
+					"toolName": "oversight_read",
+					"input": "{\"operation\":\"organizationIntelligence.readHistory\",\"input\":{\"level\":\"state\",\"place\":\"Texas\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0ade6cc6e261c05e006b074b500b2087d28c400d2d8392644d"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5194,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 5191
+						},
+						"outputTokens": {
+							"total": 61,
+							"text": 36,
+							"reasoning": 25
+						},
+						"raw": {
+							"input_tokens": 5194,
+							"input_tokens_details": {
+								"cached_tokens": 0,
+								"cache_write_tokens": 5191,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 5191,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 61,
+							"output_tokens_details": {
+								"reasoning_tokens": 25
+							},
+							"total_tokens": 5255
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ade6cc6e261c05e006b074b4f6ef887d286c2ddaae3bf34a6",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5194,
+				"output": 61
 			}
 		},
 		"a9789836363e62b6": {
@@ -112996,6 +115348,116 @@
 			"usage": {
 				"input": 64337,
 				"output": 247
+			}
+		},
+		"aa321a3732339ac2": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01ccee135eda5c3e006b074b47a90087d2a5d5216ca98269cd",
+					"timestamp": "2026-11-25T20:55:35.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_01ccee135eda5c3e006b074b4888f887d2b65dc5f7504786dc:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01ccee135eda5c3e006b074b4888f887d2b65dc5f7504786dc"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_01ccee135eda5c3e006b074b4888f887d2b65dc5f7504786dc:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01ccee135eda5c3e006b074b4888f887d2b65dc5f7504786dc"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_LJY97QVhNIXWVAY0b2knnyDl",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_LJY97QVhNIXWVAY0b2knnyDl",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_LJY97QVhNIXWVAY0b2knnyDl"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_LJY97QVhNIXWVAY0b2knnyDl",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01ccee135eda5c3e006b074b48ae5c87d2aa3d8a7f50d6ec6b"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5058,
+							"noCache": 3,
+							"cacheRead": 4860,
+							"cacheWrite": 195
+						},
+						"outputTokens": {
+							"total": 70,
+							"text": 55,
+							"reasoning": 15
+						},
+						"raw": {
+							"input_tokens": 5058,
+							"input_tokens_details": {
+								"cache_write_tokens": 195,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 195
+								},
+								"cached_tokens": 4860
+							},
+							"output_tokens": 70,
+							"output_tokens_details": {
+								"reasoning_tokens": 15
+							},
+							"total_tokens": 5128
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01ccee135eda5c3e006b074b47a90087d2a5d5216ca98269cd",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5058,
+				"output": 70
 			}
 		},
 		"aa377284f5f394ae": {
@@ -130519,6 +132981,98 @@
 				"output": 223
 			}
 		},
+		"c59e4deecdc833a9": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ade6cc6e261c05e006b074b51c40887d2ba926546dc84643b",
+					"timestamp": "2026-11-25T20:55:45.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0ade6cc6e261c05e006b074b52ca6c87d285ecec11cf436829",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ade6cc6e261c05e006b074b52ca6c87d285ecec11cf436829",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0ade6cc6e261c05e006b074b52ca6c87d285ecec11cf436829",
+					"delta": "I prepared a review to rate Texas’s “Acquisition growth stalled” pattern as useful. It hasn’t been saved; approve the review in the app to submit it."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0ade6cc6e261c05e006b074b52ca6c87d285ecec11cf436829",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ade6cc6e261c05e006b074b52ca6c87d285ecec11cf436829",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6101,
+							"noCache": 3,
+							"cacheRead": 5885,
+							"cacheWrite": 213
+						},
+						"outputTokens": {
+							"total": 38,
+							"text": 38,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 6101,
+							"input_tokens_details": {
+								"cache_write_tokens": 213,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 213
+								},
+								"cached_tokens": 5885
+							},
+							"output_tokens": 38,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 6139
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ade6cc6e261c05e006b074b51c40887d2ba926546dc84643b",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6101,
+				"output": 38
+			}
+		},
 		"c5b095b452b9fe80": {
 			"kind": "stream",
 			"parts": [
@@ -132031,6 +134585,116 @@
 			"usage": {
 				"input": 253,
 				"output": 12
+			}
+		},
+		"c7ebd294a141ee2f": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0001d2d606aa219d006b074b4a40f087d2a09e04bb22364a0a",
+					"timestamp": "2026-11-25T20:55:38.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0001d2d606aa219d006b074b4b44f487d2bc0a8f5875988970:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b4b44f487d2bc0a8f5875988970"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0001d2d606aa219d006b074b4b44f487d2bc0a8f5875988970:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b4b44f487d2bc0a8f5875988970"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_iT5exemjdqZg7xgBtx4Xpz81",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_iT5exemjdqZg7xgBtx4Xpz81",
+					"delta": "{\"operation\":\"development.confirmMilestone\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900001\",\"milestoneId\":\"5b6d1f0e-0000-4000-8000-000000900016\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_iT5exemjdqZg7xgBtx4Xpz81"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_iT5exemjdqZg7xgBtx4Xpz81",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"development.confirmMilestone\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900001\",\"milestoneId\":\"5b6d1f0e-0000-4000-8000-000000900016\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0001d2d606aa219d006b074b4b613487d294a376bc111312c5"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6716,
+							"noCache": 3,
+							"cacheRead": 6061,
+							"cacheWrite": 652
+						},
+						"outputTokens": {
+							"total": 89,
+							"text": 80,
+							"reasoning": 9
+						},
+						"raw": {
+							"input_tokens": 6716,
+							"input_tokens_details": {
+								"cache_write_tokens": 652,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 652
+								},
+								"cached_tokens": 6061
+							},
+							"output_tokens": 89,
+							"output_tokens_details": {
+								"reasoning_tokens": 9
+							},
+							"total_tokens": 6805
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0001d2d606aa219d006b074b4a40f087d2a09e04bb22364a0a",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6716,
+				"output": 89
 			}
 		},
 		"c7f0c3082057a03e": {
@@ -134498,6 +137162,116 @@
 			"usage": {
 				"input": 64005,
 				"output": 60
+			}
+		},
+		"cb3eb1431744b2f4": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_039993456a5fc3a1006b074b51c48087d29e35b2c6a6140517",
+					"timestamp": "2026-11-25T20:55:45.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_039993456a5fc3a1006b074b523e3487d2ab23ced6926b67a3:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b523e3487d2ab23ced6926b67a3"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_039993456a5fc3a1006b074b523e3487d2ab23ced6926b67a3:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_039993456a5fc3a1006b074b523e3487d2ab23ced6926b67a3"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_dMsMuwgHsinVL1yzpssqg8AQ",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_dMsMuwgHsinVL1yzpssqg8AQ",
+					"delta": "{\"operation\":\"development.completeMilestone\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900002\",\"milestoneId\":\"5b6d1f0e-0000-4000-8000-000000900014\",\"completedOn\":\"2026-11-09\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_dMsMuwgHsinVL1yzpssqg8AQ"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_dMsMuwgHsinVL1yzpssqg8AQ",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"development.completeMilestone\",\"input\":{\"enrollmentId\":\"5b6d1f0e-0000-4000-8000-000000900002\",\"milestoneId\":\"5b6d1f0e-0000-4000-8000-000000900014\",\"completedOn\":\"2026-11-09\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_039993456a5fc3a1006b074b52708887d2b3da09325075f32b"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 6741,
+							"noCache": 3,
+							"cacheRead": 6082,
+							"cacheWrite": 656
+						},
+						"outputTokens": {
+							"total": 114,
+							"text": 90,
+							"reasoning": 24
+						},
+						"raw": {
+							"input_tokens": 6741,
+							"input_tokens_details": {
+								"cache_write_tokens": 656,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 656
+								},
+								"cached_tokens": 6082
+							},
+							"output_tokens": 114,
+							"output_tokens_details": {
+								"reasoning_tokens": 24
+							},
+							"total_tokens": 6855
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_039993456a5fc3a1006b074b51c48087d29e35b2c6a6140517",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 6741,
+				"output": 114
 			}
 		},
 		"cb8b8da03427be99": {
@@ -144991,6 +147765,116 @@
 				"output": 23
 			}
 		},
+		"dc862286ed819931": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0001d2d606aa219d006b074b47a7a887d2938b8f4d167e40c3",
+					"timestamp": "2026-11-25T20:55:35.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0001d2d606aa219d006b074b48284487d2a5691d3e2522c759:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b48284487d2a5691d3e2522c759"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0001d2d606aa219d006b074b48284487d2a5691d3e2522c759:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0001d2d606aa219d006b074b48284487d2a5691d3e2522c759"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_8vz7oN8kXDLdky2Wervp4CoL",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_8vz7oN8kXDLdky2Wervp4CoL",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_8vz7oN8kXDLdky2Wervp4CoL"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_8vz7oN8kXDLdky2Wervp4CoL",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0001d2d606aa219d006b074b4847f487d2bee9713c09c395e9"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5080,
+							"noCache": 3,
+							"cacheRead": 4866,
+							"cacheWrite": 211
+						},
+						"outputTokens": {
+							"total": 70,
+							"text": 55,
+							"reasoning": 15
+						},
+						"raw": {
+							"input_tokens": 5080,
+							"input_tokens_details": {
+								"cache_write_tokens": 211,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 211
+								},
+								"cached_tokens": 4866
+							},
+							"output_tokens": 70,
+							"output_tokens_details": {
+								"reasoning_tokens": 15
+							},
+							"total_tokens": 5150
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0001d2d606aa219d006b074b47a7a887d2938b8f4d167e40c3",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5080,
+				"output": 70
+			}
+		},
 		"dc86fc13588b8b9b": {
 			"kind": "stream",
 			"parts": [
@@ -145099,6 +147983,116 @@
 			"usage": {
 				"input": 64511,
 				"output": 73
+			}
+		},
+		"dccaaba3b2cde7e1": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01d17e04648f4ff3006b074b47cba087d2be808ac58bea62d1",
+					"timestamp": "2026-11-25T20:55:35.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_01d17e04648f4ff3006b074b48906c87d295235820740e2079:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01d17e04648f4ff3006b074b48906c87d295235820740e2079"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_01d17e04648f4ff3006b074b48906c87d295235820740e2079:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_01d17e04648f4ff3006b074b48906c87d295235820740e2079"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_vicmoqIdMqc0LyJcK9tkzkXR",
+					"toolName": "pipeline_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_vicmoqIdMqc0LyJcK9tkzkXR",
+					"delta": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_vicmoqIdMqc0LyJcK9tkzkXR"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_vicmoqIdMqc0LyJcK9tkzkXR",
+					"toolName": "pipeline_read",
+					"input": "{\"operation\":\"development.readProgram\",\"input\":{\"programId\":\"5b6d1f0e-0000-4000-8000-000000900000\",\"enrolled\":true}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01d17e04648f4ff3006b074b48b0dc87d2abe731134a13af04"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 5097,
+							"noCache": 3,
+							"cacheRead": 4861,
+							"cacheWrite": 233
+						},
+						"outputTokens": {
+							"total": 69,
+							"text": 55,
+							"reasoning": 14
+						},
+						"raw": {
+							"input_tokens": 5097,
+							"input_tokens_details": {
+								"cache_write_tokens": 233,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 233
+								},
+								"cached_tokens": 4861
+							},
+							"output_tokens": 69,
+							"output_tokens_details": {
+								"reasoning_tokens": 14
+							},
+							"total_tokens": 5166
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01d17e04648f4ff3006b074b47cba087d2be808ac58bea62d1",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 5097,
+				"output": 69
 			}
 		},
 		"dceba04f3c172b0c": {
@@ -147805,6 +150799,25 @@
 			"usage": {
 				"input": 64638,
 				"output": 86
+			}
+		},
+		"e01ae695a82280ae": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It gives the count plainly and briefly without unnecessary detail.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It answers the question with the logged count, but offers no next step if the user wants to review the conversations.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e1740a8effbd57d006b074b58865487d2b594e287624a93cd",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 283,
+				"output": 235
 			}
 		},
 		"e035f40501c495b7": {
@@ -152347,6 +155360,25 @@
 				"output": 25
 			}
 		},
+		"e620df0e267ebc33": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is brief, clear, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It names both shared plants and gives useful details for each.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0f70e5d6e60900ad006b074b527b3487d2a0702a1a75508d5f",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 338,
+				"output": 159
+			}
+		},
 		"e6566309bd3abc1a": {
 			"kind": "generate",
 			"content": [
@@ -155391,6 +158423,98 @@
 			"usage": {
 				"input": 65112,
 				"output": 79
+			}
+		},
+		"eab045141b1e436c": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_00fd730743c0c174006b074b4f2a5487d29e51775f7b6f0b60",
+					"timestamp": "2026-11-25T20:55:43.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_434c68852c5d41d7b3345ef23ebb40c9",
+					"toolName": "oversight_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_434c68852c5d41d7b3345ef23ebb40c9",
+					"delta": "{\"operation\":\"oversight.getSendingChurch\",\"input\":{\"churchId\":\"5b6d1f0e-0000-4000-8000-000000900000\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_434c68852c5d41d7b3345ef23ebb40c9"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_434c68852c5d41d7b3345ef23ebb40c9",
+					"toolName": "oversight_read",
+					"input": "{\"operation\":\"oversight.getSendingChurch\",\"input\":{\"churchId\":\"5b6d1f0e-0000-4000-8000-000000900000\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_00fd730743c0c174006b074b4f80a887d281e0fde3cd5246d9"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4788,
+							"noCache": 3,
+							"cacheRead": 4600,
+							"cacheWrite": 185
+						},
+						"outputTokens": {
+							"total": 52,
+							"text": 52,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4788,
+							"input_tokens_details": {
+								"cached_tokens": 4600,
+								"cache_write_tokens": 185,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 185,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 52,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4840
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_00fd730743c0c174006b074b4f2a5487d29e51775f7b6f0b60",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4788,
+				"output": 52
 			}
 		},
 		"eab8bd2b6d9fc29e": {
@@ -159818,6 +162942,25 @@
 				"output": 12
 			}
 		},
+		"f22b74a60b9a430b": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The answer is plain, direct, and free of unnecessary filler.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It states the goal and relevant pipeline context, but doesn’t suggest a next step the user can take.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_00416c6890f1736f006b074b58df5c87d2aa5a2e0caacfb95f",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 365,
+				"output": 219
+			}
+		},
 		"f2931a83e473b9b2": {
 			"kind": "stream",
 			"parts": [
@@ -159908,6 +163051,98 @@
 			"usage": {
 				"input": 64006,
 				"output": 25
+			}
+		},
+		"f29842161191a5dd": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0d83be5ebac7b058006b074b4da4dc87d2aa93ed51fc1dafc6",
+					"timestamp": "2026-11-25T20:55:41.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0d83be5ebac7b058006b074b566b1087d2a1ce6613e6d4d4f4",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0d83be5ebac7b058006b074b566b1087d2a1ce6613e6d4d4f4",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0d83be5ebac7b058006b074b566b1087d2a1ce6613e6d4d4f4",
+					"delta": "Your sending goal is to develop **6 leaders** and plant **2 churches by 2028**. The reason recorded is: “Two campuses are full.” It counts from **January 1, 2026**.\n\nAs of **November 9, 2026**, the Pipeline page shows: **2 Potential leaders, 1 Apprentice, 0 Residents, 0 Commissioned, and 0 Not continuing**. There are **2 active residents**. The number of plants sent isn’t available yet."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0d83be5ebac7b058006b074b566b1087d2a1ce6613e6d4d4f4",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0d83be5ebac7b058006b074b566b1087d2a1ce6613e6d4d4f4",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4471,
+							"noCache": 3,
+							"cacheRead": 4239,
+							"cacheWrite": 229
+						},
+						"outputTokens": {
+							"total": 108,
+							"text": 108,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4471,
+							"input_tokens_details": {
+								"cached_tokens": 4239,
+								"cache_write_tokens": 229,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 229,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 108,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4579
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0d83be5ebac7b058006b074b4da4dc87d2aa93ed51fc1dafc6",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4471,
+				"output": 108
 			}
 		},
 		"f29c1c492d186547": {
@@ -160462,6 +163697,25 @@
 			"usage": {
 				"input": 314,
 				"output": 140
+			}
+		},
+		"f3e1085b5fac64c3": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It is brief, clear, and matter-of-fact without unnecessary filler.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It clearly says the milestone has not been recorded yet and that approval is needed, though it could explicitly tell the user to approve it in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_002346c6231d52aa006b074b5670c087d29b8cf7b98e8f9142",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 313,
+				"output": 314
 			}
 		},
 		"f413564ac7dfc96d": {

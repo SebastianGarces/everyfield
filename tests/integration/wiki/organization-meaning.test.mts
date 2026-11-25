@@ -7,6 +7,8 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { runDueWikiEmbedding } from "../../../packages/domain/src/wiki/embedding.ts";
 import { search } from "../../../packages/domain/src/wiki/reads.ts";
+import { wikiEmbeddingMount } from "../../../apps/web/src/features/wiki/embedding.ts";
+import { neverCalled, RECORD, recorded, withProvider } from "../../evry/runtime/provider.mts";
 import { wikiPassageEmbedder, wikiQueryEmbedder } from "../../../packages/reference/src/starter/verify/query.ts";
 import type { WikiEmbedFetch } from "../../../packages/reference/src/starter/verify/openai.ts";
 
@@ -447,6 +449,28 @@ test("with embedding unconfigured or a release on another profile, the job ends 
 			sql`UPDATE reference_release SET embedding_profile='openai-text-embedding-3-small' WHERE id=${release}`,
 		);
 	}
+});
+
+test("in production without a verified record an organization's passage is never sent and stays owed until the record is set", async () => {
+	const owed = await withoutNetwork(() => publish(ARTICLES.daily, VERSIONS.daily));
+	const { sent } = await withProvider(neverCalled, async () => {
+		for (const kind of ["production", "staging", ""]) {
+			assert.equal(wikiPassageEmbedder({ ...OPENAI, VERCEL_ENV: kind }, forbidden), null);
+			assert.equal(wikiEmbeddingMount(db, { ...OPENAI, VERCEL_ENV: kind }), null, "the job pass is skipped");
+		}
+	});
+	assert.deepEqual(sent, []);
+	assert.deepEqual(await jobsFor(owed.revision), [
+		{ state: "ready", error_code: null, attempt_count: 0, deferred: false },
+	]);
+	const ran = await withProvider(
+		async ({ url, body }) => provider(PASSAGE_VECTORS, counter(), 7, stored)(url, { body: JSON.stringify(body) }),
+		async () => wikiEmbeddingMount(db, recorded(RECORD))!(20, Date.now() + 30_000),
+	);
+	assert.deepEqual([ran.value, ran.sent.map((s) => s.body.input)], [1, [[VERSIONS.daily]]]);
+	assert.deepEqual(await jobsFor(owed.revision), [
+		{ state: "succeeded", error_code: null, attempt_count: 1, deferred: false },
+	]);
 });
 
 const neverAnswers: WikiEmbedFetch = (_url, init) =>

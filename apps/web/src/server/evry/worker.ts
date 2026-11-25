@@ -1,4 +1,5 @@
 import type { Database } from "@everyfield/db/client";
+import { evryAvailable } from "@everyfield/db/provider";
 import { readViewer } from "@everyfield/domain/access";
 import { sessionId } from "@everyfield/contracts/common";
 import { switchedOff, type Switches } from "@everyfield/domain/flags";
@@ -34,7 +35,8 @@ export async function runTurns(
 	until = Infinity,
 	select: () => QualifiedModel | Promise<QualifiedModel> = evryModel,
 ) {
-	const model: QualifiedModel = switches["evry-model-calls"] ? await select() : { status: "paused" };
+	const paused = !switches["evry-model-calls"] && evryAvailable();
+	const model: QualifiedModel = paused ? { status: "paused" } : await select();
 	const freshActor = async (session: string) => {
 		const parsed = sessionId.safeParse(session);
 		const viewer = parsed.success ? await readViewer(pool, parsed.data) : null;

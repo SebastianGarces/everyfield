@@ -3,10 +3,12 @@ import { articlePath, type WikiArticle, type WikiReply } from "@everyfield/contr
 import { createWikiProducer } from "@everyfield/domain/wiki";
 import type { EvryActor } from "../../context/actor.ts";
 import { EvryRefusal } from "../../context/errors.ts";
+import { accountContext } from "../native.ts";
 import type { SourceRow } from "../../catalog/types.ts";
 
 export const wiki = createWikiProducer();
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
+export const reader = (actor: EvryActor) => inPlant(actor) || accountContext(actor);
 
 type Link = Pick<WikiArticle, "articleId" | "revisionId" | "sourceKind" | "title" | "slug">;
 export function articleRow(article: Link, fields: SourceRow["fields"] = {}): SourceRow {

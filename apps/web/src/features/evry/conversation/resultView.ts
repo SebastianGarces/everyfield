@@ -1218,6 +1218,7 @@ function emptyText(view: OpView, operation: string, facts: Record<string, unknow
 			: `The Wiki has no articles in ${String(facts.section)}.`;
 	if (operation === "wiki.referenceExcerpt" && text(facts.unknownSection))
 		return `This article has no section called ${String(facts.unknownSection)}.`;
+	if (facts.own === true && view.counts === "document") return "No document of yours matches.";
 	return view.empty;
 }
 function wikiFacts(operation: string, facts: Record<string, unknown>): string[] {

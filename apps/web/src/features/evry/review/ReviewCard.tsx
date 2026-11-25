@@ -264,7 +264,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 					: review && isWiki(review.operation)
 						? wikiRefusalText(review.receipt?.code, review.operation)
 						: review && isDocument(review.operation)
-							? documentRefusalText(review.receipt?.code)
+							? documentRefusalText(review.receipt?.code, review.review.private)
 							: review && isSettings(review.operation)
 								? settingsRefusalText(review.receipt?.code)
 								: intelligence

@@ -1,3 +1,4 @@
+import { EMBEDDING_PATH, providerAllowed } from "@everyfield/db/provider";
 import { EmbeddingRefusal, openAiWikiEmbedding, type WikiEmbedFetch } from "./openai.ts";
 
 export { EmbeddingRefusal } from "./openai.ts";
@@ -26,7 +27,7 @@ export function wikiQueryEmbedder(
 	env: Record<string, string | undefined>,
 	fetchImpl: WikiEmbedFetch = (url, init) => fetch(url, init),
 ): WikiQueryEmbedder | null {
-	if (env.EVF_WIKI_EMBEDDINGS !== "openai") return null;
+	if (env.EVF_WIKI_EMBEDDINGS !== "openai" || !providerAllowed(env, EMBEDDING_PATH)) return null;
 	const provider = openAiWikiEmbedding(env, fetchImpl, QUERY_TIMEOUT_MS);
 	return {
 		profile: provider.profile,
@@ -59,6 +60,6 @@ export function wikiPassageEmbedder(
 	fetchImpl: WikiEmbedFetch = (url, init) => fetch(url, init),
 	timeoutMs = PASSAGE_TIMEOUT_MS,
 ): WikiPassageEmbedder | null {
-	if (env.EVF_WIKI_EMBEDDINGS !== "openai") return null;
+	if (env.EVF_WIKI_EMBEDDINGS !== "openai" || !providerAllowed(env, EMBEDDING_PATH)) return null;
 	return openAiWikiEmbedding(env, fetchImpl, timeoutMs);
 }
