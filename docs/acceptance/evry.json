@@ -5401,10 +5401,7 @@
         "oversight.listSendingChurches",
         "oversight.readLaunchReadiness"
       ],
-      "status": "run",
-      "run_by": [
-        "tests/evry/runtime/cases-family-insight.test.mts"
-      ],
+      "status": "future-not-run",
       "description": "Org A directly recognizes plants P/Q/R; P/Q share health and different per-category permissions, R health OFF. Org B and parent network have separate links. Region is versioned, one ambiguous city unresolved; one authorized ordinary directory lead-name artifact is in older conversation. A Member can read and give own feedback, Admin can request refresh/profile location correction.",
       "given": {
         "P": {
