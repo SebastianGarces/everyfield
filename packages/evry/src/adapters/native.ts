@@ -72,6 +72,7 @@ export function committed<T extends { status: string }>(result: T): T {
 export function approvedNow<I>(spec: {
 	operation: string;
 	description: string;
+	memberDescription?: string;
 	input: z.ZodType<I>;
 	allowed?: (actor: EvryActor) => boolean;
 	review: ReviewedWrite<I>["review"];
@@ -87,6 +88,7 @@ export function approvedNow<I>(spec: {
 	return {
 		operation: spec.operation,
 		description: spec.description,
+		...(spec.memberDescription && { memberDescription: spec.memberDescription }),
 		input: spec.input,
 		allowed: spec.allowed ?? organizationAdmin,
 		review: spec.review,

@@ -195,18 +195,20 @@ export const OVERSIGHT_RULES = {
 		"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one.",
 	releasedOnly:
 		"I can only use what your plants have released to you, so I can't open one plant's own assessments or say what they said.",
-	intelligenceOwnerOnly:
-		"Only an Owner or Admin can refresh Network Intelligence or rate its patterns. Nothing was requested.",
+	refreshOwnerOnly: "Only an Owner or Admin can refresh Network Intelligence. Nothing was requested.",
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;
-function oversightRules(kind: EvryActor["contextKind"]) {
+const ADMIN_INTELLIGENCE =
+	"A Network Intelligence refresh or a rating of one pattern is a review card (organizationIntelligence.requestRefresh, organizationIntelligence.submitFeedback). When the user asks to refresh one plant's assessment, pass its plantId and say only that plant can ask for its own assessment. When no tool offers it, prepare nothing and reply: Only an Owner or Admin can refresh Network Intelligence or rate its patterns. Nothing was requested.";
+const MEMBER_INTELLIGENCE_RULE = `The user's own rating of one Network Intelligence pattern is a review card (organizationIntelligence.submitFeedback). When the user asks to refresh Network Intelligence or a plant's assessment, prepare nothing and reply: ${OVERSIGHT_RULES.refreshOwnerOnly}`;
+function oversightRules({ contextKind: kind, role }: Pick<EvryActor, "contextKind" | "role">) {
 	return [
 		kind === "sending_network"
 			? "Sending churches come only from oversight.listSendingChurches and oversight.getSendingChurch: this network's current links. Link each with its href."
 			: "",
 		`When the user asks how a plant changed over time or about one of its assessments, read oversight.listPlants, then oversight.getPlant and organizationIntelligence.readHistory (level portfolio, then earlier runs by runId), and reply first: ${OVERSIGHT_RULES.releasedOnly} Then give the plant's released health and concerns now and the Network Intelligence runs with the patterns that named it in each. A plant that shares none is Not shared.`,
-		`A Network Intelligence refresh or a rating of one pattern is a review card (organizationIntelligence.requestRefresh, organizationIntelligence.submitFeedback). When the user asks to refresh one plant's assessment, pass its plantId and say only that plant can ask for its own assessment. When no tool offers it, prepare nothing and reply: ${OVERSIGHT_RULES.intelligenceOwnerOnly}`,
+		role === "member" ? MEMBER_INTELLIGENCE_RULE : ADMIN_INTELLIGENCE,
 		"Plant oversight comes only from oversight.listPlants, oversight.getPlant and organizationIntelligence.read: what this organization's own pages show. A plant that doesn't share Plant Intelligence findings is Not shared, never zero or healthy.",
 		`When the user asks for a plant's people, notes, interviews, care or assessment text, read only that plant's totals with oversight.getPlant and reply first: ${OVERSIGHT_RULES.totalsOnly} Never name a person.`,
 		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
@@ -235,7 +237,7 @@ function roleRule(actor: EvryActor) {
 	const setup =
 		actor.contextKind === "plant"
 			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}\n${intelligenceRules()}\n${REGION_RULE}`
-			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}\n${oversightRules(actor.contextKind)}`;
+			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}\n${oversightRules(actor)}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
@@ -359,8 +361,12 @@ const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 		text: "Prepare program changes for your review, as your seat allows: a new program or version draft, enrollments and milestones.",
 	},
 	{
-		prefix: "organizationIntelligence.",
-		text: "Prepare a Network Intelligence refresh, or your rating of a pattern, for your review.",
+		prefix: "organizationIntelligence.requestRefresh",
+		text: "Prepare a Network Intelligence refresh for your review.",
+	},
+	{
+		prefix: "organizationIntelligence.submitFeedback",
+		text: "Prepare your own rating of a Network Intelligence pattern for your review.",
 	},
 	{
 		prefix: "organizations.correctReportingLocation",

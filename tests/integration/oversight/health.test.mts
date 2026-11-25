@@ -18,7 +18,11 @@ import {
 	readIntelligence,
 	requestIntelligenceRefresh,
 } from "../../../packages/domain/src/oversight/index.ts";
-import type { IntelligencePattern } from "../../../packages/contracts/src/oversight/health.ts";
+import {
+	LEVELS,
+	type IntelligencePattern,
+	type IntelligenceView,
+} from "../../../packages/contracts/src/oversight/health.ts";
 
 const ALL = ["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "findings"] as const;
 type Category = (typeof ALL)[number];
@@ -466,7 +470,7 @@ test("a sharing plant with no launch date is Unknown, and one qualifying plant m
 	);
 });
 
-test("Refresh keeps history, a Member cannot refresh or rate, and turning sharing off leaves every run", async () => {
+test("Refresh keeps history, a Member cannot refresh, and turning sharing off leaves every run", async () => {
 	const admin = await as(networkAdmin);
 	const member = await as(networkMember);
 	const before = (await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null }))!;
@@ -484,6 +488,7 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 		status: "refused",
 		refusal: { code: "unavailable" },
 	});
+	assert.deepEqual(await readIntelligence(S.runtime, member, { level: "portfolio", runId: null }), after);
 
 	await share(hpToN, "findings", false);
 	for (const run of after.history) {
@@ -498,35 +503,139 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 	void mfToN;
 });
 
-test("a pattern rating is the rater's own and changes nothing else", async () => {
-	const admin = await as(networkAdmin);
-	const owner = await as(networkOwner);
-	const view = (await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!;
-	const key = near(view.groups[0]!)!.key;
-	const runId = view.run!.runId;
-	assert.equal(
-		(await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "useful" })).status,
-		"ok",
-	);
+const ratingsOf = async (o: Owner) =>
+	(
+		await S.db.execute(sql`SELECT f.account_id, f.pattern_key, f.rating FROM network_intelligence_feedback f
+			JOIN network_intelligence_run r ON r.id=f.run_id WHERE r.organization_id=${o.id} ORDER BY 1,2`)
+	).rows;
+const ratingAudit = async (o: Owner) =>
+	(
+		await S.db.execute(sql`SELECT metadata FROM audit_event WHERE tenant_id=${o.id}
+			AND metadata->>'category'='network_intelligence_feedback'`)
+	).rows;
+const readAll = async (who: Identity) => {
+	const authority = await as(who);
+	const latest = (await readIntelligence(S.runtime, authority, { level: "portfolio", runId: null }))!;
+	const views = [];
+	for (const { runId } of latest.history)
+		for (const level of LEVELS) views.push((await readIntelligence(S.runtime, authority, { level, runId }))!);
+	return views;
+};
+const unrated = (views: IntelligenceView[]) =>
+	views.map((v) => ({
+		...v,
+		groups: v.groups.map((g) => ({ ...g, patterns: g.patterns.map((p) => ({ ...p, rating: null })) })),
+	}));
+
+async function ratesPrivately(
+	o: Owner,
+	seats: { rater: Identity; second: Identity; admin: Identity; others: Identity[] },
+) {
+	const { rater, second, admin, others } = seats;
+	const first = (await readIntelligence(S.runtime, await as(rater), { level: "state", runId: null }))!;
+	const runId = first.run!.runId;
+	const key = near(first.groups[0]!)!.key;
+	const rate = async (who: Identity, rating: string) =>
+		submitIntelligenceFeedback(S.runtime, await as(who), { runId, patternKey: key, rating });
+	const seen = async (who: Identity) =>
+		near((await readIntelligence(S.runtime, await as(who), { level: "state", runId }))!.groups[0]!)!.rating;
+	const everyone = [rater, second, admin, ...others];
+	const before = await Promise.all(everyone.map(readAll));
+	const stored = async () =>
+		(
+			await S.db.execute(sql`SELECT to_jsonb(r) AS run, (SELECT jsonb_agg(to_jsonb(c) ORDER BY c.plant_id)
+				FROM network_intelligence_plant c WHERE c.run_id=r.id) AS plants
+				FROM network_intelligence_run r WHERE r.organization_id=${o.id} ORDER BY r.id`)
+		).rows;
+	const kept = await stored();
+	const changed = { status: "ok", value: { outcome: "changed" } };
+
+	assert.deepEqual(await rate(rater, "useful"), changed);
+	assert.equal(await seen(rater), "useful");
+	assert.deepEqual(await rate(rater, "useful"), { status: "ok", value: { outcome: "noop" } });
+	for (const [i, who] of [second, admin, ...others].entries()) assert.deepEqual(await readAll(who), before[i + 1]);
+	assert.deepEqual(unrated(await readAll(rater)), before[0]);
+	assert.deepEqual(await rate(rater, "not_useful"), changed);
+	assert.deepEqual(await rate(second, "useful"), changed);
+	assert.deepEqual(await rate(admin, "useful"), changed);
 	assert.deepEqual(
-		await submitIntelligenceFeedback(S.runtime, await as(networkMember), { runId, patternKey: key, rating: "useful" }),
-		{
-			status: "refused",
-			refusal: { code: "unavailable" },
-		},
+		[await seen(rater), await seen(second), await seen(admin), ...(await Promise.all(others.map(seen)))],
+		["not_useful", "useful", "useful", ...others.map(() => null)],
 	);
-	const mine = (await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!;
-	const theirs = (await readIntelligence(S.runtime, owner, { level: "state", runId: null }))!;
-	assert.equal(near(mine.groups[0]!)!.rating, "useful");
-	assert.equal(near(theirs.groups[0]!)!.rating, null);
-	assert.deepEqual({ ...near(mine.groups[0]!)!, rating: null }, near(theirs.groups[0]!));
-	await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "not_useful" });
-	assert.equal(
-		near((await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!.groups[0]!)!.rating,
-		"not_useful",
+	for (const [i, who] of everyone.entries()) assert.deepEqual(unrated(await readAll(who)), before[i]);
+	assert.deepEqual(await stored(), kept);
+	const audit = await ratingAudit(o);
+	assert.equal(audit.length, 4);
+	assert.doesNotMatch(JSON.stringify(audit), /useful/);
+	return { runId, patternKey: key };
+}
+
+test("INV-privacy: a Member's rating of a pattern is their own, no other seat sees it and it changes nothing else", async () => {
+	await ratesPrivately(N, {
+		rater: networkMember,
+		second: await S.identity(N, "member"),
+		admin: networkAdmin,
+		others: [networkOwner, await S.identity(N, "member")],
+	});
+});
+
+test("INV-privacy: a sending church's Member rates under the same limits, and only a pattern its author reads now takes a rating", async () => {
+	const church = await S.tenant("sending_church", "Cedar Sending Church");
+	const churchAdmin = await S.identity(church, "admin");
+	const churchMember = await S.identity(church, "member");
+	const links: string[] = [];
+	for (const name of ["Cedar East", "Cedar West"]) {
+		const p = await plant(name, "Austin");
+		links.push(await link(p, church, sharing));
+		await responsibility(p, "children", null);
+		await launch(p, 12);
+	}
+	await requestIntelligenceRefresh(S.runtime, await as(churchAdmin), { runId: randomUUID() });
+	const own = await ratesPrivately(church, {
+		rater: churchMember,
+		second: await S.identity(church, "member"),
+		admin: churchAdmin,
+		others: [await S.identity(church, "owner")],
+	});
+	const refused = { status: "refused", refusal: { code: "unavailable" } };
+	assert.deepEqual(
+		await requestIntelligenceRefresh(S.runtime, await as(churchMember), { runId: randomUUID() }),
+		refused,
 	);
-	const audit = await S.db.execute(sql`SELECT metadata FROM audit_event WHERE tenant_id=${N.id}
-		AND metadata->>'category'='network_intelligence_feedback'`);
-	assert.equal(audit.rows.length, 2);
-	assert.doesNotMatch(JSON.stringify(audit.rows), /useful/);
+	const network = (await readIntelligence(S.runtime, await as(networkMember), { level: "state", runId: null }))!;
+	const theirs = { runId: network.run!.runId, patternKey: near(network.groups[0]!)!.key };
+
+	const kept = [await ratingsOf(church), await ratingsOf(N), await ratingAudit(church), await ratingAudit(N)];
+	const refuses = async (authority: never, input: typeof own, why: string) => {
+		for (const rating of ["useful", "not_useful"])
+			assert.deepEqual(await submitIntelligenceFeedback(S.runtime, authority, { ...input, rating }), refused, why);
+	};
+	for (const [role, seat] of [
+		["member", churchMember],
+		["admin", churchAdmin],
+	] as const) {
+		const authority = await as(seat);
+		for (const [why, input] of [
+			["a run that is missing", { ...own, runId: randomUUID() }],
+			["a state the run does not show", { ...own, patternKey: "NIR-03:state:US:OK" }],
+			["a rule the run does not show", { ...own, patternKey: "NIR-04:overdue_followup:state:US:TX" }],
+			["a key of no level", { ...own, patternKey: "made up" }],
+			["another organization's run", theirs],
+		] as const)
+			await refuses(authority, input, `${role}: ${why}`);
+		await share(links[0]!, "findings", false);
+		await refuses(authority, own, `${role}: one plant stopped sharing`);
+		await share(links[0]!, "findings", true);
+		const leaver = await S.identity(church, role);
+		const held = await as(leaver);
+		await S.db.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${leaver.account}`);
+		await refuses(held, own, `${role}: a seat that ended`);
+	}
+	await refuses(await as(hpMember), theirs, "a plant's Member");
+	await refuses(await as(hpAdmin), theirs, "a plant's Admin");
+	assert.deepEqual(
+		[await ratingsOf(church), await ratingsOf(N), await ratingAudit(church), await ratingAudit(N)],
+		kept,
+		"no refusal stores a row",
+	);
 });

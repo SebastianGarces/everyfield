@@ -190,7 +190,8 @@ test("INV-evry-ni-feedback: a pattern's rating is saved as the page saves it; un
 	await r.refuses(actors.director, op, { ...input, runId: randomUUID() }, "not_found");
 	await r.refuses(actors.director, op, { ...input, patternKey: "NIR-03:state:US:OK" }, "not_found");
 	await r.refuses(actors.otherDirector, op, input, "not_found");
-	await r.refuses(actors.networkMember, op, input, "access_denied");
+	for (const who of ["church", "owner"] as const)
+		await r.refuses(actors[who], op, input, who === "owner" ? "access_denied" : "not_found");
 	const lost = await r.prepare(actors.director, op, input);
 	await ch.admin.execute(
 		sql`UPDATE affiliation SET shared_findings=false WHERE plant_id=${harvest} AND organization_id=${ch.network.id}`,
@@ -201,6 +202,47 @@ test("INV-evry-ni-feedback: a pattern's rating is saved as the page saves it; un
 		sql`UPDATE affiliation SET shared_findings=true WHERE plant_id=${harvest} AND organization_id=${ch.network.id}`,
 	);
 	assert.deepEqual(await saved(), viaEvry);
+});
+
+test("INV-evry-ni-feedback: a Member's card rates for that Member alone, only after approval, and a refresh stays refused", async () => {
+	const op = "organizationIntelligence.submitFeedback";
+	const history = await read(readIntelligenceHistory, "networkMember", { level: "state", place: "Texas" });
+	const patternKey = String(history.rows.find((x) => x.fields.row === "pattern")!.fields.patternKey);
+	const input = { runId: String(history.facts!.runId), patternKey, rating: "useful" };
+	const ratings = async (who: Who) =>
+		(await read(readIntelligenceHistory, who, { level: "state", place: "Texas" })).rows.find(
+			(x) => x.fields.patternKey === patternKey,
+		)!.fields.yourRating;
+	const directors = await ratings("director");
+	const stored = () => ch.rows(sql`SELECT * FROM network_intelligence_feedback ORDER BY account_id,run_id,pattern_key`);
+	const before = await stored();
+	const card = await r.prepare(actors.networkMember, op, input);
+	assert.deepEqual(card.review.changes, [{ field: "rating", before: null, after: "Useful" }]);
+	assert.match(card.review.notes![0]!, /It changes nothing in Network Intelligence\.$/);
+	assert.deepEqual(await stored(), before, "nothing is saved before approval");
+	completed(await r.approve(actors.networkMember, card));
+	assert.deepEqual([await ratings("networkMember"), await ratings("director")], ["Useful", directors]);
+	assert.equal((await stored()).length, before.length + 1);
+	await r.refusedCard(
+		actors.networkMember,
+		op,
+		input,
+		"You already rated this pattern that way, so nothing would change.",
+	);
+	const lost = await r.prepare(actors.networkMember, op, { ...input, rating: "not_useful" });
+	const saved = await stored();
+	const shares = (on: boolean) =>
+		ch.admin.execute(
+			sql`UPDATE affiliation SET shared_findings=${on} WHERE plant_id=${harvest} AND organization_id=${ch.network.id}`,
+		);
+	await shares(false);
+	refusedAs(await r.approve(actors.networkMember, lost), "access_denied");
+	await r.refuses(actors.networkMember, op, input, "not_found");
+	await shares(true);
+	assert.deepEqual(await stored(), saved);
+	const runs = (await view("portfolio")).history.length;
+	await r.refuses(actors.networkMember, "organizationIntelligence.requestRefresh", {}, "access_denied");
+	assert.equal((await view("portfolio")).history.length, runs);
 });
 
 test("INV-privacy: how a plant changed is answered from released material only: no unreleased run, no assessment words, Not shared where it shares none", async () => {
