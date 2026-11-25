@@ -485,13 +485,12 @@ const accessIn = async (target: string) =>
 	)[0];
 async function withdrawAccess() {
 	assert.deepEqual(
-		await gatedTransaction(db, (tx) =>
-			organizations["residency.leave"](
-				tx,
-				withdrawn.left.actor.session,
-				{ kind: "account", id: withdrawn.left.actor.id } as never,
-				command({ linkId: withdrawn.left.link, expectedConsentRevision: "1" }),
-			),
+		await asOwner(
+			db,
+			withdrawn.left.actor.session,
+			"residency.leave",
+			{ linkId: withdrawn.left.link, expectedConsentRevision: "1" },
+			{ kind: "account", id: withdrawn.left.actor.id } as never,
 		),
 		{ status: "committed" },
 	);
