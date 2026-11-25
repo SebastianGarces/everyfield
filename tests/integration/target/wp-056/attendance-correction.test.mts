@@ -1,4 +1,4 @@
-import test, { after, before } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import "../../platform/setup.mts";
 import { sql } from "../../../../packages/db/src/query.ts";
@@ -12,13 +12,7 @@ import { timeZone } from "../../../../packages/contracts/src/common/index.ts";
 import { ok } from "../../../support/fixture.mts";
 import { key, sorted, world, type Feature, type World } from "./corrections-world.mts";
 
-let w: World;
-before(async () => {
-	w = await world("corratt");
-});
-after(() => w?.database.close());
-
-test("INV-corrections: correcting one wrong attendance mark moves every count, follow-up, task, digest, dashboard, Plant Intelligence, oversight and Evry read, keeps the old mark in history and rewrites nothing sent", async () => {
+async function correctsOneMark(w: World) {
 	const ann = await w.committed(w.p, "Ann Adult");
 	const dana = await w.person(w.p, "Dana Doe", { adultClassification: "adult", email: "dana@example.test" });
 	const eli = await w.person(w.p, "Eli Eager");
@@ -512,4 +506,17 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 		),
 		[{ overdue: 3, unowned: 0 }],
 	);
-});
+}
+
+for (const [clock, time] of [
+	["before today's 09:00 reminders", "08:59:59"],
+	["after today's 09:00 reminders", "09:00:01"],
+])
+	test(`INV-corrections: with the clock ${clock}, correcting one wrong attendance mark moves every count, follow-up, task, digest, dashboard, Plant Intelligence, oversight and Evry read, keeps the old mark in history and rewrites nothing sent`, async () => {
+		const w = await world("corratt", time);
+		try {
+			await correctsOneMark(w);
+		} finally {
+			await w.database.close();
+		}
+	});
