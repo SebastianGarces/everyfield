@@ -19,7 +19,7 @@ import {
 	Radio,
 	RadioGroup,
 } from "@everyfield/ui/controls";
-import { useState, useTransition, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { endEnrollment } from "./actions";
 import { endProblem, formatMeeting } from "./model";
 import { Detail } from "./ProgramScreen";
@@ -58,13 +58,15 @@ function EndForm({
 }: Props & { saving: boolean; startSaving: (work: () => Promise<void>) => void }) {
 	const [pick, setPick] = useState<EnrollmentOutcome | null>(null);
 	const [problem, setProblem] = useState<{ text: string; current: boolean } | null>(null);
+	const sending = useRef(false);
 	const { person, program } = enrollment;
 	const canEnd = enrollment.status === "active" && enrollment.viewer.director;
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
-		if (saving || !canEnd) return;
+		if (sending.current || !canEnd) return;
 		if (!pick) return setProblem({ text: "Choose Completed or Withdrawn.", current: false });
+		sending.current = true;
 		startSaving(async () => {
 			setProblem(null);
 			const answer = await endEnrollment({
@@ -74,6 +76,7 @@ function EndForm({
 			}).catch(lost);
 			if (answer.status === "ok") return onEnded(pick);
 			const now = await reread();
+			sending.current = false;
 			setProblem({ text: endProblem(answer, now), current: now !== null });
 		});
 	};

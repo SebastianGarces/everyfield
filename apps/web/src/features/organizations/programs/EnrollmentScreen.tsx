@@ -9,6 +9,7 @@ import {
 	Card,
 	CardBody,
 	CardHeader,
+	CardHeading,
 	CardTitle,
 	Dialog,
 	DialogBody,
@@ -104,7 +105,9 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 			<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 max-app-md:grid-cols-1">
 				<Card>
 					<CardHeader>
-						<CardTitle>Enrollment</CardTitle>
+						<CardHeading>
+							<CardTitle>Enrollment</CardTitle>
+						</CardHeading>
 						{director ? (
 							<Button variant="secondary" size="sm" className="flex-none" onClick={() => setEnding(true)}>
 								End enrollment
