@@ -4,7 +4,7 @@ import type { Database, Transaction } from "../../../packages/db/src/client.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import type { InvitationMail } from "../../../packages/domain/src/identity/invitations.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import { createOrganizationAdapter, geographyReference } from "../../../packages/domain/src/organizations/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import {
 	avatarOperations,
@@ -60,9 +60,7 @@ export function nativePorts(
 		invalidate: (_tx: unknown, input: { sourceId: string }) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 	};
-	const organizations = createOrganizationAdapter(organizationEffects as never, {
-		candidates: () => sql`SELECT NULL::uuid WHERE false`,
-	});
+	const organizations = createOrganizationAdapter(organizationEffects as never, geographyReference);
 	const effects = {
 		replan: (tx: never, i: { owner: { id: string }; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {

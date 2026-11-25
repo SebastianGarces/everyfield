@@ -1327,3 +1327,67 @@ test("ten people move in one apply, the same single statement as two", async () 
 	assert.ok((await program(ana, tenProgram)).enrollments.every((e) => e.versionNumber === 2));
 	assert.equal((await appliedTo(people.map((x) => x.id))).length, 10);
 });
+
+test("AC:ADR1-011 the director updates an enrollment: named fields only, one audited revision; a stale, foreign or ended one is refused", async () => {
+	const programId = randomUUID();
+	const p = ok(
+		await createProgram(db, await authority(dana), {
+			programId,
+			kind: "apprenticeship",
+			name: "Grace Fellows",
+			directorSeatId: anaSeat,
+			plan: templatePlan(),
+		}),
+	);
+	ok(await publishVersion(db, await authority(ana), { programId, expectedRevision: p.revision }));
+	const enrollmentId = randomUUID();
+	const person = randomUUID();
+	await enrollNew(programId, person, enrollmentId, "Riley Fellow", "Assimilating");
+	const before = await enrollment(ana, enrollmentId);
+	const update = async (a: Actor, changes: object, expectedRevision: string = before.revision, id = enrollmentId) =>
+		programWriter.updateEnrollment(db, await authority(a), { enrollmentId: id, expectedRevision, changes });
+	const audited = async () =>
+		(
+			await admin.execute(sql`SELECT actor_id,before_revision::int AS before,after_revision::int AS after,metadata
+				FROM audit_event WHERE action='development.enrollment_updated' AND subject_id=${enrollmentId}`)
+		).rows;
+
+	for (const a of [dana, luis, dee, ben, hillOwner]) refusedWith(await update(a, { cohort: "X" }), "unavailable");
+	refusedWith(await update(ana, { stageId: randomUUID() }), "invalid_input");
+	refusedWith(await update(ana, { stageId: before.milestones[0]!.id }), "invalid_input");
+	refusedWith(await update(ana, { expectedEndOn: "2000-01-01" }), "invalid_input");
+	refusedWith(await update(ana, {}), "invalid_input");
+	assert.deepEqual([await enrollment(ana, enrollmentId), await audited()], [before, []]);
+
+	assert.equal(ok(await update(ana, { cohort: before.cohort })).outcome, "noop");
+	const gathering = before.stages[2]!;
+	assert.deepEqual(
+		ok(await update(ana, { cohort: "Winter", stageId: gathering.id, nextMeetingAt: "2026-12-01T19:00:00" })),
+		{ revision: String(Number(before.revision) + 1), outcome: "changed" },
+	);
+	const after = await enrollment(ana, enrollmentId);
+	assert.deepEqual(after, {
+		...before,
+		revision: String(Number(before.revision) + 1),
+		cohort: "Winter",
+		stage: gathering,
+		nextMeeting: { at: "2026-12-01T19:00:00", timezone: "America/Chicago" },
+	});
+	assert.deepEqual(await audited(), [
+		{
+			actor_id: ana.id,
+			before: Number(before.revision),
+			after: Number(after.revision),
+			metadata: { fields: ["cohort", "stage", "nextMeeting"] },
+		},
+	]);
+	refusedWith(await update(ana, { cohort: "Stale" }), "conflict");
+	const both = await Promise.all([
+		update(ana, { cohort: "First" }, after.revision),
+		update(ana, { cohort: "Second" }, after.revision),
+	]);
+	assert.deepEqual(both.map((x) => x.status).sort(), ["ok", "refused"], "one of two changes to the same revision wins");
+	const won = await enrollment(ana, enrollmentId);
+	await admin.execute(sql`UPDATE development_enrollment SET status='completed' WHERE id=${enrollmentId}`);
+	refusedWith(await update(ana, { cohort: "Ended" }, won.revision), "unavailable");
+});

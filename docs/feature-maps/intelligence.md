@@ -53,12 +53,11 @@ Reach:
 
 States:
 
-- **cold-start**: heading "Your first assessment hasn't been prepared yet"; region "Next steps from your records"; link "Trends". As `owner`, on the QA seed:
+- **cold-start**: region "Next steps from your records"; link "Trends". As `owner`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/intelligence"
 agent-browser wait --load networkidle
-agent-browser find role heading text --name "Your first assessment hasn't been prepared yet" --exact
 agent-browser find role region text --name "Next steps from your records" --exact
 agent-browser find role link text --name "Trends" --exact
 ```
@@ -95,7 +94,7 @@ A change to a record the assessment used marks it out of date with a Refresh but
 
 With no assessment yet, the page lists next steps from the church's own records, each a link to where to record it.
 
-- No operation: no code is named intelligence.readColdStartGuidance; the page builds its next steps from the facts it reads
+- Operations: intelligence.readColdStartGuidance
 - Catalog: PI-034
 - Cases: PI-CASE-025
 - Test: `tests/unit/intelligence/assessment-model.test.mjs`: `AC:PI-CASE-025 cold start says not prepared, on its way or couldn't be prepared, never a result`

@@ -1,5 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createAssessments, createFacts } from "../../../packages/domain/src/intelligence/index.ts";
@@ -17,10 +18,13 @@ let h: ReturnType<typeof harness>;
 before(async () => {
 	ch = await intelligenceChurch("evryint");
 	h = harness(ch.db, TODAY);
+	starter = (await ch.plant("New Life Church")).owner.session;
 });
 after(() => ch?.database.close());
 
-const actorOf = async (who: "owner" | "admin" | "member") => (await h.freshActor(ch.seats[who].session))!;
+type Asker = "owner" | "admin" | "member" | "starter";
+let starter: string;
+const actorOf = async (who: Asker) => (await h.freshActor(who === "starter" ? starter : ch.seats[who].session))!;
 const authority = async () => (await RequestActor.resolve(ch.db, ch.seats.owner.session as never)) as RequestActor;
 const screen = async () => ({
 	view: ok(await assessments.readAssessment(ch.db, await authority(), {})),
@@ -42,6 +46,9 @@ const SETUP: Record<string, () => Promise<void>> = {
 	classified: async () => {
 		await ch.classify();
 		await ch.runJob();
+	},
+	preparing: async () => {
+		ok(await assessments.requestRefresh(ch.db, await authority(), { requestId: randomUUID() }));
 	},
 };
 type Got = Awaited<ReturnType<ReturnType<typeof harness>["ask"]>>;
@@ -107,7 +114,7 @@ const SETTLED: Record<string, (got: Got, actor: EvryActor) => Promise<void>> = {
 test("AC:CA024 AC:INH-INTELLIGENCE-06 AC:TEAM-02 AC:TEAM-01 INV-privacy: Plant Intelligence through Evry quotes the screen's own reads, dedupes tasks, keeps prayer out of tasks and never reads a private check-in", async () => {
 	for (const c of cases) {
 		if (c.setup) await SETUP[c.setup]!();
-		const actor = await actorOf(c.actor as "owner" | "admin" | "member");
+		const actor = await actorOf(c.actor as Asker);
 		const got = await h.ask(actor, c.ask);
 		if (process.env.EVRY_EVAL_PRINT) console.log(`## ${c.id} (${c.actor}): ${c.ask}\n${got.answer}\n`);
 		const card = checkCase(c, got);
