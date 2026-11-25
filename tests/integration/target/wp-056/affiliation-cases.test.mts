@@ -43,6 +43,7 @@ import {
 	endCommand,
 	endOnce,
 	feedApi,
+	footprint,
 	invite,
 	jobs,
 	lead,
@@ -368,6 +369,20 @@ test("AC:AF-027 an organization Admin's acceptance opens the bounded directory, 
 	assert.equal((await linkNow(other as never)).revision, "1", "the network's link and consent are unchanged");
 });
 
+async function intelligenceTexts(w: World) {
+	const runId = randomUUID();
+	ok(await requestIntelligenceRefresh(S.runtime, await as(w.N1.admin), { runId }));
+	const inputs = JSON.stringify(
+		await rows(sql`SELECT to_jsonb(r) r, (SELECT jsonb_agg(to_jsonb(p)) FROM network_intelligence_plant p WHERE p.run_id=r.id) plants
+			FROM network_intelligence_run r WHERE r.id=${runId}`),
+	);
+	assert.ok(inputs.includes(w.p.id));
+	return [
+		inputs,
+		JSON.stringify(await readIntelligence(S.runtime, await as(w.N1.admin), { level: "portfolio", runId: null })),
+	];
+}
+
 async function twoOrganizations() {
 	const w = await world();
 	const a = await connect(w, w.S1),
@@ -502,8 +517,21 @@ test("AC:AF-030 changing one organization's activity choice leaves the other's c
 		);
 	assert.deepEqual(await events(), [{ action: "affiliation.approved", n: 2 }]);
 	const request = S.command(input);
+	const quiet = async () => {
+		const { notices, mail, seats } = await footprint();
+		return { notices, mail, seats };
+	};
+	const queued = () => rows(sql`SELECT id,tenant_id,kind,subject_record_id,producer_key,state FROM job ORDER BY id`);
+	const [untold, jobsBefore] = [await quiet(), new Set((await queued()).map((j) => j.id))];
 	const saved = await S.call("privacy.setSharing", w.admin, request);
 	assert.deepEqual(saved, { status: "committed" });
+	assert.deepEqual(await quiet(), untold, "no notice or mail is written");
+	console.log(
+		(await queued()).filter((j) => !jobsBefore.has(j.id)),
+		w.p.id,
+		a.id,
+		w.S1.o.id,
+	);
 	await silent(async () => {
 		assert.deepEqual(await S.call("privacy.setSharing", w.admin, request), saved);
 	});
@@ -771,17 +799,7 @@ test("AC:AF-035 AC:ORG55-005 AC:TARGET-IDN-023 private check-ins, interviews and
 			);
 		}
 	});
-	const runId = randomUUID();
-	ok(await requestIntelligenceRefresh(S.runtime, await as(w.N1.admin), { runId }));
-	const inputs = JSON.stringify(
-		await rows(sql`SELECT to_jsonb(r) r, (SELECT jsonb_agg(to_jsonb(p)) FROM network_intelligence_plant p WHERE p.run_id=r.id) plants
-			FROM network_intelligence_run r WHERE r.id=${runId}`),
-	);
-	assert.ok(inputs.includes(w.p.id));
-	const shown = JSON.stringify(
-		await readIntelligence(S.runtime, await as(w.N1.admin), { level: "portfolio", runId: null }),
-	);
-	for (const text of [inputs, shown])
+	for (const text of await intelligenceTexts(w))
 		for (const secret of [
 			"CANARY",
 			"strained",
@@ -843,6 +861,11 @@ test("AC:AF-037 AC:ORG55-004 AC:ORG55-005 AC:TARGET-IDN-023 the directory names 
 		for (const who of [w.owner, w.admin, w.member, w.foreign]) assert.equal(await listed(who), null);
 		for (const who of [w.N2.admin, w.S2.owner]) assert.deepEqual(await listed(who), []);
 	});
+	await S.db.execute(sql`INSERT INTO person_note(tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
+		VALUES(${w.p.id},${w.p.id},${alex},${w.owner.account},'CARE-CANARY',clock_timestamp(),clock_timestamp())`);
+	for (const text of await intelligenceTexts(w))
+		for (const secret of ["Alex Lead", "555-0101", "alex.lead@example.test", "CARE-CANARY", alex, w.owner.account])
+			assert.equal(text.includes(secret), false, `organization intelligence names no ${secret}`);
 	assert.deepEqual(await seats(), before);
 	assert.deepEqual(
 		await rows(sql`SELECT account_id FROM seat WHERE plant_id=${w.p.id} AND role='owner' AND ended_at IS NULL`),
@@ -949,6 +972,9 @@ test("AC:TARGET-IDN-022 each pair keeps its own seven choices through a joint ac
 	assert.deepEqual((await sharing(w, w.N1, w.owner)) as object, admin(w.N1, allChoices(true), "1", n1Name));
 	await connect(w, w.N2);
 	assert.deepEqual((await sharing(w, w.S1, w.owner)) as object, admin(w.S1, mixed, "2", s1Name));
+	await activity(w);
+	const shared = await bodies(w, w.S1, await as(w.S1.admin));
+	assert.deepEqual([shared.digest, shared.page!.sections.people.status], [true, "shared"]);
 	await share(w, w.S1, s1 as never, "activity", false);
 	await share(w, w.S1, s1 as never, "people", false);
 	await S.db.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
