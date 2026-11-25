@@ -22,8 +22,8 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 	const ann = await w.committed(w.p, "Ann Adult");
 	const dana = await w.person(w.p, "Dana Doe", { adultClassification: "adult", email: "dana@example.test" });
 	const eli = await w.person(w.p, "Eli Eager");
-	const first = await w.held(10, [ann.id, dana.id]);
-	const second = await w.held(3, [ann.id, dana.id, eli.id]);
+	const first = await w.held(11, [ann.id, dana.id]);
+	const second = await w.held(4, [ann.id, dana.id, eli.id]);
 	const published = await w.publish({ personIds: [dana.id] });
 	const unchanged = await w.freeze([
 		"mail",
@@ -244,13 +244,13 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 			name: "the church digest",
 			read: async () => (await mine()).lines,
 			before: [
-				{ kind: "task", date: w.day(-8), title: "Follow up with Ann Adult" },
-				{ kind: "task", date: w.day(-8), title: "Follow up with Dana Doe" },
-				{ kind: "task", date: w.day(-1), title: "Follow up with Eli Eager" },
+				{ kind: "task", date: w.day(-9), title: "Follow up with Ann Adult" },
+				{ kind: "task", date: w.day(-9), title: "Follow up with Dana Doe" },
+				{ kind: "task", date: w.day(-2), title: "Follow up with Eli Eager" },
 			],
 			after: [
-				{ kind: "task", date: w.day(-8), title: "Follow up with Ann Adult" },
-				{ kind: "task", date: w.day(-1), title: "Follow up with Eli Eager" },
+				{ kind: "task", date: w.day(-9), title: "Follow up with Ann Adult" },
+				{ kind: "task", date: w.day(-2), title: "Follow up with Eli Eager" },
 			],
 		},
 		{
@@ -294,8 +294,8 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 					status: "shared",
 					counts: {
 						meetings: [
-							{ date: w.day(-10), attended: 2 },
-							{ date: w.day(-3), attended: 3 },
+							{ date: w.day(-11), attended: 2 },
+							{ date: w.day(-4), attended: 3 },
 						],
 						averageDaysBetween: 7,
 						attendedTotal: 5,
@@ -308,8 +308,8 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 					status: "shared",
 					counts: {
 						meetings: [
-							{ date: w.day(-10), attended: 1 },
-							{ date: w.day(-3), attended: 3 },
+							{ date: w.day(-11), attended: 1 },
+							{ date: w.day(-4), attended: 3 },
 						],
 						averageDaysBetween: 7,
 						attendedTotal: 4,
@@ -430,29 +430,29 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 				...sorted(await w.shown("tasks.count", {}, ["count"])),
 			],
 			before: [
-				["Dana Doe", w.day(-10), "open", "you"],
+				["Dana Doe", w.day(-11), "open", "you"],
 				["Ann Adult", "owned", "you"],
 				["Dana Doe", "owned", "you"],
 				["Eli Eager", "owned", "you"],
-				["Evaluate Vision Meeting #1", w.day(-8), null],
-				["Evaluate Vision Meeting #2", w.day(-1), null],
-				["Follow up with Ann Adult", w.day(-8), "you"],
-				["Follow up with Dana Doe", w.day(-8), "you"],
-				["Follow up with Eli Eager", w.day(-1), "you"],
+				["Evaluate Vision Meeting #1", w.day(-9), null],
+				["Evaluate Vision Meeting #2", w.day(-2), null],
+				["Follow up with Ann Adult", w.day(-9), "you"],
+				["Follow up with Dana Doe", w.day(-9), "you"],
+				["Follow up with Eli Eager", w.day(-2), "you"],
 				["checklist rows", 0],
 				["not_started", 5],
 			],
 			after: [
-				["Dana Doe", w.day(-10), "no_longer_needed", "you"],
-				["Dana Doe", w.day(-3), "open", null],
+				["Dana Doe", w.day(-11), "no_longer_needed", "you"],
+				["Dana Doe", w.day(-4), "open", null],
 				["Ann Adult", "owned", "you"],
 				["Dana Doe", "needs_owner", null],
 				["Eli Eager", "owned", "you"],
-				["Evaluate Vision Meeting #1", w.day(-8), null],
-				["Evaluate Vision Meeting #2", w.day(-1), null],
-				["Follow up with Ann Adult", w.day(-8), "you"],
-				["Follow up with Dana Doe", w.day(-1), null],
-				["Follow up with Eli Eager", w.day(-1), "you"],
+				["Evaluate Vision Meeting #1", w.day(-9), null],
+				["Evaluate Vision Meeting #2", w.day(-2), null],
+				["Follow up with Ann Adult", w.day(-9), "you"],
+				["Follow up with Dana Doe", w.day(-2), null],
+				["Follow up with Eli Eager", w.day(-2), "you"],
 				["checklist rows", 0],
 				["no_longer_needed", 1],
 				["not_started", 5],
