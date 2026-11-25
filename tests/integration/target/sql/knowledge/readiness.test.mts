@@ -140,26 +140,30 @@ test("the restricted CLI refuses copy and readiness without their control with t
 	try {
 		const open = join(dir, "control.json");
 		await writeFile(open, JSON.stringify({ version: 1 }), { mode: 0o644 });
-		const key = join(dir, "backup.key");
-		await writeFile(key, Buffer.alloc(32, 7), { mode: 0o600 });
+		const key = Buffer.alloc(32, 7).toString("hex");
 		for (const args of [
-			["backup-copy", "--control", join(dir, "missing.json"), "--key", key, "--out", dir, "--snapshot", dir],
-			["backup-copy", "--control", open, "--key", key, "--out", dir, "--snapshot", dir],
-			["backup-copy", "--key", key, "--out", dir, "--snapshot", dir],
+			["backup-copy", "--control", join(dir, "missing.json"), "--out", dir, "--snapshot", dir],
+			["backup-copy", "--control", open, "--out", dir, "--snapshot", dir],
+			["backup-copy", "--out", dir, "--snapshot", dir],
 			["readiness", "--control", join(dir, "missing.json")],
 			["readiness", "--control", open],
 			["readiness"],
+			["backup-copy", "--control", open, "--key", join(dir, "backup.key"), "--out", dir, "--snapshot", dir],
+			["backup-key-create", "--config", dir],
 		]) {
 			const { code, stdout, stderr } = await new Promise<{ code: number | null; stdout: string; stderr: string }>(
 				(resolve) =>
-					execFile(process.execPath, [cli, ...args], { env: { PATH: process.env.PATH } }, (error, stdout, stderr) =>
-						resolve({ code: error ? (error.code as number) : 0, stdout, stderr }),
+					execFile(
+						process.execPath,
+						[cli, ...args],
+						{ env: { PATH: process.env.PATH, EVERYFIELD_BACKUP_KEY: key } },
+						(error, stdout, stderr) => resolve({ code: error ? (error.code as number) : 0, stdout, stderr }),
 					),
 			);
 			assert.equal(code, 1, args.join(" "));
 			assert.equal(stdout, "");
 			assert.equal(stderr, "Operations command refused or failed. No credentials or raw errors were logged.\n");
-			assert.equal(stderr.includes(Buffer.alloc(32, 7).toString("hex")), false);
+			assert.equal(stderr.includes(key), false);
 		}
 	} finally {
 		await rm(dir, { recursive: true, force: true });

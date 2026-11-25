@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 import { lstat, mkdir, realpath, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
@@ -58,7 +58,7 @@ async function privateDirectory(path: string): Promise<string> {
 	return real;
 }
 
-type Config = { dir: string; control: Control; path: (name: string) => string };
+type Config = { dir: string; control: Control; path: (name: string) => string; backupKey: () => KeyObject };
 
 async function connected<T>(
 	config: Config,
@@ -107,11 +107,16 @@ async function readSnapshot(dir: string): Promise<Snapshot> {
 	return { manifest, image: await readPrivateBytes(join(dir, "image.json"), COPY_LIMIT), objects };
 }
 
+async function openWithKey(config: Config, copy: string): Promise<Snapshot> {
+	const key = config.backupKey();
+	return openEncryptedCopy(await bucket(config), copy, key);
+}
+
 async function restore(config: Config, flags: Flags) {
 	const target = required(flags.target, "target");
 	if (!flags.copy === !flags.snapshot) throw new OperatorRefused("copy_or_snapshot_required");
 	const snapshot = flags.copy
-		? await openEncryptedCopy(await bucket(config), flags.copy, config.path("backup.key"))
+		? await openWithKey(config, flags.copy)
 		: await readSnapshot(await privateDirectory(required(flags.snapshot, "snapshot")));
 	const live = await privateDirectory(required(flags.current, "current"));
 	const current = async () => {
@@ -119,6 +124,7 @@ async function restore(config: Config, flags: Flags) {
 			dir: live,
 			control: await loadControl(join(live, "control.json"), "restore-copy"),
 			path: (n: string) => join(live, n),
+			backupKey: config.backupKey,
 		};
 		return connected(witness, "approved", async (db, _url, schema) =>
 			db.transaction(async (tx) => {
@@ -178,10 +184,6 @@ export const OPERATOR_COMMANDS: Record<
 	string,
 	(config: Config, flags: Flags) => Promise<{ ok: boolean; report: unknown }>
 > = {
-	"backup-key-create": async (config) => {
-		await writeFile(config.path("backup.key"), randomBytes(32), { mode: 0o600, flag: "wx" });
-		return { ok: true, report: { key_created: config.path("backup.key"), second_copy: "required" } };
-	},
 	"backup-capture": async (config, flags) => {
 		const out = required(flags.out, "out");
 		await mkdir(out, { mode: 0o700 });
@@ -197,10 +199,11 @@ export const OPERATOR_COMMANDS: Record<
 		return { ok: true, report: { created_at: m.createdAt, database: m.database, files: snapshot.objects.size } };
 	},
 	"backup-daily": async (config) => {
+		const key = config.backupKey();
 		const store = await bucket(config);
 		const backup = await runBackup({
 			bucket: store,
-			keyFile: config.path("backup.key"),
+			key,
 			capture: () => capture(config),
 			clock,
 		});
@@ -277,9 +280,9 @@ export const OPERATOR_COMMANDS: Record<
 		}),
 };
 
-export async function runOperator(command: string, flags: Flags): Promise<boolean> {
+export async function runOperator(command: string, flags: Flags, backupKey: () => KeyObject): Promise<boolean> {
 	try {
-		return await operate(command, flags);
+		return await operate(command, flags, backupKey);
 	} catch (error) {
 		const code = error instanceof OperatorRefused ? error.code : "failed";
 		console.log(JSON.stringify({ refused: code }));
@@ -287,13 +290,13 @@ export async function runOperator(command: string, flags: Flags): Promise<boolea
 	}
 }
 
-async function operate(command: string, flags: Flags): Promise<boolean> {
+async function operate(command: string, flags: Flags, backupKey: () => KeyObject): Promise<boolean> {
 	const dir = await privateDirectory(required(flags.config, "config"));
 	const path = (name: string) => join(dir, name);
 	const control = await loadControl(path("control.json"), command);
 	const run = OPERATOR_COMMANDS[command];
 	if (!run) throw new OperatorRefused("invalid_command");
-	const { ok, report } = await run({ dir, control, path }, flags);
+	const { ok, report } = await run({ dir, control, path, backupKey }, flags);
 	console.log(JSON.stringify(report, null, "\t"));
 	return ok;
 }
