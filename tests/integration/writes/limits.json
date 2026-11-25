@@ -1598,7 +1598,8 @@
 		"retry": 4
 	},
 	"pipeline.restorePerson": {
-		"limit": 4
+		"limit": 4,
+		"retry": 4
 	},
 	"pipeline.retirePerson": {
 		"limit": 4,

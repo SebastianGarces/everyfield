@@ -352,92 +352,6 @@
 				"output": 52
 			}
 		},
-		"787a1b76691d291b": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_08d2df2910170791006b06bfbd3b8087d2ac06d47415a0d6c3",
-					"timestamp": "2026-11-25T11:00:13.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
-					"delta": "**Okafor household** — North Ridgeville, OH  \n- James Okafor — head  \n- Ruth Allen — spouse  \n\nNo street address or postal code is recorded."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 34190,
-							"noCache": 3,
-							"cacheRead": 33816,
-							"cacheWrite": 371
-						},
-						"outputTokens": {
-							"total": 40,
-							"text": 40,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 34190,
-							"input_tokens_details": {
-								"cache_write_tokens": 371,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 371
-								},
-								"cached_tokens": 33816
-							},
-							"output_tokens": 40,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 34230
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_08d2df2910170791006b06bfbd3b8087d2ac06d47415a0d6c3",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 34190,
-				"output": 40
-			}
-		},
 		"9c086e90825975aa": {
 			"kind": "stream",
 			"parts": [
@@ -628,8 +542,7 @@
 					"id": "rs_08d2df2910170791006b06bfbc544487d280fd1ab3dba55d68:0",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "rs_08d2df2910170791006b06bfbc544487d280fd1ab3dba55d68",
-							"reasoningEncryptedContent": "gAAAAABrBr-86mY4_WgSpiz0k96MCJpcYoC3VExobqN0UwPcJr05QHgQe_7zmTfVVTHcXLX-AOUhCI4s_PUt4WgoblFgAtZqiybx2448FwWmVF6dQoj-3uAmlodshSICbLXw63sIv8ecxmBcOzzOmsUnkw4YHDdZ7PjZ7fcRf8aKFk2V5apIjk8oOmzyv-8IWg275eBj-dMhFBtctEZ53pzB27FrU5ZdWyB9O0XD96kkFIiK_bPE-vMkwAPt-k1bzGrHMGvgfWxXCDtvUKVX0_7k4I605aJ9H-QFvETVdtfoY4uKFbn-cIFhXpvdvGesgVF8BKyrTIhvZv7NqEwBe_8MJamDmk7VIbTNPvYsXw7QyLmXdrk2GtauXEpsj65DBLe8iCINl7UY5q788-u1KS0nhM8TNkCincrtCAxXb6x0agV3uUPby4IVy1e3QE4v7cBDEgOdrLLdNsBhuZ5-_8lhnDQWX3wU-D-nICuPCa_OCg9cmOBaUAxoDTeGa2h60nrmFj6fpRMPVRMPkLQozzfDwFwh73wkQPl0sKldR9yVjnlhm9hBEUWRzHI9iBmiCg9pLWJuxZSjYexWurbPjJJIiTsF1uxdNMtabEuij6Bfdyk7UrxUUqOLyb1I0MFkFI4-ytHR_MoM5UU4OFFht3P8h-CpndN9A8S31wHwMTp7BvbhtzaycUHYbV52TrsCfD1RjGXRfTAmrk2UUV7yhnI9vWpuX-S5VK45LClG_WRYXKR-ZaTrcNExVCqbdc4asUi7iHsE9YnxG8tUo6SnvAC978qLQBRDqIYnhTsycWo1Bui64sdTCAaiQQ4FEroLHdNTRwo_X2P98QqH4ThBlge41Jw811PGkNBmNQpnG5g1V_piOTWnWwEUr51hoFSEa-NzVeRLTnagct2L_kKKbGXW-jvIctT-x0W_UZYaHRAz0GtKX6lPT7GVTTIMLMM6HV13KLJa4Lnq5gnZRvaJv9YrggafvUXZ973NE914jfYEcgEmOp17wTtr4oGg9x7sEfN9B7O829pcB_CqQhee981TzgXRJIvNd4a_8-UDO0Kf99v0zht43dKPlD81iq2s7FmEuaMLZsFaGOdi-kiHlXvxmPhkYxHgDhBNxFwn4OkKwa0WcGc1SrK2PVkYkASPKYn7_lcRJg55WXI5fBx49GTKtcAdfbFfgEl8YiqLobCIRXb-3ZCOTuwo2m_yfR5wm4eYDfthi150tgl9eFZZtu89jPMSGGBrFreBAvw4NqwYTQQStcZwWJ0ypUYNi5qvCaKifLreyPCYO9YWmrQF2A4dX7c5ETbDMi8YQ986bDD_5ZvLzCsy9cW7I3aevstxYh-lmAW_0Te47ZAV80IDjdlRcZb-JBA0Umry0LvmEAbq9oy7E1UVMSJjI-zQXUgccyswi76q52LFZ2yuBIs8nyPVYJufIMwZ4-BVe40KuyfqCFPnCQwiyFl69TruCujFpXsxHbfs1RACE-yZRQNc20kez4bzHABBx1edd21pKWdAu3X0BibydqBzb5nU0KjKTa8-jqeBRSceLhQYfuYPEl0MJ5L9KyUoftTHIEVcYjELwnsozMUDFr78mcjs-L1lwT4_4_JnHrsMmGxIT1BOz8GQmHY58O5v9VRPufnSOVWF6qXmFiy3jKkRl5e74LcnPU9aDc4lMkXdlQFByUD5fnchP171GqVtN70KYHndVt1z6kB04yP2zVg4e_tCyKki9oEtZm6QNL3uqr8eqUx7GtkbO_A7kHgvqw=="
+							"itemId": "rs_08d2df2910170791006b06bfbc544487d280fd1ab3dba55d68"
 						}
 					}
 				},
@@ -638,8 +551,7 @@
 					"id": "rs_08d2df2910170791006b06bfbc544487d280fd1ab3dba55d68:0",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "rs_08d2df2910170791006b06bfbc544487d280fd1ab3dba55d68",
-							"reasoningEncryptedContent": "gAAAAABrBr-86mY4_WgSpiz0k96MCJpcYoC3VExobqN0UwPcJr05QHgQe_7zmTfVVTHcXLX-AOUhCI4s_PUt4WgoblFgAtZqiybx2448FwWmVF6dQoj-3uAmlodshSICbLXw63sIv8ecxmBcOzzOmsUnkw4YHDdZ7PjZ7fcRf8aKFk2V5apIjk8oOmzyv-8IWg275eBj-dMhFBtctEZ53pzB27FrU5ZdWyB9O0XD96kkFIiK_bPE-vMkwAPt-k1bzGrHMGvgfWxXCDtvUKVX0_7k4I605aJ9H-QFvETVdtfoY4uKFbn-cIFhXpvdvGesgVF8BKyrTIhvZv7NqEwBe_8MJamDmk7VIbTNPvYsXw7QyLmXdrk2GtauXEpsj65DBLe8iCINl7UY5q788-u1KS0nhM8TNkCincrtCAxXb6x0agV3uUPby4IVy1e3QE4v7cBDEgOdrLLdNsBhuZ5-_8lhnDQWX3wU-D-nICuPCa_OCg9cmOBaUAxoDTeGa2h60nrmFj6fpRMPVRMPkLQozzfDwFwh73wkQPl0sKldR9yVjnlhm9hBEUWRzHI9iBmiCg9pLWJuxZSjYexWurbPjJJIiTsF1uxdNMtabEuij6Bfdyk7UrxUUqOLyb1I0MFkFI4-ytHR_MoM5UU4OFFht3P8h-CpndN9A8S31wHwMTp7BvbhtzaycUHYbV52TrsCfD1RjGXRfTAmrk2UUV7yhnI9vWpuX-S5VK45LClG_WRYXKR-ZaTrcNExVCqbdc4asUi7iHsE9YnxG8tUo6SnvAC978qLQBRDqIYnhTsycWo1Bui64sdTCAaiQQ4FEroLHdNTRwo_X2P98QqH4ThBlge41Jw811PGkNBmNQpnG5g1V_piOTWnWwEUr51hoFSEa-NzVeRLTnagct2L_kKKbGXW-jvIctT-x0W_UZYaHRAz0GtKX6lPT7GVTTIMLMM6HV13KLJa4Lnq5gnZRvaJv9YrggafvUXZ973NE914jfYEcgEmOp17wTtr4oGg9x7sEfN9B7O829pcB_CqQhee981TzgXRJIvNd4a_8-UDO0Kf99v0zht43dKPlD81iq2s7FmEuaMLZsFaGOdi-kiHlXvxmPhkYxHgDhBNxFwn4OkKwa0WcGc1SrK2PVkYkASPKYn7_lcRJg55WXI5fBx49GTKtcAdfbFfgEl8YiqLobCIRXb-3ZCOTuwo2m_yfR5wm4eYDfthi150tgl9eFZZtu89jPMSGGBrFreBAvw4NqwYTQQStcZwWJ0ypUYNi5qvCaKifLreyPCYO9YWmrQF2A4dX7c5ETbDMi8YQ986bDD_5ZvLzCsy9cW7I3aevstxYh-lmAW_0Te47ZAV80IDjdlRcZb-JBA0Umry0LvmEAbq9oy7E1UVMSJjI-zQXUgccyswi76q52LFZ2yuBIs8nyPVYJufIMwZ4-BVe40KuyfqCFPnCQwiyFl69TruCujFpXsxHbfs1RACE-yZRQNc20kez4bzHABBx1edd21pKWdAu3X0BibydqBzb5nU0KjKTa8-jqeBRSceLhQYfuYPEl0MJ5L9KyUoftTHIEVcYjELwnsozMUDFr78mcjs-L1lwT4_4_JnHrsMmGxIT1BOz8GQmHY58O5v9VRPufnSOVWF6qXmFiy3jKkRl5e74LcnPU9aDc4lMkXdlQFByUD5fnchP171GqVtN70KYHndVt1z6kB04yP2zVg4e_tCyKki9oEtZm6QNL3uqr8eqUx7GtkbO_A7kHgvqw=="
+							"itemId": "rs_08d2df2910170791006b06bfbc544487d280fd1ab3dba55d68"
 						}
 					}
 				},
@@ -800,6 +712,92 @@
 			"usage": {
 				"input": 34179,
 				"output": 30
+			}
+		},
+		"efdb3f0961524f1c": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_08d2df2910170791006b06bfbd3b8087d2ac06d47415a0d6c3",
+					"timestamp": "2026-11-25T11:00:13.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
+					"delta": "**Okafor household** — North Ridgeville, OH  \n- James Okafor — head  \n- Ruth Allen — spouse  \n\nNo street address or postal code is recorded."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_08d2df2910170791006b06bfbe40c087d2b620e2b6f85c44f9",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 34190,
+							"noCache": 3,
+							"cacheRead": 33816,
+							"cacheWrite": 371
+						},
+						"outputTokens": {
+							"total": 40,
+							"text": 40,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 34190,
+							"input_tokens_details": {
+								"cache_write_tokens": 371,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 371
+								},
+								"cached_tokens": 33816
+							},
+							"output_tokens": 40,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 34230
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_08d2df2910170791006b06bfbd3b8087d2ac06d47415a0d6c3",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 34190,
+				"output": 40
 			}
 		},
 		"fa4d3f3d3ef80055": {

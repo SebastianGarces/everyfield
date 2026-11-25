@@ -10,6 +10,8 @@ serves the recorded `doGenerate` and `doStream` calls and throws `MissingRecordi
 Its `save()` writes the file on a recording run. Every call is keyed by `callKey`: a hash of the exact provider call
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
+The recorder does not save the provider's `reasoningEncryptedContent`, and `callKey` ignores it: the field is a random
+blob that can match a push-protection pattern by chance. `recorder.test.mts` (`test:unit`) fails if a recording holds it.
 
 | Suite                    | Cases                                                                                                                    | What it scores                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
