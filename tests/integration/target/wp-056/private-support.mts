@@ -187,6 +187,7 @@ async function build(c: Awaited<ReturnType<typeof church>>) {
 	const care = createPrivateCare();
 	const assessments = createAssessments();
 	const job = createAssessmentJob();
+	const drafter = scriptedAssessmentDrafter();
 	const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 	const levels = (v: string) => ({ spiritual: v, family: v, financial: v, pace: v });
 
@@ -233,6 +234,16 @@ async function build(c: Awaited<ReturnType<typeof church>>) {
 			if (as === "author") ids.week = saved.week.id;
 			return saved;
 		},
+		async correctCare(level: string, note: string) {
+			const current = ok(await care.readCurrent(db, who.author, {}));
+			return ok(
+				await care.correct(db, who.author, {
+					requestKey: randomUUID(),
+					expectedRevision: current.revision,
+					input: { weekId: ids.week, answers: levels(level), note },
+				}),
+			);
+		},
 		async clearCare() {
 			const current = ok(await care.readCurrent(db, who.author, {}));
 			ok(
@@ -258,7 +269,7 @@ async function build(c: Awaited<ReturnType<typeof church>>) {
 		async assess() {
 			const requestId = randomUUID();
 			ok(await assessments.requestRefresh(db, who.author, { requestId }));
-			await runAssessmentBatch(job, db, scriptedAssessmentDrafter(), 20);
+			await runAssessmentBatch(job, db, drafter, 20);
 			const row = await c.one<{ id: string; outcome: string }>(
 				sql`SELECT id,outcome FROM assessment_run WHERE plant_id=${P.id} AND demand_key=${"manual/" + requestId}`,
 			);
@@ -717,6 +728,8 @@ async function build(c: Awaited<ReturnType<typeof church>>) {
 		surface,
 		unasked,
 		care,
+		modelCalls: drafter.calls,
+		schema: database.schema,
 		refreshNetwork,
 		networkGroups,
 		directoryHealth,

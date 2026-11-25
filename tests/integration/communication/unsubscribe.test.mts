@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
+import { issueEmailOptOutToken } from "../../../packages/domain/src/notifications/opt-out.ts";
 import { GET as outboxRoute } from "../../../apps/web/src/app/api/dev/outbox/route.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { createMailService, mailPurpose, mailUnsubscribe } from "../../../packages/domain/src/jobs/mail.ts";
@@ -189,7 +190,7 @@ test("AC:CASE-NTF-012 a retried send of the same mail repeats the same body unde
 	assert.equal(claimOf(pageToken(a.body)!).category, "task_overdue");
 });
 
-test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
+test("AC:CASE-NTF-012 AC:TARGET-IDN-028 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
 	await notify(linked, "task_due");
 	const [email] = await dispatchAll(linked);
 	assert.ok(email);
@@ -204,9 +205,26 @@ test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email
 		{ category: "task_due", emailEnabled: true, changed: false },
 	);
 	assert.equal(await emailPref("task_due"), null);
+	const code = (reply: { status: string }) =>
+		"error" in reply ? (reply.error as { code: string }).code : reply.status;
+	const forged = Buffer.from(token, "base64url");
+	forged[20]! ^= 1;
+	const stranger = issueEmailOptOutToken(randomBytes(32), { ...claimOf(token), purpose: "disable" } as never);
+	for (const bad of [forged.toString("base64url"), stranger, "x".repeat(token.length)])
+		for (const use of [producer.describeEmailOptOut, producer.applyEmailOptOut, producer.undoEmailOptOut])
+			assert.equal(code(await use(runtime, { token: bad })), "access_denied");
+	assert.equal(
+		code(await producer.undoEmailOptOut(runtime, { token })),
+		"access_denied",
+		"a token with another purpose",
+	);
+	assert.equal(await emailPref("task_due"), null);
 	const clicked = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(clicked.status, "ok", JSON.stringify(clicked));
 	assert.equal((clicked as { value: { changed: boolean; emailEnabled: boolean } }).value.changed, true);
+	const { undoToken } = (clicked as { value: { undoToken: string | null } }).value;
+	assert.ok(undoToken);
+	assert.equal(code(await producer.applyEmailOptOut(runtime, { token: undoToken })), "access_denied");
 	const repeat = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(repeat.status, "ok", JSON.stringify(repeat));
 	assert.equal((repeat as { value: { changed: boolean; emailEnabled: boolean } }).value.emailEnabled, false);

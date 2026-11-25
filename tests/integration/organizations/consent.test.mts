@@ -6,10 +6,14 @@ import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import {
 	createOrganizationAdapter,
+	pipelineWriter,
+	readPipelineBoard,
 	readPipelineConsents,
 	readSharingDisclosure,
 	residencyLinks,
 } from "../../../packages/domain/src/organizations/index.ts";
+import { createLaunchReader, createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
+import { ok } from "../../support/fixture.mts";
 import { authorityOf } from "../people/people-support.mts";
 after(S.teardown);
 const view = (v: unknown) => Q.sharingResult.parse(v);
@@ -84,6 +88,90 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 		["affiliation/approved/1", "affiliation/sharing/2", "affiliation/ended/3", "affiliation/approved/4"],
 	);
 });
+test("AC:WP007-API-KNOW-112 turning shared findings off hides the published Launch summary from that organization only", async () => {
+	const p = await S.tenant("plant"),
+		pa = await S.identity(p),
+		member = await S.identity(p, "member"),
+		o = await S.tenant("sending_church"),
+		oa = await S.identity(o),
+		n = await S.tenant("sending_network"),
+		na = await S.identity(n),
+		rel = await S.affiliation(p, o, true),
+		other = await S.affiliation(p, n, true);
+	if (p.kind !== "plant") throw Error();
+	const reader = createLaunchReader(),
+		writer = createLaunchWriter({ notices: async () => undefined }),
+		planter = await authorityOf(S.runtime, pa),
+		day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+	const save = (input: unknown, expectedRevision = "0") => ({ requestKey: randomUUID(), expectedRevision, input });
+	ok(await writer.schedule(S.runtime, planter, save({ date: day(-3), reason: null }, "1")));
+	const { plan } = ok(await reader.readPlan(S.runtime, planter));
+	ok(
+		await writer.recordOutcome(
+			S.runtime,
+			planter,
+			save({ actualDate: day(-2), attendance: 40, decisions: null, note: null }, plan.revision),
+		),
+	);
+	const answers = {
+		wentWell: "Private reflection",
+		toChange: null,
+		operations: null,
+		followUpPlan: null,
+		supportNeeded: null,
+		missingNames: "no",
+		missingCount: null,
+	};
+	ok(await writer.submitDebrief(S.runtime, planter, save({ draftId: null, answers })));
+	ok(await writer.publishDebriefSummary(S.runtime, planter, save({ draftId: null, body: "Service held." })));
+	const summary = async (who: typeof oa) =>
+		(await reader.readPublishedSummary(S.runtime, await authorityOf(S.runtime, who), p.id))?.body ?? "unavailable";
+	const sharing = (organization: typeof o) =>
+		S.call("privacy.getSharing", pa, { plant: p, organization }).then((read) => {
+			const shown = view(read);
+			if (!("view" in shown) || shown.view !== "plant_administration") throw Error("not shown");
+			return { consentRevision: shown.consentRevision, choices: shown.choices };
+		});
+	const change = (category: string, enabled: boolean, revision: string) =>
+		S.command(
+			{ plant: p, organization: o, relationshipId: rel, expectedConsentRevision: revision, category, enabled },
+			revision,
+		);
+	const row = async (id: string) =>
+		(await S.db.execute(sql`SELECT to_jsonb(a) AS row FROM affiliation a WHERE id=${sql.param(id)}`)).rows[0];
+	const events = async () =>
+		(
+			await S.db.execute(
+				sql`SELECT (SELECT count(*)::int FROM audit_event) AS audits,(SELECT count(*)::int FROM job) AS jobs,(SELECT count(*)::int FROM mail) AS mail`,
+			)
+		).rows[0];
+	await S.call("privacy.setSharing", pa, change("wiki", false, "1"));
+	assert.deepEqual([await summary(oa), await summary(na)], ["Service held.", "Service held."]);
+	const untouched = await row(other),
+		before = await sharing(o),
+		saved = await events();
+	assert.equal(before.consentRevision, "2");
+
+	const off = change("shared_findings", false, "2");
+	await assert.rejects(S.call("privacy.setSharing", pa, { ...off, expectedRevision: "1" }), /stale_revision/);
+	await assert.rejects(S.call("privacy.setSharing", pa, change("shared_findings", false, "1")), /stale_revision/);
+	for (const who of [member, oa, na])
+		await assert.rejects(S.call("privacy.setSharing", who, { ...off, requestKey: randomUUID() }), /unavailable/);
+	assert.deepEqual(await sharing(o), before);
+	assert.deepEqual(await events(), saved, "a refusal records nothing");
+	assert.equal(await summary(oa), "Service held.");
+
+	assert.deepEqual(await S.call("privacy.setSharing", pa, off), { status: "committed" });
+	const after = await sharing(o),
+		recorded = await events();
+	assert.deepEqual(after, { consentRevision: "3", choices: { ...before.choices, shared_findings: false } });
+	assert.deepEqual(await S.call("privacy.setSharing", pa, off), { status: "committed" });
+	assert.deepEqual([await sharing(o), await events()], [after, recorded], "a retry changes nothing");
+	assert.deepEqual([await summary(oa), await summary(na)], ["unavailable", "Service held."]);
+	const shown = view(await S.call("privacy.getSharing", oa, { plant: p, organization: o }));
+	assert.ok("view" in shown && shown.view === "organization" && shown.availability.shared_findings === false);
+	assert.deepEqual(await row(other), untouched);
+});
 test("AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches", async () => {
 	const n = await S.tenant("sending_network"),
 		na = await S.identity(n),
@@ -132,6 +220,59 @@ test("AC:ADR1-016 pipeline consent defaults off and requires two distinct curren
 		S.call("pipelineSharing.setConsent", na, S.command({ relationshipId: ids[0], sharePipelineTotals: true }, "3")),
 		/unavailable/,
 	);
+});
+test("AC:WP007-API-MUL-016 one contributing church gives its network no totals and no records, whoever asks", async () => {
+	const n = await S.tenant("sending_network"),
+		owner = await S.identity(n),
+		church = await S.tenant("sending_church", "Hidden Church"),
+		churchOwner = await S.identity(church),
+		link = await S.affiliation(church, n, false),
+		stranger = await S.identity(await S.tenant("sending_network"));
+	await S.call(
+		"pipelineSharing.setConsent",
+		churchOwner,
+		S.command({ relationshipId: link, sharePipelineTotals: true }),
+	);
+	const board = async (who: typeof owner) => {
+		const read = await readPipelineBoard(S.runtime, await authorityOf(S.runtime, who), {});
+		if (read.status !== "ok") throw Error(JSON.stringify(read));
+		return read.value;
+	};
+	const placed = await pipelineWriter.addPerson(S.runtime, await authorityOf(S.runtime, churchOwner), {
+		personId: randomUUID(),
+		displayName: "Hidden Person",
+		email: null,
+		responsibleSeatId: null,
+		stageId: (await board(churchOwner)).stages[0]!.id,
+	});
+	assert.equal(placed.status, "ok", JSON.stringify(placed));
+	const effects = async () =>
+		(
+			await S.db.execute(
+				sql`SELECT (SELECT count(*)::int FROM audit_event) AS audits,(SELECT count(*)::int FROM job) AS jobs,(SELECT count(*)::int FROM mail) AS mail`,
+			)
+		).rows[0];
+	const before = await effects();
+	for (const who of [owner, await S.identity(n, "member"), stranger, churchOwner]) {
+		const result = (await S.call("pipelineSharing.checkAggregateAccess", who, { network: n })) as Record<
+			string,
+			unknown
+		>;
+		assert.deepEqual(
+			{ ...result, totals: result.totals ?? null, individual_records: result.individualRecords ?? null },
+			{ allowed: false, minimumContributors: 2, totals: null, individual_records: null },
+		);
+		assert.deepEqual(Object.keys(result).sort(), ["allowed", "minimumContributors"]);
+		assert.equal(/Hidden (Church|Person)/.test(JSON.stringify(result)), false);
+	}
+	assert.ok(JSON.stringify(await board(churchOwner)).includes("Hidden Person"));
+	const networkBoard = await board(owner);
+	assert.equal(JSON.stringify(networkBoard).includes("Hidden"), false);
+	assert.deepEqual(
+		networkBoard.stages.map((stage) => stage.count),
+		networkBoard.stages.map(() => 0),
+	);
+	assert.deepEqual(await effects(), before);
 });
 async function resident() {
 	const o = await S.tenant("sending_church"),

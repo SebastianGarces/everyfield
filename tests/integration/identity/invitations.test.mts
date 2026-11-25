@@ -2,9 +2,13 @@ import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
+import { accountId } from "../../../packages/contracts/src/common/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { codeOf, fixture, key, noReminders, outcome, statementText, type Fixture } from "./invitations-support.mts";
 import { waitingOnLock } from "../../support/fixture.mts";
-import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
+import { and, eq, inArray, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
 type Review = Awaited<ReturnType<Fixture["seats"]["readRemoval"]>>;
@@ -129,7 +133,7 @@ test("AC:TARGET-IDN-030 INV-atomicity: required outbox or receipt failure rolls 
 	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
 	assert.equal(accepted.status, "accepted");
 });
-test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 INV-claim: wrong mailbox unverified account and deletion witness cannot claim", async () => {
+test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 AC:TARGET-IDN-003 AC:TARGET-IDN-017 INV-claim: wrong mailbox unverified account and deletion witness cannot claim", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),
 		other = await f.account();
@@ -238,7 +242,7 @@ test("AC:TARGET-IDN-017 INV-tenancy: active seat or independent Discovery associ
 	await denied(f.invitations.accept(s2.recipient.session, i2.claim));
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s2.recipient.id)), 0);
 });
-test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one winner", async () => {
+test("AC:ROLE43-007 AC:TARGET-IDN-017 INV-token: revoke claim resend and expiry serialize with one winner", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),
 		change = { requestKey: key(), expectedRevision: "1", input: { invitationId: i.result.invitation.invitationId } };
@@ -1025,4 +1029,691 @@ test("AC:ADR1-004 INV-relationship-race: contended existing affiliation refuses 
 		1,
 	);
 	assert.deepEqual(accepted.choices, { shareFoundations: false, shareMilestones: true });
+});
+
+const effects = async () =>
+	(
+		await f.admin.execute<Record<string, number>>(
+			sql`SELECT (SELECT count(*)::int FROM auth_user) users,(SELECT count(*)::int FROM account) accounts,
+				(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM person) people,
+				(SELECT count(*)::int FROM audit_event) events,(SELECT count(*)::int FROM mail) mail`,
+		)
+	).rows[0]!;
+const PASSWORD = "Fixture-new-pass-2";
+const registerAt = (
+	native: ReturnType<Fixture["native"]>,
+	ip: string,
+	email: string,
+	kind: string,
+	extra: Record<string, unknown> = {},
+) =>
+	native(
+		"register",
+		{
+			kind,
+			name: "Alex",
+			email,
+			password: PASSWORD,
+			requestKey: key(),
+			...(kind.startsWith("sending_") ? { organizationName: "Alex's organization" } : {}),
+			...extra,
+		},
+		undefined,
+		{ "x-test-ip": ip },
+	);
+async function signedIn(native: ReturnType<Fixture["native"]>, email: string) {
+	const response = await native("sign-in/email", { email, password: PASSWORD });
+	assert.equal(response.status, 200);
+	return response.headers
+		.getSetCookie()
+		.map((v) => v.split(";")[0])
+		.join("; ");
+}
+async function identityOf(email: string) {
+	const rows = await f.admin
+		.select({
+			user: t.auth_user.id,
+			id: t.account.id,
+			state: t.account.registration_state,
+			kind: t.account.registration_kind,
+		})
+		.from(t.auth_user)
+		.leftJoin(t.account, eq(t.account.auth_user_id, t.auth_user.id))
+		.where(eq(t.auth_user.email, email));
+	assert.equal(rows.length, 1, email + " has one identity");
+	const { user, id, state, kind } = rows[0]!;
+	assert.ok(id);
+	return { user, id, state, kind };
+}
+const verify = (user: string) =>
+	f.admin.update(t.auth_user).set({ email_verified: true }).where(eq(t.auth_user.id, user));
+const liveSeats = (account: string) => count(t.seat, and(eq(t.seat.account_id, account), isNull(t.seat.ended_at)));
+
+test("AC:TARGET-IDN-002 two concurrent registrations of one address make one account of each type, which then holds at most the one seat it was provisioned", async () => {
+	const native = f.native();
+	const onboarding = createOnboardingProducer({ relationships: async () => {}, enqueue: async () => {} });
+	let n = 0;
+	for (const [kind, stored, workspace, seats] of [
+		["plant_precreation", "planter", null, 1],
+		["discovery", "discovery", null, 0],
+		["sending_church", "sending_church", "sending_church", 1],
+		["sending_network", "network", "sending_network", 1],
+	] as const) {
+		const email = key() + "@example.test";
+		const answers = await Promise.all(
+			[email, " " + email.toUpperCase() + " "].map((address) => registerAt(native, `127.0.2.${++n}`, address, kind)),
+		);
+		for (const answer of answers) {
+			assert.deepEqual(await answer.json(), { status: "continue_identity_proof" });
+			assert.equal(answer.headers.get("set-cookie"), null);
+		}
+		const a = await identityOf(email);
+		assert.deepEqual([a.state, a.kind], ["pending_domain", stored]);
+		assert.equal(await liveSeats(a.id), 0);
+		await verify(a.user);
+		const cookie = await signedIn(native, email);
+		const { sessionId } = await (await native("get-session", undefined, cookie)).json();
+		if (kind === "plant_precreation" || kind === "discovery") {
+			const command = {
+				requestKey: key(),
+				expectedRevision: "1",
+				input: kind === "discovery" ? {} : { name: "Harvest Point", confirmed: true },
+			};
+			const context = { session: sessionId, selected: { kind: "account" as const, id: accountId.parse(a.id) } };
+			const provision = () =>
+				gatedTransaction(f.db, async (tx) =>
+					kind === "discovery"
+						? (await onboarding.createDiscovery(tx, context, command)).status
+						: (await onboarding.createPlant(tx, context, command)).status,
+				);
+			const replies = await Promise.all([provision(), provision()]);
+			assert.deepEqual(replies, ["ok", "ok"]);
+			assert.equal(await count(t.discovery, eq(t.discovery.account_id, a.id)), kind === "discovery" ? 1 : 0);
+			assert.equal(await count(t.person, eq(t.person.linked_account_id, a.id)), kind === "discovery" ? 0 : 1);
+		} else {
+			const s = await f.setup(workspace!);
+			s.recipient.email = email;
+			const i = await f.invitation(s);
+			const resumed = await Promise.all(
+				[1, 2].map(() =>
+					native("resume-registration", { requestKey: i.claim.requestKey, invitationProof: i.proof }, cookie),
+				),
+			);
+			for (const r of resumed) assert.deepEqual(await r.json(), { status: "active", accountId: a.id });
+		}
+		assert.equal(await liveSeats(a.id), seats, kind);
+		assert.equal((await identityOf(email)).state, "active");
+		assert.equal((await registerAt(native, `127.0.2.${++n}`, email, "discovery")).status, 200);
+		assert.deepEqual(await identityOf(email), { ...a, state: "active" });
+	}
+});
+
+test("AC:TARGET-IDN-002 success, duplicate, malformed and refused registrations share one trusted IP's three an hour, and a refused one creates nobody", async () => {
+	const open = f.native(),
+		gated = f.native("invitation_only");
+	const email = key() + "@example.test",
+		late = key() + "@example.test";
+	assert.equal((await registerAt(open, "127.0.3.1", email, "discovery")).status, 200);
+	assert.equal((await registerAt(open, "127.0.3.1", email, "discovery")).status, 200);
+	assert.equal((await registerAt(open, "127.0.3.1", "not-an-address", "discovery")).status, 422);
+	const limited = await registerAt(open, "127.0.3.1", late, "discovery");
+	assert.deepEqual([limited.status, (await limited.json()).code], [429, "rate_limited"]);
+	const refused = [key() + "@example.test", key() + "@example.test", key() + "@example.test"];
+	for (const address of refused) assert.equal((await registerAt(gated, "127.0.3.2", address, "discovery")).status, 200);
+	assert.equal((await registerAt(open, "127.0.3.2", late, "discovery")).status, 429);
+	assert.equal(await count(t.auth_user, inArray(t.auth_user.email, [late, ...refused])), 0);
+	await identityOf(email);
+});
+
+test("AC:TARGET-IDN-003 an enabled gate admits only the configured code or a live addressed invitation, and never says whether an account exists", async () => {
+	const gated = f.native("invitation_only"),
+		closed = f.native("closed"),
+		open = f.native();
+	const s = await f.setup();
+	const options = async (native: ReturnType<Fixture["native"]>, query = "") => {
+		const response = await native("registration-options" + query);
+		assert.equal(response.status, 200);
+		return response.json();
+	};
+	const before = await effects();
+	const refused = await options(gated, "?code=wrong-code");
+	assert.equal(refused.mode, "invitation_only");
+	assert.deepEqual(refused.invitation, { status: "unavailable" });
+	for (const email of [s.recipient.email, key() + "@example.test"])
+		assert.deepEqual(await options(gated, `?code=wrong-code&email=${encodeURIComponent(email)}`), refused);
+	assert.equal((await options(gated)).mode, "invitation_only");
+	assert.equal((await options(gated, "?code=approved-code")).mode, "open");
+	assert.equal((await options(open, "?code=wrong-code")).mode, "open");
+	assert.equal((await options(closed, "?code=approved-code")).mode, "closed");
+	assert.equal(JSON.stringify(refused).includes("approved-code"), false);
+	assert.deepEqual(await effects(), before);
+
+	const register = async (native: ReturnType<Fixture["native"]>, ip: string, email: string, extra = {}) => {
+		const response = await registerAt(native, ip, email, "discovery", extra);
+		assert.deepEqual([response.status, await response.json()], [200, { status: "continue_identity_proof" }]);
+		assert.equal(response.headers.get("set-cookie"), null);
+		return count(t.auth_user, eq(t.auth_user.email, email));
+	};
+	const mail = () => key() + "@example.test";
+	assert.equal(await register(gated, "127.0.4.1", mail(), { registrationCode: "wrong-code" }), 0);
+	assert.equal(await register(gated, "127.0.4.1", mail()), 0);
+	assert.equal(await register(gated, "127.0.4.1", s.recipient.email, { registrationCode: "wrong-code" }), 1);
+	assert.equal(await register(closed, "127.0.4.2", mail(), { registrationCode: "approved-code" }), 0);
+	assert.equal(await register(gated, "127.0.4.2", mail(), { registrationCode: "approved-code" }), 1);
+	assert.equal(await register(open, "127.0.4.2", mail()), 1);
+
+	let ip = 2;
+	for (const [workspace, kind, stored] of [
+		["plant", "plant_precreation", "planter"],
+		["sending_church", "sending_church", "sending_church"],
+		["sending_network", "sending_network", "network"],
+	] as const) {
+		const live = await f.setup(workspace);
+		live.recipient.email = mail();
+		const i = await f.invitation(live);
+		const shown = await options(gated, "?code=wrong-code&invitationProof=" + encodeURIComponent(i.proof));
+		assert.deepEqual(shown.kinds, [kind]);
+		assert.equal(shown.invitation.kind, kind);
+		assert.ok(shown.invitation.organizationName);
+		const invited = (email: string, proof = i.proof) =>
+			registerAt(gated, `127.0.4.${++ip}`, email, "invitation", { invitationProof: proof }).then((r) => r.json());
+		const wrong = mail();
+		for (const [email, proof] of [
+			[wrong, i.proof],
+			[live.recipient.email, "forged-proof"],
+		] as const) {
+			assert.deepEqual(await invited(email, proof), { status: "continue_identity_proof" });
+			assert.equal(await count(t.auth_user, eq(t.auth_user.email, email)), 0);
+		}
+		const at = eq(t.invitation.id, i.result.invitation.invitationId);
+		const { created_at } = (await f.admin.select().from(t.invitation).where(at))[0]!;
+		for (const ended of [
+			{ state: "revoked" as const, revision: "2" },
+			{ created_at: new Date(created_at.getTime() - 31 * 86_400_000) },
+		]) {
+			await f.admin.update(t.invitation).set(ended).where(at);
+			const gone = await options(gated, "?invitationProof=" + encodeURIComponent(i.proof));
+			assert.deepEqual([gone.mode, gone.invitation], ["invitation_only", { status: "unavailable" }]);
+			assert.deepEqual(await invited(live.recipient.email), { status: "continue_identity_proof" });
+			assert.equal(await count(t.auth_user, eq(t.auth_user.email, live.recipient.email)), 0);
+			await f.admin.update(t.invitation).set({ state: "pending", revision: "1", created_at }).where(at);
+		}
+		assert.deepEqual(await invited(live.recipient.email), { status: "continue_identity_proof" });
+		const a = await identityOf(live.recipient.email);
+		assert.deepEqual([a.state, a.kind], ["pending_domain", stored]);
+		assert.equal(await liveSeats(a.id), 0);
+	}
+});
+
+test("AC:TARGET-IDN-017 plant, sending-church and network invitations seat a new or seatless account once under concurrent accepts, and a lost response replays", async () => {
+	for (const kind of ["plant", "sending_church", "sending_network"] as const)
+		for (const state of ["pending_domain", "active"]) {
+			const s = await f.setup(kind);
+			s.recipient = await f.account(state);
+			const i = await f.invitation(s);
+			const [stranger, seatedElsewhere] = [await f.account(), await f.account()];
+			await f.seat(seatedElsewhere, await f.workspace(), "member");
+			for (const a of [stranger, seatedElsewhere]) await denied(f.invitations.accept(a.session, i.claim));
+			for (const input of [
+				{ ...i.claim.input, proof: "forged" },
+				{ ...i.claim.input, invitationId: key() },
+			])
+				await denied(f.invitations.accept(s.recipient.session, { ...i.claim, input }));
+			const before = await effects();
+			const [first, second] = await Promise.all([
+				f.invitations.accept(s.recipient.session, i.claim),
+				f.invitations.accept(s.recipient.session, i.claim),
+			]);
+			assert.deepEqual(first, second);
+			const after = await effects();
+			const linked = kind === "plant" ? 1 : 0;
+			assert.deepEqual([after.seats! - before.seats!, after.people! - before.people!], [1, linked], kind + state);
+			assert.equal(await liveSeats(s.recipient.id), 1);
+			assert.equal(await count(t.person, eq(t.person.linked_account_id, s.recipient.id)), linked);
+			assert.deepEqual(await f.invitations.accept(s.recipient.session, i.claim), first);
+			await denied(f.invitations.accept(s.recipient.session, { ...i.claim, requestKey: key() }));
+			await denied(f.invitations.accept(stranger.session, i.claim));
+			assert.deepEqual(await effects(), after);
+		}
+});
+
+test("AC:TARGET-IDN-017 AC:TARGET-IDN-030 an accept, a revoke and a resend of one invitation have one winner, and a losing accept grants nothing", async () => {
+	for (let n = 0; n < 4; n++) {
+		const s = await f.setup(),
+			i = await f.invitation(s);
+		const id = i.result.invitation.invitationId;
+		await f.admin
+			.update(t.invitation)
+			.set({
+				resent_at: sql`clock_timestamp()-interval '61 seconds'`,
+				created_at: sql`clock_timestamp()-interval '120 seconds'`,
+			})
+			.where(eq(t.invitation.id, id));
+		const sender = await f.actor(s.sender.session);
+		const change = () => ({ requestKey: key(), expectedRevision: "1", input: { invitationId: id } });
+		const contenders = [
+			() => f.invitations.accept(s.recipient.session, i.claim),
+			() => f.invitations.revoke(sender, change()),
+			() => f.invitations.resend(sender, change()),
+		];
+		const order = [...contenders.slice(n % 3), ...contenders.slice(0, n % 3)];
+		const settled = await Promise.allSettled(order.map((run) => run()));
+		assert.equal(settled.filter((r) => r.status === "fulfilled").length, 1);
+		const won = settled[order.indexOf(contenders[0]!)]!.status === "fulfilled";
+		assert.equal(await liveSeats(s.recipient.id), won ? 1 : 0);
+		assert.equal(await count(t.person, eq(t.person.linked_account_id, s.recipient.id)), won ? 1 : 0);
+	}
+});
+
+test("AC:TARGET-IDN-030 AC:TARGET-IDN-002 a registration whose grant fails at any required write stays resumable with no seat, and neither a revoke nor another account turns it into one", async () => {
+	const native = f.native("invitation_only");
+	const s = await f.setup(),
+		email = key() + "@example.test";
+	s.recipient.email = email;
+	const i = await f.invitation(s);
+	await registerAt(native, "127.0.5.1", email, "invitation", { invitationProof: i.proof });
+	const a = await identityOf(email);
+	await verify(a.user);
+	const cookie = await signedIn(native, email);
+	const intent = { requestKey: key(), invitationProof: i.proof };
+	const resume = async (jar = cookie, body: object = intent) => {
+		const response = await native("resume-registration", body, jar);
+		return [response.status, await response.json()] as const;
+	};
+	const status = async () => (await native("registration-status", undefined, cookie)).json();
+	const RESUMABLE = { status: "pending_domain", accountId: a.id };
+	const ungranted = async (at: string) => {
+		assert.equal(await count(t.seat, eq(t.seat.account_id, a.id)), 0, at);
+		assert.equal(await count(t.person, eq(t.person.linked_account_id, a.id)), 0, at);
+		assert.equal(await count(t.audit_event, eq(t.audit_event.actor_id, a.id)), 0, at);
+		assert.deepEqual(await status(), RESUMABLE, at);
+	};
+	for (const [table, when] of [
+		["invitation", "UPDATE"],
+		["seat", "INSERT"],
+		["person", "INSERT"],
+		["audit_event", "INSERT"],
+		["mail", "INSERT"],
+		["account", "UPDATE"],
+	]) {
+		const before = await effects();
+		await f.admin.execute(
+			sql.raw(
+				`CREATE FUNCTION fail_required() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_required_failure'; END $$;
+				 CREATE TRIGGER fail_required BEFORE ${when} ON ${table} FOR EACH ROW EXECUTE FUNCTION fail_required()`,
+			),
+		);
+		try {
+			assert.equal((await resume())[0], 503, table);
+		} finally {
+			await f.admin.execute(sql.raw(`DROP TRIGGER fail_required ON ${table};DROP FUNCTION fail_required()`));
+		}
+		await ungranted(table!);
+		assert.deepEqual(await effects(), before, table);
+	}
+	const unrelated = await registerAt(f.native(), "127.0.5.2", "unrelated-" + email, "discovery");
+	assert.equal(unrelated.status, 200);
+	const other = await identityOf("unrelated-" + email);
+	await verify(other.user);
+	const otherCookie = await signedIn(native, "unrelated-" + email);
+	assert.deepEqual((await resume(otherCookie))[1].code, "invitation_unavailable");
+	assert.equal(await liveSeats(other.id), 0);
+
+	const { claim } = await f.admin.transaction(async (tx) => {
+		const { pid } = (
+			await tx
+				.select({ pid: sql<number>`pg_backend_pid()` })
+				.from(t.plant)
+				.where(eq(t.plant.id, s.w.id))
+				.for("update")
+		)[0]!;
+		const claim = resume();
+		assert.equal(await waitingOnLock(f.admin, { blockedBy: pid }), true);
+		await tx
+			.update(t.invitation)
+			.set({ state: "revoked", revision: "2" })
+			.where(eq(t.invitation.id, i.result.invitation.invitationId));
+		return { claim };
+	});
+	assert.equal((await claim)[1].code, "invitation_unavailable");
+	for (let n = 0; n < 2; n++) assert.equal((await resume())[1].code, "invitation_unavailable");
+	await ungranted("revoked");
+	assert.deepEqual((await resume(cookie, { requestKey: key() }))[1], RESUMABLE);
+
+	const again = await f.invitation(s);
+	const retry = { requestKey: key(), invitationProof: again.proof };
+	assert.equal((await resume(otherCookie, retry))[1].code, "invitation_unavailable");
+	const lost = await resume(cookie, retry);
+	assert.deepEqual(lost, [200, { status: "active", accountId: a.id }]);
+	const committed = await effects();
+	assert.deepEqual(await resume(cookie, retry), lost);
+	assert.deepEqual(await effects(), committed);
+	assert.equal(await liveSeats(a.id), 1);
+	assert.equal(await count(t.person, eq(t.person.linked_account_id, a.id)), 1);
+});
+
+test("AC:TARGET-IDN-019 an Admin cannot remove the Owner: the seat, sessions, duties and events stay; the Owner's closed and waived work is never offered", async () => {
+	const s = await f.setup(),
+		[admin, second, member] = [await f.account(), await f.account(), await f.account()],
+		foreign = await f.setup();
+	const adminSeat = await f.seat(admin, s.w, "admin");
+	await f.seat(second, s.w, "admin");
+	const memberSeat = await f.seat(member, s.w, "member");
+	const [open, waived] = [key(), key()];
+	const task = {
+		plant_id: s.w.id,
+		category: "general",
+		priority: "medium",
+		created_at: new Date(),
+		due_kind: "undated",
+	} as const;
+	await insertTasks(f.admin, [
+		{ ...task, id: open, title: "Open duty", status: "not_started", assignee_id: s.sender.id },
+	]);
+	const [ownerSeat] = await f.admin
+		.select()
+		.from(t.seat)
+		.where(and(eq(t.seat.account_id, s.sender.id), isNull(t.seat.ended_at)));
+	const state = async () => ({
+		...(await effects()),
+		owner: await f.admin.select().from(t.seat).where(eq(t.seat.id, ownerSeat!.id)),
+		sessions: await count(t.auth_session, eq(t.auth_session.user_id, s.sender.user)),
+		holders: await assigneesOf(f.admin, open),
+		tasks: await count(t.task, eq(t.task.plant_id, s.w.id)),
+	});
+	const removal = (seatId: string, expectedRole: string, revision = "1", handoffs: object[] = []) => ({
+		requestKey: key(),
+		expectedRevision: revision,
+		input: { seatId, expectedRole, handoffs },
+	});
+	const before = await state();
+	const actor = await f.actor(admin.session);
+	for (const role of ["admin", "member"])
+		for (const handoffs of [
+			[],
+			[{ kind: "assign", dutyId: open, expectedRevision: "1", recipientAccountId: admin.id }],
+		])
+			await denied(
+				f.seats.remove(actor, s.w, removal(ownerSeat!.id, role, ownerSeat!.revision, handoffs), noReminders),
+				"protected_owner",
+			);
+	await denied(
+		f.seats.demote(actor, s.w, {
+			requestKey: key(),
+			expectedRevision: ownerSeat!.revision,
+			input: { seatId: ownerSeat!.id, expectedRole: "admin", to: "member" },
+		}),
+		"protected_owner",
+	);
+	for (const [who, at] of [
+		[member, s.w],
+		[foreign.sender, s.w],
+		[foreign.sender, foreign.w],
+	] as const) {
+		const other = await f.actor(who.session);
+		await denied(f.seats.remove(other, at, removal(adminSeat, "admin"), noReminders));
+		await denied(
+			f.seats.appointAdmin(other, at, {
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { seatId: memberSeat, expectedRole: "member", to: "admin" },
+			}),
+		);
+	}
+	assert.deepEqual(await state(), before);
+
+	const [meeting, duty] = [key(), key()];
+	await f.admin.execute(
+		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${s.w.id},'vision_meeting','Vision night','2026-10-20','18:00','America/Chicago','2026-10-20T23:00:00Z','1','completed',1)`,
+	);
+	await f.admin.execute(
+		sql`INSERT INTO obligation(id,plant_id,meeting_id,kind,origin_at,origin_date,timezone,formula_version,due_date) VALUES(${duty},${s.w.id},${meeting},'evaluation','2026-10-20T23:00:00Z','2026-10-20','America/Chicago','1','2026-10-30')`,
+	);
+	await insertTasks(f.admin, [
+		{
+			...task,
+			id: waived,
+			title: "Waived duty",
+			status: "not_started",
+			assignee_id: member.id,
+			obligation_id: duty,
+		},
+	]);
+	const waive = await withTaskWrite(f.db, await f.actor(admin.session), (tx, ctx) =>
+		createTaskWriter({ reminders: async () => {} }).waive(tx, ctx, {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { taskId: waived, reason: "Covered by the sending church" },
+		}),
+	);
+	assert.equal(waive.status, "ok", JSON.stringify(waive));
+	const waivedState = async () => ({
+		task: await f.admin.select().from(t.task).where(eq(t.task.id, waived)),
+		obligation: await f.admin.select().from(t.obligation).where(eq(t.obligation.id, duty)),
+		holders: await assigneesOf(f.admin, waived),
+	});
+	const kept = await waivedState();
+	assert.deepEqual(
+		[kept.task[0]!.status, kept.obligation[0]!.waiver_reason, kept.holders],
+		["no_longer_needed", "Covered by the sending church", [member.id]],
+	);
+	assert.ok(kept.obligation[0]!.waived_at);
+	const review = await f.seats.readRemoval(admin.session, s.w, { seatId: memberSeat });
+	assert.deepEqual(review.duties, []);
+	const race = await Promise.allSettled(
+		[admin, second].map(async (a) =>
+			f.seats.remove(await f.actor(a.session), s.w, removal(memberSeat, "member"), noReminders),
+		),
+	);
+	assert.deepEqual(race.map((r) => r.status).sort(), ["fulfilled", "rejected"]);
+	assert.equal(await liveSeats(member.id), 0);
+	assert.deepEqual(await waivedState(), kept, "a removal leaves the waived duty as it was");
+	assert.equal(await count(t.auth_session, eq(t.auth_session.user_id, member.user)), 0);
+	assert.equal(
+		await count(t.audit_event, and(eq(t.audit_event.subject_id, memberSeat), eq(t.audit_event.tenant_id, s.w.id))),
+		1,
+	);
+	const contested = await f.account(),
+		contestedSeat = await f.seat(contested, s.w, "member");
+	const promotion = await Promise.allSettled([
+		f.seats.remove(await f.actor(admin.session), s.w, removal(contestedSeat, "member"), noReminders),
+		f.seats.appointAdmin(await f.actor(second.session), s.w, {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { seatId: contestedSeat, expectedRole: "member", to: "admin" },
+		}),
+	]);
+	assert.deepEqual(promotion.map((r) => r.status).sort(), ["fulfilled", "rejected"]);
+	assert.equal(await liveSeats(contested.id), promotion[0]!.status === "fulfilled" ? 0 : 1);
+});
+
+async function adminInvitation(s: Awaited<ReturnType<Fixture["setup"]>>) {
+	const { invitation } = await f.invitations.invite(await f.actor(s.sender.session), {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { workspace: s.w, role: "admin", recipientEmail: s.recipient.email },
+	});
+	const proof = await f.proof(invitation.invitationId);
+	const claim = {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { invitationId: invitation.invitationId, proof },
+	};
+	const revoke = async () =>
+		f.invitations.revoke(await f.actor(s.sender.session), {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { invitationId: invitation.invitationId },
+		});
+	return { id: invitation.invitationId, claim, revoke };
+}
+const openSeats = async (account: string) =>
+	(
+		await f.admin
+			.select({ role: t.seat.role, plant: t.seat.plant_id })
+			.from(t.seat)
+			.where(and(eq(t.seat.account_id, account), isNull(t.seat.ended_at)))
+	).map((x) => x);
+
+test("AC:ROLE43-007 a separate operating lead becomes an Admin by accepting one ordinary addressed invitation, and a revoke or a retry leaves one seat or none", async () => {
+	const s = await f.setup(),
+		i = await adminInvitation(s),
+		stranger = await f.account("pending_domain");
+	await denied(f.invitations.accept(stranger.session, { ...i.claim, requestKey: key() }));
+	await denied(
+		f.invitations.accept(s.recipient.session, {
+			...i.claim,
+			requestKey: key(),
+			input: { ...i.claim.input, proof: "wrong" },
+		}),
+	);
+	assert.deepEqual(await openSeats(s.recipient.id), []);
+	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
+	assert.equal(accepted.seat.role, "admin");
+	assert.deepEqual(await f.invitations.accept(s.recipient.session, i.claim), accepted, "the same intent answers again");
+	assert.deepEqual(await openSeats(s.recipient.id), [{ role: "admin", plant: s.w.id }]);
+	assert.equal(
+		await count(t.person, and(eq(t.person.plant_id, s.w.id), eq(t.person.linked_account_id, s.recipient.id))),
+		1,
+	);
+	const audited = sql`SELECT action,count(*)::int AS n FROM audit_event WHERE actor_id=${s.recipient.id} AND subject_id=${accepted.seat.seatId} GROUP BY action`;
+	assert.deepEqual((await f.admin.execute(audited)).rows, [{ action: "membership.created", n: 1 }]);
+	const lead = await f.actor(s.recipient.session);
+	assert.equal((await f.invitations.list(lead, { workspace: s.w })).items.length, 0);
+	assert.equal(
+		await count(t.team_tenure, eq(t.team_tenure.plant_id, s.w.id)),
+		0,
+		"no nomination or designation is needed or made",
+	);
+	const sent = await f.invitations.invite(lead, {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
+	});
+	assert.equal(sent.invitation.status, "pending", "Admin work is open at once");
+	await denied(f.invitations.accept(s.recipient.session, { ...i.claim, requestKey: key() }));
+	await denied(i.revoke());
+	assert.equal((await openSeats(s.recipient.id)).length, 1);
+
+	const r = await f.setup(),
+		revoked = await adminInvitation(r);
+	await revoked.revoke();
+	await denied(f.invitations.accept(r.recipient.session, revoked.claim));
+	assert.deepEqual(await openSeats(r.recipient.id), []);
+
+	for (let n = 0; n < 3; n++) {
+		const race = await f.setup(),
+			offer = await adminInvitation(race);
+		const [gone, taken] = await Promise.allSettled([
+			offer.revoke(),
+			f.invitations.accept(race.recipient.session, offer.claim),
+		]);
+		assert.equal([gone, taken].filter((x) => x.status === "fulfilled").length, 1);
+		assert.deepEqual(
+			await openSeats(race.recipient.id),
+			taken.status === "fulfilled" ? [{ role: "admin", plant: race.w.id }] : [],
+		);
+	}
+});
+
+test("AC:ROLE43-009 an Admin removes an ordinary Admin or Member, never the Owner, a Member never promotes themselves and a changed seat refuses the stale removal", async () => {
+	const s = await f.setup();
+	const people = {
+		actor: await f.account(),
+		admin: await f.account(),
+		member: await f.account(),
+		self: await f.account(),
+		raced: await f.account(),
+		foreign: await f.account(),
+	};
+	const seats = {
+		actor: await f.seat(people.actor, s.w, "admin"),
+		admin: await f.seat(people.admin, s.w, "admin"),
+		member: await f.seat(people.member, s.w, "member"),
+		self: await f.seat(people.self, s.w, "member"),
+		raced: await f.seat(people.raced, s.w, "member"),
+		foreign: await f.seat(people.foreign, await f.workspace(), "admin"),
+	};
+	const [owner] = await f.admin
+		.select({ id: t.seat.id })
+		.from(t.seat)
+		.where(and(eq(t.seat.account_id, s.sender.id), eq(t.seat.plant_id, s.w.id)));
+	assert.ok(owner);
+	const as = (who: { session: string }) => f.actor(who.session);
+	const removal = (seatId: string, expectedRole: string, expectedRevision = "1") => ({
+		requestKey: key(),
+		expectedRevision,
+		input: { seatId, expectedRole, handoffs: [] },
+	});
+	const state = async () =>
+		JSON.stringify([
+			await f.admin.select().from(t.seat).where(eq(t.seat.plant_id, s.w.id)).orderBy(t.seat.id),
+			await count(t.audit_event, eq(t.audit_event.tenant_id, s.w.id)),
+		]);
+	const start = await state();
+	const admin = await as(people.actor);
+	const self = await as(people.self);
+	for (const role of ["admin", "member"])
+		await denied(f.seats.remove(admin, s.w, removal(owner.id, role), noReminders), "protected_owner");
+	await denied(f.seats.readRemoval(people.actor.session, s.w, { seatId: owner.id }), "protected_owner");
+	await denied(
+		f.seats.demote(admin, s.w, {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { seatId: owner.id, expectedRole: "admin", to: "member" },
+		}),
+		"protected_owner",
+	);
+	const promote = (seatId: string) => ({
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { seatId, expectedRole: "member", to: "admin" },
+	});
+	await denied(f.seats.appointAdmin(self, s.w, promote(seats.self)));
+	await denied(f.seats.changeOrdinaryRole(self, s.w, promote(seats.self)));
+	await assert.rejects(
+		f.seats.changeOrdinaryRole(self, s.w, {
+			...promote(seats.self),
+			input: { ...promote(seats.self).input, to: "owner" },
+		}),
+	);
+	await denied(f.seats.remove(self, s.w, removal(seats.member, "member"), noReminders));
+	const foreign = await as(people.foreign);
+	await denied(f.seats.remove(foreign, s.w, removal(seats.member, "member"), noReminders));
+	await denied(f.seats.remove(admin, s.w, removal(seats.foreign, "admin"), noReminders));
+	await denied(f.seats.remove(admin, s.w, removal(seats.member, "admin"), noReminders), "conflict");
+	await denied(f.seats.remove(admin, s.w, removal(seats.member, "member", "2"), noReminders), "conflict");
+	assert.equal(await state(), start, "every refusal leaves seats and history alone");
+
+	for (const [seat, role, who] of [
+		[seats.admin, "admin", people.admin],
+		[seats.member, "member", people.member],
+	] as const) {
+		const q = removal(seat, role);
+		const removed = await f.seats.remove(admin, s.w, q, noReminders);
+		assert.deepEqual([removed.seatId, removed.outcome, removed.revision], [seat, "changed", "2"]);
+		assert.deepEqual(await f.seats.remove(admin, s.w, q, noReminders), removed);
+		assert.deepEqual(await openSeats(who.id), []);
+		await denied(as(who));
+		const events = await f.admin.execute(
+			sql`SELECT action,actor_id FROM audit_event WHERE subject_id=${seat} AND action='membership.ended'`,
+		);
+		assert.deepEqual(events.rows, [{ action: "membership.ended", actor_id: people.actor.id }]);
+	}
+	const raced = await Promise.allSettled([
+		f.seats.remove(admin, s.w, removal(seats.raced, "member"), noReminders),
+		f.seats.appointAdmin(await as(s.sender), s.w, promote(seats.raced)),
+	]);
+	assert.equal(raced.filter((x) => x.status === "fulfilled").length, 1, JSON.stringify(raced));
+	const lost = raced.find((x) => x.status === "rejected");
+	assert.ok(lost?.status === "rejected");
+	assert.ok(["conflict", "invitation_unavailable"].includes(String(codeOf(lost.reason))), String(lost.reason));
+	assert.deepEqual(
+		await openSeats(people.raced.id),
+		raced[0]!.status === "fulfilled" ? [] : [{ role: "admin", plant: s.w.id }],
+	);
+	const roster = await f.seats.list(admin, { workspace: s.w });
+	assert.deepEqual(roster.items.find((x) => x.seatId === owner.id)!.allowedActions, []);
+	assert.equal(roster.items.find((x) => x.seatId === owner.id)!.role, "owner");
+	assert.deepEqual(roster.items.find((x) => x.seatId === seats.self)!.role, "member");
 });

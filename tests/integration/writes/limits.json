@@ -644,8 +644,9 @@
 	},
 	"identity.handle:resume-registration": {
 		"limit": 13,
-		"retry": 7,
-		"reason": "RT-6a: the session read (3: Better Auth's adapter reads of the session and its user, then readIdentitySession's account read with its lifecycle check in one statement) and invitations.resume (10, see that entry). Its largest first run: 2 transaction, 5 locked read, 4 read, 2 write."
+		"retry": 13,
+		"reason": "RT-6a: the session read (3: Better Auth's adapter reads of the session and its user, then readIdentitySession's account read with its lifecycle check in one statement) and invitations.resume (10, see that entry). A required write that fails in the last statement rolls back the whole run, so a retry can send as many as a first run. Its largest first run: 2 transaction, 5 locked read, 4 read, 2 write.",
+		"reads": "The workspace's seat advisory lock is taken with the invitation read, before any row lock; then one statement locks the workspace, the invitation and the account. A locking SELECT reads every other table as of its start, so only a statement that starts after the advisory lock sees what its last holder committed."
 	},
 	"identity.handle:revoke-other-sessions": {
 		"limit": 8,
@@ -1235,7 +1236,8 @@
 	"onboarding.answerLead": {
 		"limit": 13,
 		"retry": 7,
-		"reason": "Above the pattern: the lead role and Senior pastor fill write team rows. The answer, both revisions and the saved time share one plant UPDATE. Its largest first run: 2 transaction, 3 locked read, 1 read, 7 write."
+		"reason": "Above the pattern: the lead role and Senior pastor fill write team rows. The answer, both revisions and the saved time share one plant UPDATE. Its largest first run: 2 transaction, 3 locked read, 1 read, 7 write.",
+		"reads": "A yes that reuses an existing role locks the reviewed team, then its role, then the role's open tenure, checking each one's revision before the next. Each locking SELECT starts after the wait for the row before it, so it sees what the last holder of that lock committed."
 	},
 	"onboarding.complete": {
 		"limit": 7,
@@ -1663,15 +1665,17 @@
 		"reads": "2 reads in a row (the restricted proof read, then each open seat's contact): the contacts are read only after the deletion machine in code allows the cancel, so a cancel that is already done, at a stale revision or past its deadline returns without reading every member's address. Folding the contacts into the proof read would copy the machine's guards into SQL, and the status read shares that proof read without needing any contact."
 	},
 	"settings.changePassword": {
-		"limit": 13,
-		"reason": "The session read with its seats and the user's profile read; the attempt-budget reserve; Better Auth's session, user and password account reads; its transaction reads the sessions, deletes them, updates the password and inserts the new session; then the attempt's second budget statement. Better Auth owns the credentials, so its statements stay its own. Its largest first run: 2 transaction, 6 read, 5 write."
+		"limit": 14,
+		"reason": "The session read with its seats and the user's profile read; the attempt-budget reserve; Better Auth's session, user and password account reads; its transaction reads the sessions, deletes them, updates the password and inserts the new session; then the attempt's second budget statement and one statement with the audit and the security mail. Better Auth owns the credentials, so its statements stay its own. Its largest first run: 2 transaction, 6 read, 6 write.",
+		"retry": 12
 	},
 	"settings.confirmEmailChange": {
 		"limit": 8,
 		"reason": "The session read with its seats and the user's profile read; the email proof consumed; Better Auth's user, session and new-address reads and its user update; one statement with the audit. Better Auth owns the user row, so its statements stay its own. Its largest first run: 5 read, 3 write."
 	},
 	"settings.finalizeAvatar": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"settings.openAccountDeletion": {
 		"limit": 9,
@@ -1688,7 +1692,8 @@
 	},
 	"settings.previewPlantTimezone": {
 		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the clock read for the preview's expiry, the church's dated tasks locked (the preview lists the due dates the change moves), then the preview insert. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the clock read for the preview's expiry, the church's dated tasks locked (the preview lists the due dates the change moves), then the preview insert. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"retry": 4
 	},
 	"settings.removeAvatar": {
 		"limit": 5
@@ -1699,7 +1704,8 @@
 		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the sole-owner check locked, the witness insert, the subject suspended by its database function, then one statement with the purge job and its audit. A refused request rolls back after the check: 5 statements. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write."
 	},
 	"settings.requestAvatarUpload": {
-		"limit": 4
+		"limit": 4,
+		"retry": 2
 	},
 	"settings.requestEmailChange": {
 		"limit": 13,
@@ -1707,7 +1713,7 @@
 	},
 	"settings.requestWorkspaceDeletion": {
 		"limit": 9,
-		"retry": 3,
+		"retry": 5,
 		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the church and then its current witness with the open-request check, the witness insert, the workspace suspended by its database function, one read gives each open seat's contact, then one statement with the purge job, the notices (T-272) and the audit. Through the settings producer the app mounts, the request-key claim is not sent: 8 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"settings.saveChurch": {
@@ -1727,7 +1733,7 @@
 	},
 	"settings.saveSection:organization": {
 		"limit": 5,
-		"retry": 3
+		"retry": 4
 	},
 	"settings.saveSection:plant": {
 		"limit": 5,
@@ -1747,7 +1753,8 @@
 		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the preview at its expected revision and then the church's dated tasks (their due dates move with the zone), the reminder job planned, then one statement with the church change, the moved tasks and the audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"settings.updatePlantProfile": {
-		"limit": 4
+		"limit": 4,
+		"retry": 2
 	},
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,

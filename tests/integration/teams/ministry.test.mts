@@ -459,6 +459,77 @@ test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a l
 	);
 });
 
+test("AC:TARGET-IDN-019 appointing a leader while their seat is removed ends the seat and sessions either way, clears leadership given before the removal and gives no access after it", async () => {
+	for (const order of ["appoint first", "remove first", "race", "race"]) {
+		const team = await makeTeam(`Raced ${order} ${key()}`);
+		const account = await database.actor({ kind: "plant", id: P }, "member");
+		const lead = await person("Raced Leader", { account: account.id, stage: "leader" });
+		const seat = (
+			await admin.execute<{ id: string; r: string }>(
+				sql`SELECT id, revision::text AS r FROM seat WHERE account_id=${account.id} AND plant_id=${P}`,
+			)
+		).rows[0]!;
+		const held = await RequestActor.resolve(db, account.session);
+		assert.ok(held instanceof RequestActor);
+		const [remover, revision] = [await viewer(2), await rev("team", team.id)];
+		const remove = () =>
+			createSeatService(db).remove(
+				remover,
+				{ kind: "plant", id: tenantId.parse(P) },
+				{
+					requestKey: key(),
+					expectedRevision: seat.r,
+					input: { seatId: seat.id, expectedRole: "member", handoffs: [] },
+				},
+				noReminders,
+			);
+		const appoint = async () =>
+			ok(
+				await run(teamsWriter.appointLeader, {
+					requestKey: key(),
+					expectedRevision: revision,
+					input: { teamId: team.id, personId: lead },
+				}),
+			);
+		if (order === "appoint first") {
+			await appoint();
+			await remove();
+		} else if (order === "remove first") {
+			await remove();
+			await appoint();
+		} else await Promise.all([appoint(), remove()]);
+
+		const [ended] = (
+			await admin.execute(
+				sql`SELECT s.ended_at IS NOT NULL AS ended, (SELECT count(*)::int FROM auth_session x WHERE x.user_id=${account.user}) AS sessions,
+					(SELECT count(*)::int FROM seat y WHERE y.account_id=${account.id} AND y.ended_at IS NULL) AS live FROM seat s WHERE s.id=${seat.id}`,
+			)
+		).rows;
+		assert.deepEqual(ended, { ended: true, sessions: 0, live: 0 }, order);
+		const [linked] = (
+			await admin.execute(sql`SELECT linked_account_id AS account, state, stage FROM person WHERE id=${lead}`)
+		).rows;
+		assert.deepEqual(linked, { account: account.id, state: "live", stage: "leader" }, order);
+		const [stored] = (
+			await admin.execute(sql`SELECT leader_person_id AS leader, leader_source AS source FROM team WHERE id=${team.id}`)
+		).rows;
+		const history = ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries.filter(
+			(e) => e.kind === "leader_change",
+		);
+		if (history.length === 2) {
+			assert.notEqual(order, "remove first");
+			assert.deepEqual(stored, { leader: null, source: null }, order);
+			assert.equal(history[0]!.after, null);
+		} else {
+			assert.notEqual(order, "appoint first");
+			assert.equal(history.length, 1);
+			assert.deepEqual(stored, { leader: lead, source: "explicit" }, order);
+		}
+		assert.ok(!((await RequestActor.resolve(db, account.session)) instanceof RequestActor), order);
+		refused(await teamsReader.list(db, held, {}));
+	}
+});
+
 test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's dates with a reason, and the history names it", async () => {
 	const team = await makeTeam("Dates ministry");
 	const role = await makeRole(team.id, "Greeter");

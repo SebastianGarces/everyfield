@@ -37,11 +37,16 @@ type Case = {
 export const loadCases = (file: string) =>
 	(JSON.parse(readFileSync(new URL(file, import.meta.url), "utf8")) as { cases: Case[] }).cases;
 
-export function harness(db: Database, today: Date, native: NativePorts | null = null) {
-	const model = scriptedQualifiedModel();
+export function harness(
+	db: Database,
+	today: Date,
+	native: NativePorts | null = null,
+	{ model = scriptedQualifiedModel(), accessCheck = async () => {} } = {},
+) {
 	const shift = today.getTime() - Date.now();
 	const now = () => new Date(Date.now() + shift);
 	const freshActor = async (session: string) => {
+		await accessCheck();
 		const viewer = await readViewer(db, session as never);
 		return viewer?.authority ? evryActor(viewer.authority) : null;
 	};
