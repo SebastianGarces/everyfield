@@ -117,8 +117,10 @@ const AGENDA_BODY = printed(
 const TEAM = "TEAM LEAD DONE TASK OWNER TIME";
 const CHECKLIST_TEAMS = ["setup", "hospitality", "worship", "kids", "connections", "prayer"];
 
-const PRINTED: Record<string, { pages: string[]; size: [number, number]; fields: string[]; unplaced?: string[] }> = {
+const PRINTED: Record<string, { title: string; pages: string[]; size: [number, number]; fields: string[]; unplaced?: string[] }> = {
 	"CASE-DOC-004": {
+		title:
+			"AC:CASE-DOC-004 the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else",
 		pages: [printed(COMMITMENT, COMMITMENT, COMMITMENT, COMMITMENT)],
 		size: [612, 792],
 		fields: range(4).flatMap((card) =>
@@ -129,6 +131,8 @@ const PRINTED: Record<string, { pages: string[]; size: [number, number]; fields:
 		unplaced: ["pastor_name"],
 	},
 	"CASE-DOC-005": {
+		title:
+			"AC:CASE-DOC-005 the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else",
 		pages: [
 			printed(
 				"Harvest Point A new church plant. You are welcome here. Stay in touch VISION MEETING",
@@ -141,6 +145,8 @@ const PRINTED: Record<string, { pages: string[]; size: [number, number]; fields:
 		fields: ["involve_updates", "involve_group", "involve_serve", "involve_pray", "full_name", "email", "phone"],
 	},
 	"CASE-DOC-006": {
+		title:
+			"AC:CASE-DOC-006 the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else",
 		pages: [
 			printed(
 				"Harvest Point VISION MEETING Guest Sign-in Sheet",
@@ -159,6 +165,8 @@ const PRINTED: Record<string, { pages: string[]; size: [number, number]; fields:
 		unplaced: ["meeting_date", "meeting_number"],
 	},
 	"CASE-DOC-007": {
+		title:
+			"AC:CASE-DOC-007 the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else",
 		pages: [
 			printed(
 				"Harvest Point CORE GROUP · VISION MEETING Vision Meeting Agenda",
@@ -172,6 +180,8 @@ const PRINTED: Record<string, { pages: string[]; size: [number, number]; fields:
 		fields: ["meeting_time", "meeting_place", ...AGENDA_FIELDS],
 	},
 	"CASE-DOC-011": {
+		title:
+			"AC:CASE-DOC-011 the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else",
 		pages: [
 			printed(
 				"Harvest Point BOARD AND ELDERS Board and Elder Meeting Agenda",
@@ -185,6 +195,8 @@ const PRINTED: Record<string, { pages: string[]; size: [number, number]; fields:
 		fields: ["meeting_time", "meeting_place", "facilitator", ...AGENDA_FIELDS],
 	},
 	"CASE-DOC-014": {
+		title:
+			"AC:CASE-DOC-014 the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else",
 		pages: [
 			printed(
 				"Harvest Point TEAM CHECKLISTS Launch Sunday Checklists Launch Sunday · 2026-10-25",
@@ -284,7 +296,7 @@ async function generated(id: string, unplaced: string[] = []) {
 
 describe("named PDF templates", { concurrency: 1 }, () => {
 	for (const [id, approved] of Object.entries(PRINTED))
-		test(`AC:${id} the saved PDF opens with the approved text, footer and write-in fields, equals its preview and adds nothing else`, async () => {
+		test(approved.title, async () => {
 			const { bytes, result } = await generated(id, approved.unplaced);
 			assert.equal(bytes.subarray(0, 5).toString("latin1"), "%PDF-");
 			assert.deepEqual(
@@ -489,6 +501,8 @@ const marked = (mark: string, text: string): Piece => ({ pdf: `${mark} ${text}`,
 const SIGN = [label("Name"), label("Signature"), label("Date")];
 const PROSE: Record<string, { title: string; footer: string; body: Piece[] }> = {
 	"CASE-DOC-008": {
+		title:
+			"AC:CASE-DOC-008 a Church Document keeps the approved template as revision 1, and its PDF and Word files open with that revision's content",
 		title: "Expectations of a Core Group Member",
 		footer: "Harvest Point | Expectations of a Core Group Member Page 1 of 1",
 		body: [
@@ -510,6 +524,8 @@ const PROSE: Record<string, { title: string; footer: string; body: Piece[] }> = 
 		],
 	},
 	"CASE-DOC-009": {
+		title:
+			"AC:CASE-DOC-009 a Church Document keeps the approved template as revision 1, and its PDF and Word files open with that revision's content",
 		title: "Launch Team Commitment",
 		footer: "Harvest Point | Launch Team Commitment Page 1 of 1",
 		body: [
@@ -530,6 +546,8 @@ const PROSE: Record<string, { title: string; footer: string; body: Piece[] }> = 
 		],
 	},
 	"CASE-DOC-010": {
+		title:
+			"AC:CASE-DOC-010 a Church Document keeps the approved template as revision 1, and its PDF and Word files open with that revision's content",
 		title: "Vision Meeting Follow-up Letter",
 		footer: "Harvest Point | Thank You for Coming Page 1 of 1",
 		body: [
@@ -554,7 +572,7 @@ const textOf = (pieces: Piece[], format: "pdf" | "word") =>
 
 describe("named editable templates", { concurrency: 1 }, () => {
 	for (const [id, approved] of Object.entries(PROSE))
-		test(`AC:${id} a Church Document keeps the approved template as revision 1, and its PDF and Word files open with that revision's content`, async (t) => {
+		test(approved.title, async (t) => {
 			const c = caseOf(id);
 			const { template, merge_fields, request_key } = c.action.arguments;
 			const { result } = c.expected;

@@ -374,7 +374,7 @@ test("AC:CASE-DOC-015 a download of a church's own file expires five minutes aft
 	await at(OCTOBER_13);
 	const c = caseOf("CASE-DOC-015");
 	const denied = caseOf("CASE-DOC-015", "foreign-download-denied");
-	const { issued_at, TTL_seconds } = c.given["behavior-inputs"];
+	const { TTL_seconds } = c.given["behavior-inputs"];
 	const bytes = Buffer.from(c.given.D.bytes_utf8);
 	const D = randomUUID();
 	const object = randomUUID();
