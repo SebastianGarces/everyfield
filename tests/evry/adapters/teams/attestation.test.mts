@@ -306,7 +306,7 @@ test("AC:SME53-005 AC:SME53-006 AC:SME53-008 AC:SME53-009 Evry shows no candidat
 		read("teams.personTraining", { personId: ids.alex }),
 		read("teams.trainingHistory", { personId: ids.alex }),
 	]);
-	assert.deepEqual(person.reads, ["teams.personTraining", "teams.trainingHistory"]);
+	assert.deepEqual(person.reads.sort(), ["teams.personTraining", "teams.trainingHistory"]);
 	assert.ok(person.results.includes("Alex Attested"));
 	for (const word of ["Seen at every gathering", "candidate", "ready"])
 		assert.equal(person.results.includes(word), false, word);
@@ -354,7 +354,7 @@ test("AC:SME53-009 an organization's Evry reads no person evidence, and the chec
 		assert.equal(theirs.results.includes(word) || prompts.join("").includes(word), false, word);
 	prompts.splice(0);
 	const mine = await nothing(() => ask(calls));
-	assert.deepEqual(mine.reads, ["teams.trainingMatrix", "teams.trainingHistory", "signals.getHistory"]);
+	assert.deepEqual(mine.reads.sort(), ["signals.getHistory", "teams.trainingHistory", "teams.trainingMatrix"]);
 	assert.ok(mine.results.includes("Alex Attested"));
 	assert.ok(prompts.length > 0);
 	for (const word of [CARE, "struggling", "private_week"])
