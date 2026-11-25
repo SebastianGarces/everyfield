@@ -49,6 +49,7 @@
 	"tests/integration/flags/*.test.mts",
 	"tests/integration/target/sql/core/*.test.mts",
 	"tests/integration/target/sql/knowledge/*.test.mts",
+	"tests/integration/target/wp-056/*.test.mts",
 	"packages/domain/test/requests.test.ts",
 	"tests/reference/releases/*.db.mts",
 	"tests/reference/starter/*.db.mts"

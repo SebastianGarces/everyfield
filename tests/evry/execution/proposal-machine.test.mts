@@ -196,6 +196,7 @@ const staleEffect = async (p: Walk) => {
 	);
 };
 const stalePerson = () => admin.execute(sql`UPDATE person SET revision=revision+1 WHERE id=${people.casey}`);
+const endSession = (p: Walk) => admin.execute(sql`UPDATE proposal SET approved_session_id=NULL WHERE id=${p.id}`);
 const staleMove = () => admin.execute(sql`UPDATE pipeline_person SET revision=revision+1 WHERE id=${pipelinePerson}`);
 
 async function expect(p: Walk, event: string, value?: unknown) {
@@ -234,7 +235,7 @@ async function reach(subject: string, state: string, { claimed = false } = {}): 
 			if (queued) {
 				await approve();
 				await claimFor(p);
-				await stalePerson();
+				await endSession(p);
 				await expect(p, EXECUTE, "refused");
 			} else {
 				await staleMove();
@@ -315,7 +316,8 @@ test("INV-machine: an Evry proposal's state and outcome follow their declared tr
 			const p = await reach(subject, edge.from, { claimed: edge.event === EXECUTE });
 			if (facts.lapsed) await lapse(p);
 			if (edge.event === "evry.retryUnresolvedEffects" && edge.from === "approved") await staleEffect(p);
-			if (edge.event === EXECUTE && edge.to === "approved_refused") await stalePerson();
+			if (edge.event === EXECUTE && edge.to === "approved_refused") await endSession(p);
+			if (edge.event === EXECUTE && edge.to === "pending") await stalePerson();
 			if (subject === "now" && edge.event === APPROVE) await approveFailingMove(p);
 			else await expect(p, edge.event);
 			assert.equal(keyOf(await stored(p.id)), edge.to, label);

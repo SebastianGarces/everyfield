@@ -313,10 +313,16 @@ test("AC:INH-REGRESSION-REVOKED-SEAT AC:SEC-02 AC:B03-036 AC:SEC-12 INV-tenancy:
 			"access_denied",
 		],
 		[
-			"person changed since the review",
-			() => admin.execute(sql`UPDATE person SET city='Elgin',revision=revision+1 WHERE id=${people.alexChen}`),
-			async () => undefined,
-			"revision_conflict",
+			"person retired since the review",
+			() =>
+				admin.execute(
+					sql`UPDATE person SET state='retired',retired_at=clock_timestamp(),revision=revision+1 WHERE id=${people.alexChen}`,
+				),
+			() =>
+				admin.execute(
+					sql`UPDATE person SET state='live',retired_at=NULL,revision=revision+1 WHERE id=${people.alexChen}`,
+				),
+			"access_denied",
 		],
 	];
 	for (const [name, change, restore, code] of cases) {

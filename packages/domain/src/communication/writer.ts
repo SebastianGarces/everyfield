@@ -25,6 +25,7 @@ import {
 	optedOutAtSql,
 	recipientsDigest,
 	reviewedParts,
+	childSql,
 	routedNameListSql,
 	storedAudiencePeople,
 	summarizeAudience,
@@ -870,6 +871,7 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 				sql`SELECT coalesce((
 					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', nullif(btrim(email), ''),
 						'unsubscribedAt', ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`found.id`)},
+						'child', ${childSql(sql`${reader.plantId}::uuid`, sql`found.id`)},
 						'guardians', ${routedNameListSql(sql`${reader.plantId}::uuid`, sql`found.id`)}))
 					FROM (
 						SELECT id, display_name, email FROM person
@@ -890,6 +892,7 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 					displayName: z.string(),
 					email: z.string().nullable(),
 					unsubscribedAt: z.string().nullable(),
+					child: z.boolean(),
 					guardians: z.array(z.string()),
 				}),
 			),

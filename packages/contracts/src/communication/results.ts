@@ -109,6 +109,7 @@ export const recipientResult = z.strictObject({
 				displayName: z.string(),
 				email: z.string().nullable(),
 				unsubscribedAt: instant.nullable(),
+				child: z.boolean(),
 				guardians: z.array(z.string()),
 			}),
 		)

@@ -618,9 +618,9 @@ test("AC:TARGET-TEAM-006 a ministry's history shows its own role changes, and no
 		[
 			["retire", "role", { personName: null, roleName: "Lead greeter" }, "Synthetic"],
 			["assign", "tenure", { personName: "Casey Roles", roleName: "Lead greeter" }, "Synthetic"],
-			["remove", "ministry", null, "Synthetic"],
+			["remove", "ministry", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
 			["assign", "tenure", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
-			["remove", "ministry", null, "Synthetic"],
+			["remove", "ministry", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
 			["edit", "role", { personName: null, roleName: "Lead greeter" }, "Synthetic"],
 			["assign", "tenure", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
 			["create", "role", { personName: null, roleName: "Greeter" }, "Synthetic"],

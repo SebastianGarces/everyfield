@@ -162,13 +162,19 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
   jsonb_build_object('phase',m.to_phase),f.revision,coalesce((SELECT revision FROM bumped),f.revision),${q.requestKey},
   ${JSON.stringify(identity)}::jsonb,(SELECT v FROM answer),jsonb_build_object('transitionId',m.id,'kind',m.kind)
   FROM step m, fit f),
+ told AS MATERIALIZED (SELECT ac.id FROM account ac
+  WHERE EXISTS(SELECT FROM step m WHERE m.kind='movement' AND m.to_phase>m.from_phase)
+  AND ac.id IN (SELECT s.account_id FROM affiliation a JOIN seat s ON s.organization_id=a.organization_id
+   AND s.role IN ('owner','admin') AND s.ended_at IS NULL WHERE a.plant_id=${scope.plantId}::uuid AND a.ended_at IS NULL)
+  ORDER BY ac.id FOR KEY SHARE OF ac),
+ links AS MATERIALIZED (SELECT a.organization_id FROM affiliation a
+  WHERE (SELECT count(*) FROM told)>0 AND a.plant_id=${scope.plantId}::uuid AND a.ended_at IS NULL
+  AND a.accepted_at<=clock_timestamp() ORDER BY a.id FOR SHARE OF a),
  recipients AS (SELECT DISTINCT o.id AS "organizationId",o.kind AS "organizationKind",s.account_id AS "accountId",
-  ac.email AS address FROM step m
-  JOIN affiliation a ON a.plant_id=m.plant_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
+  ac.email AS address FROM links a
   JOIN organization o ON o.id=a.organization_id
   JOIN seat s ON s.organization_id=o.id AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-  CROSS JOIN LATERAL access_account_contact(s.account_id) ac
-  WHERE m.kind='movement' AND m.to_phase>m.from_phase)
+  CROSS JOIN LATERAL access_account_contact(s.account_id) ac)
  SELECT (SELECT ok FROM gate) AS ok,(SELECT v FROM answer) AS result,(SELECT to_jsonb(prior) FROM prior) AS prior,
   (SELECT name FROM cur) AS plant_name,
   coalesce((SELECT jsonb_agg(to_jsonb(r)) FROM recipients r),'[]') AS recipients`);

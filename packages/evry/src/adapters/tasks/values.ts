@@ -15,4 +15,4 @@ export const dueOf = (value: string | null | undefined) =>
 		? ({ kind: "undated" } as const)
 		: value.length === 10
 			? ({ kind: "local_date", date: value } as const)
-			: ({ kind: "resolved_instant", local: value } as const);
+			: ({ kind: "resolved_instant", local: `${value}:00` } as const);

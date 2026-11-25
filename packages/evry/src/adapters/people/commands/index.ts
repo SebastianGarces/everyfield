@@ -15,7 +15,7 @@ import {
 } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { savedRevision, type EffectResult, type ReviewedWrite } from "../../../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { PEOPLE_RECORD_COMMANDS } from "./records.ts";
@@ -42,6 +42,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 	input: z.ZodType<I>;
 	review: ReviewedWrite<I>["review"];
 	request: R;
+	again?(args: unknown): I;
 	run(
 		tx: WriteTx,
 		context: PeopleContext,
@@ -55,6 +56,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
+		...(spec.again && { again: spec.again }),
 		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
 			const request = spec.request.parse({ ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			const reply = await spec.run(tx, context, request, ports.reminders);
@@ -94,11 +96,12 @@ const createPerson = reviewed({
 
 const patch = updatePersonRequest.shape.input.shape.patch.refine((p) => Object.keys(p).length > 0, "empty patch");
 const columns = new Map<string, string>(Object.entries(contactColumns));
+const updatePersonInput = z.strictObject({ personId, patch });
 const updatePerson = reviewed({
 	operation: "people.updatePerson",
 	description:
 		"Propose a change to one person's name, contact, address, source, notes or birth date. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ personId, patch }),
+	input: updatePersonInput,
 	review(actor, value) {
 		const changes = Object.entries(value.patch).map(([field, after], n) => {
 			const col = columns.get(field);
@@ -111,16 +114,21 @@ const updatePerson = reviewed({
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'patch',${JSON.stringify(value.patch)}::jsonb)) AS args
 			${target(actor, value.personId)}`;
 	},
+	again: (args) => updatePersonInput.parse(savedRevision.parse(args).input),
 	request: updatePersonRequest,
 	run: async (tx, context, request) => personReceipt(await peopleWriter.updatePerson(tx, context, request)),
 });
 
 const core = sql`('core_group','launch_team','leader')`;
+const changeStatusInput = z.strictObject({ personId, stage: changeStatusRequest.shape.input.shape.stage, reason });
+const storedStatus = changeStatusInput
+	.extend({ handoffs: changeStatusRequest.shape.input.shape.handoffs })
+	.transform(({ personId: id, stage, reason: why }) => ({ personId: id, stage, reason: why }));
 const changeStatus = reviewed({
 	operation: "people.changeStatus",
 	description:
 		"Propose moving one person to another pipeline stage, with the reason. Leaving the core stages hands their open tasks back as needing an owner. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ personId, stage: changeStatusRequest.shape.input.shape.stage, reason }),
+	input: changeStatusInput,
 	async review(actor, value, context) {
 		const found = await gatedTransaction(context.db, (tx) => stageWarnings(tx, actor, value.personId));
 		const lines = found ? moveWarningLines(moveWarnings(found.person.stage, value.stage, found.warnings)) : [];
@@ -132,6 +140,7 @@ const changeStatus = reviewed({
 			FROM person p CROSS JOIN LATERAL (SELECT ${handoffs} AS handoffs) h
 			WHERE p.id=${value.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
+	again: (args) => storedStatus.parse(savedRevision.parse(args).input),
 	request: changeStatusRequest,
 	run: async (tx, context, request, reminders) =>
 		personReceipt(await peopleWriter.changeStatus(tx, context, request, reminders)),

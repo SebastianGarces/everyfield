@@ -465,3 +465,33 @@ test("a draft that a merge made stale says so and offers the one way forward it 
 	const { text } = await shown(reviewed("communication.scheduleReviewed", [], changed));
 	assert.ok(text.includes("Message changed") && text.includes("This message changed since the review."), text);
 });
+
+test("INV-evry-collision: a draft whose record was saved first shows the old, saved and drafted value of each field and asks for approval again", async () => {
+	const target = { kind: "person", id: ID, label: "Casey Reed" };
+	const seed = reviewed(
+		"people.updatePerson",
+		[change("city", "Austin", "Elgin"), change("phone", "555-0101", "555-0100")],
+		{
+			revision: 2,
+			review: {
+				target,
+				changes: [change("city", "Austin", "Elgin"), change("phone", "555-0101", "555-0100")],
+				earlier: [change("city", "Austin", "Chicago"), change("phone", "555-0101", "555-0100")],
+			},
+		},
+	);
+	const { text } = await shown(seed);
+	assert.match(
+		text,
+		/Someone saved Casey Reed after Evry prepared this, so nothing was changed\. Compare Evry's draft with the saved version, then approve again\./,
+	);
+	assert.match(text, /City\s*Changed since the draft\s*Before\s*Chicago\s*Saved now\s*Elgin\s*Evry's draft\s*Austin/);
+	assert.match(text, /Phone\s*Not changed since the draft\s*Saved now\s*555-0100\s*Evry's draft\s*555-0101/);
+	assert.match(text, /Approve/);
+	const { text: same } = await shown({
+		...seed,
+		review: { target, changes: [], earlier: [change("city", "Austin", "Chicago")] },
+	} as never);
+	assert.match(same, /it already has these values/);
+	assert.match(same, /City\s*Already saved/);
+});

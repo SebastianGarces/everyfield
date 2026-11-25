@@ -57,6 +57,7 @@ export const change = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("task_completed"), taskId: recordId, title: z.string() }),
 	z.strictObject({ kind: z.literal("launch_date"), event: launchDateEvent, date: localDate.nullable() }),
 	z.strictObject({ kind: z.literal("launch_recorded"), date: localDate.nullable() }),
+	z.strictObject({ kind: z.literal("launch_corrected"), date: localDate.nullable() }),
 	z.strictObject({ kind: z.literal("phase_changed"), phase: phaseNumber }),
 ]);
 export type Change = z.infer<typeof change>;

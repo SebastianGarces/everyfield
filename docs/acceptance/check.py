@@ -336,6 +336,55 @@ def run_errors(root, case, label):
     return [f'{label}: {path} does not run AC:{case["id"]}' for path in tests
             if not (root / path).is_file() or f'AC:{case["id"]} ' not in (root / path).read_text()]
 
+RELEASE_EXCEPTIONS = 'docs/acceptance/release-exceptions.json'
+EXCEPTION_PACKAGES = {'WP-057', 'WP-058', 'WP-094', 'WP-095', 'WP-096'}
+
+
+def release_check(root):
+    """Every selected case is run. A case leaves the selection only through a listed exception."""
+    index = read(root / 'docs/catalog/index.json')
+    files = {file: read(root / file)['cases'] for file in index['case_files']}
+    status = {case['id']: case.get('status') for cases in files.values() for case in cases}
+    path = root / RELEASE_EXCEPTIONS
+    listed = read(path)['exceptions'] if path.is_file() else []
+    errors = []
+    excepted = set()
+    for entry in listed:
+        cid = entry.get('id')
+        label = f'{RELEASE_EXCEPTIONS}: {cid or "<missing-id>"}'
+        if cid not in status:
+            errors.append(f'{label}: unknown case')
+        elif status[cid] == 'run':
+            errors.append(f'{label}: the case is run, so remove its exception')
+        if cid in excepted:
+            errors.append(f'{label}: listed twice')
+        if entry.get('package') not in EXCEPTION_PACKAGES:
+            errors.append(f'{label}: package must be one of {", ".join(sorted(EXCEPTION_PACKAGES))}')
+        reason = entry.get('reason')
+        if not isinstance(reason, str) or not reason.strip() or '\n' in reason:
+            errors.append(f'{label}: needs a one-line reason')
+        excepted.add(cid)
+    total = defaultdict(int)
+    for file, cases in files.items():
+        counts = {'run': 0, 'not run': 0, 'excepted': 0}
+        for case in cases:
+            cid = case['id']
+            if case.get('status') == 'run':
+                counts['run'] += 1
+            elif cid in excepted:
+                counts['excepted'] += 1
+            else:
+                counts['not run'] += 1
+                errors.append(f'{file}:{cid}: selected case is {case.get("status")}, not run')
+        for key, value in counts.items():
+            total[key] += value
+        print(f'{file}: {len(cases) - counts["excepted"]} selected, {counts["run"]} run, '
+              f'{counts["not run"]} not run, {counts["excepted"]} excepted')
+    print(f'Total: {total["run"] + total["not run"]} selected, {total["run"]} run, '
+          f'{total["not run"]} not run, {total["excepted"]} excepted')
+    return errors
+
+
 def check(root, package=None, report=None):
     index = read(root / 'docs/catalog/index.json')
     schema = read(root / 'docs/acceptance/case.schema.json')
@@ -458,8 +507,18 @@ def main():
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--package', help='Fail on runnable-case defects for this package at closure')
     parser.add_argument('--report', type=Path, help='Write detailed findings and coverage for every package')
+    parser.add_argument('--release', action='store_true',
+                        help='Fail on every selected case that is not run, and print counts per file')
     args = parser.parse_args()
     try:
+        if args.release:
+            unrun = release_check(args.root)
+            if unrun:
+                print('\n'.join(unrun), file=sys.stderr)
+                print(f'FAIL: {len(unrun)} release findings.', file=sys.stderr)
+                return 1
+            print('PASS: every selected acceptance case is run.')
+            return 0
         errors, cases = check(args.root, args.package, args.report)
     except (ValueError, KeyError, OSError) as error:
         print(f'FAIL: {error}', file=sys.stderr)

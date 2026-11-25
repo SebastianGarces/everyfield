@@ -465,7 +465,9 @@ test("INV-evry-planter: a restore or an adult or child status through Evry store
 	}
 	const pending = await propose(owner, "people.recordAdultClassification", { personId: fresh, ...adult });
 	await admin.execute(sql`UPDATE person SET birth_date='2015-01-01',revision=revision+1 WHERE id=${fresh}`);
-	assert.equal((await approve(owner, pending!)).outcome, "refused", "a birth date saved since the card");
+	const again = await approve(owner, pending!);
+	assert.equal(again.outcome, "reviewing", "a birth date saved since the card");
+	assert.match(again.review.review.refusal ?? "", /^Fresh Twin's birth date decides adult or child/);
 	for (const operation of ["people.recordAdultClassification", "people.correctAdultClassification"])
 		await refused(owner, operation, { personId: fresh, ...adult }, /^Fresh Twin's birth date decides adult or child/);
 	assert.equal((await stored(fresh)).person!.adult_classification, "unknown");

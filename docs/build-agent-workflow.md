@@ -29,6 +29,13 @@ explain full coverage and name the packages it closes. A package closes only aft
 direct prerequisites are done and owned acceptance cases and case actions pass their checks. File presence or
 successful scaffold checks never establish application acceptance.
 
+`python3 docs/acceptance/check.py --release` is the release check. It prints the selected, run, not-run and excepted
+counts of each case file and fails, naming each one, on a selected case that is not `run`. Every case is selected unless
+[`release-exceptions.json`](acceptance/release-exceptions.json) lists its ID with the package that proves it (WP-094,
+WP-095, WP-096, WP-057 or WP-058) and a one-line reason why only a browser, file parity or a fresh bootstrap can prove
+it. An exception for a case that is `run` fails too. The check reports for now: `docs/check-all.py` does not run it
+until the last WP-056 slice lands.
+
 WP-097 keeps the owner's 2026-10-14 fast-track history in the frozen record, with its commit, checks, independent review
 and owner go-live references. Preserve that evidence.
 

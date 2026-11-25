@@ -178,6 +178,17 @@
 			"derivation": "A Member gets no recipient search."
 		},
 		{
+			"id": "COM-RC-04",
+			"criteria": [6],
+			"operation": "communication.searchRecipients",
+			"actor": "owner",
+			"ask": "can I email Mateo Rivera?",
+			"calls": ["communication.searchRecipients"],
+			"answer": ["/^- Mateo Rivera: marked as a child, so no email goes to them$/m"],
+			"absent": ["/can get email/"],
+			"derivation": "Mateo Rivera is recorded as a child with no parent or guardian contact, so every email leaves them out."
+		},
+		{
 			"id": "COM-SP-01",
 			"criteria": [7],
 			"operation": "mail.suppression.listForSelf",
