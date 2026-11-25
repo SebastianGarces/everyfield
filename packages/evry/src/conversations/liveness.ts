@@ -17,6 +17,30 @@ export const articleLive = (id: SQL, plant: SQL) =>
 			WHERE wiki_e.current_revision_id=wiki_r.id AND wiki_e.organization_id=wiki_r.tenant_id AND wiki_e.state='published'
 				AND wiki_f.plant_id=${plant} AND wiki_f.ended_at IS NULL AND wiki_f.share_wiki)))`;
 
+export const namesEndedLink = (text: SQL, tenant: SQL) =>
+	sql`EXISTS(SELECT FROM affiliation el LEFT JOIN plant ep ON ep.id=el.plant_id LEFT JOIN organization eo ON eo.id=el.sending_church_id
+		WHERE el.organization_id=${tenant} AND el.ended_at IS NOT NULL
+			AND NOT EXISTS(SELECT FROM affiliation al WHERE al.organization_id=${tenant} AND al.ended_at IS NULL
+				AND coalesce(al.plant_id,al.sending_church_id)=coalesce(el.plant_id,el.sending_church_id))
+			AND (position(coalesce(ep.id,eo.id)::text IN ${text})>0 OR position(coalesce(ep.name,eo.name) IN ${text})>0))`;
+const SHOWS: [field: string, category: string][] = [
+	["health", "shared_findings"],
+	["concerns", "shared_findings"],
+	["findings", "shared_findings"],
+	["people", "share_people"],
+	["tasks", "share_tasks"],
+	["meetings", "share_meetings"],
+	["ministryTeams", "share_ministry_teams"],
+];
+const linkedItem = (row: SQL, tenant: SQL) =>
+	sql`(NOT ${namesEndedLink(sql`${row}::text`, tenant)} AND NOT EXISTS(SELECT FROM affiliation il
+		WHERE il.organization_id=${tenant} AND il.ended_at IS NULL AND il.plant_id::text=${row}->>'id' AND (${sql.join(
+			SHOWS.map(
+				([field, category]) => sql`(${row}->'fields'->>${field}<>'Not shared' AND NOT il.${sql.raw(category)})`,
+			),
+			sql` OR `,
+		)})))`;
+
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	person: (id, plant) =>
 		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND coalesce(p.plant_id,p.organization_id)=${plant} AND p.state='live')`,
@@ -90,6 +114,10 @@ export function rowLive(row: SQL, plant: SQL, account: SQL): SQL {
 	return sql`(CASE (${row}->>'kind') ${sql.join(branches, sql` `)} ELSE true END)`;
 }
 
+export function rowUsable(row: SQL, tenant: SQL, account: SQL): SQL {
+	return sql`(CASE WHEN ${row}->>'kind'='item' THEN ${linkedItem(row, tenant)} ELSE ${rowLive(row, tenant, account)} END)`;
+}
+
 export async function liveRowKeys(
 	db: Pick<Database, "execute">,
 	actor: EvryActor,
@@ -97,9 +125,9 @@ export async function liveRowKeys(
 ): Promise<Set<string>> {
 	if (!rows.length) return new Set();
 	const r = await db.execute(sql`
-		SELECT r.key FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(kind text,id text)
-		CROSS JOIN LATERAL (SELECT x.kind||':'||x.id AS key, jsonb_build_object('kind',x.kind,'id',x.id) AS j) r
-		WHERE ${rowLive(sql`r.j`, sql`${actor.owner.id}::uuid`, sql`${actor.accountId}::uuid`)}
+		SELECT r.key FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(kind text,id text,label text,fields jsonb)
+		CROSS JOIN LATERAL (SELECT x.kind||':'||x.id AS key, to_jsonb(x) AS j) r
+		WHERE ${rowUsable(sql`r.j`, sql`${actor.owner.id}::uuid`, sql`${actor.accountId}::uuid`)}
 			AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`);
 	return new Set(r.rows.map((raw) => String((raw as { key: string }).key)));
 }

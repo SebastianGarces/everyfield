@@ -27,8 +27,9 @@ let theirs: Record<"agenda" | "policy", Seeded>;
 before(async () => {
 	await setup();
 	docs = {
-		coreValues: await seedDocument(plant, "core_values", "Our Core Values", "We pray first.\nWe make room.", 30),
+		coreValues: await seedDocument(admin, plant, "core_values", "Our Core Values", "We pray first.\nWe make room.", 30),
 		september: await seedDocument(
+			admin,
 			plant,
 			"native",
 			"Vision Meeting Agenda - September",
@@ -36,19 +37,27 @@ before(async () => {
 			20,
 		),
 		october: await seedDocument(
+			admin,
 			plant,
 			"native",
 			"Vision Meeting Agenda - October",
 			"6:00 PM Kids' activity\n6:50 PM Worship and testimony",
 			10,
 		),
-		draft: await seedDocument(plant, "native", "Values Draft", "Prayer comes before planning.", 5),
-		empty: await seedDocument(plant, "native", "Blank Page", "", 4),
-		policy: await seedDocument(plant, "church_document", "Conflict of Interest Policy", null, 2),
+		draft: await seedDocument(admin, plant, "native", "Values Draft", "Prayer comes before planning.", 5),
+		empty: await seedDocument(admin, plant, "native", "Blank Page", "", 4),
+		policy: await seedDocument(admin, plant, "church_document", "Conflict of Interest Policy", null, 2),
 	};
 	theirs = {
-		agenda: await seedDocument(otherPlant, "native", "Vision Meeting Agenda - Theirs", "7:00 PM Their welcome", 3),
-		policy: await seedDocument(otherPlant, "church_document", "Their Policy", null, 3),
+		agenda: await seedDocument(
+			admin,
+			otherPlant,
+			"native",
+			"Vision Meeting Agenda - Theirs",
+			"7:00 PM Their welcome",
+			3,
+		),
+		policy: await seedDocument(admin, otherPlant, "church_document", "Their Policy", null, 3),
 	};
 });
 
