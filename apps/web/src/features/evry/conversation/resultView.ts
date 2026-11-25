@@ -2597,7 +2597,13 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 					f.draft ? "Draft in progress" : null,
 				);
 			if (f.part === "candidate") return "Can be enrolled";
-			if (f.part === "enrollment") return joined(text(f.cohort), text(f.stage), `Version ${String(f.version)}`);
+			if (f.part === "enrollment")
+				return joined(
+					text(f.cohort),
+					text(f.stage),
+					`Version ${String(f.version)}`,
+					f.status === "Active" ? null : text(f.status),
+				);
 			if (f.progress) return text(f.progress);
 			if (f.part === "stage" && f.minMonths === undefined)
 				return joined(`Version ${String(f.version)}`, f.current ? "Current stage" : "Stage");

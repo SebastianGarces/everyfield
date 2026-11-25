@@ -118,6 +118,8 @@ milestones. OVS-33 to OVS-44 do the same for sending churches, how a plant chang
 rating; INT-13 to INT-19 for past assessments, where to start and the asker's own ratings; SET-35 to SET-38 for the
 reporting Region. `tests/evry/adapters/{pipeline,oversight,intelligence/reads,settings}` hold each tool's comparison with
 its native command and every refusal. The recorded suites leave these tools out too.
+NET-21 to NET-27 (T-646) end an enrollment as Completed or Withdrawn, with an unclear outcome, person or program, for a
+seat that does not direct it, and one that has already ended.
 
 ## The Wiki meaning suite (scripted model, fixed vectors)
 

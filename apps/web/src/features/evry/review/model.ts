@@ -952,7 +952,7 @@ export function savedText(review: Review): string {
 	const who = review.review.target?.label;
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
 	const own = OWN_SAVED[review.operation];
-	if (own) return `Saved. ${own(who ?? "This person")}`;
+	if (own) return `Saved. ${own(who ?? "This person", review.review.changes)}`;
 	if (review.operation === "documents.generate") return `Saved. The ${who ?? "template"} file is made.`;
 	if (review.operation === "people.restorePerson") return `Saved. ${who ?? "This person"} is back in People.`;
 	if (review.operation === "launch.saveDebriefDraft" || review.operation === "launch.saveDebriefSummaryDraft")
@@ -1010,11 +1010,14 @@ export function savedText(review: Review): string {
 	}
 }
 
-const OWN_SAVED: Partial<Record<Operation, (who: string) => string>> = {
+const OWN_SAVED: Partial<Record<Operation, (who: string, changes: readonly Change[]) => string>> = {
 	"pipeline.saveGoal": () => "The sending goal is on your Pipeline page.",
 	"pipeline.saveStages": () => "The pipeline stages are updated. No person moved.",
 	"development.enroll": (who) => `${who} is enrolled.`,
-	"development.updateEnrollment": (who) => `${who}'s enrollment is updated.`,
+	"development.updateEnrollment": (who, changes) => {
+		const ended = changes.find((c) => c.field === "status")?.after;
+		return ended ? `${who}'s enrollment has ended as ${String(ended)}.` : `${who}'s enrollment is updated.`;
+	},
 	"development.applyVersion": (who) => `${who} is on the current version.`,
 	"development.confirmMilestone": (who) => `${who}'s milestone is confirmed.`,
 	"development.completeMilestone": (who) => `${who}'s milestone is recorded as finished.`,
@@ -1271,6 +1274,10 @@ const TITLE: Record<Operation, string> = {
 	"venues.restore": "Restore a venue",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
+export const reviewTitle = (review: Pick<Review, "operation" | "review">) =>
+	review.operation === "development.updateEnrollment" && review.review.changes.some((c) => c.field === "status")
+		? "End an enrollment"
+		: operationTitle(review.operation);
 
 const MERGE_FACTS = new Set([
 	"keeps",
@@ -1997,6 +2004,8 @@ export function pipelineRefusalText(
 	switch (code) {
 		case "stale_review":
 			return `${who ?? "This person"}'s enrollment or the program's version changed after Evry prepared this, so nothing was applied. Ask Evry to prepare it again.`;
+		case "enrollment_ended":
+			return `${who ?? "This person"}'s enrollment has already ended, so nothing was saved.`;
 		case "already_enrolled":
 			return `${who ?? "This person"} is already enrolled in this program, so nothing was saved.`;
 		case "not_published":

@@ -278,6 +278,7 @@ export const pipelineRemovalReport = z.strictObject({
 		notes: count,
 		conversations: count,
 		enrollments: count,
+		withdrawnEnrollments: count,
 		milestoneMarks: count,
 		feedback: count,
 		residencyLinkEnded: z.boolean(),

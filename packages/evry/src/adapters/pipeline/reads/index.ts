@@ -10,6 +10,7 @@ import {
 	readPrograms,
 } from "@everyfield/domain/organizations";
 import {
+	ENROLLMENT_STATUS,
 	goalHeadline,
 	STARTER_STAGES,
 	type EnrollmentDetail,
@@ -162,7 +163,7 @@ const finishedText = (m: EnrollmentDetail["milestones"][number], detail: Enrollm
 			? "Progress not shared"
 			: "Not finished";
 	if (c.confirmedOn === null)
-		return `Waiting for confirmation, ${c.recorder ?? detail.person.name} marked it done ${dayText(c.completedOn)}`;
+		return `${detail.status === "active" ? "Waiting for confirmation" : "Not confirmed"}, ${c.recorder ?? detail.person.name} marked it done ${dayText(c.completedOn)}`;
 	return `Finished ${dayText(c.completedOn)}`;
 };
 
@@ -221,7 +222,7 @@ export const readProgram = {
 					cohort: e.cohort,
 					startedOn: e.startedOn,
 					expectedEndOn: e.expectedEndOn,
-					status: e.status,
+					status: ENROLLMENT_STATUS[e.status],
 					stage: e.stage.label,
 					nextMeeting: e.nextMeeting ? `${localWhenText(e.nextMeeting.at)} (${e.nextMeeting.timezone})` : null,
 					account: e.resident.status === "linked" ? "Linked" : "Not linked",
@@ -259,7 +260,7 @@ export const readProgram = {
 						fields: {
 							part: "enrollment",
 							cohort: e.cohort,
-							status: e.status,
+							status: ENROLLMENT_STATUS[e.status],
 							stage: e.stage,
 							version: e.versionNumber,
 						},

@@ -377,7 +377,38 @@ const APPLY = new RegExp(String.raw`\bapply the (?:new|current) version of the (
 const CONFIRM = new RegExp(String.raw`\bconfirm ${NAME}['’]s milestone ${QUOTED} in the (.+?)\s*[.!]?$`, "i");
 const RECORD = new RegExp(String.raw`\brecord that ${NAME} finished ${QUOTED} in the (.+?) on ${DAY}`, "i");
 
-type Asked = { program: string; person: string; operation: string | null; input(e: Output): object | string };
+const END_AS = new RegExp(
+	String.raw`\b(?:[Mm]ark|[Ee]nd) ${NAME}(?:['’]s enrollment)?(?: in the (.+?))? as (completed|withdrawn)\s*[.!]?$`,
+);
+const ENDED = new RegExp(
+	String.raw`(?:^|[.,] |\band )${NAME} (?:has )?(finished|completed|dropped out of|withdrew from) the (.+?)\s*[.!]?$`,
+);
+const LEFT = new RegExp(String.raw`(?:^|[.,] |\band )${NAME} (?:has )?(dropped out|withdrew)\s*[.!]?$`);
+const END_OPEN = new RegExp(String.raw`\b[Ee]nd ${NAME}['’]s enrollment in the (.+?)\s*[.!]?$`);
+
+type Asked = {
+	program: string | null;
+	person: string;
+	operation: string | null;
+	ends?: true;
+	input(e: Output): object | string;
+};
+function askedEnd(t: string): Asked | null {
+	const as = END_AS.exec(t);
+	const said = ENDED.exec(t) ?? LEFT.exec(t);
+	const open = as ? null : END_OPEN.exec(t);
+	const m = as ?? said ?? open;
+	if (!m) return null;
+	const words = as?.[3] ?? said?.[2];
+	return {
+		person: captured(m, 1),
+		program: (as ? as[2] : said ? said[3] : open?.[2]) ?? null,
+		operation: "development.updateEnrollment",
+		ends: true,
+		input: () =>
+			words ? { outcome: /^(finished|completed)/.test(words) ? "completed" : "withdrawn" } : PIPELINE_RULES.unclearEnd,
+	};
+}
 function askedEnrollment(t: string): Asked | null {
 	const m = (r: RegExp) => r.exec(t);
 	const progress = m(PROGRESS);
@@ -437,7 +468,8 @@ function askedEnrollment(t: string): Asked | null {
 		changes(STAGE, (x, e) => {
 			const stage = rows(e, "stage").find((r) => same(r.label, captured(x, 3)));
 			return stage ? { stageId: stage.id } : `That version has no stage called ${captured(x, 3)}.`;
-		})
+		}) ??
+		askedEnd(t)
 	);
 }
 
@@ -452,6 +484,12 @@ function programStep(t: Turn): Step {
 	const outs = t.all("development.readProgram");
 	const list = outs.find((o) => !o.facts?.programId);
 	if (!list) return read({});
+	if (asked && asked.program === null)
+		return say(
+			`Which program? ${text(list.facts?.organization)} has ${rows(list, "program")
+				.map((r) => r.label)
+				.join(", ")}. Nothing was prepared.`,
+		);
 	const hint = enroll ? captured(enroll, 2) : (asked?.program ?? "");
 	const program = rows(list, "program").find((r) => holds(`${r.label} ${text(r.fields.kind)}`, hint));
 	if (!program)
@@ -479,6 +517,11 @@ function programStep(t: Turn): Step {
 	if (!asked) return null;
 	const enrollment = named("enrollment");
 	if (!enrollment) return say(`I can't see an enrollment for ${who} in ${program.label}.`);
+	const alike = rows(detail, "enrollment").filter(
+		(r) => r.fields.status === "Active" && r.label.toLowerCase().startsWith(who.toLowerCase()),
+	);
+	if (asked.ends && alike.length > 1)
+		return say(`Which person: ${alike.map((r) => r.label).join(" or ")}? Nothing was prepared.`);
 	const e = outs.find((o) => o.facts?.enrollmentId);
 	if (!e) return read({ enrollmentId: enrollment.id });
 	if (!asked.operation)
@@ -491,6 +534,10 @@ function programStep(t: Turn): Step {
 	if (e.facts?.directedByYou !== true)
 		return say(
 			`${PIPELINE_RULES.enrollmentDirectorOnly} ${program.label} is directed by ${text(e.facts?.director)}, so I prepared nothing.`,
+		);
+	if (asked.ends && e.facts.status !== "Active")
+		return say(
+			`${enrollment.label}'s enrollment in ${program.label} has ended as ${text(e.facts.status)}. Nothing was prepared.`,
 		);
 	const input = asked.input(e);
 	return typeof input === "string" ? say(input) : propose(asked.operation, { enrollmentId: enrollment.id, ...input });

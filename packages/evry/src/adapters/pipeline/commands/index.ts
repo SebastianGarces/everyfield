@@ -1,6 +1,9 @@
 import { counted, dayText } from "@everyfield/contracts/common";
 import { sql } from "@everyfield/db/query";
 import {
+	ENROLLMENT_END_NOTES,
+	ENROLLMENT_STATUS,
+	enrollmentOutcome,
 	enrollRequest,
 	goalCount,
 	goalHeadline,
@@ -572,29 +575,48 @@ const enrollmentTarget = (e: EnrollmentDetail): Card["target"] => ({
 	href: enrollmentHref(e.id),
 });
 const closed = (e: EnrollmentDetail) =>
-	e.status === "active" ? null : `${e.person.name} has finished ${e.program.name}, so this enrollment can't change.`;
+	e.status === "active"
+		? null
+		: `${e.person.name}'s enrollment in ${e.program.name} has ended as ${ENROLLMENT_STATUS[e.status]}, so it can't change.`;
 
-const updateInput = z.strictObject({
-	enrollmentId: rowId,
-	changes: z
-		.strictObject({
-			cohort: z.string().trim().min(1).max(80).optional(),
-			expectedEndOn: dayInput.optional(),
-			stageId: rowId.optional(),
-			nextMeetingAt: localTimeInput.nullable().optional(),
-		})
-		.refine((c) => Object.keys(c).length > 0, "empty changes"),
-});
+const updateInput = z
+	.strictObject({
+		enrollmentId: rowId,
+		changes: z
+			.strictObject({
+				cohort: z.string().trim().min(1).max(80).optional(),
+				expectedEndOn: dayInput.optional(),
+				stageId: rowId.optional(),
+				nextMeetingAt: localTimeInput.nullable().optional(),
+			})
+			.refine((c) => Object.keys(c).length > 0, "empty changes")
+			.optional(),
+		outcome: enrollmentOutcome.optional(),
+	})
+	.refine((v) => (v.changes === undefined) !== (v.outcome === undefined), "changes or outcome, not both");
+
+function endReview(e: EnrollmentDetail, outcome: z.infer<typeof enrollmentOutcome>) {
+	return card(
+		{
+			target: enrollmentTarget(e),
+			changes: [{ field: "status", before: ENROLLMENT_STATUS.active, after: ENROLLMENT_STATUS[outcome] }],
+			notes: [`${e.program.name}, Version ${e.versionNumber}.`, ...ENROLLMENT_END_NOTES],
+			refusal: closed(e),
+		},
+		{ enrollmentId: e.id, expectedRevision: e.revision, outcome },
+	);
+}
 
 export const updateEnrollment = approvedNow({
 	operation: "development.updateEnrollment",
 	description:
-		"Propose changing one active enrollment the user directs (enrollmentId from development.readProgram): only the fields named, of its cohort, expected end date, program stage (stageId, a stage row of that enrollment's own version) and next meeting (a local date and time in the organization's time zone, or null to clear it). Its version, finished milestones and the person's pipeline stage stay. Nothing changes until the user approves",
+		"Propose changing one active enrollment the user directs (enrollmentId from development.readProgram): only the fields named, of its cohort, expected end date, program stage (stageId, a stage row of that enrollment's own version) and next meeting (a local date and time in the organization's time zone, or null to clear it). Its version, finished milestones and the person's pipeline stage stay. Or, with outcome instead of changes, end it as completed or withdrawn; it can't be reopened. Nothing changes until the user approves",
 	input: updateInput,
 	allowed: organizationSeat,
 	async review(actor, value, { db }) {
 		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);
-		const c = value.changes;
+		if (value.outcome) return endReview(e, value.outcome);
+		const c = value.changes ?? {};
 		const stage = c.stageId ? e.stages.find((s) => s.id === c.stageId) : e.stage;
 		if (!stage) throw new EvryRefusal("invalid_input");
 		const program = found(await readProgram(db, actor.authority, { programId: e.program.id }));
@@ -629,7 +651,12 @@ export const updateEnrollment = approvedNow({
 		);
 	},
 	reason: false,
-	run: async (db, authority, args) => settled(await programWriter.updateEnrollment(db, authority, args)),
+	run: async (db, authority, args) =>
+		settled(
+			await ("outcome" in args
+				? programWriter.endEnrollment(db, authority, args)
+				: programWriter.updateEnrollment(db, authority, args)),
+		),
 });
 
 const applyInput = z.strictObject({ enrollmentId: rowId, stageId: rowId.optional() });
