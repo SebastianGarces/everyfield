@@ -24,7 +24,8 @@ const auditRow = z.object({
 	reason: z.string().nullable(),
 	metadata: z.record(z.string(), z.unknown()),
 	title: z.string().nullable(),
-	guestName: z.string().nullable(),
+	guestBefore: z.string().nullable(),
+	guestAfter: z.string().nullable(),
 });
 type Row = z.infer<typeof auditRow>;
 const DATE_EVENTS = new Set(["scheduled", "moved", "postponed", "rescheduled"]);
@@ -84,8 +85,17 @@ function changeOf(r: Row): z.input<typeof c.historyChange> | null {
 			if (r.kind !== "complete" && r.kind !== "reopen") return null;
 			return { kind: "milestone", event: r.kind === "complete" ? "completed" : "reopened", title: r.title ?? "" };
 		case "launch_guest":
+			if (r.kind === "correct")
+				return {
+					kind: "guest_correction",
+					event: event === "guest_voided" ? "voided" : "relinked",
+					from: r.guestBefore,
+					to: r.guestAfter,
+					countBefore: z.int().parse(r.before?.guests),
+					countAfter: z.int().parse(r.after?.guests),
+				};
 			return r.kind === "create"
-				? { kind: "guest", name: r.guestName, added: r.metadata.createdPerson === true }
+				? { kind: "guest", name: r.guestAfter, added: r.metadata.createdPerson === true }
 				: null;
 		case "launch_debrief":
 			if (action !== "launch.debrief_submitted" && action !== "launch.corrected") return null;
