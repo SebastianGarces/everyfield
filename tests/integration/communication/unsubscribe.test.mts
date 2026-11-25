@@ -189,7 +189,7 @@ test("AC:CASE-NTF-012 a retried send of the same mail repeats the same body unde
 	assert.equal(claimOf(pageToken(a.body)!).category, "task_overdue");
 });
 
-test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
+test("AC:CASE-NTF-012 AC:TARGET-IDN-028 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
 	await notify(linked, "task_due");
 	const [email] = await dispatchAll(linked);
 	assert.ok(email);

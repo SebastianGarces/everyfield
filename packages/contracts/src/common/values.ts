@@ -14,7 +14,7 @@ export const sha256Text = z.string().regex(/^[a-f0-9]{64}$/);
 export const digest = sha256Text.brand<"Digest">();
 export const revision = z
 	.string()
-	.regex(/^(0|[1-9]\d*)$/)
+	.regex(/^(0|[1-9]\d*)$/, { abort: true })
 	.refine((v) => BigInt(v) <= 9223372036854775807n)
 	.brand<"Revision">();
 export const role = z.enum(["owner", "admin", "member"]);

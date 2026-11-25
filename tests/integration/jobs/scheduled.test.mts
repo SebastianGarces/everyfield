@@ -67,7 +67,7 @@ const effectOf = (proposal: string) => sql`kind='evry_effect' AND producer_key L
 const city = async (id: string) =>
 	(await admin.execute(sql`SELECT city FROM person WHERE id=${id}`)).rows[0]!.city as string;
 
-test("INV-executor: the runner refuses a call without the exact bearer and runs nothing", async () => {
+test("AC:TARGET-IDN-028 INV-executor: the runner refuses a call without the exact bearer and runs nothing", async () => {
 	const owner = await actor("owner");
 	const waiting = await ask(owner, "Find Casey");
 	for (const authorization of [undefined, "Bearer wrong", `Bearer ${secret}x`, secret])

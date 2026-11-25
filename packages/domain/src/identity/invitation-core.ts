@@ -143,8 +143,8 @@ export async function lockInvitation(
 ) {
 	const session = options.session === undefined ? undefined : z.uuid().parse(options.session);
 	const root = (kind: "plant" | "organization") =>
-		sql`(SELECT x.id FROM ${sql.raw(kind)} x WHERE x.id=(SELECT l.tenant_id FROM l WHERE l.tenant_kind=${kind}
- AND l.purpose IN ('seat','residency_link') AND ${match(sql`l`)}) FOR SHARE)`;
+		sql`(SELECT x.id FROM ${sql.raw(kind)} x WHERE x.id=(SELECT src.tenant_id FROM src
+ WHERE src.purpose IN ('seat','residency_link')) FOR SHARE)`;
 	const result = await tx.execute(sql`WITH ${
 		session === undefined
 			? sql``
@@ -153,6 +153,7 @@ export async function lockInvitation(
  src AS MATERIALIZED (SELECT i.id, i.tenant_id, i.purpose, i.resident_person_id FROM invitation i WHERE ${match(sql`i`)}${
 		session === undefined ? sql`` : sql` AND EXISTS(SELECT FROM a WHERE a.verified)`
  }),
+ ${options.root ? sql`rp AS MATERIALIZED ${root("plant")}, ro AS MATERIALIZED ${root("organization")},` : sql``}
  src_organization AS MATERIALIZED (SELECT x.id FROM organization x WHERE x.id=(SELECT tenant_id FROM src
  WHERE purpose='residency_link' AND resident_person_id IS NOT NULL) FOR SHARE),
  src_person AS MATERIALIZED (SELECT p.id FROM person p WHERE p.id=(SELECT resident_person_id FROM src)
@@ -161,9 +162,8 @@ export async function lockInvitation(
  i.created_at, i.resent_at, i.acted_at, i.accepted_account_id, i.revision::text AS revision, i.resident_person_id,
  i.inviter_description, t.kind AS tenant_kind, o.kind AS organization_kind, coalesce(o.name, pl.name) AS workspace_name
  FROM invitation i JOIN tenant t ON t.id=i.tenant_id LEFT JOIN organization o ON o.id=t.id LEFT JOIN plant pl ON pl.id=t.id
- CROSS JOIN (SELECT count(*) FROM src_person) held WHERE i.id=(SELECT id FROM src) FOR UPDATE OF i)${
-		options.root ? sql`, rp AS MATERIALIZED ${root("plant")}, ro AS MATERIALIZED ${root("organization")}` : sql``
- }
+ CROSS JOIN (SELECT count(*) FROM src_person) held ${options.root ? sql`CROSS JOIN (SELECT count(*) FROM rp) plants CROSS JOIN (SELECT count(*) FROM ro) organizations` : sql``}
+ WHERE i.id=(SELECT id FROM src) FOR UPDATE OF i)
  SELECT ${session === undefined ? sql`NULL::jsonb` : sql`(SELECT to_jsonb(a) FROM a)`} AS identity, l.*,
  ${options.root ? sql`(EXISTS(SELECT FROM rp) OR EXISTS(SELECT FROM ro))` : sql`true`} AS root,
  (extract(epoch FROM clock_timestamp())*1000)::float8 AS now FROM l`);

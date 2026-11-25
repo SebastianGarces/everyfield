@@ -303,7 +303,7 @@ export async function listSendingChurches(db: Reader, authority: RequestActor): 
 		live(authority),
 		sql`SELECT (SELECT count(*)::int FROM relationship_invitation r JOIN invitation i ON i.id=r.invitation_id
 			WHERE r.organization_id=${n} AND r.sending_church_id IS NOT NULL AND i.state='pending'
-			AND i.created_at > clock_timestamp() - interval '30 days') AS pending,
+			AND coalesce(i.resent_at,i.created_at) > clock_timestamp() - interval '720 hours') AS pending,
 		(SELECT coalesce(json_agg(json_build_object('organizationId', o.id, 'name', o.name, 'plants',
 			(SELECT count(*)::int FROM affiliation ps JOIN affiliation k ON k.plant_id=ps.plant_id AND k.organization_id=${n}
 				AND ${linkActive("k")} WHERE ps.organization_id=o.id AND ps.plant_id IS NOT NULL AND ${linkActive("ps")}))), '[]'::json)

@@ -97,6 +97,7 @@ export async function fixture({
 			origin: "http://invitation.example.test",
 			secret: identitySecret,
 			registrationMode: mode,
+			registrationCode: "approved-code",
 			invitations: service,
 			scheduleDelivery: () => {},
 			trustedIp: (request) => request.headers.get("x-test-ip") ?? "127.0.0.1",

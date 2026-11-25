@@ -1,11 +1,20 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import assert from "node:assert/strict";
 import { test, before, after } from "node:test";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { request as httpRequest } from "node:http";
 import { trustedIdentityIp } from "../../../packages/domain/src/identity/index.ts";
+import { RequestActor, readRequestViewer } from "../../../packages/domain/src/access/index.ts";
+import { signedSessionToken } from "../../../packages/domain/src/identity/session-cookie.ts";
+import { verifyCallback } from "../../../apps/web/src/server/platform/webhook.ts";
+import { QA_LOGINS, QA_PASSWORD, seedRefusal } from "../../../tools/qa/qa-guard.ts";
 import { fixture, register, signIn, cookie, password } from "./support.mts";
 let f: Awaited<ReturnType<typeof fixture>>;
 before(async () => {
@@ -25,7 +34,7 @@ async function resetProof(email: string) {
 	return token;
 }
 
-test("AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes", async () => {
+test("AC:TARGET-IDN-030 AC:WP005-API-STAGED INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes", async () => {
 	f.setIp("127.0.0.11");
 	const first = await register(f, "staged@example.test");
 	assert.equal(first.status, 200);
@@ -43,7 +52,18 @@ test("AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no accoun
 		).rows,
 		[{ registration_state: "pending_domain", registration_kind: "discovery" }],
 	);
-	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM seat`)).rows[0]!.n, 0);
+	assert.deepEqual(
+		(
+			await f.db.execute(
+				querySql`SELECT (SELECT count(*)::int FROM auth_user WHERE email='staged@example.test') users,
+					(SELECT count(*)::int FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE u.email='staged@example.test') accounts,
+					(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM affiliation) affiliations,
+					(SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM discovery) discoveries,
+					(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM audit_event) events`,
+			)
+		).rows,
+		[{ users: 1, accounts: 1, seats: 0, affiliations: 0, plants: 0, discoveries: 0, people: 0, events: 0 }],
+	);
 	assert.equal((await f.req("registration-status")).status, 401);
 	assert.equal((await f.req("resume-registration", { requestKey: randomUUID() })).status, 401);
 	const login = await signIn(f, " STAGED@EXAMPLE.TEST ");
@@ -52,6 +72,11 @@ test("AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no accoun
 	assert.ok(c);
 	const status = await (await f.req("registration-status", undefined, c)).json();
 	assert.equal(status.status, "pending_domain");
+	const session = await (await f.req("get-session", undefined, c)).json();
+	assert.deepEqual(await RequestActor.resolve(f.runtime, session.sessionId), {
+		status: "pending_domain",
+		accountId: status.accountId,
+	});
 	assert.deepEqual(await (await f.req("resume-registration", { requestKey: randomUUID() }, c)).json(), status);
 	assert.equal(
 		(await f.req("resume-registration", { requestKey: randomUUID(), invitationProof: "stolen" }, c)).status,
@@ -84,7 +109,7 @@ test("INV-identity: atomic registration admission counts malformed submissions, 
 	}
 });
 
-test("INV-identity: normalized login and reset budgets reserve concurrently, success clears only own login failures", async () => {
+test("AC:TARGET-IDN-001 INV-identity: normalized login and reset budgets reserve concurrently, success clears only own login failures", async () => {
 	f.setIp("127.0.0.13");
 	await register(f, "limits@example.test");
 	const statuses = await Promise.all(
@@ -144,7 +169,7 @@ test("INV-identity: a rate-limited refusal names the end of the budget window it
 	f.setIp(null);
 });
 
-test("AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully", async () => {
+test("AC:TARGET-IDN-009 AC:WP005-API-RESET INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully", async () => {
 	f.setIp("127.0.0.14");
 	await register(f, "reset@example.test");
 	const c1 = cookie(await signIn(f, "reset@example.test")),
@@ -245,7 +270,7 @@ test("AC:TARGET-IDN-009 INV-nonenumeration INV-identity: recovery is nonenumerat
 	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM job WHERE state='reconcile'`)).rows[0]!.n, 1);
 });
 
-test("INV-identity: real database session renews, expired/revoked/deleted identities deny; logout converges and revocation preserves only its own session", async () => {
+test("AC:TARGET-IDN-001 INV-identity: real database session renews, expired/revoked/deleted identities deny; logout converges and revocation preserves only its own session", async () => {
 	f.setIp("127.0.0.16");
 	await register(f, "session@example.test");
 	const c1 = cookie(await signIn(f, "session@example.test")),
@@ -298,10 +323,16 @@ test("AC:TARGET-IDN-001 INV-nonenumeration: sign-in refuses a wrong password and
 	assert.deepEqual(await refusal(blocked), [401, "", { code: "unauthenticated", details: {}, retry: "never" }]);
 });
 
-test("INV-proof-link INV-identity: real routes reject wrong/missing origins, method and raw handler bypasses, unknown keys and unsafe returns", async () => {
+test("AC:TARGET-IDN-001 AC:TARGET-IDN-028 INV-proof-link INV-identity: real routes reject wrong/missing origins, method and raw handler bypasses, unknown keys and unsafe returns", async () => {
 	f.setIp("127.0.0.17");
 	await register(f, "boundary@example.test");
-	for (const origin of ["", "https://evil.example", f.origin.replace("http:", "https:")])
+	for (const origin of [
+		"",
+		"https://evil.example",
+		f.origin.replace("http:", "https:"),
+		f.origin.replace(/\d+$/, "1"),
+		f.origin + ".evil.example",
+	])
 		assert.equal(
 			(await f.req("sign-in/email", { email: "boundary@example.test", password }, undefined, { origin })).status,
 			403,
@@ -342,7 +373,7 @@ test("INV-proof-link INV-identity: real routes reject wrong/missing origins, met
 	);
 });
 
-test("INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together", async () => {
+test("AC:TARGET-IDN-030 INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together", async () => {
 	f.setIp("127.0.0.18");
 	await f.db.execute(
 		querySql`CREATE FUNCTION fail_pending() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_pending_failure'; END $$`,
@@ -438,7 +469,7 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 	);
 });
 
-test("INV-identity: a successful login never clears other identifiers or the trusted-IP failure budget", async () => {
+test("AC:TARGET-IDN-001 INV-identity: a successful login never clears other identifiers or the trusted-IP failure budget", async () => {
 	f.setIp("127.0.0.19");
 	await register(f, "ip-limit@example.test");
 	for (let i = 0; i < 4; i++) assert.equal((await signIn(f, "ip-limit@example.test", "Wrong-password-1")).status, 401);
@@ -608,4 +639,432 @@ test("BUG-PR94: killing post-response recovery work leaves no stuck state and pe
 			0,
 		);
 	}
+});
+
+const alone = async (query: ReturnType<typeof querySql>) =>
+	(await f.db.execute<Record<string, unknown>>(query)).rows[0]!;
+const effects = () =>
+	alone(
+		querySql`SELECT (SELECT count(*)::int FROM auth_user) users,(SELECT count(*)::int FROM account) accounts,
+			(SELECT count(*)::int FROM auth_session) sessions,(SELECT count(*)::int FROM seat) seats,
+			(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM audit_event) events,
+			(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
+	);
+const failing = async (table: string, when: string, body: () => Promise<void>) => {
+	await f.db.execute(
+		querySql.raw(
+			`CREATE FUNCTION fail_required() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_required_failure'; END $$;
+			 CREATE TRIGGER fail_required BEFORE ${when} ON ${table} FOR EACH ROW EXECUTE FUNCTION fail_required()`,
+		),
+	);
+	try {
+		await body();
+	} finally {
+		await f.db.execute(querySql.raw(`DROP TRIGGER fail_required ON ${table};DROP FUNCTION fail_required()`));
+	}
+};
+const loginHash = (value: string) =>
+	createHmac("sha256", f.previewSettings.IDENTITY_SECRET).update(value).digest("hex");
+const loginFailures = async (email: string) =>
+	(
+		await alone(
+			querySql`SELECT count(*)::int n FROM admission_attempt WHERE kind='login' AND state='failed' AND identifier_hash=${loginHash(email)}`,
+		)
+	).n;
+const failedLogins = (n: number, email: string, ip: string, age: string) =>
+	f.db.execute(
+		querySql`INSERT INTO admission_attempt(id,kind,identifier_hash,trusted_ip_hash,reserved_at,state,expires_at)
+			SELECT gen_random_uuid(),'login',${loginHash(email)},${loginHash(ip)},clock_timestamp()-${age}::interval,'failed',clock_timestamp()+interval '9 hours'
+			FROM generate_series(1,${n}::int)`,
+	);
+
+test("AC:TARGET-IDN-001 five identifier failures or twenty trusted-IP failures inside fifteen minutes refuse the right password, and nothing else is cleared or written", async () => {
+	f.setIp("127.0.1.1");
+	const email = "alex@example.test",
+		other = "other-alex@example.test";
+	await register(f, email);
+	const attempt = async (address = email) => {
+		const response = await signIn(f, address);
+		const body = await response.json();
+		return [response.status, body.code ?? body.status, cookie(response) !== ""];
+	};
+	const LIMITED = [429, "rate_limited", false],
+		SIGNED_IN = [200, "signed_in", true];
+	const clear = () => f.db.execute(querySql`DELETE FROM admission_attempt WHERE kind='login'`);
+	const inside = "14 minutes 30 seconds",
+		cutoff = "15 minutes";
+	const rows: [string, [identifier: number, age: string], [ip: number, age: string], string | null, unknown[]][] = [
+		["4 identifier failures", [4, inside], [0, inside], "127.0.1.1", SIGNED_IN],
+		["5 identifier failures", [5, inside], [0, inside], "127.0.1.1", LIMITED],
+		["5 identifier failures at the cutoff", [5, cutoff], [0, inside], "127.0.1.1", SIGNED_IN],
+		["19 IP failures", [0, inside], [19, inside], "127.0.1.1", SIGNED_IN],
+		["20 IP failures", [0, inside], [20, inside], "127.0.1.1", LIMITED],
+		["20 IP failures at the cutoff", [0, inside], [20, cutoff], "127.0.1.1", SIGNED_IN],
+		["20 IP failures, unknown IP", [0, inside], [20, inside], null, SIGNED_IN],
+		["5 identifier failures, unknown IP", [5, inside], [0, inside], null, LIMITED],
+	];
+	for (const [name, [identifiers, age], [ips, ipAge], ip, expected] of rows) {
+		await clear();
+		await failedLogins(identifiers, email, "127.0.1.99", age);
+		await failedLogins(ips, other, "127.0.1.1", ipAge);
+		f.setIp(ip);
+		assert.deepEqual(await attempt(" ALEX@Example.Test "), expected, name);
+	}
+	f.setIp("127.0.1.1");
+	await clear();
+	await failedLogins(5, email, "127.0.1.99", inside);
+	await failedLogins(19, other, "127.0.1.1", inside);
+	const before = await effects();
+	for (const address of [email, "ALEX@EXAMPLE.TEST"]) assert.deepEqual(await attempt(address), LIMITED);
+	const forged = await f.req("sign-in/email", { email, password }, undefined, { "x-forwarded-for": "198.51.100.9" });
+	assert.equal(forged.status, 429);
+	assert.deepEqual(await effects(), before);
+	assert.deepEqual([await loginFailures(email), await loginFailures(other)], [5, 19]);
+	await f.db.execute(
+		querySql`DELETE FROM admission_attempt WHERE id=(SELECT id FROM admission_attempt WHERE kind='login' AND identifier_hash=${loginHash(email)} LIMIT 1)`,
+	);
+	assert.deepEqual(await attempt(), SIGNED_IN);
+	assert.deepEqual([await loginFailures(email), await loginFailures(other)], [0, 19]);
+});
+
+test("AC:TARGET-IDN-001 an expired cookie still reaches sign-in, which keeps a safe nested return path and refuses unsafe ones", async () => {
+	f.setIp("127.0.1.2");
+	await register(f, "nested@example.test");
+	const c = cookie(await signIn(f, "nested@example.test"));
+	const s = await (await f.req("get-session", undefined, c)).json();
+	await f.db.execute(
+		querySql`UPDATE auth_session SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${s.sessionId}`,
+	);
+	const back = async (returnTo: string) => {
+		const response = await f.req("sign-in/email", { email: "nested@example.test", password, returnTo }, c);
+		assert.equal(response.status, 200);
+		return (await response.json()).returnTo;
+	};
+	assert.equal(await back("/people/p1?returnTo=%2Ftasks%3Fmine%3D1"), "/people/p1?returnTo=%2Ftasks%3Fmine%3D1");
+	for (const unsafe of ["https://evil.example/x", "//evil.example", "/\\evil.example", "\\evil", "/a\u0000b", "/a\nb"])
+		assert.equal(await back(unsafe), null, JSON.stringify(unsafe));
+	for (let i = 0; i < 2; i++) assert.deepEqual(await (await f.req("sign-out", {}, c)).json(), { status: "signed_out" });
+});
+
+test("AC:TARGET-IDN-001 a sign-in whose session, or whose admission row, cannot be written signs nobody in and writes nothing else", async () => {
+	f.setIp("127.0.1.3");
+	await register(f, "required@example.test");
+	const before = await effects();
+	for (const table of ["auth_session", "admission_attempt"])
+		await failing(table, "INSERT", async () => {
+			const response = await signIn(f, "required@example.test");
+			assert.ok([401, 503].includes(response.status), table + response.status);
+			assert.equal(cookie(response), "");
+		});
+	await failing("admission_attempt", "UPDATE", async () => {
+		const response = await signIn(f, "required@example.test");
+		assert.equal(response.status, 503);
+		assert.equal((await response.json()).code, "unavailable");
+		assert.equal(cookie(response), "");
+	});
+	assert.deepEqual(await effects(), before);
+	assert.equal(
+		(
+			await alone(
+				querySql`SELECT count(*)::int n FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email='required@example.test'`,
+			)
+		).n,
+		0,
+	);
+	assert.equal((await signIn(f, "required@example.test")).status, 200);
+});
+
+test("AC:TARGET-IDN-030 AC:WP005-API-STAGED a registration whose credential or account row cannot be written leaves no domain write, seat or event", async () => {
+	f.setIp("127.0.1.4");
+	const before = await effects();
+	for (const table of ["auth_user", "auth_account", "admission_attempt"])
+		await failing(table, "INSERT", async () => {
+			const response = await register(f, "unwritten@example.test");
+			assert.equal(cookie(response), "");
+			assert.ok([200, 503].includes(response.status), table + response.status);
+		});
+	assert.deepEqual(await effects(), before);
+	assert.deepEqual(await (await register(f, "unwritten@example.test")).json(), { status: "continue_identity_proof" });
+	const stolen = await f.req("register", {
+		kind: "discovery",
+		name: "Other",
+		email: "unwritten@example.test",
+		password: "Fixture-other-pass-9",
+		requestKey: randomUUID(),
+	});
+	assert.equal(cookie(stolen), "");
+	assert.equal((await signIn(f, "unwritten@example.test", "Fixture-other-pass-9")).status, 401);
+	assert.deepEqual(await effects(), {
+		...before,
+		users: Number(before.users) + 1,
+		accounts: Number(before.accounts) + 1,
+	});
+});
+
+test("AC:TARGET-IDN-009 AC:WP005-API-RESET a reset whose outcome is unknown is tried once, records no success and leaves the old password; a foreign-purpose proof is refused", async () => {
+	f.setIp("127.0.1.5");
+	const zone = process.env.TZ;
+	process.env.TZ = "Pacific/Kiritimati";
+	try {
+		await register(f, "unknown-reset@example.test");
+		const c = cookie(await signIn(f, "unknown-reset@example.test"));
+		const { accountId } = await (await f.req("get-session", undefined, c)).json();
+		const reset = (proof: string) =>
+			f.req("reset-password", { proof, newPassword: "Fixture-new-pass-2", confirmPassword: "Fixture-new-pass-2" });
+		const events = async () =>
+			(
+				await f.db.execute(
+					querySql`SELECT action FROM audit_event WHERE subject_id=${accountId} AND action='identity.credential_changed'`,
+				)
+			).rows;
+		assert.equal((await f.req("send-verification-email", { email: "unknown-reset@example.test" })).status, 200);
+		await f.dispatch();
+		const verification = f.effects.findLast(
+			(v) => v.to === "unknown-reset@example.test" && v.text.startsWith("Verify your email"),
+		)!;
+		const foreign = new URL(verification.text.split("\n")[2]!).searchParams.get("token")!;
+		assert.equal((await reset(foreign)).status, 400);
+		const proof = await resetProof("unknown-reset@example.test");
+		await f.db.execute(
+			querySql`CREATE SEQUENCE reset_writes;CREATE FUNCTION fail_credential() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN PERFORM nextval('reset_writes');RAISE EXCEPTION 'synthetic_unknown'; END $$;
+				CREATE TRIGGER fail_credential BEFORE UPDATE ON auth_account FOR EACH ROW EXECUTE FUNCTION fail_credential()`,
+		);
+		const diagnostics = f.diagnostics.length;
+		try {
+			const unknown = await reset(proof);
+			assert.equal(unknown.status, 503);
+			assert.equal((await unknown.json()).code, "unavailable");
+			await f.dispatch();
+			assert.equal(Number((await alone(querySql`SELECT last_value::int n FROM reset_writes`)).n), 1);
+		} finally {
+			await f.db.execute(
+				querySql`DROP TRIGGER fail_credential ON auth_account;DROP FUNCTION fail_credential();DROP SEQUENCE reset_writes`,
+			);
+		}
+		assert.ok(
+			f.diagnostics
+				.slice(diagnostics)
+				.some((v) => typeof v === "object" && v !== null && "outcome" in v && v.outcome === "unknown"),
+		);
+		assert.deepEqual(await events(), []);
+		assert.equal((await signIn(f, "unknown-reset@example.test")).status, 200);
+		assert.equal((await signIn(f, "unknown-reset@example.test", "Fixture-new-pass-2")).status, 401);
+		const moved = await resetProof("unknown-reset@example.test");
+		await f.db.execute(
+			querySql`UPDATE auth_user SET email='moved-reset@example.test' WHERE email='unknown-reset@example.test'`,
+		);
+		await register(f, "unknown-reset@example.test");
+		assert.equal((await reset(moved)).status, 200);
+		assert.equal((await signIn(f, "moved-reset@example.test", "Fixture-new-pass-2")).status, 200);
+		assert.equal((await signIn(f, "unknown-reset@example.test", "Fixture-new-pass-2")).status, 401);
+		assert.deepEqual(await (await f.req("get-session", undefined, c)).json(), { status: "unauthenticated" });
+		assert.equal((await events()).length, 1);
+	} finally {
+		if (zone === undefined) delete process.env.TZ;
+		else process.env.TZ = zone;
+	}
+});
+
+test("AC:TARGET-IDN-004 no fixture identity switch exists: forged switch requests answer not found and issue no session, and fixtures refuse production", async () => {
+	f.setIp("127.0.1.6");
+	await register(f, "switch@example.test");
+	await register(f, "switched@example.test");
+	const c = cookie(await signIn(f, "switch@example.test"));
+	const target = (
+		await alone(
+			querySql`SELECT a.id FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE u.email='switched@example.test'`,
+		)
+	).id;
+	const before = await effects();
+	for (const path of [
+		"dev.switchFixtureIdentity",
+		"dev/switch-fixture-identity",
+		"switch-fixture-identity",
+		"admin/impersonate-user",
+		"multi-session/set-active",
+	])
+		for (const identity of ["owner", "switched@example.test", target, "not-an-account"])
+			for (const headers of [{}, { "x-fixture-identity": String(identity), "x-role": "owner" }] as Record<
+				string,
+				string
+			>[])
+				for (const jar of [undefined, c]) {
+					const response = await f.req(
+						path,
+						{ identity, userId: identity, role: "owner", enabled: true },
+						jar,
+						headers,
+					);
+					assert.equal(response.status, 404, path);
+					assert.deepEqual(await response.json(), { code: "unavailable" });
+					assert.equal(cookie(response), "");
+				}
+	assert.deepEqual(await effects(), before);
+	assert.equal((await (await f.req("get-session", undefined, c)).json()).status, "pending_domain");
+	assert.equal(
+		(await f.req("sign-in/email", { email: "switch@example.test", password, identity: "owner", fixture: true })).status,
+		422,
+	);
+	const keys = { IDENTITY_MAIL_KEY: "a".repeat(64), IDENTITY_ADDRESS_KEY: "b".repeat(64) };
+	const qa = "postgres://u:p@ep-some-branch.example.test/db";
+	assert.equal(seedRefusal({ ...keys, DATABASE_URL: qa }), null);
+	for (const env of [
+		{ ...keys, DATABASE_URL: qa, NODE_ENV: "production" },
+		{ ...keys, DATABASE_URL: "postgres://u:p@ep-gentle-dust-x.example.test/db" },
+		{ ...keys },
+	])
+		assert.notEqual(seedRefusal(env), null);
+	assert.deepEqual(await effects(), before);
+});
+
+test("AC:TARGET-IDN-004 the isolated fixture sign-in gives a session to a named fixture login only, never to an arbitrary account", async () => {
+	f.setIp("127.0.1.7");
+	await register(f, "customer@example.test");
+	const customer = (
+		await alone(
+			querySql`SELECT a.id FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE u.email='customer@example.test'`,
+		)
+	).id;
+	await f.db.execute(querySql`DELETE FROM admission_attempt`);
+	for (const email of [QA_LOGINS.owner, QA_LOGINS.admin])
+		assert.equal(
+			(
+				await f.req("register", {
+					kind: "discovery",
+					name: "Fixture",
+					email,
+					password: QA_PASSWORD,
+					requestKey: randomUUID(),
+				})
+			).status,
+			200,
+		);
+	const folder = await mkdtemp(join(tmpdir(), "fixture-signin-"));
+	try {
+		const out = join(folder, "cookies.json");
+		const input = {
+			origin: f.origin,
+			secret: f.previewSettings.IDENTITY_SECRET,
+			runtimeUrl: f.previewSettings.IDENTITY_DATABASE_URL,
+			authUrl: f.previewSettings.IDENTITY_AUTH_DATABASE_URL,
+			out,
+			personas: ["owner", "admin", "customer@example.test", customer],
+		};
+		const script = fileURLToPath(new URL("../../../tools/app/signin.ts", import.meta.url));
+		const child = spawn(
+			process.execPath,
+			["--import", "tsx", "--conditions=react-server", script, JSON.stringify(input)],
+			{ stdio: "ignore" },
+		);
+		const [code] = await once(child, "exit");
+		assert.equal(code, 0);
+		const issued: Record<string, { name: string; value: string }> = JSON.parse(await readFile(out, "utf8"));
+		assert.deepEqual(Object.keys(issued).sort(), ["admin", "owner"]);
+		assert.deepEqual(
+			(
+				await f.db.execute(
+					querySql`SELECT u.email,count(*)::int n FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email IN (${QA_LOGINS.owner},${QA_LOGINS.admin},'customer@example.test') GROUP BY 1 ORDER BY 1`,
+				)
+			).rows,
+			[
+				{ email: QA_LOGINS.admin, n: 1 },
+				{ email: QA_LOGINS.owner, n: 1 },
+			],
+		);
+	} finally {
+		await rm(folder, { recursive: true, force: true });
+	}
+});
+
+test("AC:TARGET-IDN-028 a missing, forged, expired or revoked cookie reads nothing private, whatever crawler or preview headers it carries", async () => {
+	f.setIp("127.0.1.8");
+	const { NextRequest } = createRequire(new URL("../../../apps/web/package.json", import.meta.url))("next/server");
+	const { proxy, config } = await import("../../../apps/web/src/proxy.ts");
+	const canary = "CARE-CANARY-" + randomUUID();
+	await register(f, "cookie-life@example.test");
+	const signed = () => signIn(f, "cookie-life@example.test").then(cookie);
+	const [live, expired, revoked] = [await signed(), await signed(), await signed()];
+	const sessionOf = async (c: string) => (await (await f.req("get-session", undefined, c)).json()).sessionId;
+	const { accountId } = await (await f.req("get-session", undefined, live)).json();
+	const plant = randomUUID();
+	await f.db.execute(
+		querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},${canary},'America/Chicago',7,14,1,8,1,1)`,
+	);
+	await f.db.execute(querySql`UPDATE account SET registration_state='active' WHERE id=${accountId}`);
+	await f.db.execute(
+		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${accountId},${plant},'admin',clock_timestamp())`,
+	);
+	await f.db.execute(
+		querySql`UPDATE auth_session SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${await sessionOf(expired)}`,
+	);
+	assert.equal((await f.req("sign-out", {}, revoked)).status, 200);
+	const forged = live.replace(/(session_token=)[^;]+/, "$1forged.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%3D");
+	const headers = {
+		"user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1)",
+		"x-wiki-preview": "1",
+		"x-routed-url": f.origin + "/wiki/public",
+		"x-everyfield-path": "/wiki/public",
+	};
+	const tokenOf = (c: string) =>
+		signedSessionToken(
+			decodeURIComponent(c.match(/session_token=([^;]+)/)?.[1] ?? ""),
+			f.previewSettings.IDENTITY_SECRET,
+		);
+	const before = { ...(await effects()), sessions: null };
+	for (const [name, c] of [
+		["none", ""],
+		["forged", forged],
+		["expired", expired],
+		["revoked", revoked],
+	] as const) {
+		const session = await f.req("get-session", undefined, c || undefined, headers);
+		assert.equal(session.headers.get("cache-control"), "private, no-store");
+		assert.deepEqual(await session.json(), { status: "unauthenticated" }, name);
+		const status = await f.req("registration-status", undefined, c || undefined, headers);
+		const body = await status.json();
+		assert.deepEqual([status.status, body.code, body.details], [401, "unauthenticated", {}], name);
+		assert.equal(JSON.stringify(body).includes(canary), false);
+		const token = tokenOf(c);
+		assert.equal(token ? await readRequestViewer(f.runtime, token) : null, null, name);
+	}
+	const liveToken = tokenOf(live);
+	assert.ok(liveToken);
+	const viewer = await readRequestViewer(f.runtime, liveToken);
+	assert.ok(viewer?.viewer?.authority, "the live cookie reads its own seat");
+	assert.deepEqual({ ...(await effects()), sessions: null }, before);
+	const families = config.matcher
+		.map((path) => path.split("/:")[0]!)
+		.filter((path) => !["/confirm-email", "/reset-password", "/verify-email"].includes(path));
+	assert.ok(families.includes("/people") && families.includes("/settings"));
+	for (const path of families) {
+		const answer = proxy(new NextRequest("https://everyfield.test" + path + "?q=Alex", { headers }));
+		assert.equal(answer.status, 307, path);
+		const to = new URL(answer.headers.get("location")!);
+		assert.deepEqual(
+			[to.origin, to.pathname, to.searchParams.get("returnTo")],
+			["https://everyfield.test", "/signin", path + "?q=Alex"],
+		);
+		assert.equal(await answer.text(), "");
+	}
+});
+
+test("AC:TARGET-IDN-028 the mail webhook is admitted only by a fresh valid signature over its raw body, whatever origin the request carries", () => {
+	const key = randomBytes(32);
+	const hook = "whsec_" + key.toString("base64");
+	const raw = Buffer.from('{"type":"email.delivered"}');
+	const now = 1_800_000_000_000;
+	const signed = (body: Buffer, id = "msg_1", stamp = String(now / 1000), by = key) => ({
+		"svix-id": id,
+		"svix-timestamp": stamp,
+		"svix-signature": "v1," + createHmac("sha256", by).update(`${id}.${stamp}.`).update(body).digest("base64"),
+	});
+	assert.equal(verifyCallback(raw, new Headers(signed(raw)), hook, now), "msg_1");
+	for (const headers of [
+		{ origin: f.origin },
+		signed(Buffer.from("{}")),
+		signed(raw, "msg_1", String(now / 1000 - 301)),
+		signed(raw, "msg_1", String(now / 1000), randomBytes(32)),
+		{ ...signed(raw), "svix-id": "msg_2" },
+	] as Record<string, string>[])
+		assert.throws(() => verifyCallback(raw, new Headers(headers), hook, now), /unavailable/);
 });

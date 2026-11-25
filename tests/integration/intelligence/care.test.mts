@@ -152,11 +152,27 @@ test("AC:B03-021 with no confirmed personal zone, reads and saves ask for it and
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w, "admin", null);
+	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
+	const untouched = await sideEffects(w);
 	refusedBare(await current(a), "personal_timezone_confirmation_required");
 	refusedBare(await history(a), "personal_timezone_confirmation_required");
 	refusedBare(await trends(a), "personal_timezone_confirmation_required");
 	refusedBare(await save(a, STEADY, "0"), "personal_timezone_confirmation_required");
+	for (const timeZone of ["UTC", "Europe/London", "America/Chicago"]) {
+		refusedBare(await current(a, { timeZone }), "invalid_input");
+		refusedBare(await care.readHistory(f.db, a.actor, { page: 1, timeZone }), "invalid_input");
+		refusedBare(
+			await care.save(f.db, a.actor, {
+				requestKey: randomUUID(),
+				expectedRevision: "0",
+				input: { answers: STEADY, note: "", timeZone },
+			}),
+			"invalid_input",
+		);
+	}
 	assert.deepEqual(await footprint(a), { calendars: 0, weeks: 0, revisions: 0, revision: null });
+	assert.deepEqual(await sideEffects(w), untouched);
+	assert.equal((await one(sql`SELECT personal_timezone FROM account WHERE id=${a.id}`)).personal_timezone, null);
 	await changeZone(a, "Europe/London");
 	const read = ok(await current(a));
 	assert.equal(read.zone, "Europe/London");
@@ -234,6 +250,11 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 	const w = await f.workspace();
 	const a = await seated(w);
 	const saved = ok(await save(a, STRAINED, "0"));
+	const stored = () =>
+		rows(
+			sql`SELECT to_jsonb(w) AS week,to_jsonb(r) AS saved FROM private_week w JOIN private_week_revision r ON r.week_id=w.id WHERE w.author_id=${a.id}`,
+		);
+	const first = await stored();
 	await changeZone(a, "Pacific/Auckland");
 	const preview = await previewZone(a, "Pacific/Kiritimati");
 	const key = randomUUID();
@@ -246,6 +267,12 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 	assert.deepEqual(open.week.answer!.answers, STRAINED);
 	assert.equal((await footprint(a)).weeks, 1);
 	assert.equal((await footprint(a)).revisions, 1);
+	assert.deepEqual(await stored(), first, "two zone edits rewrite no week, author or revision");
+	const unmoved = ok(await history(a));
+	assert.deepEqual(
+		unmoved.weeks.map((x) => [x.id, x.startsOn, x.zone, x.answer?.answers.spiritual, x.revisions.length]),
+		[[saved.week.id, "2026-10-12", "America/Chicago", "strained", 1]],
+	);
 	assert.equal(nextMonday(preview.asOf, "Pacific/Kiritimati"), "2026-10-19");
 	assert.deepEqual(await nextAt(a), { at: "2026-10-18T10:00:00Z", zone: "Pacific/Kiritimati" });
 	now = "2026-10-18T09:59:59.000Z";
@@ -300,11 +327,14 @@ test("AC:B03-023 a save and a zone change on one calendar give one accepted chan
 	}
 });
 
-test("AC:B03-019 AC:B03-013 AC:B03-017 a church timezone change never rekeys personal weeks", async () => {
+test("AC:B03-019 a church timezone change never rekeys personal weeks", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
 	const a = await seated(w, "owner", "Pacific/Auckland");
+	const b = await seated(w, "admin", "Pacific/Auckland");
+	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
 	const saved = ok(await save(a, STRAINED, "0"));
+	const before = { history: ok(await history(a)), footprint: await footprint(a) };
 	const ctx = { session: a.session, selected: plantOf(w) };
 	const preview = ok(
 		await gatedTransaction(f.db, (tx) =>
@@ -321,6 +351,14 @@ test("AC:B03-019 AC:B03-013 AC:B03-017 a church timezone change never rekeys per
 		),
 	);
 	assert.equal(changed.status, "changed");
+	assert.deepEqual(await one(sql`SELECT timezone FROM plant WHERE id=${w.id}`), { timezone: "Europe/London" });
+	assert.deepEqual({ history: ok(await history(a)), footprint: await footprint(a) }, before);
+	assert.deepEqual(
+		before.history.weeks.map((x) => [x.startsOn, x.zone]),
+		[["2026-10-12", "Pacific/Auckland"]],
+	);
+	assert.equal(before.history.zone, "Pacific/Auckland");
+	assert.equal(ok(await current(b)).zone, "Pacific/Auckland");
 	const read = ok(await current(a));
 	assert.deepEqual(
 		{ id: read.week.id, zone: read.week.zone, startsOn: read.week.startsOn, personal: read.zone },
@@ -425,7 +463,22 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 only 
 	const owner = await seated(w, "owner", "Pacific/Auckland");
 	const member = await seated(w, "member", "America/Chicago");
 	const saved = ok(await save(a, STRAINED, "0", "CARE-CANARY"));
+	const mine = { history: ok(await history(a)), footprint: await footprint(a) };
+	const quiet = await sideEffects(w);
 	for (const other of [b, owner]) {
+		for (const author of [a.id, randomUUID()]) {
+			for (const read of [care.readCurrent, care.readTrends])
+				refusedBare(await read(f.db, other.actor, { author }), "invalid_input");
+			refusedBare(await care.readHistory(f.db, other.actor, { page: 1, author }), "invalid_input");
+			refusedBare(
+				await care.correct(f.db, other.actor, {
+					requestKey: randomUUID(),
+					expectedRevision: "1",
+					input: { weekId: saved.week.id, answers: STEADY, note: "", author },
+				}),
+				"invalid_input",
+			);
+		}
 		const guessed = await correct(other, saved.week.id, STEADY, "0");
 		const missing = await correct(other, randomUUID(), STEADY, "0");
 		refusedBare(guessed, "not_found");
@@ -452,18 +505,33 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 only 
 			"invalid_input",
 		);
 	}
+	assert.deepEqual(await sideEffects(w), quiet, "a guess leaves no record, notice or message");
 	ok(await save(b, STEADY, "0"));
+	const own = ok(await current(b));
+	const fixed = ok(await correct(b, own.week.id, STRAINED, own.revision));
+	assert.deepEqual(fixed.week.answer!.answers, STRAINED);
+	refusedBare(await correct(a, own.week.id, STEADY, "1"), "not_found");
+	refusedBare(await correct(b, saved.week.id, STEADY, fixed.revision), "not_found");
+	assert.deepEqual({ history: ok(await history(a)), footprint: await footprint(a) }, mine);
 	const aRead = ok(await current(a));
 	assert.deepEqual(aRead.week.answer!.answers, STRAINED);
 	assert.equal(aRead.week.answer!.note, "CARE-CANARY");
 	assert.equal(aRead.revision, "1");
 	refusedBare(await current(member), "access_denied");
+	refusedBare(await history(member), "access_denied");
+	refusedBare(await trends(member), "access_denied");
 	refusedBare(await save(member, STEADY, "0"), "access_denied");
 	refusedBare(await correct(member, saved.week.id, STEADY, "1"), "access_denied");
 	assert.deepEqual(await footprint(member), { calendars: 0, weeks: 0, revisions: 0, revision: null });
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${b.id}`);
 	refusedBare(await current(b), "access_denied");
 	refusedBare(await save(b, STRAINED, "1"), "access_denied");
+	refusedBare(await history(b), "access_denied");
+	refusedBare(await trends(b), "access_denied");
+	refusedBare(await correct(b, own.week.id, STEADY, "2"), "access_denied");
+	const foreign = await seated(await f.workspace(), "owner");
+	refusedBare(await correct(foreign, saved.week.id, STEADY, "0"), "not_found");
+	assert.equal(ok(await current(foreign)).week.answer, null);
 });
 
 test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every check-in with its author", async () => {
@@ -471,7 +539,28 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 	const w = await f.workspace();
 	const a = await seated(w, "admin");
 	const b = await seated(w, "owner");
-	const saved = ok(await save(a, STRAINED, "0", "Mine."));
+	const past = await saveAt(a, "2026-10-07T18:00:00.000Z", STEADY, "Earlier.");
+	ok(await correct(a, past.week.id, STRAINED, await revisionOf(a), "Corrected."));
+	const saved = await saveAt(a, "2026-10-13T16:00:00.000Z", STRAINED, "Mine.");
+	ok(await save(b, STEADY, "0", "Owner's own."));
+	const streams = async () => ({
+		rows: await rows(sql`SELECT to_jsonb(w) AS week,to_jsonb(r) AS saved FROM private_week w JOIN private_week_revision r ON r.week_id=w.id
+			WHERE w.plant_id=${w.id} ORDER BY w.author_id,w.ordinal,r.revision`),
+		calendars: await rows(sql`SELECT * FROM private_calendar WHERE author_id IN (${a.id},${b.id}) ORDER BY author_id`),
+	});
+	const stored = await streams();
+	const reads = async () => ({
+		a: [ok(await history(a)), ok(await trends(a))],
+		b: [ok(await history(b)), ok(await trends(b))],
+	});
+	const seen = await reads();
+	assert.deepEqual(
+		ok(await history(a)).weeks.map((x) => [x.startsOn, x.revisions.map((r) => r.kind)]),
+		[
+			["2026-10-12", ["save"]],
+			["2026-10-05", ["save", "correction"]],
+		],
+	);
 	const ctx = { session: b.session, selected: plantOf(w) };
 	const person = async (displayName: string) =>
 		ok(
@@ -485,10 +574,21 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 	const alex = await person("Alex Rivera"),
 		casey = await person("Casey Rivera");
 	await f.admin.execute(sql`UPDATE person SET linked_account_id=${a.id} WHERE id=${casey.id}`);
+	const team = randomUUID();
+	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
+		VALUES(${team},${w.id},'Plant leadership','active',1,${alex.id},'explicit')`);
 	const review = ok(
 		await gatedTransaction(f.db, (tx) =>
 			peopleMerge.getMergeReview(tx, ctx, { sourceId: alex.id, survivorId: casey.id }),
 		),
+	);
+	assert.deepEqual(
+		JSON.stringify(review).match(/private|check-?in|\bcare\b|Mine\.|Earlier\.|Corrected\.|strained/gi),
+		null,
+	);
+	assert.equal(
+		review.references.some((r) => /week|care|private/i.test(r.kind)),
+		false,
 	);
 	ok(
 		await gatedTransaction(f.db, (tx) =>
@@ -499,6 +599,8 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 		),
 	);
 	await f.admin.execute(sql`UPDATE person SET linked_account_id=${b.id} WHERE id=${casey.id}`);
+	await f.admin.execute(sql`UPDATE team SET leader_person_id=NULL,leader_source=NULL WHERE id=${team}`);
+	await f.admin.execute(sql`UPDATE person SET stage='core_group' WHERE id=${casey.id}`);
 	await f.admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${b.id}`);
 	await f.admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${a.id}`);
 	a.actor = await f.actor(a.session);
@@ -506,15 +608,18 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 	const after = ok(await current(a));
 	assert.equal(after.week.id, saved.week.id);
 	assert.equal(after.week.answer!.note, "Mine.");
-	assert.equal(ok(await current(b)).week.id, null);
+	assert.equal(ok(await current(b)).week.answer!.note, "Owner's own.");
+	assert.deepEqual(await reads(), seen);
+	assert.deepEqual(await streams(), stored, "no check-in row is copied, moved or rewritten");
 	assert.deepEqual(
 		await rows(sql`SELECT DISTINCT author_id FROM private_week WHERE plant_id=${w.id}
-			UNION SELECT DISTINCT r.author_id FROM private_week_revision r JOIN private_week x ON x.id=r.week_id WHERE x.plant_id=${w.id}`),
-		[{ author_id: a.id }],
+			UNION SELECT DISTINCT r.author_id FROM private_week_revision r JOIN private_week x ON x.id=r.week_id WHERE x.plant_id=${w.id}
+			ORDER BY author_id`),
+		[a.id, b.id].sort().map((author_id) => ({ author_id })),
 	);
 	for (const change of [
 		sql`UPDATE private_week SET author_id=${b.id} WHERE id=${saved.week.id}`,
-		sql`UPDATE private_week SET ordinal=2 WHERE id=${saved.week.id}`,
+		sql`UPDATE private_week SET ordinal=3 WHERE id=${saved.week.id}`,
 		sql`UPDATE private_week SET zone='UTC' WHERE id=${saved.week.id}`,
 		sql`UPDATE private_calendar SET author_id=${b.id} WHERE author_id=${a.id}`,
 		sql`UPDATE private_week_revision SET author_id=${b.id} WHERE week_id=${saved.week.id}`,
@@ -550,6 +655,92 @@ test("AC:B03-034 AC:TARGET-IDN-033 three hard weeks in a row are shown back and 
 	);
 	assert.deepEqual(Object.keys(ok(await current(a))).sort(), ["revision", "week", "zone"]);
 	assert.deepEqual(await sideEffects(w), start);
+});
+
+test("AC:TARGET-IDN-033 a missing week breaks a hard run, repeated date-line moves keep one answer per author and week, and nothing private leaves the author", async () => {
+	const w = await f.workspace();
+	const a = await seated(w),
+		b = await seated(w, "owner", "Pacific/Auckland");
+	const hard = (spiritual: string) => levels(spiritual, "steady", "steady", "steady");
+	const streak = async (who: Seated) => {
+		const weeks = ok(await trends(who)).weeks.map((x) => x.answer?.answers.spiritual ?? null);
+		const end = weeks.findIndex((x) => x === null || x === "steady");
+		return end < 0 ? weeks.length : end;
+	};
+	const quiet = await sideEffects(w);
+	const first = await saveAt(a, "2026-09-30T18:00:00.000Z", hard("strained"));
+	await saveAt(b, "2026-09-30T18:00:00.000Z", hard("struggling"));
+	await saveAt(b, "2026-10-07T18:00:00.000Z", hard("strained"));
+	now = "2026-10-13T16:00:00.000Z";
+	const opened = ok(await current(a));
+	assert.deepEqual([opened.week.ordinal, opened.week.answer, opened.week.zone], [3, null, "America/Chicago"]);
+	const others = await footprint(b);
+	for (const zone of ["Pacific/Auckland", "America/Chicago", "Pacific/Auckland", "America/Chicago", "Pacific/Auckland"])
+		await changeZone(a, zone);
+	const answered = ok(await save(a, hard("struggling"), await revisionOf(a)));
+	assert.deepEqual([answered.week.ordinal, answered.week.zone], [3, "America/Chicago"]);
+	for (const zone of ["America/Chicago", "Pacific/Auckland"]) await changeZone(a, zone);
+	const revision = await revisionOf(a);
+	const preview = await previewZone(a, "America/Chicago");
+	const [saved, zoned] = await Promise.all([save(a, hard("strained"), revision), setZone(a, preview)]);
+	assert.equal([saved, zoned].filter((r) => r.status === "ok").length, 1, JSON.stringify([saved, zoned]));
+	if (saved.status !== "ok") ok(await save(a, hard("strained"), await revisionOf(a)));
+	ok(await save(a, hard("struggling"), await revisionOf(a)));
+	const strip = ok(await trends(a));
+	assert.deepEqual(
+		strip.weeks.map((x) => [x.ordinal, x.zone, x.startsOn, x.answer?.answers.spiritual ?? null]),
+		[
+			[3, "America/Chicago", "2026-10-12", "struggling"],
+			[2, "America/Chicago", "2026-10-05", null],
+			[1, "America/Chicago", "2026-09-28", "strained"],
+		],
+	);
+	assert.equal(await streak(a), 1);
+	assert.deepEqual(
+		Object.keys(strip).sort(),
+		["page", "pageCount", "revision", "weeks", "zone"],
+		"no support question",
+	);
+	assert.deepEqual(Object.keys(ok(await current(a))).sort(), ["revision", "week", "zone"]);
+	assert.doesNotMatch(JSON.stringify([strip, ok(await current(a))]), /support|question|talk|streak|trust/i);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT ordinal,count(*)::int n FROM private_week WHERE author_id IN (${a.id},${b.id}) GROUP BY author_id,ordinal HAVING count(*)>1`,
+		),
+		[],
+	);
+	assert.equal(strip.weeks.filter((x) => x.answer !== null).length, 2);
+	assert.deepEqual(await footprint(b), others, "the other author's calendar is untouched");
+	assert.equal(await streak(b), 0, "the open week has no answer, so the older run is not current");
+	refusedBare(await correct(b, first.week.id, STEADY, await revisionOf(b)), "not_found");
+	await saveAt(b, "2026-10-13T16:00:00.000Z", hard("struggling"));
+	assert.equal(await streak(b), 3);
+	const middle = ok(await trends(b)).weeks[1]!;
+	ok(await correct(b, middle.id, STEADY, await revisionOf(b)));
+	assert.equal(await streak(b), 1, "a Steady correction ends the run");
+	assert.equal(
+		(await one(sql`SELECT count(*)::int n FROM private_week_revision WHERE week_id=${middle.id}`)).n,
+		2,
+		"the earlier answer is kept",
+	);
+	const zones = 7 + (zoned.status === "ok" ? 1 : 0);
+	assert.deepEqual(
+		await sideEffects(w),
+		{ ...quiet, audits: Number(quiet.audits) + zones, jobs: Number(quiet.jobs) + zones },
+		"only the zone edits leave a record; no answer does",
+	);
+	assert.doesNotMatch(
+		JSON.stringify(await rows(sql`SELECT * FROM audit_event WHERE actor_id IN (${a.id},${b.id})`)),
+		/strained|struggling|private_week|week|ordinal/i,
+	);
+	const catalog = readCatalog(evryActor(a.actor));
+	assert.doesNotMatch(
+		JSON.stringify([
+			catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)),
+			catalog.reviewedWrites.map((o) => o.operation),
+		]),
+		/care/i,
+	);
 });
 
 test("AC:AUDIT-004 AC:B03-033 AC:ROLE43-012 the canary and every private field stay in the private tables", async () => {

@@ -53,6 +53,7 @@ const currentManifest = z.strictObject({
 		}),
 	),
 	issues: z.array(z.looseObject({ id: z.uuid(), publication_state: z.string() })),
+	ended: z.array(z.strictObject({ id: z.uuid(), ended_at: z.string() })),
 });
 export const imageSchema = z.strictObject({
 	version: z.literal(1),
@@ -128,6 +129,9 @@ const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest(
 const instant = (value: string | null) => (value ? new Date(value).toISOString().replace(/\.000Z$/, "Z") : null);
 const OPEN_MAIL = sql.raw(`('pending','dispatched','unknown','accepted','scheduled')`);
 const OPEN_ISSUE = sql.raw(`('pending','publishing','unknown')`);
+const UNUSABLE_LINK = sql.raw(
+	`encode(sha256(convert_to(gen_random_uuid()::text || gen_random_uuid()::text, 'UTF8')), 'hex')`,
+);
 const ids = (rows: { id: string }[]) =>
 	sql`(SELECT x::uuid FROM json_array_elements_text(${JSON.stringify(rows.map((r) => r.id))}::json) x)`;
 
@@ -142,7 +146,9 @@ export async function readCurrentManifest(db: Database): Promise<unknown> {
  'issues', (SELECT coalesce(json_agg(json_build_object('id', id, 'publication_state', publication_state,
    'held_reason', held_reason, 'publication_payload', publication_payload, 'publication_hash', publication_hash,
    'repository_id', repository_id, 'repository_name', repository_name, 'issue_number', issue_number,
-   'issue_url', issue_url, 'published_at', published_at)), '[]') FROM feedback)) AS current`);
+   'issue_url', issue_url, 'published_at', published_at)), '[]') FROM feedback),
+ 'ended', (SELECT coalesce(json_agg(json_build_object('id', id, 'ended_at', ended_at)), '[]') FROM affiliation
+   WHERE ended_at IS NOT NULL)) AS current`);
 	return rows[0]?.current ?? null;
 }
 
@@ -343,6 +349,11 @@ async function reconcile(tx: Tx, current: ReturnType<typeof currentManifest.pars
 		repository_name=r.repository_name, issue_number=r.issue_number, issue_url=r.issue_url, published_at=r.published_at
 		FROM json_populate_recordset(NULL::feedback, ${JSON.stringify(current.issues)}::json) r
 		WHERE f.id=r.id AND f.publication_state IN ${OPEN_ISSUE}`);
+	await tx.execute(sql`UPDATE affiliation a SET ended_at=r.ended_at
+		FROM json_to_recordset(${JSON.stringify(current.ended)}::json) AS r(id uuid, ended_at timestamptz)
+		WHERE a.id=r.id AND a.ended_at IS NULL`);
+	await tx.execute(sql`UPDATE invitation SET token_hash=${UNUSABLE_LINK} WHERE state='pending'`);
+	await tx.execute(sql`UPDATE participation SET rsvp_token_hash=${UNUSABLE_LINK} WHERE rsvp_token_hash IS NOT NULL`);
 	await tx.execute(sql`UPDATE job j SET state='cancelled', error_code='stale', lease_owner=NULL, lease_until=NULL,
 		next_attempt_at=NULL, finished_at=pg_catalog.clock_timestamp()
 		WHERE j.state IN ('ready','claimed','retry_wait','reconcile') AND (
