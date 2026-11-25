@@ -319,25 +319,24 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 	);
 });
 const SHARE = { shareFoundations: true, shareMilestones: false };
-const invitationsFixture = () => f;
 async function residentInvitation({
 	recipient,
-	on: f = invitationsFixture(),
+	on = f,
 }: { recipient?: Awaited<ReturnType<Fixture["account"]>>; on?: Fixture } = {}) {
-	const s = await f.setup("sending_church");
+	const s = await on.setup("sending_church");
 	if (recipient) s.recipient = recipient;
-	const person = await f.resident(s.w),
-		i = await f.invitation(s, person),
+	const person = await on.resident(s.w),
+		i = await on.invitation(s, person),
 		id = i.result.invitation.invitationId;
 	const accept = (over: object = {}, choices = SHARE, expectedRevision = "1") => ({
 		requestKey: key(),
 		expectedRevision,
 		input: { ...i.claim.input, decision: "accept", choices, ...over },
 	});
-	const respond = (claim: unknown, session = s.recipient.session) => f.invitations.respondResident(session, claim);
-	const links = () => f.admin.$count(t.residency_link, eq(t.residency_link.person_id, person));
-	const seats = () => f.admin.$count(t.seat, eq(t.seat.account_id, s.recipient.id));
-	const token = () => f.admin.select().from(t.invitation).where(eq(t.invitation.id, id));
+	const respond = (claim: unknown, session = s.recipient.session) => on.invitations.respondResident(session, claim);
+	const links = () => on.admin.$count(t.residency_link, eq(t.residency_link.person_id, person));
+	const seats = () => on.admin.$count(t.seat, eq(t.seat.account_id, s.recipient.id));
+	const token = () => on.admin.select().from(t.invitation).where(eq(t.invitation.id, id));
 	return { ...s, person, i, id, accept, respond, links, seats, token };
 }
 type ResidentInvitation = Awaited<ReturnType<typeof residentInvitation>>;

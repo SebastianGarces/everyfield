@@ -17,8 +17,8 @@ import {
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
 import { peopleUnmerge } from "../../../packages/domain/src/people/unmerge/index.ts";
 import { reads, withStatus } from "../people/people-support.mts";
-import type { Actor } from "../../support/fixture.mts";
-import { ok, refusedWith, sendingWorld, type Organization } from "./sending-world.mts";
+import { ok, type Actor } from "../../support/fixture.mts";
+import { refusedWith, sendingWorld, type Organization } from "./sending-world.mts";
 
 let w: Awaited<ReturnType<typeof sendingWorld>>;
 before(async () => {
@@ -702,8 +702,8 @@ test("AC:ADR1-009 a conversation and a note record who and when, count by the or
 	const zone = "America/Chicago";
 	const dayOf = (instant: string) => new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(new Date(instant));
 	const NOTE = "Casey will meet the director next week";
-	async function pair(role: "admin" | "owner" = "admin") {
-		const s = await w.scene(role);
+	async function pair() {
+		const s = await w.scene();
 		const P = await w.place(s.A, "Casey Lee", { responsible: s.seats.A });
 		const Q = await w.place(s.A, "Casey L.", { responsible: s.seats.A });
 		return { ...s, P, Q };
@@ -829,7 +829,7 @@ test("AC:ADR1-009 a conversation and a note record who and when, count by the or
 		for (const words of [PRIVATE, body]) await hidden(s, words);
 	});
 	await t.test("an Admin cannot change another author's note", async () => {
-		const s = await pair("admin");
+		const s = await pair();
 		const other = await w.actor(s.O, "admin", { user: { name: "Devon" } });
 		const noteId = await add(s, other, PRIVATE);
 		refusedWith(

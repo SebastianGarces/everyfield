@@ -16,8 +16,8 @@ import {
 	readVersionReview,
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
-import { raced, type Actor } from "../../support/fixture.mts";
-import { ok, refusedWith, sendingWorld, type Scene } from "./sending-world.mts";
+import { ok, raced, type Actor } from "../../support/fixture.mts";
+import { refusedWith, sendingWorld, type Scene } from "./sending-world.mts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 let w: Awaited<ReturnType<typeof sendingWorld>>;
@@ -39,7 +39,7 @@ after(() => w?.close());
 
 const LEAD = "Lead a small group";
 const PRESENT = "Present the vision to sending leadership";
-const people = () => w.count(sql`SELECT count(*)::int AS n FROM seat`);
+const seats = () => w.count(sql`SELECT count(*)::int AS n FROM seat`);
 const milestoneOf = <T extends { title: string }>(list: T[], title: string) => {
 	const found = list.find((m) => m.title === title);
 	assert.ok(found, title);
@@ -56,7 +56,7 @@ type Plan = { label: string; minMonths: number; maxMonths: number }[];
 async function publishNext(
 	a: Actor,
 	programId: string,
-	plan: { stages?: Plan; milestones: { lineage: string; title: string }[]; expectedMonths?: number },
+	plan: { stages?: Plan; milestones: { lineage: string; title: string }[] },
 ) {
 	const p = await w.program(a, programId);
 	const saved = ok(
@@ -65,7 +65,7 @@ async function publishNext(
 			expectedRevision: p.revision,
 			plan: {
 				rhythm: "monthly",
-				expectedMonths: plan.expectedMonths ?? 15,
+				expectedMonths: 15,
 				stages: plan.stages ?? [{ label: "Assimilating", minMonths: 2, maxMonths: 3 }],
 				milestones: plan.milestones.map((m) => ({ ...m, description: null, handsOn: false })),
 				readings: [],
@@ -566,7 +566,7 @@ test("AC:ADR1-012 a resident's own mark and the director's confirmation are sepa
 		const s = await residency();
 		const Q = await w.place(s.A, "Jordan Rivera", { responsible: s.seats.A });
 		const unlinked = await w.enroll(s.A, s.Program, Q);
-		const before = await people();
+		const before = await seats();
 		assert.deepEqual(ok(await w.at(NOW, () => recorded(s, unlinked))), { outcome: "changed" });
 		assert.deepEqual(await completionRow({ E: unlinked, M: s.M }), [
 			{
@@ -584,7 +584,7 @@ test("AC:ADR1-012 a resident's own mark and the director's confirmation are sepa
 			{ linked_account_id: null },
 		]);
 		assert.equal(await w.count(sql`SELECT count(*)::int AS n FROM residency_link WHERE person_id=${Q}`), 0);
-		assert.equal(await people(), before);
+		assert.equal(await seats(), before);
 		refusedWith(await w.untouched(() => recorded(s, unlinked, s.D)));
 	});
 	await t.test("once the resident is linked the director's recording is refused", async () => {

@@ -16,7 +16,7 @@ import {
 } from "../../../packages/domain/src/organizations/index.ts";
 import { evryActor, invokeRead } from "../../../packages/evry/src/index.ts";
 import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
-import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { fixture, ok, type Actor, type Workspace } from "../../support/fixture.mts";
 import { frozenClock } from "../../support/test-database.mts";
 import { recorded, touched, untouched } from "../../support/recorded.mts";
 import { authorityOf } from "../people/people-support.mts";
@@ -27,10 +27,6 @@ export type Scene = Awaited<ReturnType<Awaited<ReturnType<typeof sendingWorld>>[
 type Row = Record<string, unknown>;
 type Reply = { status: string; refusal?: { code: string; field?: string } };
 
-export const ok = <T,>(reply: { status: string; value?: T; refusal?: unknown; error?: unknown }): T => {
-	assert.equal(reply.status, "ok", JSON.stringify(reply));
-	return reply.value as T;
-};
 export const refusedWith = (reply: Reply, code = "unavailable", field?: string) => {
 	assert.equal(reply.status, "refused", JSON.stringify(reply));
 	assert.equal(reply.refusal?.code, code);
@@ -198,7 +194,6 @@ export async function sendingWorld(prefix: string) {
 		authority,
 		at,
 		tx,
-		seatOf,
 		board,
 		record,
 		goals,

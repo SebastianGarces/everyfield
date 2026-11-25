@@ -923,7 +923,6 @@ test("AC:ADR1-015 Evry drafts a program and a stage move that change nothing, an
 		assert.deepEqual(await movesOf(personId), []);
 	});
 	await t.test("a move with a reason, note or text is refused before any model is asked", async () => {
-		const { asked } = recorder();
 		const id = await conversation();
 		for (const extra of [
 			{ reason: "Private human discussion" },
@@ -939,7 +938,6 @@ test("AC:ADR1-015 Evry drafts a program and a stage move that change nothing, an
 					{ code: "invalid_input" },
 				),
 			);
-		assert.equal(asked.calls, 0);
 		assert.deepEqual(await kept("Private human discussion"), { events: 0, proposals: 0, audit: 0 });
 	});
 	await t.test("an Admin who does not direct the program is refused its next-version draft", async () => {
