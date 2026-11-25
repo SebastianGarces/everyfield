@@ -223,8 +223,13 @@ test("INV-budget: a stage change hands the person's open tasks back as reviewed,
 	await openTask(late);
 	const refused = await approveAndRun(owner, review);
 	assert.deepEqual(
-		[refused.outcome, refused.review.outcome, (await personRow(late)).stage],
-		["refused", "refused", "core_group"],
+		[refused.outcome, refused.review.status, refused.review.outcome, (await personRow(late)).stage],
+		["reviewing", "pending", null, "core_group"],
+	);
+	assert.deepEqual(
+		refused.review.review.changes.at(-1),
+		{ field: "openTasksNeedingOwner", before: null, after: 1 },
+		"the new review shows the task the approved one did not",
 	);
 	assert.deepEqual(await effectAudits(review.id), []);
 });

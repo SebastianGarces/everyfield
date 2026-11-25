@@ -185,7 +185,7 @@ test("INV-meetings-evaluation: an evaluation review shows exactly the planter's 
 	assert.deepEqual((await evaluated()).rows, [{ evaluation_scores: [4, 5, 3, 4, 5, 4, 3, 4] }]);
 });
 
-test("INV-meetings-stale: a review whose meeting changed since is refused at execution and overwrites nothing", async () => {
+test("INV-meetings-stale: a review whose meeting changed since overwrites nothing and asks again against the saved version", async () => {
 	const propose = await turn(owner);
 	const proposal = await propose("meetings.edit", { meetingId: seeded.training.id, title: "Team training night" });
 	assert.ok(proposal);
@@ -199,8 +199,7 @@ test("INV-meetings-stale: a review whose meeting changed since is refused at exe
 		input: { meetingId: seeded.training.id, patch: { notes: "Bring laptops" } },
 	});
 	const { outcome, review } = await approveAndRun(owner, proposal);
-	assert.equal(outcome, "refused");
-	assert.equal(review.receipt?.code, "revision_conflict");
+	assert.deepEqual([outcome, review.status, review.revision], ["reviewing", "pending", 2]);
 	const title = (await admin.execute(sql`SELECT title FROM meeting WHERE id=${seeded.training.id}`)).rows[0]!.title;
 	assert.equal(title, "Team training");
 });

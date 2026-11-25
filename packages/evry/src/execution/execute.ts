@@ -11,7 +11,8 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
-import { REVIEWED_WRITES, stale } from "../proposals/store.ts";
+import { evryActor } from "../context/actor.ts";
+import { audit, digest, expiry, owned, REVIEWED_WRITES, stale } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
 import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
@@ -19,7 +20,7 @@ import { logRefusal } from "@everyfield/domain/flags";
 
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
-export type EffectOutcome = "completed" | "refused" | "failed" | "expired" | "closed" | "lost";
+export type EffectOutcome = "completed" | "refused" | "reviewing" | "failed" | "expired" | "closed" | "lost";
 
 const queued: ProposalSubject = { now: false, lapsed: false, jobLive: false };
 const lapsed: ProposalSubject = { ...queued, lapsed: true };
@@ -37,6 +38,7 @@ async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
 	);
 }
 
+const shownChanges = z.array(z.looseObject({ field: z.string() }));
 const locked = z.strictObject({
 	id: z.uuid(),
 	stale: z.boolean(),
@@ -47,6 +49,7 @@ const locked = z.strictObject({
 	operation: z.enum(Object.keys(REVIEWED_WRITES) as [keyof typeof REVIEWED_WRITES]),
 	revision: z.number().int(),
 	input: z.unknown(),
+	changes: shownChanges,
 	state: z.string(),
 	outcome: z.string().nullable(),
 	approved_session_id: z.uuid().nullable(),
@@ -67,6 +70,48 @@ const currentState = (() => {
 
 type Reach = { id: string; reach(): Promise<EffectResult> };
 
+type Draft = {
+	id: string;
+	revision: number;
+	write: ReviewedWrite<unknown>;
+	args: unknown;
+	changes: z.infer<typeof shownChanges>;
+	authority: RequestActor;
+};
+
+async function reviewAgain(
+	db: Database,
+	lease: EffectLease,
+	{ id, revision, write, args, changes, authority }: Draft,
+	ports: { mail: MailPort | null; native: NativePorts | null },
+) {
+	if (!write.again) return false;
+	const actor = evryActor(authority);
+	if (!write.allowed(actor)) return false;
+	const review = await Promise.resolve(
+		write.review(actor, write.again(args, changes), { db, ...ports, conversationId: null }),
+	).catch((error: unknown) => {
+		if (error instanceof EvryRefusal) return null;
+		throw error;
+	});
+	if (!review) return false;
+	const next = sql`r.review||jsonb_build_object('earlier',p.review->'changes')`;
+	const r = await db.transaction(async (tx) => {
+		await holdPublicationLocks(tx, lease);
+		return tx.execute(sql`
+			WITH r AS (${review}),
+			x AS (
+				UPDATE proposal p SET revision=p.revision+1,input=r.args,review=${next},digest=${digest(sql`p.revision+1`, next)},
+					state='pending',approved_at=NULL,approved_session_id=NULL,job_id=NULL,expires_at=${expiry},updated_at=clock_timestamp()
+				FROM r WHERE p.id=${id}::uuid AND p.revision=${revision} AND ${owned(actor)} AND ${fence(lease)}
+					AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.executeProposal", "pending", queued))}::text[])
+				RETURNING p.*
+			), audit AS (${audit("evry.proposal_revised", "edit", "x")})
+			SELECT id FROM x`);
+	});
+	return r.rowCount === 1;
+}
+
 class Unpublished extends Error {}
 
 class Refused extends Error {
@@ -84,10 +129,11 @@ export async function executeProposal(
 	mail: MailPort | null = null,
 	native: NativePorts | null = null,
 ): Promise<EffectOutcome> {
+	const tried: { draft?: Draft } = {};
 	try {
 		const first = await gatedTransaction(db, async (tx): Promise<EffectOutcome | Reach> => {
 			const r = await tx.execute(sql`
-				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
+				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.review->'changes' AS changes,p.state,p.outcome,p.approved_session_id,
 					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced,
 					${sql.raw(stale("p"))} AS stale,coalesce((p.receipt->>'reached')::boolean,false) AS reached
 				FROM proposal p JOIN conversation c ON c.id=p.conversation_id JOIN job j ON j.id=p.job_id AND j.tenant_id=p.tenant_id
@@ -114,6 +160,14 @@ export async function executeProposal(
 				if (p.reached) throw new Error("mail is paused and this effect already reached the email service");
 				throw new Refused("mail_paused");
 			}
+			tried.draft = {
+				id: p.id,
+				revision: p.revision,
+				write,
+				args: p.input,
+				changes: p.changes,
+				authority: claimed.authority,
+			};
 			const effectKey = `evry:${p.id}:${p.revision}`;
 			const context = { session: session.data, selected };
 			if (!p.reached) {
@@ -176,6 +230,8 @@ export async function executeProposal(
 						? error.code
 						: null;
 		if (!refused) return "failed";
+		if (refused === "revision_conflict" && tried.draft && (await reviewAgain(db, lease, tried.draft, { mail, native })))
+			return "reviewing";
 		const saved = await db.transaction(async (tx) => {
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(sql`
