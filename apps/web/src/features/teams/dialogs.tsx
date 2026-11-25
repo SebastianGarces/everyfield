@@ -5,8 +5,9 @@ import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea, ProblemTex
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
-import { changesKept, CHOOSE_FIRST, useMergedDraft, type ConflictField } from "../../components/save/conflict.ts";
+import { changesKept, CHOOSE_FIRST, type ConflictField } from "../../components/save/conflict.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
+import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
 import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 import { PersonPicker, type PickedPerson } from "../meetings/dialogs.tsx";
 import { ICON_KEYS, ICONS, STATE_HINT, STATE_LABEL, STATES, type IconKey, type Role, type TeamState } from "./model.ts";

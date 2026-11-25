@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 export type Pick = "saved" | "mine";
 export type Picks = Readonly<Record<string, { pick: Pick; saved: unknown }>>;
 export type ConflictField<T> = { key: keyof T & string; label: string; text: (value: T) => string };
@@ -40,26 +38,6 @@ export function pickField<T extends object>(picks: Picks, latest: T, key: string
 
 export function pickTyped<T extends object>(picks: Picks, latest: T, patch: Partial<T>): Picks {
 	return Object.keys(patch).reduce((all, key) => pickField(all, latest, key, "mine"), picks);
-}
-
-export function useMergedDraft<T extends object>(options: {
-	base: T;
-	latest: T;
-	start?: T;
-	fields: readonly ConflictField<T>[];
-}) {
-	const { latest, fields } = options;
-	const [state, setState] = useState(() => ({
-		base: options.base,
-		mine: options.start ?? options.base,
-		picks: {} as Picks,
-	}));
-	return {
-		...mergeDraft({ ...state, latest, fields }),
-		set: (patch: Partial<T>) =>
-			setState((s) => ({ ...s, mine: { ...s.mine, ...patch }, picks: pickTyped(s.picks, latest, patch) })),
-		choose: (key: string, pick: Pick) => setState((s) => ({ ...s, picks: pickField(s.picks, latest, key, pick) })),
-	};
 }
 
 export const changesKept = (what: string) =>

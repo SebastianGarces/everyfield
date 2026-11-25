@@ -24,7 +24,7 @@ import { editMeeting, scheduleMeeting } from "./actions.ts";
 import { listMinistries, listVenues } from "./fetch.ts";
 import { offsetText } from "../../components/dates.ts";
 import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
-import { changesKept, CHOOSE_FIRST, useMergedDraft, type ConflictField } from "../../components/save/conflict.ts";
+import { changesKept, CHOOSE_FIRST, type ConflictField } from "../../components/save/conflict.ts";
 import {
 	DialogNotice,
 	NoticeInDialog,
@@ -32,6 +32,7 @@ import {
 	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
+import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
 import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };

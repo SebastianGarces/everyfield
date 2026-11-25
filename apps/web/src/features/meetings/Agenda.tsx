@@ -26,8 +26,9 @@ import {
 import { Icon } from "@everyfield/ui/foundations";
 import { startTransition, useState } from "react";
 import type { Wait } from "../../components/save/model.ts";
-import { changesKept, CHOOSE_FIRST, useMergedDraft, type ConflictField } from "../../components/save/conflict.ts";
+import { changesKept, CHOOSE_FIRST, type ConflictField } from "../../components/save/conflict.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
 import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 import { replaceAgenda } from "./actions.ts";
 import { problemText, type AgendaSection, type Detail } from "./model.ts";
