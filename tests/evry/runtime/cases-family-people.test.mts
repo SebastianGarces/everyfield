@@ -1,7 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
-import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
+import { createHash } from "node:crypto";
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { runDueImports } from "../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -10,6 +9,7 @@ import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.
 import { approveProposal, executeProposal, retryUnresolvedEffects } from "../../../packages/evry/src/index.ts";
 import { ok } from "../../support/fixture.mts";
 import { pdf } from "../../integration/platform/fixtures.mjs";
+import { png } from "./bucket.mts";
 import { caseWorld, NOW, propose, read, rowsOf, sql, type CaseWorld, type Reply } from "./case-world.mts";
 
 let w: CaseWorld;
@@ -188,7 +188,6 @@ test("AC:EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES each household, tag, skill and note
 	assert.deepEqual((await homes(casey))[0]!.slice(1), [H, "spouse"]);
 });
 
-const CARE = { spiritual: "struggling", family: "struggling", financial: "struggling", pace: "struggling" };
 const RATING = { rating: "pass" } as const;
 const INTERVIEW = {
 	occurredOn: "2026-10-11",
@@ -380,17 +379,7 @@ test("AC:EVRY-FAMILY-PEOPLE-RECORDS two assessments, one interview and one genui
 		[["not_offered", "not_offered", "not_offered"], [], []],
 	);
 
-	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${c.A.id}`);
-	const care = createPrivateCare();
-	const planter = await w.authorityOf(c.A);
-	const week = ok(await care.readCurrent(w.db, planter, {}));
-	ok(
-		await care.save(w.db, planter, {
-			requestKey: randomUUID(),
-			expectedRevision: week.revision,
-			input: { answers: CARE, note: "CARE-CANARY" },
-		}),
-	);
+	await w.care(c.A);
 	const asked = await w.ask(c.A, "Tell me everything recorded about Alex", [
 		() => [
 			read("people.getAssessments", { personId: alex }),
@@ -421,8 +410,6 @@ test("AC:EVRY-FAMILY-PEOPLE-RECORDS two assessments, one interview and one genui
 	assert.equal((await w.look(c.A, "people.getInterviews", { personId: alex })).total, 2);
 });
 
-const PNG =
-	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==";
 const CSV = [
 	"first_name,last_name,email,notes",
 	"Finley,New,finley@example.test,=1+1",
@@ -523,7 +510,7 @@ test("AC:EVRY-FAMILY-PEOPLE-CORE three own people keep identity, stage, order an
 	assert.deepEqual(await order(), [riley, alex]);
 
 	const conversation = await w.converse(c.Aa);
-	const photo = await c.attach(c.A, conversation, "alex.png", Buffer.from(PNG, "base64"));
+	const photo = await c.attach(c.A, conversation, "alex.png", png);
 	const at = { conversation, storage: w.files.storage, attachments: [{ id: photo.id, name: photo.name }] };
 	const card = await w.prepare(c.A, "people.setPersonPhoto", { personId: alex, uploadId: photo.id }, at);
 	await approveProposal(w.db, c.Aa, card.id, w.witness(card), w.files.storage);
@@ -623,7 +610,7 @@ test("AC:EVRY-FAMILY-PEOPLE-CORE three own people keep identity, stage, order an
 	);
 	const kept = await c.person("Sam Kept");
 	const sam = await c.person("Sam Double");
-	const samsPhoto = await c.attach(c.A, conversation, "sam.png", Buffer.from(PNG, "base64"));
+	const samsPhoto = await c.attach(c.A, conversation, "sam.png", png);
 	const set = await w.prepare(
 		c.A,
 		"people.setPersonPhoto",

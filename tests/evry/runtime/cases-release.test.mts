@@ -3,9 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { runDueImports } from "../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { SIGNAL_KEYS } from "../../../packages/contracts/src/intelligence/signals.ts";
-import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { approveProposal, retryUnresolvedEffects, type MailPort } from "../../../packages/evry/src/index.ts";
-import { ok, type Actor } from "../../support/fixture.mts";
+import type { Actor } from "../../support/fixture.mts";
 import { touched } from "../../support/recorded.mts";
 import {
 	caseWorld,
@@ -17,7 +16,6 @@ import {
 	type CaseWorld,
 	type Church,
 	type Play,
-	type Reply,
 } from "./case-world.mts";
 
 let w: CaseWorld;
@@ -53,25 +51,6 @@ type Scene = {
 };
 
 const read = async (q: ReturnType<typeof sql>) => (await w.rows(q)).map((r) => Object.values(r));
-async function care(who: Actor) {
-	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${who.id}`);
-	const authority = await w.authorityOf(who);
-	const writer = createPrivateCare();
-	const week = ok(await writer.readCurrent(w.db, authority, {})) as Reply;
-	const answers = {
-		spiritual: "struggling",
-		family: "struggling",
-		financial: "struggling",
-		pace: "struggling",
-	} as const;
-	ok(
-		await writer.save(w.db, authority, {
-			requestKey: randomUUID(),
-			expectedRevision: week.revision,
-			input: { answers, note: "CARE-CANARY" },
-		}),
-	);
-}
 
 const SCENES: Record<Journey, (c: Church) => Promise<Scene>> = {
 	async invitation(c) {
@@ -225,7 +204,7 @@ const SCENES: Record<Journey, (c: Church) => Promise<Scene>> = {
 
 async function repetition(journey: Journey, n: number, broken?: (c: Church) => Promise<unknown>): Promise<Result> {
 	const c = await w.church();
-	await care(c.A);
+	await w.care(c.A);
 	const scene = await SCENES[journey](c);
 	const failed = new Set<Gate>();
 	const gate = (name: Gate, held: boolean) => held || failed.add(name);

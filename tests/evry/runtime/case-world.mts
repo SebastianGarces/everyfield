@@ -35,8 +35,9 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/index.ts";
 import type { Reference } from "../../../packages/evry/src/conversations/store.ts";
+import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { bucket } from "./bucket.mts";
-import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { fixture, ok, type Actor, type Workspace } from "../../support/fixture.mts";
 import { failingWrite, NOTHING, recorded, touched, untouched } from "../../support/recorded.mts";
 import { pinSchemaClock } from "../../support/test-database.mts";
 
@@ -416,6 +417,26 @@ export async function caseWorld(
 		return asked.replies[0];
 	}
 
+	async function care(who: Actor) {
+		await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${who.id}`);
+		const writer = createPrivateCare();
+		const authority = await authorityOf(who);
+		const week = ok(await writer.readCurrent(db, authority, {}));
+		const answers = {
+			spiritual: "struggling",
+			family: "struggling",
+			financial: "struggling",
+			pace: "struggling",
+		} as const;
+		ok(
+			await writer.save(db, authority, {
+				requestKey: randomUUID(),
+				expectedRevision: week.revision,
+				input: { answers, note: "CARE-CANARY" },
+			}),
+		);
+	}
+
 	const OWN = new Set(["audit_event", "conversation", "conversation_event", "job", "record"]);
 	async function quiet<T>(body: () => Promise<T>, changes: string[] = []) {
 		const kinds = () =>
@@ -638,11 +659,7 @@ export async function caseWorld(
 				JSON.stringify(t.replies)
 					.replace(UUID, (id) => back.get(id) ?? id)
 					.replaceAll(/"resultId":\d+/g, "");
-			const [real, made] = [plain(asked), plain(guessed)];
-			const at = [...real].findIndex((ch, i) => ch !== made[i]);
-			const near = (t: string) => (real === made ? "" : t.slice(Math.max(0, at - 120), at + 120));
-			assert.equal(near(real), near(made), "a real id answers exactly as a made-up one");
-			assert.equal(real, made, "a real id answers exactly as a made-up one");
+			assert.equal(plain(asked), plain(guessed), "a real id answers exactly as a made-up one");
 			assert.deepEqual(asked.proposals, [], "no review is prepared");
 			assert.deepEqual(
 				asked.cards.flatMap((card) => rowsOf(card.result).map((r) => r.label)).sort(),
@@ -735,6 +752,7 @@ export async function caseWorld(
 		prepare,
 		apply,
 		look,
+		care,
 		witness,
 		quiet,
 		church,

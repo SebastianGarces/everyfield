@@ -17,6 +17,7 @@ import {
 	caseWorld,
 	propose,
 	proposes,
+	provider,
 	read,
 	rowsOf,
 	sql,
@@ -36,12 +37,7 @@ function emailService() {
 	const calls = { send: [] as { key: string; to: string[]; text: string[] }[], cancel: [] as string[][] };
 	const answers = { cancel: "done" as Answer, send: "ids" as "ids" | "unknown" | "refused" };
 	const port: MailPort = {
-		keys: {
-			encryptionKey: Buffer.alloc(32, 7),
-			addressKey: Buffer.alloc(32, 9),
-			from: "church@example.test",
-			origin: "https://app.example.test",
-		},
+		keys: provider("ids").port.keys,
 		transport: {
 			paused: false,
 			async send(batch) {

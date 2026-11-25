@@ -5,7 +5,6 @@ import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sd
 import { runDueObjectCleanup } from "../../../packages/domain/src/jobs/object-cleanup.ts";
 import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.ts";
 import { peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
-import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { readAttachment } from "../../../packages/evry/src/attachments/store.ts";
 import type { ReadAdapter } from "../../../packages/evry/src/catalog/types.ts";
 import { PASTORAL_BOUNDARY, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
@@ -38,7 +37,7 @@ import {
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/review.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { nativePorts } from "../evals/settings-ports.mts";
-import { ok, raced, type Actor, type Workspace } from "../../support/fixture.mts";
+import { ok, raced, type Workspace } from "../../support/fixture.mts";
 import { faulted } from "../../support/recorded.mts";
 import { png } from "./bucket.mts";
 import {
@@ -62,25 +61,6 @@ before(async () => {
 });
 after(() => w?.close());
 
-async function care(who: Actor) {
-	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${who.id}`);
-	const writer = createPrivateCare();
-	const authority = await w.authorityOf(who);
-	const week = ok(await writer.readCurrent(w.db, authority, {})) as Reply;
-	const answers = {
-		spiritual: "struggling",
-		family: "struggling",
-		financial: "struggling",
-		pace: "struggling",
-	} as const;
-	ok(
-		await writer.save(w.db, authority, {
-			requestKey: randomUUID(),
-			expectedRevision: week.revision,
-			input: { answers, note: "CARE-CANARY" },
-		}),
-	);
-}
 const linked = (plant: Workspace, organization: Workspace) =>
 	w.admin
 		.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
@@ -498,7 +478,7 @@ const lapse = (claim: Reply) =>
 
 test("AC:EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION only the exact approved review runs, once: an unknown send is checked and not repeated, invalid reviews change nothing and a stalled executor publishes nothing", async () => {
 	const c = await w.church();
-	await care(c.A);
+	await w.care(c.A);
 	const PROMPT = "PROMPT-CANARY invite Alex and Casey to the vision night";
 	const card = await w
 		.ask(c.A, PROMPT, [], {})

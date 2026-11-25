@@ -9,14 +9,14 @@ import {
 import { READ_DOMAINS } from "../../../../packages/evry/src/index.ts";
 import { REVIEWED_WRITES } from "../../../../packages/evry/src/proposals/review.ts";
 
-export const ROOT = new URL("../../../../", import.meta.url);
+const ROOT = new URL("../../../../", import.meta.url);
 const text = (path: string) => readFileSync(new URL(path, ROOT), "utf8");
 
-export type Tested = { file: string; test: string; operations: string[]; through?: Record<string, string> };
-export type Excluded = { rule: string; authority: string[]; operations: string[] };
-export type Withheld = { decision: string; operations: string[] };
+type Tested = { file: string; test: string; operations: string[]; through?: Record<string, string> };
+type Excluded = { rule: string; authority: string[]; operations: string[] };
+type Withheld = { decision: string; operations: string[] };
 export type Family = { family: string; tested: Tested[]; excluded: Excluded[]; withheld: Withheld[] };
-export type Operation = {
+type Operation = {
 	id: string;
 	evry: boolean;
 	model_tool: boolean;
@@ -88,12 +88,7 @@ const inCi = new Set(SUITES);
 const mentions = (body: string, token: string) =>
 	new RegExp(`(?<![\\w.])${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w]|\\.\\w)`).test(body);
 
-export function problems(
-	families: Family[],
-	matrices = MATRICES,
-	catalog = CATALOG,
-	shipped: ReadonlySet<string> = SHIPPED,
-): string[] {
+export function problems(families: Family[], matrices = MATRICES): string[] {
 	const out: string[] = [];
 	for (const id of matrices.keys()) if (!families.some((f) => f.family === id)) out.push(`${id} has no matches`);
 	for (const { family, tested, excluded, withheld } of families) {
@@ -114,7 +109,7 @@ export function problems(
 			const body = reached(found!.chunks, named[0]!.chunk);
 			for (const id of operations) {
 				const token = through[id] ?? id;
-				if (catalog.get(id)?.model_tool && !shipped.has(token.split(" ")[0]!))
+				if (CATALOG.get(id)?.model_tool && !SHIPPED.has(token.split(" ")[0]!))
 					out.push(`${family} ${id} is a model tool that ${token} does not serve`);
 				if (!mentions(body, token.split(" ").at(-1)!)) out.push(`${family} ${id}: "${test}" never names ${token}`);
 			}
@@ -124,7 +119,7 @@ export function problems(
 		for (const { rule, authority, operations } of excluded) {
 			if (!RULES.has(rule)) out.push(`${family} ${rule} is no catalog rule`);
 			for (const id of operations) {
-				const op = catalog.get(id);
+				const op = CATALOG.get(id);
 				if (!op) continue;
 				if (op.model_tool) out.push(`${family} ${id} is a model tool and cannot be excluded`);
 				if (op.evry && !op.model_tool) out.push(`${family} ${id} is Evry's own protocol and cannot be excluded`);
@@ -135,7 +130,7 @@ export function problems(
 		}
 		for (const { decision, operations } of withheld) {
 			if (!/^(D-\d+|T-\d+)\b/.test(decision)) out.push(`${family} "${decision}" cites no decision`);
-			for (const id of operations) if (shipped.has(id)) out.push(`${family} ${id} is shipped and cannot be withheld`);
+			for (const id of operations) if (SHIPPED.has(id)) out.push(`${family} ${id} is shipped and cannot be withheld`);
 		}
 	}
 	return out;
