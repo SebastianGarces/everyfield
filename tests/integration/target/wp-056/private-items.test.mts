@@ -100,6 +100,8 @@ const ADMIN: Seen = {
 		"people.getAssessments personId": ["intake"],
 		"intelligence.readScorecard all": ["assessment"],
 		"intelligence.readAssessment all": ["assessment"],
+		"intelligence.readAssessmentHistory all": ["assessment"],
+		"intelligence.readAssessmentRun runId": ["assessment"],
 	},
 	summary: { ...INSIDE.summary, "intelligence.trends": ["assessment"] },
 };
