@@ -1,0 +1,41 @@
+{
+	"family": "EVRY-FAMILY-COMMUNICATION",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_scoped_internal_caller"
+			],
+			"operations": [
+				"communication.dispatchAttempt",
+				"communication.reconcileProviderOutcome",
+				"mail.acceptWebhook",
+				"mail.processDeliveryEvent",
+				"mail.reconcileDeliveryState",
+				"mail.renderTransactional",
+				"mail.sendTransactional",
+				"mail.suppression.recordProviderFact"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"communication.recordContactFromTask"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"authenticated_self"
+			],
+			"operations": [
+				"mail.suppression.restoreReviewed"
+			]
+		}
+	],
+	"withheld": []
+}

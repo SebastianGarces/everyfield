@@ -1,0 +1,61 @@
+{
+	"family": "EVRY-FAMILY-NOTIFICATIONS",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_system_job_or_exact_operator_grant"
+			],
+			"operations": [
+				"meetings.planNotifications"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"verified_disable_only_proof"
+			],
+			"operations": [
+				"notifications.applyEmailOptOut",
+				"notifications.describeEmailOptOut"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_scoped_internal_caller"
+			],
+			"operations": [
+				"notifications.cancelTaskReminders",
+				"notifications.claimDue",
+				"notifications.dispatchBatch",
+				"notifications.emitLaunchMilestone",
+				"notifications.emitPhaseMilestone",
+				"notifications.emitRelationshipMilestone",
+				"notifications.emitSharingMilestone",
+				"notifications.emitWikiUpstreamReview",
+				"notifications.enqueue",
+				"notifications.generateOwedOversightDigests",
+				"notifications.generateOwedPlanterDigests",
+				"notifications.inspectAssociationReceipt",
+				"notifications.meetingAudience",
+				"notifications.reconcileUnknownOutcome",
+				"notifications.recoverLease",
+				"notifications.retryAssociationReceipt",
+				"notifications.sendDiscoveryAssociationReceipt",
+				"notifications.syncTaskReminders"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"verified_one_hour_undo_proof"
+			],
+			"operations": [
+				"notifications.undoEmailOptOut"
+			]
+		}
+	],
+	"withheld": []
+}

@@ -1,0 +1,27 @@
+{
+	"family": "EVRY-FAMILY-WIKI",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"anonymous_public"
+			],
+			"operations": [
+				"wiki.publicPreviewMetadata",
+				"wiki.renderGlobalPreview"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"authenticated_self"
+			],
+			"operations": [
+				"wiki.reading.recordView",
+				"wiki.reading.updateProgress"
+			]
+		}
+	],
+	"withheld": []
+}

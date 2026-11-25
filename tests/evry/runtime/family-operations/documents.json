@@ -1,0 +1,21 @@
+{
+	"family": "EVRY-FAMILY-DOCUMENTS",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_scoped_internal_caller"
+			],
+			"operations": [
+				"documents.purgeOwnedForDeletion",
+				"documents.reconcileOrphans",
+				"storage.createAuthorizedDownload",
+				"storage.deleteUnreferencedObject",
+				"storage.putPrivateObject",
+				"storage.readAuthorizedObject"
+			]
+		}
+	],
+	"withheld": []
+}

@@ -1,0 +1,181 @@
+{
+	"family": "EVRY-FAMILY-IDENTITY-PLATFORM",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"trusted_internal_application_caller"
+			],
+			"operations": [
+				"access.checkOperation",
+				"access.projectRead"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"trusted_interactive_domain_caller"
+			],
+			"operations": [
+				"access.currentActor",
+				"security.safeReturn"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"verified_restricted_deletion_subject"
+			],
+			"operations": [
+				"account.cancelDeletion",
+				"account.getDeletionStatus",
+				"churches.cancelWorkspaceDeletion",
+				"churches.getDeletionStatus"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"authenticated_self"
+			],
+			"operations": [
+				"account.changePassword",
+				"account.confirmEmailChange",
+				"account.previewPersonalTimezoneChange",
+				"account.requestEmailChange",
+				"account.setPersonalTimezone",
+				"auth.getSession",
+				"auth.revokeOtherSessions",
+				"emailSuppression.requestRestore"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"public_or_verified_invitation_context"
+			],
+			"operations": [
+				"accounts.getRegistrationOptions"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"verified_own_pending_or_active_account"
+			],
+			"operations": [
+				"accounts.getRegistrationStatus"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"public_or_sealed_expiring_proof"
+			],
+			"operations": [
+				"accounts.register",
+				"auth.classifyPublicPreview",
+				"auth.recoverPassword",
+				"auth.requestPasswordRecovery",
+				"auth.signIn"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"verified_own_pending_domain_account"
+			],
+			"operations": [
+				"accounts.resumeRegistration"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"plant_owner",
+				"plant_admin",
+				"organization_owner",
+				"organization_admin",
+				"authenticated_discovery_subject_owner"
+			],
+			"operations": [
+				"associations.acceptInvitation",
+				"associations.respondInvitation"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"ambient_self_session_or_absent_invalid_cookie"
+			],
+			"operations": [
+				"auth.recoverInvalidSession",
+				"auth.signOut"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"plant_owner"
+			],
+			"operations": [
+				"churches.requestWorkspaceDeletion"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_scoped_internal_caller"
+			],
+			"operations": [
+				"feedback.createConfiguredIssue",
+				"feedback.notifyOperator",
+				"feedback.reconcileIssueLink",
+				"feedback.triageIssue",
+				"platformAdmin.authorize"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_identity_provisioning_caller"
+			],
+			"operations": [
+				"identity.ensureOwnerPerson"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"anonymous_public"
+			],
+			"operations": [
+				"marketing.privacyPolicy",
+				"marketing.readProductExamples",
+				"marketing.requestInvitation",
+				"marketing.sitemap",
+				"marketing.terms"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"verified_addressed_invitee_without_active_seat"
+			],
+			"operations": [
+				"seats.acceptInvitation"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_system_job_or_exact_operator_grant"
+			],
+			"operations": [
+				"security.checkRequestOrigin"
+			]
+		}
+	],
+	"withheld": []
+}

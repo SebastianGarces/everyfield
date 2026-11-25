@@ -1,0 +1,75 @@
+{
+	"family": "EVRY-FAMILY-INTELLIGENCE-PHASE",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_owning_domain_producer"
+			],
+			"operations": [
+				"intelligence.appendAssessmentConsequences",
+				"intelligence.computeSnapshotDelta",
+				"intelligence.deriveLensEvidence",
+				"intelligence.describeRunFailure",
+				"phases.appendConsequences",
+				"phases.classifyChange",
+				"reference.readRubricManifest"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_assessment_job_current_claim"
+			],
+			"operations": [
+				"intelligence.buildFactSnapshot",
+				"intelligence.callProvider",
+				"intelligence.evaluateAssessment",
+				"intelligence.executeDemand",
+				"intelligence.publishAssessment",
+				"intelligence.recordAttemptTelemetry",
+				"intelligence.releaseAssessmentToOversight",
+				"intelligence.retrieveMethodology",
+				"intelligence.runAssessmentBatch",
+				"intelligence.scheduleAssessment",
+				"intelligence.selectAssessmentCandidates",
+				"intelligence.settleRun",
+				"intelligence.validateDraft",
+				"reference.embedQuery"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"internal_assessment_worker"
+			],
+			"operations": [
+				"intelligence.formatCitedFact",
+				"intelligence.validateConcernPairing"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"exact_assessment_operator_grant"
+			],
+			"operations": [
+				"intelligence.requestOperatorRefresh",
+				"intelligence.runEvaluation"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"authorized_global_reference_publisher"
+			],
+			"operations": [
+				"reference.activateGeneration",
+				"reference.auditLanguage",
+				"reference.rollbackActivation"
+			]
+		}
+	],
+	"withheld": []
+}

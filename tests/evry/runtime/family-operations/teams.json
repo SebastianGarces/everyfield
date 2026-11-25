@@ -1,0 +1,17 @@
+{
+	"family": "EVRY-FAMILY-TEAMS",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"teams.assignmentEffects",
+				"teams.leadershipEffects"
+			]
+		}
+	],
+	"withheld": []
+}

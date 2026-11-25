@@ -1,0 +1,48 @@
+{
+	"family": "EVRY-FAMILY-MEETINGS",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"sealed_unexpired_rsvp_proof"
+			],
+			"operations": [
+				"meeting.answerRsvpToken",
+				"meeting.describeRsvpToken",
+				"meeting.rsvpStatus",
+				"meetings.readTokenRsvp",
+				"meetings.resolveTokenRsvp"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_delivery_or_guest_transaction_caller"
+			],
+			"operations": [
+				"meeting.createRsvpToken"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_system_job_or_exact_operator_grant"
+			],
+			"operations": [
+				"meetings.planNotifications",
+				"meetings.syncNotifications"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"meetings.reconcileInvitationResponse"
+			]
+		}
+	],
+	"withheld": []
+}

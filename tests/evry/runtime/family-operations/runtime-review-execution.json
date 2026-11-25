@@ -1,0 +1,29 @@
+{
+	"family": "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"authenticated_conversation_owner"
+			],
+			"operations": [
+				"evry.approveProposal",
+				"evry.cancelProposal",
+				"evry.cancelTurn",
+				"evry.executeProposal",
+				"evry.retryUnresolvedEffects"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"evry.expireProposal"
+			]
+		}
+	],
+	"withheld": []
+}

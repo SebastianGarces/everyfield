@@ -1,0 +1,30 @@
+{
+	"family": "EVRY-FAMILY-TASKS",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"tasks.applyManagedStatus",
+				"tasks.ensureManagedTask",
+				"tasks.ensureMeetingObligations",
+				"tasks.ensureObligation",
+				"tasks.settleManagedEvaluation"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"trusted_interactive_domain_caller"
+			],
+			"operations": [
+				"tasks.normalizeDescription",
+				"tasks.previewDescription"
+			]
+		}
+	],
+	"withheld": []
+}

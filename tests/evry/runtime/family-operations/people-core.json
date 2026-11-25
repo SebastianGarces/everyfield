@@ -1,0 +1,43 @@
+{
+	"family": "EVRY-FAMILY-PEOPLE-CORE",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"people.applyRecordedRecruitmentEvent"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_identity_provisioning_caller"
+			],
+			"operations": [
+				"people.ensureAccountPerson"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"trusted_identity_or_assignment_caller"
+			],
+			"operations": [
+				"people.getAccountLink"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"authenticated_internal_native_caller"
+			],
+			"operations": [
+				"people.readPipelineMetrics"
+			]
+		}
+	],
+	"withheld": []
+}

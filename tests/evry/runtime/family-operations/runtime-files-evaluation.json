@@ -1,0 +1,18 @@
+{
+	"family": "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
+	"tested": [],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": [
+				"registered_internal_producer_or_exact_operator"
+			],
+			"operations": [
+				"evry.cleanupAttachments",
+				"evry.runEvaluation",
+				"evry.selectQualifiedModel"
+			]
+		}
+	],
+	"withheld": []
+}
