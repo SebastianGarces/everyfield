@@ -30,13 +30,14 @@ finds a write of the column that does not carry the machine's guard.
 - For `now`, one approval moves `pending` to `approved` and, in its next statement, to `approved_completed` or `approved_refused`. If that run throws, the row stays `approved`.
 - A `pending` row whose `expires_at` has passed reads as expired but stays `pending`: only the effect job writes `expired`, from `approved`.
 - A stay answers without writing: approve replays, cancel answers `cancelled: false`, retry answers `retried: false`.
+- `executeProposal` moves `approved` to `pending` when the record changed after Evry prepared an edit: it writes nothing and prepares the draft again against the saved version, at the next revision.
 - `executeProposal` is the effect job's step; its answers `closed` and `lost` leave the row unchanged.
 
 ```mermaid
 stateDiagram-v2
   [*] --> pending: evry.prepareProposal
   pending --> pending: evry.reviseProposal
-  approved --> pending: evry.reviseProposal
+  approved --> pending: evry.reviseProposal / evry.executeProposal unless now
   expired --> pending: evry.reviseProposal
   pending --> approved: evry.approveProposal
   approved --> approved_completed: evry.approveProposal when now / evry.executeProposal unless now

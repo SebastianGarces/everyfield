@@ -96,10 +96,11 @@ async function lockTeamAndOpen(tx: Tx, w: Writer, teamId: string, personId: stri
 	const row = await oneRow(
 		tx,
 		sql`WITH t AS MATERIALIZED (${teamLock(w, teamId)})
-			SELECT t.*, open.n AS "openCount", open.stage AS "openStage"
+			SELECT t.*, open.n AS "openCount", open.stage AS "openStage", open.ids AS "openIds"
 			FROM t
 			CROSS JOIN LATERAL (
-				SELECT count(*)::int AS n, min(p.stage) AS stage FROM team_tenure tn
+				SELECT count(*)::int AS n, min(p.stage) AS stage, coalesce(json_agg(tn.id ORDER BY tn.id), '[]') AS ids
+				FROM team_tenure tn
 				JOIN team_role r ON r.id = tn.role_id
 				JOIN person p ON p.id = tn.person_id
 				WHERE r.team_id = t.id AND tn.person_id = ${personId}::uuid
@@ -107,8 +108,11 @@ async function lockTeamAndOpen(tx: Tx, w: Writer, teamId: string, personId: stri
 			) open`,
 	);
 	if (!row) deny("unavailable");
-	const open = z.object({ n: z.coerce.number().int(), stage: z.string().nullable() });
-	return { team: teamRow.parse(row), open: open.parse({ n: row.openCount, stage: row.openStage }) };
+	const open = z.object({ n: z.coerce.number().int(), stage: z.string().nullable(), ids: z.array(id) });
+	return {
+		team: teamRow.parse(row),
+		open: open.parse({ n: row.openCount, stage: row.openStage, ids: row.openIds }),
+	};
 }
 async function lockTeamAndPerson(tx: Tx, w: Writer, teamId: string, personId: string) {
 	const row = await oneRow(
@@ -736,6 +740,7 @@ export const teamsWriter = {
 						kind: "remove",
 						before: { open: count.n },
 						after: { open: 0 },
+						metadata: { personId: input.input.personId, tenureIds: count.ids },
 					};
 				},
 				input.input.teamId,

@@ -13,7 +13,7 @@ import { personRow } from "../../../catalog/person-row.ts";
 import { churchZone, localTime, ownerOrAdmin } from "../../tasks/reads/index.ts";
 import { id } from "../../tasks/values.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import { audienceInput, classifiedPeople } from "../audience.ts";
+import { audienceInput, classifiedPeople, LEFT_OUT_CHILD, ROUTED_CHILD } from "../audience.ts";
 
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const listInput = z.strictObject({
@@ -821,7 +821,16 @@ export const searchRecipients: ReadAdapter<z.infer<typeof searchInput>> = {
 		if (reply.status !== "ok") throw nativeRefusal(reply.error.code);
 		const rows = reply.value.people.map((p) =>
 			personRow(actor, p.id, p.displayName, {
-				email: p.unsubscribedAt ? "unsubscribed" : p.email ? "can_email" : "no_address",
+				email:
+					p.email && p.unsubscribedAt
+						? "unsubscribed"
+						: p.guardians.length
+							? ROUTED_CHILD
+							: !p.email
+								? "no_address"
+								: p.child
+									? LEFT_OUT_CHILD
+									: "can_email",
 			}),
 		);
 		return {

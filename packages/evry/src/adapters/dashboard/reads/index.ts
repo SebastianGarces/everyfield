@@ -100,6 +100,12 @@ function entryRow(e: ActivityEntry, zone: string, self: string | null): SourceRo
 					"/launch",
 					null,
 				];
+			case "launch_corrected":
+				return [
+					c.date ? `Launch Sunday corrected to ${dayText(c.date, { year: "never" })}` : "Launch Sunday corrected",
+					"/launch",
+					null,
+				];
 			case "phase_changed":
 				return [`Phase saved as ${phaseText(c.phase)}`, "/intelligence", null];
 		}

@@ -952,6 +952,8 @@ const CAN_EMAIL: Record<string, string> = {
 	can_email: "Can get email",
 	no_address: "No email address",
 	unsubscribed: "Unsubscribed from this church's email",
+	"marked as a child": "Marked as a child, so no email goes to them",
+	"sent to a parent or guardian instead": "Email goes to a parent or guardian instead",
 };
 const MESSAGE_STATE: Record<string, string> = {
 	draft: "Draft",

@@ -55,7 +55,7 @@ export const proposalMachine = machine({
 		{ event: cancel, from: ["pending", "approved"], to: "cancelled" },
 		{ event: retry, from: "approved", to: "approved", unless: ["now", "jobLive"] },
 		{ event: retry, from: "approved_failed", to: "approved", unless: "now" },
-		{ event: execute, from: "approved", to: ["approved_completed", "approved_refused"], unless: "now" },
+		{ event: execute, from: "approved", to: ["approved_completed", "approved_refused", "pending"], unless: "now" },
 		{ event: execute, from: "approved", to: "expired", when: "lapsed", unless: "now" },
 	],
 	stays: [
@@ -72,6 +72,7 @@ export const proposalMachine = machine({
 		"For `now`, one approval moves `pending` to `approved` and, in its next statement, to `approved_completed` or `approved_refused`. If that run throws, the row stays `approved`.",
 		"A `pending` row whose `expires_at` has passed reads as expired but stays `pending`: only the effect job writes `expired`, from `approved`.",
 		"A stay answers without writing: approve replays, cancel answers `cancelled: false`, retry answers `retried: false`.",
+		"`executeProposal` moves `approved` to `pending` when the record changed after Evry prepared an edit: it writes nothing and prepares the draft again against the saved version, at the next revision.",
 		"`executeProposal` is the effect job's step; its answers `closed` and `lost` leave the row unchanged.",
 	],
 	proof: "tests/evry/execution/proposal-machine.test.mts",

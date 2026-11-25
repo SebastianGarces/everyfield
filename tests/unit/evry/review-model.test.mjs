@@ -7,6 +7,7 @@ import {
 	consequence,
 	delayedText,
 	digestSchedule,
+	draftRows,
 	editableChanges,
 	fieldLabel,
 	invitationName,
@@ -513,4 +514,21 @@ test("a completed invitation card says its email is delayed, in its text and its
 		}
 	}
 	assert.equal(delayedText(review({ outcome: "completed", mailDelayed: true })), null);
+});
+
+test("INV-evry-collision: a task handoff that no longer applies is not shown as already saved", () => {
+	const change = (field, before, after) => ({ field, before, after });
+	const handoff = change("openTasksNeedingOwner", null, 1);
+	const rows = (changes, earlier) =>
+		draftRows({ operation: "people.changeStatus", review: { target: null, changes, earlier } }).map((r) => [
+			r.field,
+			r.already,
+		]);
+	const move = change("stage", "leader", "prospect");
+	assert.deepEqual(rows([move], [move, handoff]), [["stage", false]]);
+	assert.deepEqual(rows([move, handoff], [move, handoff]), [
+		["stage", false],
+		["openTasksNeedingOwner", false],
+	]);
+	assert.deepEqual(rows([], [change("city", "Elgin", "Austin")]), [["city", true]]);
 });

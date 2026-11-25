@@ -70,6 +70,7 @@ import {
 	carryOver,
 	carryOverText,
 	documentRefusalText,
+	draftRows,
 	documentResult,
 	isDocument,
 	delayedText,
@@ -127,6 +128,7 @@ import {
 	linkEdit,
 	type CarryOver,
 	type Change,
+	type DraftRow,
 	type Phase,
 	type Review,
 } from "./model.ts";
@@ -237,6 +239,10 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
+			if (review?.review.earlier)
+				return draftRows(review)?.every((row) => row.already)
+					? `${who ?? "The record"} was saved after Evry prepared this, and it already has these values. Nothing was changed.`
+					: `Someone saved ${who ?? "the record"} after Evry prepared this, so nothing was changed. Compare Evry's draft with the saved version, then approve again.`;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -1049,7 +1055,39 @@ function Notes({ notes }: { notes: string[] }) {
 	);
 }
 
+function DraftAgainstSaved({ review, rows }: { review: Review; rows: DraftRow[] }) {
+	const line = (label: string, field: string, value: unknown, strong = false) => (
+		<div className="grid grid-cols-[88px_minmax(0,1fr)] items-baseline gap-x-3">
+			<dt className="text-xs text-text-2">{label}</dt>
+			<dd className="min-w-0">
+				<Value field={field} value={value} before={!strong} />
+			</dd>
+		</div>
+	);
+	return (
+		<ul aria-label="Evry's draft against the saved version" className="flex flex-col gap-2">
+			{rows.map((row) => (
+				<li key={row.field} className="rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+					<p className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 font-medium text-ink">
+						{fieldLabel(row.field, review.operation)}
+						<span className="text-xs font-normal text-text-2">
+							{row.already ? "Already saved" : row.changed ? "Changed since the draft" : "Not changed since the draft"}
+						</span>
+					</p>
+					<dl className="flex flex-col gap-1">
+						{row.changed && row.prepared !== undefined ? line("Before", row.field, row.prepared) : null}
+						{line("Saved now", row.field, row.saved)}
+						{line("Evry's draft", row.field, row.draft, true)}
+					</dl>
+				</li>
+			))}
+		</ul>
+	);
+}
+
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
+	const drafted = review.status === "pending" ? draftRows(review) : null;
+	if (drafted) return <DraftAgainstSaved review={review} rows={drafted} />;
 	const changes = shownChanges(review).filter((c) => c.field !== "openCriteria");
 	if (!changes.length) return null;
 	const item = itemField(review.operation);

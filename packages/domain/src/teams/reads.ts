@@ -247,8 +247,16 @@ export const teamsReader = {
 						'id', a.id, 'kind', a.kind, 'occurredAt', a.occurred_at, 'reason', a.reason,
 						'before', a.before_value, 'after', a.after_value, 'subject', a.subject,
 						'about', CASE WHEN a.subject = 'role' THEN
-								(SELECT json_build_object('personName', NULL, 'roleName', coalesce(a.after_value->>'name', r.name)) FROM team_role r
+								(SELECT json_build_object('personName', CASE WHEN a.kind = 'remove' THEN (SELECT p.display_name FROM person p
+										WHERE p.id = (a.before_value->>'occupantPersonId')::uuid AND p.tenant_id = a.tenant_id) END,
+									'roleName', coalesce(a.after_value->>'name', r.name)) FROM team_role r
 									WHERE r.id = a.subject_id AND r.plant_id = a.tenant_id)
+							WHEN a.subject = 'ministry' AND a.kind = 'remove' THEN
+								(SELECT json_build_object('personName', p.display_name, 'roleName', string_agg(r.name, ', ' ORDER BY r.name))
+									FROM team_tenure tn JOIN team_role r ON r.id = tn.role_id JOIN person p ON p.id = (a.metadata->>'personId')::uuid
+										AND p.tenant_id = a.tenant_id
+									WHERE tn.id IN (SELECT jsonb_array_elements_text(a.metadata->'tenureIds')::uuid) AND tn.plant_id = a.tenant_id
+									GROUP BY p.display_name)
 							ELSE (SELECT json_build_object('personName', p.display_name, 'roleName', r.name) FROM team_tenure tn
 								JOIN team_role r ON r.id = tn.role_id JOIN person p ON p.id = tn.person_id
 								WHERE tn.id = CASE WHEN a.subject = 'tenure' THEN a.subject_id
