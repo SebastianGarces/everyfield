@@ -1116,6 +1116,14 @@ const plainExcerpt = (excerpt: string) =>
 		.replace(/<\/?[A-Za-z][^>]*>/g, "")
 		.replace(/^#{1,6}\s+/gm, "")
 		.replace(/\*\*|__|`/g, "")
+		.replace(/^\s*\|[\s|:-]*\|[ \t]*\n?/gm, "")
+		.replace(/^\s*\|(.*)\|[ \t]*$/gm, (_, row: string) =>
+			row
+				.split("|")
+				.map((cell) => cell.trim())
+				.filter(Boolean)
+				.join(" · "),
+		)
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();
 

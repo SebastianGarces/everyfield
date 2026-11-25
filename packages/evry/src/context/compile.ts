@@ -269,7 +269,7 @@ const READ_AREAS: Record<string, string> = {
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
 const WIKI_BROWSING =
-	"Browse and search the Wiki, show the guide for the page you're on, and read back your bookmarks, reading history and feedback.";
+	"Browse and search the Wiki, show the guide for the page you're on, say what to read next, and read back your bookmarks, reading history and feedback.";
 const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 	{
 		prefix: "people.",
