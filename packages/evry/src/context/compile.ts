@@ -80,7 +80,9 @@ const SETTINGS_ONLY = [
 const NEEDS_A_CHURCH =
 	"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
 const OWN_SPACE_ONLY =
-	"I can only work with your own setup, documents and Discovery space, and the public Wiki. I can't see or change another person's documents or Discovery space, or another church's records, so nothing changed.";
+	"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed.";
+const OWN_DOCUMENTS_ONLY =
+	"I can only work with your own documents. I can't see or change another person's documents, so nothing changed.";
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
 const LEAD_RULE =
 	"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you.";
@@ -232,7 +234,7 @@ const REGION_RULE =
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
-			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's document or Discovery space, or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}\n${ACCOUNT_DOCUMENTS}\n${ACCOUNT_WIKI}`
+			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's Discovery space or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}\nWhen the user asks about or for a change to another person's document, prepare nothing and reply: ${OWN_DOCUMENTS_ONLY}\n${ACCOUNT_DOCUMENTS}\n${ACCOUNT_WIKI}`
 			: "";
 	const scope =
 		actor.contextKind === "plant"

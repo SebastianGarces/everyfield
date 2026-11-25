@@ -137,7 +137,7 @@
 			"criterion": 8,
 			"ask": "show me Blair's Discovery space",
 			"calls": [],
-			"answer": ["I can't see or change another person's documents or Discovery space"]
+			"answer": ["I can only work with your own setup and Discovery space."]
 		},
 		{
 			"id": "ACC-14",
