@@ -16,14 +16,14 @@ export const STAGE_LABEL: Record<Stage, string> = {
 	leader: "Leader",
 };
 
-export function skippedStages(from: Stage, to: Stage): Stage[] {
+function skippedStages(from: Stage, to: Stage): Stage[] {
 	const all = stage.options;
 	const a = all.indexOf(from),
 		b = all.indexOf(to);
 	return b > a + 1 ? all.slice(a + 1, b) : [];
 }
 const COMMITTED: readonly Stage[] = ["core_group", "launch_team", "leader"];
-export const leavesCommitted = (from: Stage, to: Stage) => COMMITTED.includes(from) && !COMMITTED.includes(to);
+const leavesCommitted = (from: Stage, to: Stage) => COMMITTED.includes(from) && !COMMITTED.includes(to);
 
 const NOT_RECORDED: Record<Exclude<Found["warnings"][number], "open_duties">, string> = {
 	assessment_not_recorded: "No 4 C's assessment is recorded for this person.",

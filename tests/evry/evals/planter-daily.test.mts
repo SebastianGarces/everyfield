@@ -174,7 +174,7 @@ async function ask(actor: EvryActor, conversationId: string, text: string) {
 
 const personRow = async (name: string) =>
 	(
-		await admin.execute(sql`SELECT id,state,stage,adult_classification,retired_at,household_id,birth_date FROM person
+		await admin.execute(sql`SELECT id,state,stage,adult_classification,retired_at FROM person
 			WHERE plant_id=${PLANT} AND display_name=${name}`)
 	).rows[0]!;
 const column = async (stage: string) =>
@@ -226,7 +226,7 @@ const SETUP: Record<NonNullable<Case["setup"]>, () => Promise<void>> = {
 };
 
 const kept: Record<string, unknown> = {};
-const SETTLED: Record<string, { before?: () => Promise<void>; after?: (review?: Proposal) => Promise<void> }> = {
+const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Promise<void> }> = {
 	"PD-01": {
 		before: async () => {
 			kept.tom = (
@@ -382,7 +382,7 @@ test("INV-evry-planter: every planter case passes on the scripted model, and eac
 			);
 			if (c.card.operation === "people.restorePerson") assert.equal(done.review.review.target?.label, c.card.target);
 		}
-		await SETTLED[c.id]?.after?.(card);
+		await SETTLED[c.id]?.after?.();
 	}
 });
 

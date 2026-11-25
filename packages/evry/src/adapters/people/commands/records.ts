@@ -12,13 +12,13 @@ import {
 	type PeopleContext,
 	type PeopleReply,
 } from "@everyfield/contracts/people";
-import { dayText, localDate } from "@everyfield/contracts/common";
+import { dayText } from "@everyfield/contracts/common";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
-import { id } from "../../tasks/values.ts";
+import { day, id } from "../../tasks/values.ts";
 
 type Change = { field: string; before: unknown; after: unknown };
 type Prepared = {
@@ -157,10 +157,7 @@ const { classification, reason } = classifyAdultRequest.shape.input.shape;
 const classifyInput = z.strictObject({
 	personId: id,
 	classification,
-	occurredOn: z
-		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/)
-		.refine((v) => localDate.safeParse(v).success, "not a date"),
+	occurredOn: day,
 	reason,
 });
 const ADULT_LABEL = { adult: "Adult", child: "Child", unknown: "Not recorded" } as const;
@@ -199,7 +196,7 @@ async function prepareClassification(
 						? `${p.name} is already recorded as ${ADULT_LABEL[p.adult]}. Ask Evry to correct it.`
 						: null,
 		expectedRevision: p.revision,
-		request: { ...input },
+		request: input,
 	};
 }
 const CLASSIFY_ASK =
@@ -222,7 +219,6 @@ export const correctAdultClassification = recordWrite({
 });
 
 const columnRow = z.strictObject({
-	stage,
 	name: z.string(),
 	revision: z.string(),
 	cards: z.array(z.strictObject({ id: z.uuid(), name: z.string() })),
@@ -240,7 +236,7 @@ export const reorderPipeline = recordWrite({
 			WHERE ${mine(actor)} AND p.id=${input.personId}::uuid AND p.state='live'`);
 		if (!found.rows[0]) return null;
 		const column = columnOf(stage.parse(found.rows[0].stage));
-		const r = await db.execute(sql`SELECT p.stage,p.display_name AS name,
+		const r = await db.execute(sql`SELECT p.display_name AS name,
 				coalesce((SELECT c.revision::text FROM people_column c WHERE c.plant_id=p.plant_id AND c.column_name=${column}),'1') AS revision,
 				(SELECT jsonb_agg(jsonb_build_object('id',o.id,'name',o.display_name) ORDER BY o.pipeline_position,o.created_at,o.id)
 					FROM person o WHERE o.plant_id=p.plant_id AND o.state='live' AND o.stage=ANY(${sql.param(columnStages(column))}::text[])) AS cards

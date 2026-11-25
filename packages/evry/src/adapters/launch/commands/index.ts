@@ -1,4 +1,4 @@
-import { countWord, dayText, localDate } from "@everyfield/contracts/common";
+import { countWord, dayText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -8,17 +8,13 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, NativePorts, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
-import { id } from "../../tasks/values.ts";
+import { day, id } from "../../tasks/values.ts";
 
 const reader = createLaunchReader();
 const writer = createLaunchWriter({ notices: async () => undefined });
 
 type Change = { field: string; before: unknown; after: unknown };
 type Prepared = { label?: string; changes: Change[]; notes?: string[]; refusal?: string | null; args: object };
-const day = z
-	.string()
-	.regex(/^\d{4}-\d{2}-\d{2}$/)
-	.refine((v) => localDate.safeParse(v).success, "not a date");
 const TARGET_LABEL = "Launch plan";
 
 const NOTE_REFUSAL: Record<c.NoteProblem, string> = {

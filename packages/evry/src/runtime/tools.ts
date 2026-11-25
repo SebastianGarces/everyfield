@@ -49,15 +49,11 @@ async function composeReads(
 	const undeclared = reads.filter((r) => !byName.has(r.operation)).map((r) => r.operation);
 	if (undeclared.length) return { error: "not_a_read", operations: undeclared };
 	const results = await Promise.all(
-		reads.flatMap(({ operation, input }) => {
+		reads.map(async ({ operation, input }): Promise<ModelReply> => {
 			const adapter = byName.get(operation);
-			if (!adapter) return [];
-			const parsed = adapter.input.safeParse(input);
-			return [
-				parsed.success
-					? run(adapter, parsed.data).then((reply): ModelReply => ({ operation, ...reply }))
-					: Promise.resolve<ModelReply>({ operation, error: "invalid_input" }),
-			];
+			const parsed = adapter?.input.safeParse(input);
+			if (!adapter || !parsed?.success) return { operation, error: "invalid_input" };
+			return { operation, ...(await run(adapter, parsed.data)) };
 		}),
 	);
 	return { results };
