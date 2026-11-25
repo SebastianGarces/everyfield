@@ -15,6 +15,9 @@ import { createNotificationWorker } from "../../../apps/web/src/features/notific
 import { evryActor, READ_DOMAINS } from "../../../packages/evry/src/index.ts";
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/review.ts";
 import { RELATIONSHIP_COMMANDS } from "../../../packages/evry/src/adapters/relationships/commands/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
+import { harness } from "../../evry/evals/intelligence-harness.mts";
+import { nativePorts } from "../../evry/evals/settings-ports.mts";
 import { ok } from "../../support/fixture.mts";
 
 after(S.teardown);
@@ -743,36 +746,57 @@ test("AC:GAP-IDN-027 an organization Admin ending its own link twice ends it onc
 		assert.equal(await recorded(foreignKey), 0);
 	}
 
-	const write = RELATIONSHIP_COMMANDS["associations.end"];
-	const query = await write.review(evryActor(await as(owner)), { organizationId: a.o.id }, {
-		db: S.runtime,
-		mail: null,
-		native: null,
-		conversationId: null,
-	} as never);
-	const { args } = (await S.runtime.execute(query!)).rows[0] as { args: unknown };
+	const away = () => S.db.execute(sql`ALTER TABLE affiliation RENAME TO affiliation_away`);
+	const back = () => S.db.execute(sql`ALTER TABLE IF EXISTS affiliation_away RENAME TO affiliation`);
+	const told: string[] = [];
+	let outage: "none" | "starts" | "read" = "none";
+	const scripted = scriptedQualifiedModel();
+	assert.ok(scripted.status === "qualified" && typeof scripted.model === "object");
+	const model = scripted.model;
+	const evry = harness(S.runtime, new Date(), nativePorts(), {
+		model: {
+			...scripted,
+			model: Object.assign(Object.create(model), {
+				async doStream(call: never) {
+					told.push(JSON.stringify((call as { prompt: unknown }).prompt));
+					return model.doStream(call);
+				},
+			}),
+		},
+		accessCheck: async () => {
+			if (outage === "read") {
+				outage = "none";
+				await back();
+			}
+			if (outage === "starts" && told.length) {
+				outage = "read";
+				await away();
+			}
+		},
+	});
+	const sources = async () => {
+		const { affiliation, notice, mail, seat, proposal } = await state();
+		const domain = await rows(sql`SELECT id FROM audit_event WHERE action NOT LIKE 'evry.%' ORDER BY id`);
+		return { affiliation, notice, mail, seat, proposal, domain };
+	};
+	const ASK = "End our connection with Org A";
+	const offered = await evry.ask(evryActor(await as(owner)), ASK);
+	assert.deepEqual(
+		offered.proposals.map((card) => card.operation),
+		["associations.end"],
+	);
+	assert.equal(told.join().includes("source_unavailable"), false);
 	const key = randomUUID();
-	const authority = await as(owner);
 	for (let repeat = 0; repeat < 2; repeat++) {
-		assert.deepEqual(
-			await unchanged(() =>
-				S.write(owner, async (tx) =>
-					write.execute(
-						tx,
-						owner as never,
-						args,
-						`evry:${key}:1`,
-						{} as never,
-						{
-							authority,
-							ports: null,
-						} as never,
-					),
-				),
-			),
-			{ refused: "source_unavailable" },
-		);
-		await S.db.execute(sql`ALTER TABLE affiliation RENAME TO affiliation_away`);
+		const relations = await sources();
+		told.length = 0;
+		outage = "starts";
+		const asked = await evry.ask(evryActor(await as(owner)), ASK).finally(back);
+		assert.equal(outage, "none", "the source failed while Evry read it");
+		assert.deepEqual(asked.proposals, []);
+		assert.match(told[1]!, /source_unavailable/);
+		assert.deepEqual(await sources(), relations);
+		await away();
 		const kept = await S.db.execute(
 			sql`SELECT md5(string_agg(to_jsonb(x)::text,'|' ORDER BY x.id)) AS h FROM audit_event x`,
 		);
@@ -787,7 +811,7 @@ test("AC:GAP-IDN-027 an organization Admin ending its own link twice ends it onc
 				kept.rows,
 			);
 		} finally {
-			await S.db.execute(sql`ALTER TABLE affiliation_away RENAME TO affiliation`);
+			await back();
 		}
 		assert.deepEqual(await active(), both, "the approvals committed before stay");
 		assert.deepEqual(await actions(linkA.id), ["affiliation.approved"]);

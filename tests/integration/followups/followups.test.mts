@@ -34,7 +34,8 @@ import { activityRequest, listPeopleRequest } from "../../../packages/contracts/
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { recorded } from "../../support/recorded.mts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
-import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
+import type { TeamsReply } from "../../../packages/contracts/src/teams/index.ts";
+import { teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
 import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
@@ -1416,7 +1417,7 @@ test("AC:ROLE43-008 changing and removing a lead title leaves the seat, the logi
 							...(operation === "assignRole" ? { teamId: team.id } : {}),
 							...input,
 						},
-					}) as Promise<TaskReply<unknown>>,
+					}) as Promise<TeamsReply<unknown>>,
 			),
 		);
 		ok(value);

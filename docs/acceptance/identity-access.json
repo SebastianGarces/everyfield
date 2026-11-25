@@ -13391,6 +13391,7 @@
       ],
       "status": "run",
       "run_by": [
+        "tests/integration/identity/identity.test.mts",
         "tests/integration/settings/settings.test.mts"
       ],
       "description": "Two pending tabs; target address collision; wrong-account/expired/superseded token; password reset/change racing confirm; changing target addresses; non UTC process.",
@@ -13984,6 +13985,7 @@
       ],
       "status": "run",
       "run_by": [
+        "tests/integration/identity/identity.test.mts",
         "tests/integration/settings/settings.test.mts"
       ],
       "description": "Stale password tabs, forged actor/current Session ID, wrong secret, competing reset/email confirmation and current vs other sessions.",

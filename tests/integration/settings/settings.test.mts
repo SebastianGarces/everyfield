@@ -42,6 +42,7 @@ import { PeopleReadContext, peopleReader, readPersonPhotos } from "../../../pack
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { insertTasks } from "../task-assignees.mts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { recorded } from "../../support/recorded.mts";
 import { frozenClock, instant, type Instant } from "../../../packages/contracts/src/common/index.ts";
 import { overdueAt } from "../../../packages/contracts/src/tasks/index.ts";
 import { taskReader } from "../../../packages/domain/src/tasks/index.ts";
@@ -3091,12 +3092,18 @@ test("AC:ROLE43-018 a person deletes only their own login, loses access at once,
 	assert.equal(await admin.$count(t.lifecycle_witness, eq(t.lifecycle_witness.account_id, self.id)), 0);
 
 	context.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-13T16:00:00Z") });
-	let pending;
+	let deleting;
 	try {
-		pending = ok(await request(self, self.id));
+		deleting = await recorded(admin, () => request(self, self.id));
 	} finally {
 		context.mock.timers.reset();
 	}
+	const pending = ok(deleting.value);
+	assert.deepEqual(
+		deleting.added,
+		{ audits: ["account.deletion_requested"], jobs: ["lifecycle_purge"], notices: 0, mail: 0 },
+		"one audit row and the purge the 30 days allow",
+	);
 	assert.equal(pending.status, "pending_deletion");
 	assert.deepEqual(
 		[pending.requestedAt, pending.cancelUntil],
@@ -3116,6 +3123,31 @@ test("AC:ROLE43-018 a person deletes only their own login, loses access at once,
 	assert.deepEqual([other.week.answer, other.revision], [null, "0"]);
 	assert.deepEqual(await weeks(), mineOnly, "the held check-in keeps its author");
 	assert.ok(await viewerOf(second));
+
+	const undecided = await seat(f.p);
+	const requested = ok(await request(undecided, undecided.id));
+	assert.equal(await viewerOf(undecided), null);
+	const own = { subject: { kind: "account" as const, id: undecided.id }, requestId: requested.requestId };
+	const proof = await restricted(undecided, own.subject, requested);
+	const cancel = () =>
+		gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command(own, requested.revision)));
+	assert.equal(ok(await cancel()).status, "cancelled");
+	assert.ok(await viewerOf(await newSession(undecided)), "signing in again works after the cancel");
+
+	const late = await seat(f.p);
+	const expired = await overdue(late, { kind: "account", id: late.id });
+	const lateProof = await restricted(late, expired.subject, expired);
+	denied(
+		await gatedTransaction(db, (tx) =>
+			api.cancelAccountDeletion(
+				tx,
+				lateProof,
+				command({ subject: { kind: "account" as const, id: late.id }, requestId: expired.requestId }, expired.revision),
+			),
+		),
+		"deadline_passed",
+	);
+	assert.deepEqual(await weeks(), mineOnly);
 
 	const gone = await seat(f.p);
 	ok(
@@ -3253,10 +3285,22 @@ test("AC:TARGET-IDN-006 a photo whose reference cannot be written keeps the old 
 	await admin.execute(
 		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='object_cleanup' AND subject_record_id=${v1.versionId}`,
 	);
-	const refusing = stubStorage(() => {
+	const refused: string[] = [];
+	const refusing = stubStorage((operation) => {
+		refused.push(operation);
 		throw Error("synthetic_delete_failure");
 	});
-	await runDueObjectCleanup(db, refusing, 50).catch(() => 0);
+	assert.equal(await runDueObjectCleanup(db, refusing, 50), 0);
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT state,error_code,attempt_count FROM job WHERE kind='object_cleanup' AND subject_record_id=${v1.versionId}`,
+			)
+		).rows,
+		[{ state: "retry_wait", error_code: "provider_unknown", attempt_count: 1 }],
+		"the failed deletion ran and waits for its retry",
+	);
+	assert.ok(refused.includes("DeleteObjectCommand"), refused.join());
 	assert.equal(await currentAvatar(a), v2.versionId);
 	assert.equal(await photoRead(storage, a, v2), "bytes");
 	assert.equal(await photoRead(storage, a, v1), "refused");
@@ -3448,6 +3492,22 @@ test("AC:TARGET-IDN-008 a password change keeps only the browser that made it, a
 	const fresh = await login({ ...a, password: input.newPassword });
 	assert.equal((await credential("changePassword", fresh, input)).status, "refused", "a stale password tab");
 	assert.equal(await events(), 0);
+
+	const next = { currentPassword: input.newPassword, newPassword: "Fixture-third-pass-3" };
+	const mailed = notices.length;
+	const { value: normal, added } = await recorded(admin, () =>
+		credential("changePassword", fresh, { ...next, confirmPassword: next.newPassword }),
+	);
+	assert.ok(normal.status === "succeeded");
+	assert.equal(normal.reporting.status, "recorded");
+	assert.deepEqual(
+		added,
+		{ audits: ["identity.credential_changed"], jobs: ["mail"], notices: 0, mail: 1 },
+		"one audit row and one security mail",
+	);
+	assert.deepEqual(notices.slice(mailed), [{ accountId: a.id, address: a.email, action: "password_changed" }]);
+	assert.equal(await events(), 1);
+	assert.ok((await login({ ...a, password: next.newPassword })).session);
 });
 
 test("AC:TARGET-IDN-010 an Owner or Admin sharing save changes only the named categories of one exact organization, once, and refuses every stale, foreign or malformed one", async () => {
@@ -3801,7 +3861,10 @@ test("AC:TARGET-IDN-028 a revoked or expired session reads no private check-in, 
 	assert.ok(JSON.stringify(ok(await care.readCurrent(db, author.authority, {}))).includes(canary));
 	for (const end of [sql`expires_at=clock_timestamp()-interval '1 second'`, null]) {
 		const answers: string[] = [];
-		for (const { a, authority } of [author, empty]) {
+		for (const person of [author, empty]) {
+			const a = await newSession(person.a);
+			const { authority } = await seen(a);
+			assert.equal((await care.readCurrent(db, authority, {})).status, "ok", "the session reads before it ends");
 			const before = await written();
 			if (end) await admin.execute(sql`UPDATE auth_session SET ${end} WHERE id=${a.session}`);
 			else await admin.execute(sql`DELETE FROM auth_session WHERE id=${a.session}`);

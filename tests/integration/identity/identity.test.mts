@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { request as httpRequest } from "node:http";
+import { createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
 import { trustedIdentityIp } from "../../../packages/domain/src/identity/index.ts";
 import { RequestActor, readRequestViewer } from "../../../packages/domain/src/access/index.ts";
 import { signedSessionToken } from "../../../packages/domain/src/identity/session-cookie.ts";
@@ -862,6 +863,146 @@ test("AC:TARGET-IDN-009 AC:WP005-API-RESET a reset whose outcome is unknown is t
 	} finally {
 		if (zone === undefined) delete process.env.TZ;
 		else process.env.TZ = zone;
+	}
+});
+
+type Login = { id: string; email: string; password: string; cookie: string; session: string };
+async function login(email: string, secret = password): Promise<Login> {
+	const response = await signIn(f, email, secret);
+	assert.equal(response.status, 200, email);
+	const { accountId, sessionId } = await (await f.req("get-session", undefined, cookie(response))).json();
+	return { id: accountId, email, password: secret, cookie: cookie(response), session: sessionId };
+}
+async function verifiedLogin(email: string) {
+	await register(f, email);
+	await f.db.execute(querySql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
+	const who = await login(email);
+	await f.db.execute(querySql`UPDATE account SET registration_state='active' WHERE id=${who.id}`);
+	return who;
+}
+function settingsCredentials() {
+	const proofs: string[] = [];
+	const api = createAccountCredentials({
+		db: f.runtime,
+		authDb: f.authDb,
+		admissionDb: f.runtime,
+		origin: f.origin,
+		secret: f.previewSettings.IDENTITY_SECRET,
+		request: async (c) => {
+			const { cookie: held, id, email } = c as unknown as Login & { session: never };
+			return {
+				request: new Request(f.origin + "/api/settings", {
+					method: "POST",
+					headers: { origin: f.origin, cookie: held },
+				}),
+				trustedIp: "127.0.2.1",
+				viewer: { accountId: id, email, verified: true },
+			};
+		},
+		responseCookies: async () => {},
+		diagnostic: () => {},
+		deliverVerification: async (_tx, i) => void proofs.push(i.token),
+		securityNotice: async () => randomUUID(),
+	});
+	const context = (who: Login) => ({ ...who, selected: { kind: "account", id: who.id } }) as never;
+	return {
+		changePassword: (who: Login, newPassword: string) =>
+			api.changePassword(context(who), {
+				currentPassword: who.password,
+				newPassword,
+				confirmPassword: newPassword,
+			}),
+		emailProof: async (who: Login, newEmail: string) => {
+			assert.equal((await api.requestEmailChange(context(who), { newEmail })).status, "ok");
+			return proofs.at(-1)!;
+		},
+		confirmEmail: (who: Login, proof: string) => api.confirmEmailChange(context(who), { proof }),
+	};
+}
+
+test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 AC:TARGET-IDN-009 a password reset after, or racing, a password change or an email confirmation has one winner per proof and revokes every earlier session", async () => {
+	f.setIp("127.0.2.1");
+	const settings = settingsCredentials();
+	const reset = (proof: string, newPassword: string) =>
+		f.req("reset-password", { proof, newPassword, confirmPassword: newPassword });
+	const changes = async (who: Login) =>
+		(
+			await f.db.execute(
+				querySql`SELECT action,count(*)::int n FROM audit_event WHERE subject_id=${who.id}
+					AND action IN ('identity.credential_changed','identity.email_changed') GROUP BY 1 ORDER BY 1`,
+			)
+		).rows.map((r) => `${String(r.action)} ${String(r.n)}`);
+	const works = async (email: string, secret: string) => (await signIn(f, email, secret)).status === 200;
+	const ended = async (who: Login) =>
+		assert.deepEqual(await (await f.req("get-session", undefined, who.cookie)).json(), { status: "unauthenticated" });
+
+	const first = await verifiedLogin("changed-first@example.test");
+	const outstanding = await resetProof(first.email);
+	assert.equal((await settings.changePassword(first, "Changed-first-pass-2")).status, "succeeded");
+	const between = await login(first.email, "Changed-first-pass-2");
+	assert.equal(
+		(await reset(outstanding, "Reset-second-pass-3")).status,
+		200,
+		"a password change leaves the proof live",
+	);
+	assert.deepEqual(await changes(first), ["identity.credential_changed 2"]);
+	for (const who of [first, between]) await ended(who);
+	assert.equal(await works(first.email, "Changed-first-pass-2"), false);
+	assert.equal(await works(first.email, "Reset-second-pass-3"), true);
+	assert.equal((await reset(outstanding, "Reset-again-pass-4")).status, 400, "the proof is used once");
+
+	const moved = await verifiedLogin("moved-first@example.test");
+	const confirm = await settings.emailProof(moved, "moved-first-new@example.test");
+	const held = await resetProof(moved.email);
+	assert.equal((await settings.confirmEmail(moved, confirm)).status, "succeeded");
+	assert.equal(
+		(await reset(held, "Reset-second-pass-3")).status,
+		200,
+		"the proof belongs to the account, not its address",
+	);
+	assert.deepEqual(await changes(moved), ["identity.credential_changed 1", "identity.email_changed 1"]);
+	await ended(moved);
+	assert.equal(await works("moved-first-new@example.test", "Reset-second-pass-3"), true);
+	assert.equal(await works(moved.email, "Reset-second-pass-3"), false);
+
+	for (let round = 0; round < 3; round++) {
+		f.setIp(`127.0.2.${10 + round}`);
+		const raced = await verifiedLogin(`raced-${round}@example.test`);
+		const proof = await resetProof(raced.email);
+		const [change, redeemed] = await Promise.all([
+			settings.changePassword(raced, "Changed-race-pass-2"),
+			reset(proof, "Reset-race-pass-3"),
+		]);
+		assert.equal(redeemed.status, 200);
+		const won = change.status === "succeeded" ? 2 : 1;
+		assert.deepEqual(await changes(raced), [`identity.credential_changed ${won}`], change.status);
+		const live = [];
+		for (const secret of [raced.password, "Changed-race-pass-2", "Reset-race-pass-3"])
+			if (await works(raced.email, secret)) live.push(secret);
+		assert.equal(live.length, 1, "one password is left");
+		assert.ok(live[0] === "Reset-race-pass-3" || (won === 2 && live[0] === "Changed-race-pass-2"));
+		await ended(raced);
+		f.setIp(`127.0.2.${20 + round}`);
+		const both = await verifiedLogin(`raced-mail-${round}@example.test`);
+		const target = `raced-mail-new-${round}@example.test`;
+		const emailProof = await settings.emailProof(both, target);
+		const resetting = await resetProof(both.email);
+		const [confirmed, again] = await Promise.all([
+			settings.confirmEmail(both, emailProof),
+			reset(resetting, "Reset-race-pass-3"),
+		]);
+		assert.equal(again.status, 200);
+		const renamed = confirmed.status === "succeeded";
+		assert.deepEqual(await changes(both), [
+			"identity.credential_changed 1",
+			...(renamed ? ["identity.email_changed 1"] : []),
+		]);
+		for (const [email, current] of [
+			[target, renamed],
+			[both.email, !renamed],
+		] as const)
+			assert.equal(await works(email, "Reset-race-pass-3"), current, email);
+		await ended(both);
 	}
 });
 
