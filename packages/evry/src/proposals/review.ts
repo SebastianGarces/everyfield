@@ -147,7 +147,7 @@ const targetKind = z.enum([
 	"template",
 	"program",
 ]);
-const change = z.strictObject({ field: z.string(), before: z.unknown(), after: z.unknown() });
+export const change = z.strictObject({ field: z.string(), before: z.unknown(), after: z.unknown() });
 export const reviewedPerson = z.strictObject({
 	id: z.uuid(),
 	label: z.string(),

@@ -307,22 +307,21 @@ const configureRecurrence = reviewed<z.infer<typeof recurrenceInput>>({
 	},
 });
 
+const editPatch = z.strictObject({
+	title: title.optional(),
+	description: z.string().trim().max(5_000).nullable().optional(),
+	priority: priority.optional(),
+	category: category.optional(),
+	due: localDue.optional(),
+	assigneeIds: z.array(assignee).max(10).optional().describe("The whole new set of owners; [] for nobody"),
+});
 const editInput = z.strictObject({
 	taskId,
-	patch: z
-		.strictObject({
-			title: title.optional(),
-			description: z.string().trim().max(5_000).nullable().optional(),
-			priority: priority.optional(),
-			category: category.optional(),
-			due: localDue.optional(),
-			assigneeIds: z.array(assignee).max(10).optional().describe("The whole new set of owners; [] for nobody"),
-		})
-		.refine((p) => Object.keys(p).length > 0, "empty patch"),
+	patch: editPatch.refine((p) => Object.keys(p).length > 0, "empty patch"),
 });
 const storedEdit = z.strictObject({
 	taskId,
-	patch: z.looseObject({
+	patch: editPatch.extend({
 		due: z
 			.discriminatedUnion("kind", [
 				z.strictObject({ kind: z.literal("local_date"), date: localDue }),

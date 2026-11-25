@@ -13,7 +13,7 @@ import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { evryActor } from "../context/actor.ts";
 import { audit, digest, expiry, owned, REVIEWED_WRITES, stale } from "../proposals/store.ts";
-import { refusalCode } from "../proposals/review.ts";
+import { change, refusalCode } from "../proposals/review.ts";
 import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { logRefusal } from "@everyfield/domain/flags";
@@ -38,7 +38,7 @@ async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
 	);
 }
 
-const shownChanges = z.array(z.looseObject({ field: z.string() }));
+const shownChanges = z.array(change);
 const locked = z.strictObject({
 	id: z.uuid(),
 	stale: z.boolean(),

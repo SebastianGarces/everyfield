@@ -116,6 +116,9 @@ const updatePerson = reviewed({
 
 const core = sql`('core_group','launch_team','leader')`;
 const changeStatusInput = z.strictObject({ personId, stage: changeStatusRequest.shape.input.shape.stage, reason });
+const storedStatus = changeStatusInput
+	.extend({ handoffs: changeStatusRequest.shape.input.shape.handoffs })
+	.transform(({ personId: id, stage, reason: why }) => ({ personId: id, stage, reason: why }));
 const changeStatus = reviewed({
 	operation: "people.changeStatus",
 	description:
@@ -129,7 +132,7 @@ const changeStatus = reviewed({
 			FROM person p CROSS JOIN LATERAL (SELECT ${handoffs} AS handoffs) h
 			WHERE p.id=${value.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
-	again: (args) => changeStatusInput.strip().parse(savedRevision.parse(args).input),
+	again: (args) => storedStatus.parse(savedRevision.parse(args).input),
 	request: changeStatusRequest,
 	run: async (tx, context, request, reminders) =>
 		personReceipt(await peopleWriter.changeStatus(tx, context, request, reminders)),
