@@ -111,7 +111,11 @@ export function insertableValues(sources: MergeSources): Record<string, string> 
 	return out;
 }
 
-export function frozenData(fields: readonly FieldDecl[], sources: MergeSources) {
+export function frozenData(
+	fields: readonly FieldDecl[],
+	sources: MergeSources,
+	overrides: Readonly<Record<string, string>> = {},
+) {
 	const raw: Record<string, string> = {};
 	const from: Record<string, string> = {};
 	for (const field of fields) {
@@ -124,7 +128,7 @@ export function frozenData(fields: readonly FieldDecl[], sources: MergeSources) 
 	const data: Record<string, string> = { ...raw };
 	for (const field of fields) {
 		if (raw[field.key] !== undefined || field.fallback === undefined || field.type === "list") continue;
-		data[field.key] = fill(field.fallback, (key) => raw[key] ?? "");
+		data[field.key] = fill(field.fallback, (key) => overrides[key] ?? raw[key] ?? "");
 		from[field.key] = "fallback";
 	}
 	return { data, from };

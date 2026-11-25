@@ -257,9 +257,13 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 						AND a.state <> 'inherited'
 				), '[]'::json) AS alternates,
 				COALESCE((
-					SELECT json_agg(h.article_id ORDER BY u.ord)
-					FROM unnest(COALESCE(c.related_slugs, ARRAY[]::text[])) WITH ORDINALITY AS u(slug, ord)
-					JOIN chosen h ON h.slug = u.slug AND h.article_id <> c.article_id AND NOT h.hidden
+					SELECT json_agg(r.article_id ORDER BY r.ord)
+					FROM (
+						SELECT h.article_id, min(u.ord) AS ord
+						FROM unnest(COALESCE(c.related_slugs, ARRAY[]::text[])) WITH ORDINALITY AS u(slug, ord)
+						JOIN chosen h ON h.slug = u.slug AND h.article_id <> c.article_id AND NOT h.hidden
+						GROUP BY h.article_id
+					) r
 				), '[]'::json) AS related_ids
 			FROM chosen c
 		)`;
@@ -291,7 +295,7 @@ export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 		'sectionKey', p.section_key,
 		'publishedAt', to_char(p.published_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 		'updatedLabel', COALESCE(
-			rd.completed_at IS NOT NULL AND p.meaningful AND p.meaningful_sequence > rd.last_read_meaningful_sequence,
+			rd.completed_at IS NOT NULL AND p.meaningful_sequence > rd.last_read_meaningful_sequence,
 			false
 		),
 		'completed', COALESCE(rd.completed_at IS NOT NULL, false),
