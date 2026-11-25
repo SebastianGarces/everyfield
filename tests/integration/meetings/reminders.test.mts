@@ -175,7 +175,7 @@ test("AC:B03-012 reminders seven, three and one civil days before a March 10 09:
 	);
 });
 
-test("AC:TARGET-MTG-018 reminders keep the 09:00 wall clock over the November change and follow each guest, time and status change before they go out", async () => {
+test("AC:TARGET-MTG-007 AC:TARGET-MTG-018 reminders keep the 09:00 wall clock over the November change and follow each guest, time and status change before they go out", async () => {
 	const own = await w.person("Creator as guest", { account: w.actors.admin.id, stage: "core_group" });
 	const leaving = await w.actor(w.P, "member");
 	const joining = await w.actor(w.P, "member");

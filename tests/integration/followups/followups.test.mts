@@ -1829,10 +1829,13 @@ test("AC:TARGET-MTG-022 a late entry keeps its real date, an attempt, a task and
 
 		for (const id of [alex, late, wrongly]) await emailed(c, id, "2026-10-13T15:30:00Z");
 		clock("2026-10-13T16:00:00Z");
-		assert.deepEqual(await levels(), { late: "alert", recent: "none", wrongly: "alert" });
+		assert.deepEqual(
+			await levels(),
+			{ late: "alert", recent: "none", wrongly: "alert" },
+			"with only Alex's September 1 contact and an opened email, Late entry is not fresh within 14 days",
+		);
 		const history = await contactHistory(c.member, alex);
 		assert.equal(history.lastConfirmedContactAt, "2026-09-01T15:00:00.000Z");
-		assert.ok(present(history.lastConfirmedContactAt, "contact") < "2026-09-29T16:00:00.000Z");
 		assert.deepEqual(
 			history.items.map((i) => [i.outcome, i.occurredAt, i.state, i.contact, i.recordedAt, i.voided?.reason ?? null]),
 			[
@@ -2356,12 +2359,12 @@ test("AC:GAP-PPL-022 a Person with no follow-up shows none, stays uncovered and 
 	const stranger = await foreign.seated("member");
 	await committed(c, c.admin, "leader");
 	const alex = await person(c, "Alex");
-	const activity = (who: Seat) =>
+	const activity = (who: Seat, personId = alex) =>
 		gatedTransaction(f.db, (tx) =>
 			peopleReader.getActivities(
 				tx,
 				new PeopleReadContext(who.actor),
-				activityRequest.parse({ personId: alex, kinds: ["follow_up"] }),
+				activityRequest.parse({ personId, kinds: ["follow_up"] }),
 			),
 		);
 	const shown = async () => {
@@ -2389,11 +2392,23 @@ test("AC:GAP-PPL-022 a Person with no follow-up shows none, stays uncovered and 
 		},
 	};
 	for (const who of [stranger, foreign.admin]) {
-		const { correlationId: _, ...error } = refused(await untouched(f.admin, () => activity(who)), "unavailable");
-		assert.equal(JSON.stringify(error).includes("Alex"), false);
 		const code = who === stranger ? "unavailable" : "invalid_subject";
-		await refusedUntouched(() => taskWrite(who, "create", request), code);
-		await refusedUntouched(() => write(who, "createFollowUp", { requestKey: key(), input: { personId: alex } }), code);
+		const answers = async (personId: string) => {
+			const bare = async (body: () => Promise<unknown>, expected: string) => {
+				const { correlationId: _, ...error } = refused(await untouched(f.admin, body), expected);
+				return error;
+			};
+			const relation = { kind: "person", id: personId };
+			return [
+				await bare(() => activity(who, personId), "unavailable"),
+				await bare(
+					() => taskWrite(who, "create", { requestKey: key(), input: { ...request.input, relation, assigneeIds: [] } }),
+					code,
+				),
+				await bare(() => write(who, "createFollowUp", { requestKey: key(), input: { personId } }), code),
+			];
+		};
+		assert.deepEqual(await answers(alex), await answers(randomUUID()), "the same as for an unknown person");
 	}
 	const { value, added } = await recorded(f.admin, () => taskWrite(c.admin, "create", request));
 	const { task } = ok(value);

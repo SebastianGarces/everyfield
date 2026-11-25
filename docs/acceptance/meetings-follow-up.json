@@ -6075,6 +6075,7 @@
         "tests/integration/meetings/guest-answers.test.mts",
         "tests/integration/meetings/add-guests.test.mts",
         "tests/integration/meetings/meetings.test.mts",
+        "tests/integration/meetings/reminders.test.mts",
         "tests/integration/teams/ministry.test.mts"
       ],
       "description": "P has 2 team roles, later Q joins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up.",

@@ -2028,7 +2028,7 @@ test("AC:TARGET-TSK-017 finalizing owes one follow-up per first-time attendee an
 		].sort(),
 	);
 	assert.deepEqual(
-		{ ...saved.added, notices: 0, mail: 0 },
+		saved.added,
 		only(
 			"meetings.finalized",
 			"people.stage_changed",

@@ -360,9 +360,11 @@ test("AC:TARGET-PPL-021 a person's tabs count them once across two roles, date t
 		});
 	const facts = async (personId: string, who: Who = "owner") => {
 		const f = ok(await training(personId, who));
-		return [f.distinctPeople, f.concurrentAssignments, f.currentTeams, f.formerTeams];
+		return [f.concurrentAssignments, f.currentTeams, f.formerTeams];
 	};
-	assert.deepEqual(await facts(alex), [1, 3, ["T1", "T2"], []]);
+	assert.deepEqual(await facts(alex), [3, ["T1", "T2"], []]);
+	const staffed = ok(await trainingReader.readStaffingFacts(db, await authority(), { teamId: t1 }));
+	assert.deepEqual([staffed.filledSlots, staffed.distinctPeople], [2, 1], "two roles, one person");
 	ok(
 		await tx(async (t) =>
 			teamsWriter.endMembership(t, ctx(), {
@@ -377,8 +379,8 @@ test("AC:TARGET-PPL-021 a person's tabs count them once across two roles, date t
 			sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d FROM plant WHERE id=${plant}`,
 		)
 	)[0]!.d;
-	assert.deepEqual(await facts(alex), [1, 2, ["T1"], ["T2"]]);
-	assert.deepEqual(await facts(alex, "member"), [1, 2, ["T1"], ["T2"]]);
+	assert.deepEqual(await facts(alex), [2, ["T1"], ["T2"]]);
+	assert.deepEqual(await facts(alex, "member"), [2, ["T1"], ["T2"]]);
 	const tenures = async (personId: string) =>
 		ok(await assigned(personId))
 			.assignments.map((x) => [x.teamName, x.roleName, x.startedOn, x.endedOn, x.active])
@@ -465,7 +467,7 @@ test("AC:TARGET-PPL-021 a person's tabs count them once across two roles, date t
 	const foreign = ok(
 		await tx((t) => people.createPerson(t, ctx("stranger"), { requestKey: key(), input: { displayName: "Foreign" } })),
 	).person.id;
-	assert.deepEqual(await facts(foreign, "stranger"), [1, 0, [], []]);
+	assert.deepEqual(await facts(foreign, "stranger"), [0, [], []]);
 	for (const [id, who] of [
 		[foreign, "owner"],
 		[alex, "stranger"],
@@ -493,13 +495,13 @@ test("AC:TARGET-PPL-021 a person's tabs count them once across two roles, date t
 		),
 	);
 	ok(retired);
-	assert.deepEqual(await facts(leaving), [1, 0, [], ["T2"]]);
+	assert.deepEqual(await facts(leaving), [0, [], ["T2"]]);
 	const merged = ok(await mergeWith(alex, twin, ok(await review(alex, twin)).reviewDigest));
-	assert.deepEqual(await facts(twin), [1, 2, ["T1"], ["T2"]]);
+	assert.deepEqual(await facts(twin), [2, ["T1"], ["T2"]]);
 	assert.deepEqual(await tenures(twin), dated);
 	assert.deepEqual(await credit(twin), [false, true, ["earned", "revoked"]]);
 	assert.deepEqual(await contact(twin), [delivered, null, 1]);
-	assert.deepEqual(await facts(alex), [1, 0, [], []]);
+	assert.deepEqual(await facts(alex), [0, [], []]);
 	assert.deepEqual(await tenures(alex), []);
 	assert.deepEqual(ok(await tx((t) => peopleMerge.mergedPersonDestination(t, ctx("member"), { personId: alex }))), {
 		personId: alex,

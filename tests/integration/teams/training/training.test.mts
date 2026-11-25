@@ -576,7 +576,7 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 	assert.ok(all.items.some((m) => m.id === meeting.id && m.team?.id === hospitality.id));
 });
 
-test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its weights", async () => {
+test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health weighs staffing 40, training 35 and attendance 25, and only measured rates have a band", async () => {
 	const bare = await makeTeam("Bare health");
 	const bareFacts = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: bare.id }));
 	assert.equal(bareFacts.composite, null);
@@ -675,6 +675,65 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 		[church.measuredTeams, church.composite],
 		[1, covered.composite],
 		"unmeasured ministries stay out of the average",
+	);
+});
+
+test("AC:SME53-004 each rate moves the composite by its own weight, and the bands turn at 40, 60 and 50 percent", async () => {
+	const team = await makeTeam("Weighted health");
+	const people = [];
+	for (let n = 0; n < 10; n++) people.push(await person(`Weighted ${n}`));
+	const roles = [];
+	for (let n = 0; n < 8; n++) roles.push(await makeRole(team.id, `Weighted ${n}`));
+	for (const n of [0, 1, 2]) await assign(roles[n]!, team.id, people[n]!);
+	const course = await program("Weighted course", { teamId: team.id });
+	await saveRoster(course.id, people.slice(0, 5));
+	for (const n of [0, 1, 2, 3])
+		ok(await run(trainingWriter.attestCompletion, await attestation(course.id, people[n]!)));
+	const meeting = ok(await teamMeeting(team.id, { subtype: "regular", date: "2026-10-06" })).meeting;
+	await held(meeting.id, [people[0]!]);
+	const measured = async () => {
+		const h = ok(await trainingReader.readHealth(db, await viewer(), { teamId: team.id }));
+		return [h.staffingRate, h.trainingRate, h.attendanceRate, Math.round(h.composite! * 1000) / 1000];
+	};
+	assert.deepEqual(await measured(), [3 / 8, 0.8, 1 / 3, 51.333], "15 of 40, 28 of 35 and 8.333 of 25");
+	assert.deepEqual(
+		ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id })).composite,
+		ok(await trainingReader.readHealth(db, await viewer(), { teamId: team.id })).composite,
+	);
+
+	const staffing = async (filled: number, slots: number) => {
+		const one = await makeTeam(`Staffed ${filled} of ${slots}`);
+		for (let n = 0; n < slots; n++) {
+			const role = await makeRole(one.id, `Slot ${n}`);
+			if (n < filled) await assign(role, one.id, people[n]!);
+		}
+		const h = ok(await trainingReader.readHealth(db, await viewer(), { teamId: one.id }));
+		return [h.staffingRate, h.staffingBand];
+	};
+	assert.deepEqual(
+		[await staffing(3, 8), await staffing(2, 5), await staffing(4, 7), await staffing(3, 5)],
+		[
+			[3 / 8, "red"],
+			[0.4, "yellow"],
+			[4 / 7, "yellow"],
+			[0.6, "ok"],
+		],
+	);
+	const attendance = async (members: number, date: string, came: number) => {
+		const one = await makeTeam(`Attended ${date}`);
+		for (let n = 0; n < members; n++) await assign(await makeRole(one.id, `Member ${n}`), one.id, people[n]!);
+		const at = ok(await teamMeeting(one.id, { subtype: "regular", date })).meeting;
+		await held(at.id, people.slice(0, came));
+		const h = ok(await trainingReader.readHealth(db, await viewer(), { teamId: one.id }));
+		return [h.attendanceRate, h.attendanceBand];
+	};
+	assert.deepEqual(
+		[await attendance(7, "2026-10-07", 3), await attendance(4, "2026-10-08", 2), await attendance(7, "2026-10-09", 4)],
+		[
+			[3 / 7, "yellow"],
+			[0.5, "ok"],
+			[4 / 7, "ok"],
+		],
 	);
 });
 
