@@ -2,7 +2,7 @@ import type { DocDocument, DocNode } from "@everyfield/contracts/documents";
 import { EvryRefusal } from "../../context/errors.ts";
 
 type Node = { type: string; text?: string; attrs?: Record<string, unknown>; marks?: unknown[]; content?: Node[] };
-type Unit = { text: string; node: Node; atomic: boolean };
+type Unit = { text: string; node: Node };
 type Block = { node: Node; parents: { node: Node; index: number }[]; cell: boolean };
 export type Edit = { find: string; replace: string };
 export type Passage = { before: string | null; after: string | null };
@@ -93,15 +93,9 @@ function blocksIn(root: Node): Block[] {
 }
 
 function unitsOf(block: Node, field: (key: string) => string): Unit[] {
-	return (block.content ?? []).map((node) =>
-		node.type === "text"
-			? { text: node.text ?? "", node, atomic: false }
-			: {
-					text: node.type === "field" ? field(String(node.attrs?.key ?? "")) : node.type === "hardBreak" ? "\n" : "",
-					node,
-					atomic: true,
-				},
-	);
+	const shown = (node: Node) =>
+		node.type === "field" ? field(String(node.attrs?.key ?? "")) : node.type === "hardBreak" ? "\n" : "";
+	return (block.content ?? []).map((node) => ({ text: node.type === "text" ? (node.text ?? "") : shown(node), node }));
 }
 const textOf = (units: readonly Unit[]) => units.map((u) => u.text).join("");
 const refuse = (problem: string): never => {
@@ -114,10 +108,10 @@ function split(units: readonly Unit[], from: number, to: number) {
 	const after: Node[] = [];
 	let marks: unknown[] | undefined;
 	let at = 0;
-	for (const { text, node, atomic } of units) {
+	for (const { text, node } of units) {
 		const start = at;
 		const end = (at += text.length);
-		if (atomic) {
+		if (node.type !== "text") {
 			if (end <= from || start === end) (start >= to && end > from ? after : before).push(node);
 			else if (start >= to) after.push(node);
 			else

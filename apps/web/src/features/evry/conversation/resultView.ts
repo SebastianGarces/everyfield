@@ -118,6 +118,14 @@ const wiki = (title: string, rest: Partial<OpView> & Pick<OpView, "empty">): OpV
 	...rest,
 });
 
+const libraryTemplate = (title: string): OpView => ({
+	title,
+	noun: ["template", "templates"],
+	icon: "template",
+	counts: "template",
+	quiet: true,
+	empty: "That template is not in the library.",
+});
 const madeFiles = (title: string, empty: string): OpView => ({
 	title,
 	noun: ["file", "files"],
@@ -727,30 +735,9 @@ const VIEWS: Record<string, OpView> = {
 		counts: "template",
 		empty: "No library template fits that.",
 	},
-	"documents.templates.get": {
-		title: "Template",
-		noun: ["template", "templates"],
-		icon: "template",
-		counts: "template",
-		quiet: true,
-		empty: "That template is not in the library.",
-	},
-	"documents.resolveContext": {
-		title: "Filled in",
-		noun: ["template", "templates"],
-		icon: "template",
-		counts: "template",
-		quiet: true,
-		empty: "That template is not in the library.",
-	},
-	"documents.preview": {
-		title: "Preview",
-		noun: ["template", "templates"],
-		icon: "template",
-		counts: "template",
-		quiet: true,
-		empty: "That template is not in the library.",
-	},
+	"documents.templates.get": libraryTemplate("Template"),
+	"documents.resolveContext": libraryTemplate("Filled in"),
+	"documents.preview": libraryTemplate("Preview"),
 	"documents.history.list": madeFiles("Files made", "No file has been made yet."),
 	"documents.history.get": madeFiles("File", "That file is not available."),
 	"documents.download": madeFiles("Download", "That file is not available to download."),

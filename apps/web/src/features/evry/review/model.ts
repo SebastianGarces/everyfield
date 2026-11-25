@@ -834,7 +834,6 @@ export function delayedText(review: Review): string | null {
 		case "seats.invite":
 			return `The invitation to ${String(review.review.changes.find((c) => c.field === "invitation")?.after ?? who)} is saved, but its email is delayed. You do not need to send it again unless it expires.`;
 		case "seats.resendInvitation":
-			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
 		case "associations.resendInvitation":
 			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
 		case "associations.invite":
@@ -1455,11 +1454,10 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 };
 
 export function documentResult(review: Review): { href: string; label: string; file?: true } | null {
-	if (review.operation === "documents.saveNative" && !review.review.target && !review.review.withheld)
-		return review.receipt?.receiptId
-			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
-			: null;
-	if (review.operation === "documents.importTextOrWord")
+	if (
+		review.operation === "documents.importTextOrWord" ||
+		(review.operation === "documents.saveNative" && !review.review.target && !review.review.withheld)
+	)
 		return review.receipt?.receiptId
 			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
 			: null;

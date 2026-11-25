@@ -7,9 +7,6 @@ import { readHistory } from "../../../packages/domain/src/organizations/index.ts
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter } from "../../../packages/evry/src/catalog/types.ts";
-import { createConversation, prepareProposal, submitTurn, type EvryActor } from "../../../packages/evry/src/index.ts";
-import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
-import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	GRACE_AUSTIN,
 	goldenChurch,
@@ -108,24 +105,6 @@ const AFTER: Record<string, () => Promise<void>> = {
 };
 let held: Record<string, unknown>;
 
-async function propose(actor: EvryActor, operation: string, input: unknown) {
-	const c = await createConversation(church.db, actor, { requestKey: randomUUID() });
-	await submitTurn(church.db, actor, c.id, { requestKey: randomUUID(), text: "hold this turn" });
-	const [claim] = await claimDue(church.db, ["assistant_turn"], 1, 240);
-	assert.ok(claim);
-	const lease = {
-		turnId: claim.id,
-		tenantId: claim.tenant_id,
-		leaseOwner: claim.lease_owner,
-		generation: claim.claim_generation,
-	};
-	try {
-		return await prepareProposal(church.db, actor, lease, c.id, { operation, input }, null, native);
-	} finally {
-		await transaction(church.db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
-	}
-}
-
 test("INV-evry-connections: every settings, account and link invitation case passes on the scripted model, nothing changes before approval, and no token, key or photo version is shown", async () => {
 	held = await links();
 	for (const c of cases) {
@@ -160,13 +139,13 @@ test("INV-evry-connections: every settings, account and link invitation case pas
 test("INV-evry-connections: a settings change that went stale, an inactivity pair out of order and a resend inside its cooldown are refused and change nothing", async () => {
 	const { owner } = church.actors;
 	const days = () => row(sql`SELECT warning_days,alert_days FROM plant WHERE id=${PLANT}::uuid`);
-	const stale = (await propose(owner, "settings.saveSection", { section: "church", warningDays: 5 }))!;
+	const stale = (await turns.propose(owner, "settings.saveSection", { section: "church", warningDays: 5 }))!;
 	await church.admin.execute(sql`UPDATE plant SET alert_days=30,revision=revision+1 WHERE id=${PLANT}::uuid`);
 	const refused = await turns.approve(owner, stale);
 	assert.deepEqual([refused.outcome, refused.review.receipt?.code], ["refused", "revision_conflict"]);
 	assert.deepEqual(await days(), { warning_days: 10, alert_days: 30 });
 
-	const swapped = (await propose(owner, "settings.saveSection", { section: "church", warningDays: 6 }))!;
+	const swapped = (await turns.propose(owner, "settings.saveSection", { section: "church", warningDays: 6 }))!;
 	await church.admin.execute(
 		sql`UPDATE proposal SET input=jsonb_set(input,'{input,change,value,warningDays}','40') WHERE id=${swapped.id}::uuid`,
 	);
@@ -174,21 +153,21 @@ test("INV-evry-connections: a settings change that went stale, an inactivity pai
 	assert.deepEqual(await days(), { warning_days: 10, alert_days: 30 });
 
 	const id = await invite(GRACE_AUSTIN, "plant_church", "again@graceaustin.example.test");
-	const first = (await propose(owner, "associations.resendInvitation", { invitationId: id }))!;
-	const second = (await propose(owner, "associations.resendInvitation", { invitationId: id }))!;
+	const first = (await turns.propose(owner, "associations.resendInvitation", { invitationId: id }))!;
+	const second = (await turns.propose(owner, "associations.resendInvitation", { invitationId: id }))!;
 	assert.equal((await turns.approve(owner, first)).outcome, "completed");
 	const sent = mail.length;
 	assert.equal((await turns.approve(owner, second)).review.receipt?.code, "stale_revision");
 	await church.admin.execute(sql`UPDATE invitation SET resent_at=clock_timestamp() WHERE id=${id}::uuid`);
-	const soon = (await propose(owner, "associations.revokeInvitation", { invitationId: id }))!;
-	const cooling = (await propose(church.actors.admin, "associations.resendInvitation", { invitationId: id }))!;
+	const soon = (await turns.propose(owner, "associations.revokeInvitation", { invitationId: id }))!;
+	const cooling = (await turns.propose(church.actors.admin, "associations.resendInvitation", { invitationId: id }))!;
 	assert.equal((await turns.approve(church.actors.admin, cooling)).review.receipt?.code, "resend_cooldown");
 	assert.equal(mail.length, sent, "one mail for one resend");
 
 	await church.admin.execute(
 		sql`UPDATE invitation SET created_at=clock_timestamp()-interval '40 days',resent_at=NULL WHERE id=${id}::uuid`,
 	);
-	assert.equal(await propose(owner, "associations.revokeInvitation", { invitationId: id }), null, "expired");
+	assert.equal(await turns.propose(owner, "associations.revokeInvitation", { invitationId: id }), null, "expired");
 	assert.equal((await turns.approve(owner, soon)).review.receipt?.code, "access_denied");
 });
 
@@ -200,12 +179,12 @@ test("INV-tenancy: link invitations and history show each side only its own, onl
 	assert.deepEqual(await listed("org"), [[id, "Hope Fellowship", "received"]]);
 	for (const who of ["network", "other", "empty"] as const) assert.deepEqual(await listed(who), [], who);
 
-	const decline = (await propose(church.actors.org, "associations.declineInvitation", { invitationId: id }))!;
+	const decline = (await turns.propose(church.actors.org, "associations.declineInvitation", { invitationId: id }))!;
 	assert.equal(decline.review.refusal, "This invitation was sent to someone else here, so only they can decline it.");
 	await assert.rejects(turns.approve(church.actors.org, decline), /review_closed/);
 	for (const who of ["network", "other", "org"] as const)
 		assert.equal(
-			await propose(
+			await turns.propose(
 				church.actors[who],
 				who === "network" ? "associations.declineInvitation" : "associations.revokeInvitation",
 				{ invitationId: id },

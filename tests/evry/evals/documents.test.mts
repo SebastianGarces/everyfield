@@ -6,13 +6,10 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client, type PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import { docDocument, readNative } from "../../../packages/contracts/src/documents/index.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
-import { createConversation, prepareProposal, submitTurn, type EvryActor } from "../../../packages/evry/src/index.ts";
 import { READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter } from "../../../packages/evry/src/catalog/types.ts";
 import { applyEdits, plainField } from "../../../packages/evry/src/adapters/documents/draft.ts";
-import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
-import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { DOCS, goldenChurch, PLANT, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { nativePorts } from "./settings-ports.mts";
 import { scriptedTurns } from "./scripted-turns.mts";
@@ -75,24 +72,6 @@ const counts = async () =>
 			(SELECT count(*)::int FROM generated_document) AS made, (SELECT count(*)::int FROM file_object) AS files`)
 	).rows[0];
 const native = (id: string) => stored(id).then((d) => readNative(d.body).body);
-
-async function propose(actor: EvryActor, operation: string, input: unknown) {
-	const c = await createConversation(church.db, actor, { requestKey: randomUUID() });
-	await submitTurn(church.db, actor, c.id, { requestKey: randomUUID(), text: "hold this turn" });
-	const [claim] = await claimDue(church.db, ["assistant_turn"], 1, 240);
-	assert.ok(claim);
-	const lease = {
-		turnId: claim.id,
-		tenantId: claim.tenant_id,
-		leaseOwner: claim.lease_owner,
-		generation: claim.claim_generation,
-	};
-	try {
-		return await prepareProposal(church.db, actor, lease, c.id, { operation, input });
-	} finally {
-		await transaction(church.db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
-	}
-}
 
 let letter = "";
 let file = "";
@@ -191,7 +170,7 @@ test("INV-evry-documents: a Church Document edit keeps its fields, tables and ev
 		.split("\n")
 		.find((l) => l.length > 60 && !l.includes("Hope Fellowship") && !l.includes("[") && !l.includes(" | "))!;
 	const find = line.slice(0, 40);
-	const proposal = (await propose(owner, "documents.saveNative", {
+	const proposal = (await turns.propose(owner, "documents.saveNative", {
 		kind: "edit",
 		documentId: DOCS.policy.id,
 		edits: [{ find, replace: `Reviewed. ${find}` }],
@@ -264,7 +243,7 @@ test("INV-evry-documents: a document that changed after the card was prepared is
 		{ id: DOCS.policy.id, find: "Reviewed. ", raw: { body: { ...policy, title: "Newer policy" } } },
 	];
 	for (const k of kinds) {
-		const proposal = (await propose(owner, "documents.saveNative", {
+		const proposal = (await turns.propose(owner, "documents.saveNative", {
 			kind: "edit",
 			documentId: k.id,
 			edits: [{ find: k.find, replace: "Changed by Evry " }],
@@ -285,8 +264,8 @@ test("INV-evry-documents: a document that changed after the card was prepared is
 
 test("INV-evry-documents: an edit is refused to a Member, and another church's document is never found", async () => {
 	const input = { kind: "edit", documentId: DOCS.otherChurch.id, edits: [{ find: "New Hope", replace: "x" }] };
-	assert.equal(await propose(church.actors.owner, "documents.saveNative", input), null);
-	await assert.rejects(propose(church.actors.member, "documents.saveNative", input), /access_denied/);
+	assert.equal(await turns.propose(church.actors.owner, "documents.saveNative", input), null);
+	await assert.rejects(turns.propose(church.actors.member, "documents.saveNative", input), /access_denied/);
 });
 
 test("INV-evry-documents: the template answers are the domain's own, and a file whose reviewed value changed, or whose store fails, is never made", async () => {
@@ -302,7 +281,7 @@ test("INV-evry-documents: the template answers are the domain's own, and a file 
 	}
 	const before = await counts();
 	const request = { templateId: "response-card" };
-	const proposal = (await propose(owner, "documents.generate", request))!;
+	const proposal = (await turns.propose(owner, "documents.generate", request))!;
 	await church.admin.execute(sql`UPDATE plant SET name='Renamed Church' WHERE id=${PLANT}::uuid`);
 	const changed = await turns.approve(owner, proposal);
 	assert.deepEqual([changed.outcome, changed.review.receipt?.code], ["refused", "revision_conflict"]);
@@ -312,7 +291,7 @@ test("INV-evry-documents: the template answers are the domain's own, and a file 
 	assert.deepEqual(missing.facts, { complete: false, missing: "Church Name" });
 	const blank = await read("owner", "documents.preview", request);
 	assert.deepEqual([blank.facts?.rendered, blank.facts?.missing], [false, "Church Name"]);
-	const refused = (await propose(owner, "documents.generate", request))!;
+	const refused = (await turns.propose(owner, "documents.generate", request))!;
 	assert.equal(refused.review.refusal, "Still needed before a file can be made: Church Name.");
 	await church.admin.execute(sql`UPDATE plant SET name='Hope Fellowship' WHERE id=${PLANT}::uuid`);
 
@@ -322,7 +301,7 @@ test("INV-evry-documents: the template answers are the domain's own, and a file 
 	});
 	assert.deepEqual([unsafe.facts?.rendered, unsafe.facts?.failure], [false, "The preview could not be made."]);
 
-	const down = (await propose(owner, "documents.generate", request))!;
+	const down = (await turns.propose(owner, "documents.generate", request))!;
 	failing = true;
 	const failed = await turns.approve(owner, down).finally(() => (failing = false));
 	assert.notEqual(failed.outcome, "completed");

@@ -1,23 +1,8 @@
 import type { SectionResult } from "@everyfield/contracts/settings";
 import { z } from "zod";
-import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { NativePorts } from "../../../proposals/types.ts";
-import type { WriteTx } from "@everyfield/domain/access";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { anySeat, plantAdmin, scheduleText } from "../../native.ts";
-
-async function section(
-	tx: WriteTx,
-	actor: EvryActor,
-	native: NativePorts | null,
-	raw: unknown,
-): Promise<SectionResult | null> {
-	if (!native) throw new EvryRefusal("source_unavailable");
-	actor.authority.observe(tx);
-	const reply = await native.settings.getOwnSection(tx, actor.authority, raw);
-	return reply.status === "ok" ? reply.value : null;
-}
 
 const input = z.strictObject({
 	section: z
@@ -31,13 +16,16 @@ export const getSection: ReadAdapter<z.infer<typeof input>> = {
 	input,
 	allowed: anySeat,
 	async invoke(tx, actor, value, native): Promise<SourceResult> {
-		const found =
+		if (!native) throw new EvryRefusal("source_unavailable");
+		actor.authority.observe(tx);
+		const request =
 			value.section === "account"
-				? await section(tx, actor, native, { section: "account" })
+				? { section: "account" }
 				: plantAdmin(actor)
-					? await section(tx, actor, native, { section: "plant", plant: actor.owner })
+					? { section: "plant", plant: actor.owner }
 					: null;
-		const rows: SourceRow[] = found ? settingRows(found) : [];
+		const reply = request && (await native.settings.getOwnSection(tx, actor.authority, request));
+		const rows = reply?.status === "ok" ? settingRows(reply.value) : [];
 		return {
 			operation: "settings.getSection",
 			status: rows.length ? "available" : "not_found",

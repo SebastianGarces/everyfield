@@ -10,6 +10,7 @@ import {
 	createConversation,
 	evryActor,
 	executeProposal,
+	prepareProposal,
 	readConversation,
 	readReview,
 	runTurn,
@@ -34,7 +35,7 @@ export function scriptedTurns(db: Database, native: NativePorts | null, storage:
 		const viewer = await readViewer(db, session as never);
 		return viewer?.authority ? evryActor(viewer.authority) : null;
 	};
-	async function ask(actor: EvryActor, text: string) {
+	async function claimedTurn(actor: EvryActor, text: string) {
 		const { id } = await createConversation(db, actor, { requestKey: randomUUID() });
 		await submitTurn(db, actor, id, { requestKey: randomUUID(), text });
 		const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -45,6 +46,10 @@ export function scriptedTurns(db: Database, native: NativePorts | null, storage:
 			leaseOwner: claim.lease_owner,
 			generation: claim.claim_generation,
 		};
+		return { id, claim, lease };
+	}
+	async function ask(actor: EvryActor, text: string) {
+		const { id, claim, lease } = await claimedTurn(actor, text);
 		const outcome = await runTurn({ db, model, freshActor, native, storage }, lease, {
 			claimStart: new Date(),
 			claimEnd: new Date(),
@@ -66,6 +71,14 @@ export function scriptedTurns(db: Database, native: NativePorts | null, storage:
 			transcript: JSON.stringify(events),
 		};
 	}
+	async function propose(actor: EvryActor, operation: string, input: unknown) {
+		const { id, claim, lease } = await claimedTurn(actor, "hold this turn");
+		try {
+			return await prepareProposal(db, actor, lease, id, { operation, input }, null, native);
+		} finally {
+			await transaction(db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
+		}
+	}
 	async function approve(actor: EvryActor, proposal: Proposal) {
 		const witness = { revision: proposal.revision, digest: proposal.digest };
 		await approveProposal(db, actor, proposal.id, witness, storage);
@@ -84,5 +97,5 @@ export function scriptedTurns(db: Database, native: NativePorts | null, storage:
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 		return { outcome, review: await readReview(db, actor, proposal.id) };
 	}
-	return { ask, approve };
+	return { ask, propose, approve };
 }

@@ -1,7 +1,7 @@
 import { owner } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
+import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { organizationSeat } from "../../native.ts";
 
 export const getProfile: ReadAdapter<Record<string, never>> = {
@@ -16,27 +16,25 @@ export const getProfile: ReadAdapter<Record<string, never>> = {
 		const found = await native.organizations["organizations.getProfile"](tx, actor.session, owner.parse(actor.owner), {
 			organization: actor.owner,
 		});
-		const profile = found.status === "available" ? found.profile : null;
-		const { gatheringMilestone: milestone, ...fields } = profile ?? { gatheringMilestone: null };
+		const rows: SourceRow[] = [];
+		if (found.status === "available") {
+			const { gatheringMilestone: milestone, ...fields } = found.profile;
+			rows.push({
+				kind: "setting",
+				id: "organization",
+				label: fields.name,
+				fields: {
+					...fields,
+					timeZone: found.timeZone,
+					gatheringMilestone: milestone?.offered ? milestone.name : null,
+				},
+			});
+		}
 		return {
 			operation: "organizations.getProfile",
-			status: profile ? "available" : "not_found",
-			rows:
-				profile && found.status === "available"
-					? [
-							{
-								kind: "setting",
-								id: "organization",
-								label: profile.name,
-								fields: {
-									...(fields as Omit<typeof profile, "gatheringMilestone">),
-									timeZone: found.timeZone,
-									gatheringMilestone: milestone?.offered ? milestone.name : null,
-								},
-							},
-						]
-					: [],
-			total: profile ? 1 : 0,
+			status: rows.length ? "available" : "not_found",
+			rows,
+			total: rows.length,
 			page: 1,
 			next: null,
 			completeness: "complete",
