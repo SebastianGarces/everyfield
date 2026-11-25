@@ -110,6 +110,59 @@ class CaseCountTests(unittest.TestCase):
         self.fixtures([run], [])
         self.assertIn('does not run AC:CASE-A', self.check().stderr)
 
+    def release(self):
+        return subprocess.run(
+            [sys.executable, str(HERE / 'check.py'), '--root', str(self.root), '--release'],
+            capture_output=True, text=True, check=False,
+        )
+
+    def test_release_needs_every_selected_case_run(self):
+        """INV-release: a case that is not run fails by name, and a run case passes."""
+        run = dict(self.case('CASE-A'), status='run', run_by=['tests/a.test.mts'])
+        self.fixtures([run, self.case('CASE-B')], [run | {'id': 'CASE-C'}])
+        failed = self.release()
+        self.assertEqual(failed.returncode, 1)
+        self.assertEqual(failed.stderr.splitlines(), [
+            'docs/acceptance/first.json:CASE-B: selected case is future-not-run, not run',
+            'FAIL: 1 release findings.'])
+        self.assertEqual(failed.stdout.splitlines(), [
+            'docs/acceptance/first.json: 2 selected, 1 run, 1 not run, 0 excepted',
+            'docs/acceptance/second.json: 1 selected, 1 run, 0 not run, 0 excepted',
+            'Total: 3 selected, 2 run, 1 not run, 0 excepted'])
+        self.fixtures([run], [run | {'id': 'CASE-C'}])
+        passed = self.release()
+        self.assertEqual((passed.returncode, passed.stderr), (0, ''))
+
+    def test_release_exceptions_are_listed_with_a_reason(self):
+        """INV-release: only a listed ID, a later package and a one-line reason except a case."""
+        run = dict(self.case('CASE-A'), status='run', run_by=['tests/a.test.mts'])
+        self.fixtures([run, self.case('CASE-B'), self.case('CASE-C')], [])
+        listed = {'id': 'CASE-B', 'package': 'WP-094', 'reason': 'Focus is only visible in a browser.'}
+
+        def release(*entries):
+            self.write('docs/acceptance/release-exceptions.json', {'exceptions': list(entries)})
+            return self.release()
+        unlisted = release(listed)
+        self.assertEqual(unlisted.returncode, 1)
+        self.assertIn('CASE-C: selected case is future-not-run, not run', unlisted.stderr)
+        self.assertNotIn('CASE-B', unlisted.stderr)
+        self.assertIn('Total: 2 selected, 1 run, 1 not run, 1 excepted', unlisted.stdout)
+        other = dict(listed, id='CASE-C')
+        self.assertEqual(release(listed, other).returncode, 0)
+        for broken, message in [
+            (dict(other, reason='  '), 'CASE-C: needs a one-line reason'),
+            ({'id': 'CASE-C', 'package': 'WP-094'}, 'CASE-C: needs a one-line reason'),
+            (dict(other, reason='One.\nTwo.'), 'CASE-C: needs a one-line reason'),
+            (dict(other, package='WP-053'), 'CASE-C: package must be one of'),
+            (dict(other, id='CASE-Z'), 'CASE-Z: unknown case'),
+            (dict(other, id='CASE-A'), 'CASE-A: the case is run, so remove its exception'),
+            (listed, 'CASE-B: listed twice'),
+        ]:
+            with self.subTest(message=message):
+                result = release(listed, broken)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(message, result.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()
