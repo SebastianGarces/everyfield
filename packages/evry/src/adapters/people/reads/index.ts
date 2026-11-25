@@ -13,6 +13,8 @@ import {
 	duplicateCheckRequest,
 	listPeopleRequest,
 	movedInto,
+	moveWarningLines,
+	moveWarnings,
 	personFieldsRequest,
 	personRequest,
 	skillCategory,
@@ -25,6 +27,8 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import { ownerOrAdmin } from "../commands/index.ts";
+import { id } from "../../tasks/values.ts";
+import { stageWarnings } from "../stage-warnings.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
 type PlantPerson = { id: string; displayName: string; city?: string | null; stage: string };
@@ -263,7 +267,36 @@ export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates, listDuplicatePairs] as const;
+const warningsInput = z.strictObject({ personId: id, stage: stage.optional() });
+export const getStatusWarnings: ReadAdapter<z.infer<typeof warningsInput>> = {
+	operation: "people.getStatusWarnings",
+	description:
+		"The reminders the stage dialog shows before one person moves, as it shows them to every seat: each stage the move skips (give stage, the stage they would move to), and an assessment, interview or commitment that isn't recorded, with how many open duties they hold. Reminders never block a move and never say whether someone is ready",
+	input: warningsInput,
+	allowed: inPlant,
+	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
+		const found = await stageWarnings(tx, actor, input.personId);
+		if (!found) return one("people.getStatusWarnings", [], []);
+		const { person, warnings } = found;
+		const lines = moveWarningLines(moveWarnings(person.stage, input.stage ?? null, warnings));
+		const fields = {
+			stage: person.stage,
+			movingTo: input.stage ?? null,
+			openDuties: warnings.openDuties.length,
+			reminders: lines.join("\n") || "None",
+		};
+		return one("people.getStatusWarnings", [personRow(actor, person.id, person.displayName, fields)], ["private care"]);
+	},
+};
+
+export const PEOPLE_READS = [
+	listPeople,
+	getPerson,
+	getPersonPhoto,
+	checkForDuplicates,
+	listDuplicatePairs,
+	getStatusWarnings,
+] as const;
 
 const verifiedRow = z.strictObject({
 	id: z.uuid(),

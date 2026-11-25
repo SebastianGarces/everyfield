@@ -6,6 +6,7 @@ import type { WriteTx } from "@everyfield/domain/access";
 export type SourceRow = {
 	kind:
 		| "person"
+		| "retired_person"
 		| "household"
 		| "tag"
 		| "skill"

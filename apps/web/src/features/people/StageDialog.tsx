@@ -1,8 +1,8 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
 import { ArrowRight01Icon, UserCheck01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
+import { dutiesNeedOwner, MOVE_REMINDER, moveWarnings } from "@everyfield/contracts/people";
 import {
 	Alert,
 	Button,
@@ -21,30 +21,14 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { changeStatus } from "./actions.ts";
-import {
-	leavesCommitted,
-	skippedStages,
-	STAGE_KEY,
-	STAGE_LABEL,
-	STAGES,
-	type ColumnValue,
-	type StageValue,
-} from "./model.ts";
+import { STAGE_KEY, STAGE_LABEL, STAGES, type ColumnValue, type StageValue } from "./model.ts";
 import { runSave, type PersonStore } from "./person.store.ts";
 import { FormProblem, fresh, problemOf, usePersonState, useWarnings } from "./parts.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-type Warnings = z.infer<typeof people.statusWarningsResult>;
 type Moved = Extract<Awaited<ReturnType<typeof changeStatus>>, { status: "ok" }>["value"];
 export type StageDraft = { stage: StageValue | null; reason: string };
 export type PersonDraft = unknown;
-
-const WARNING: Record<Warnings["warnings"][number], string> = {
-	assessment_not_recorded: "No 4 C's assessment is recorded for this person.",
-	interview_not_recorded: "No interview is recorded for this person.",
-	commitment_not_recorded: "No current commitment is recorded for this person.",
-	open_duties: "This person has open follow-up work.",
-};
 
 export function StageDialog({
 	open,
@@ -85,10 +69,12 @@ export function StageDialog({
 
 	const chosen = draft.stage;
 	const ready = warnings?.status === "ok" ? warnings.value : null;
-	const handoffs =
-		ready && chosen && leavesCommitted(person.stage, chosen)
-			? ready.openDuties.map((d) => ({ kind: "needs_owner" as const, dutyId: d.id, expectedRevision: d.revision }))
-			: [];
+	const before = ready && moveWarnings(person.stage, chosen, ready);
+	const handoffs = (before?.duties ?? []).map((d) => ({
+		kind: "needs_owner" as const,
+		dutyId: d.id,
+		expectedRevision: d.revision,
+	}));
 	const reasonMissing = draft.reason.trim() === "";
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 
@@ -157,10 +143,10 @@ export function StageDialog({
 							<Skeleton className="h-4 w-3/4" />
 							<Skeleton className="h-4 w-1/2" />
 						</div>
-					) : warnings.status !== "ok" ? (
-						<FormProblem code={problemOf(warnings)} />
+					) : before ? (
+						<Guidance warnings={before} />
 					) : (
-						<Guidance warnings={warnings.value} from={person.stage} to={chosen} handoffs={handoffs.length} />
+						<FormProblem code={problemOf(warnings)} />
 					)}
 
 					<Field
@@ -191,33 +177,22 @@ export function StageDialog({
 	);
 }
 
-function Guidance({
-	warnings,
-	from,
-	to,
-	handoffs,
-}: {
-	warnings: Warnings;
-	from: StageValue;
-	to: StageValue | null;
-	handoffs: number;
-}) {
-	const skipped = to ? skippedStages(from, to) : [];
-	const notes = warnings.warnings.filter((w) => w !== "open_duties").map((w) => WARNING[w]);
-	if (!skipped.length && !notes.length && !handoffs) return null;
+function Guidance({ warnings }: { warnings: people.MoveWarnings }) {
+	const { skipped, notRecorded, duties } = warnings;
+	if (!skipped && !notRecorded.length && !duties.length) return null;
 	return (
 		<section aria-label="Before you move" className="flex flex-col gap-3">
-			{skipped.length ? (
+			{skipped ? (
 				<p className="flex flex-wrap items-center gap-2 text-sm text-text-2">
 					<StatusBadge status="attention" size="sm">
-						Skips {skipped.length === 1 ? "a stage" : `${skipped.length} stages`}
+						{skipped.count}
 					</StatusBadge>
-					{skipped.map((s) => STAGE_LABEL[s]).join(", ")}
+					{skipped.stages}
 				</p>
 			) : null}
-			{notes.length ? (
+			{notRecorded.length ? (
 				<ul className="flex flex-col gap-1.5 text-sm text-text-2">
-					{notes.map((n) => (
+					{notRecorded.map((n) => (
 						<li key={n} className="flex gap-2.5">
 							<span aria-hidden="true" className="mt-[7px] size-1.5 flex-none rounded-full bg-amber-500" />
 							{n}
@@ -225,15 +200,15 @@ function Guidance({
 					))}
 				</ul>
 			) : null}
-			{handoffs ? (
-				<Alert tone="warning" title={`${counted(handoffs, "open duty needs", "open duties need")} an owner`}>
+			{duties.length ? (
+				<Alert tone="warning" title={dutiesNeedOwner(duties)}>
 					<p className="mt-1">
 						Leaving the committed stages takes this person off their open follow-up work. Each duty stays open and is
 						marked Needs owner, so nothing is lost.
 					</p>
 				</Alert>
 			) : null}
-			<p className="text-xs text-text-3">These are reminders from the records. You can still move the person.</p>
+			<p className="text-xs text-text-3">{MOVE_REMINDER}</p>
 		</section>
 	);
 }

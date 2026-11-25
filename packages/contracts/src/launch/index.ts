@@ -148,6 +148,7 @@ export const launchError = z.discriminatedUnion("code", [
 	defineSafeError("invalid_debrief", { problem: debriefProblem }, "never"),
 	defineSafeError("invalid_summary", { problem: summaryProblem }, "never"),
 	defineSafeError("not_ready", { needs: z.enum(["launch_sunday", "outcome", "debrief"]) }, "refresh"),
+	defineSafeError("already_guest", {}, "refresh"),
 	defineSafeError("derived_evidence_only", {}, "never"),
 	defineSafeError("invalid_gathering", { problem: gatheringProblem }, "never"),
 	defineSafeError("gathering_unavailable", {}, "refresh"),

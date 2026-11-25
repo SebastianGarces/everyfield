@@ -1,0 +1,340 @@
+{
+	"suite": "planter-daily",
+	"model": "scripted",
+	"note": "T-630: what a planter does every week in People, Messages and Launch, asked on the scripted model (packages/evry-scripted/src/scripted-planter.ts) with the real runtime, adapters, approvals, effect executor and native writers, on Hope Fellowship (golden-church.mts) with the Launch fixture (launch-church.mts). Cases run in this order and see the earlier approved changes. `setup` names the step that runs first; `continue` asks in the previous case's conversation. `decline` cancels the card, `approve` approves and runs it, and `refusal` is the card's own refusal text. `criterion` is the T-630 Done criterion. {day:N} is N days from today.",
+	"cases": [
+		{
+			"id": "PD-01",
+			"operation": "people.restorePerson",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "bring Tom Baker back, I deleted the record by mistake",
+			"calls": [],
+			"answer": ["I prepared a review card to bring Tom Baker back to People. Nothing changes until you approve it."],
+			"card": {
+				"operation": "people.restorePerson",
+				"target": "Tom Baker",
+				"changes": [{ "field": "state", "before": "retired", "after": "live" }],
+				"notes": ["They come back to the active list as Attendee, with the details they had."]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-02",
+			"operation": "people.restorePerson",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "restore Rosa Rivera",
+			"calls": [],
+			"answer": ["bring Rosa Rivera back to People"],
+			"card": { "operation": "people.restorePerson", "target": "Rosa Rivera" },
+			"decline": true
+		},
+		{
+			"id": "PD-03",
+			"operation": "evry.readReview",
+			"criterion": 12,
+			"actor": "owner",
+			"continue": true,
+			"ask": "what happened to the change you proposed?",
+			"calls": ["evry.readReview"],
+			"answer": ["- Rosa Rivera: declined (cancelled: nothing changed)"],
+			"absent": ["approved", "waiting"]
+		},
+		{
+			"id": "PD-04",
+			"operation": "people.restorePerson",
+			"criterion": 1,
+			"setup": "merged",
+			"actor": "owner",
+			"ask": "bring John Smith back",
+			"calls": [],
+			"answer": [
+				"John Smith was merged into Jon Smith, not deleted. To bring this record back, use Unmerge on Jon Smith's page."
+			],
+			"card": {
+				"operation": "people.restorePerson",
+				"target": "John Smith",
+				"refusal": "John Smith was merged into Jon Smith, not deleted. To bring this record back, use Unmerge on Jon Smith's page."
+			}
+		},
+		{
+			"id": "PD-05",
+			"operation": "people.restorePerson",
+			"criterion": 1,
+			"actor": "member",
+			"ask": "bring Rosa Rivera back",
+			"calls": [],
+			"answer": ["Only an Owner or Admin of this church can make that change, so I prepared nothing."]
+		},
+		{
+			"id": "PD-06",
+			"operation": "people.recordAdultClassification",
+			"criterion": 2,
+			"actor": "admin",
+			"ask": "record that Casey Morgan is an adult as of 2026-11-01, because Casey told me over coffee",
+			"calls": ["people.listPeople"],
+			"answer": ["I prepared a review card to record Casey Morgan as an adult."],
+			"card": {
+				"operation": "people.recordAdultClassification",
+				"target": "Casey Morgan",
+				"changes": [
+					{ "field": "adultClassification", "before": "unknown", "after": "adult" },
+					{ "field": "occurredOn", "before": null, "after": "2026-11-01" },
+					{ "field": "reason", "before": null, "after": "Casey told me over coffee" }
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-07",
+			"operation": "people.recordAdultClassification",
+			"criterion": 2,
+			"actor": "admin",
+			"ask": "record that Kevin Walsh is an adult",
+			"calls": [],
+			"answer": ["What date did you learn this, and how do you know? I prepared nothing yet."]
+		},
+		{
+			"id": "PD-08",
+			"operation": "people.correctAdultClassification",
+			"criterion": 3,
+			"actor": "admin",
+			"ask": "correct Casey Morgan to child as of 2026-11-02 because the card was for another Casey",
+			"calls": ["people.listPeople"],
+			"answer": ["I prepared a review card to record Casey Morgan as a child."],
+			"card": {
+				"operation": "people.correctAdultClassification",
+				"target": "Casey Morgan",
+				"changes": [
+					{ "field": "adultClassification", "before": "adult", "after": "child" },
+					{ "field": "occurredOn", "before": null, "after": "2026-11-02" },
+					{ "field": "reason", "before": null, "after": "the card was for another Casey" }
+				],
+				"notes": ["The earlier answer stays in the history."]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-09",
+			"operation": "people.getStatusWarnings",
+			"criterion": 4,
+			"actor": "member",
+			"ask": "before I move Kevin Walsh to core group, what should I know?",
+			"calls": ["people.listPeople", "people.getStatusWarnings"],
+			"answer": [
+				"Skips 2 stages: Following up, Interviewed",
+				"No 4 C's assessment is recorded for this person.",
+				"No interview is recorded for this person.",
+				"No current commitment is recorded for this person.",
+				"You can still move the person."
+			]
+		},
+		{
+			"id": "PD-10",
+			"operation": "people.changeStatus",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "move Kevin Walsh to the interviewed stage because we met last week",
+			"calls": ["people.listPeople"],
+			"answer": ["I prepared a review card to move Kevin Walsh to interviewed."],
+			"card": {
+				"operation": "people.changeStatus",
+				"target": "Kevin Walsh",
+				"notes": [
+					"Skips a stage: Following up",
+					"No 4 C's assessment is recorded for this person.",
+					"No interview is recorded for this person.",
+					"No current commitment is recorded for this person.",
+					"These are reminders from the records. You can still move the person."
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-11",
+			"operation": "people.reorderPipeline",
+			"criterion": 5,
+			"actor": "admin",
+			"ask": "put Joy Lee at the top of the column",
+			"calls": ["people.listPeople"],
+			"answer": ["I prepared a review card to put Joy Lee first in their column."],
+			"card": {
+				"operation": "people.reorderPipeline",
+				"target": "Joy Lee",
+				"notes": [
+					"First in the Attendee column, for everyone in this church.",
+					"Their stage stays, and nobody else is changed."
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-12",
+			"operation": "communication.getDraft",
+			"criterion": 6,
+			"setup": "longDraft",
+			"actor": "member",
+			"ask": "what does my long letter draft say?",
+			"calls": ["communication.list", "communication.getDraft", "communication.getDraft", "communication.getDraft"],
+			"answer": ["Subject: The long letter", "Line 0 of the letter.", "Line 999 of the letter."]
+		},
+		{
+			"id": "PD-13",
+			"operation": "launch.saveDebriefDraft",
+			"criterion": 7,
+			"setup": "launched",
+			"actor": "owner",
+			"ask": "save my launch debrief so far: what went well: The welcome team was ready; what to change: Open the doors earlier",
+			"calls": [],
+			"answer": ["I prepared a review card to save the debrief so far as a draft, submitting nothing."],
+			"card": {
+				"operation": "launch.saveDebriefDraft",
+				"target": "Launch debrief",
+				"changes": [
+					{ "field": "wentWell", "before": null, "after": "The welcome team was ready" },
+					{ "field": "toChange", "before": null, "after": "Open the doors earlier" }
+				],
+				"notes": ["This saves a draft. Nothing is submitted, published or shared."]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-14",
+			"operation": "launch.saveDebriefDraft",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "save the debrief so far: follow-up plan: Call every guest this week",
+			"calls": [],
+			"card": {
+				"operation": "launch.saveDebriefDraft",
+				"target": "Launch debrief",
+				"changes": [{ "field": "followUpPlan", "before": null, "after": "Call every guest this week" }],
+				"notes": ["Kept as they are: What went well, What to change."]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-15",
+			"operation": "launch.saveDebriefSummaryDraft",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "save the summary so far: We launched with a full room.",
+			"calls": [],
+			"answer": ["Submit the debrief first: the summary is written after it."],
+			"card": {
+				"operation": "launch.saveDebriefSummaryDraft",
+				"target": "Launch summary",
+				"refusal": "Submit the debrief first: the summary is written after it."
+			}
+		},
+		{
+			"id": "PD-16",
+			"operation": "launch.saveDebriefSummaryDraft",
+			"criterion": 8,
+			"setup": "submitted",
+			"actor": "owner",
+			"ask": "save the summary so far: We launched with a full room.",
+			"calls": [],
+			"answer": ["I prepared a review card to save the summary so far as a draft, publishing nothing."],
+			"card": {
+				"operation": "launch.saveDebriefSummaryDraft",
+				"target": "Launch summary",
+				"changes": [{ "field": "summary", "before": null, "after": "We launched with a full room." }]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-17",
+			"operation": "launch.correctGuestAttendance",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "the launch guest count is wrong, please fix it",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"Which number is wrong: the headcount (everyone who attended), or the guests named on the Launch plan?"
+			]
+		},
+		{
+			"id": "PD-18",
+			"operation": "launch.correctGuestAttendance",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "Owen Price wasn't a launch guest, take the name off the list",
+			"calls": ["launch.readDebrief"],
+			"answer": ["I prepared a review card to correct the named guests."],
+			"card": {
+				"operation": "launch.correctGuestAttendance",
+				"target": "Owen Price",
+				"changes": [
+					{ "field": "guest", "before": "Owen Price", "after": "Not a guest" },
+					{ "field": "guestsNamed", "before": 3, "after": 2 }
+				],
+				"notes": ["Owen Price stays in People as they are."]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-19",
+			"operation": "launch.correctGuestAttendance",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "the launch guest Ruth Kim was really Maria Santos",
+			"calls": ["launch.readDebrief"],
+			"card": {
+				"operation": "launch.correctGuestAttendance",
+				"target": "Ruth Kim",
+				"changes": [
+					{ "field": "guest", "before": "Ruth Kim", "after": "Maria Santos · maria.santos@example.org" },
+					{ "field": "guestsNamed", "before": 2, "after": 2 }
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-20",
+			"operation": "launch.correctOutcome",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "fix the launch attendance to 162, because we recounted the cards",
+			"calls": ["launch.readDebrief"],
+			"card": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{ "field": "attendance", "before": 150, "after": 162 },
+					{ "field": "reason", "before": null, "after": "we recounted the cards" }
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "PD-21",
+			"operation": "evry.updateDraft",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "keep notes while we plan the open house: invite list done, venue still to book",
+			"calls": ["evry.readDraft", "evry.updateDraft"],
+			"answer": ["I saved that in my planning notes for this conversation. Nothing in your records changed."]
+		},
+		{
+			"id": "PD-22",
+			"operation": "evry.readDraft",
+			"criterion": 11,
+			"actor": "owner",
+			"continue": true,
+			"ask": "what do your notes say?",
+			"calls": ["evry.readDraft"],
+			"answer": ["My planning notes say:\ninvite list done, venue still to book"]
+		},
+		{
+			"id": "PD-23",
+			"operation": "evry.composeReads",
+			"criterion": 13,
+			"actor": "owner",
+			"ask": "how many people do we have, how many meetings are coming up and where does the launch stand?",
+			"calls": ["launch.readCountdown", "meetings.list", "people.listPeople"],
+			"answer": ["people in People", "upcoming meetings, and the launch is Launched."]
+		}
+	]
+}
