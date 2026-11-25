@@ -17,7 +17,6 @@ type Json = ReturnType<typeof JSON.parse>;
 type Case = {
 	id: string;
 	given: Json;
-	actor: Json;
 	clock: { now: string };
 	action: Json;
 	expected: Json;
@@ -49,7 +48,7 @@ const evry = new Map(
 		.map((a) => [a.operation as string, a as unknown as ReadAdapter<unknown>]),
 );
 
-async function world({ given, actor: acting }: Case) {
+async function world({ given }: Case) {
 	const { admin, pools } = database;
 	const db = pools.runtime;
 	const run = admin.execute.bind(admin);
@@ -306,7 +305,6 @@ async function world({ given, actor: acting }: Case) {
 		for (const name of gone) await end(name);
 	};
 	return {
-		given,
 		db,
 		run,
 		rows,
@@ -317,12 +315,10 @@ async function world({ given, actor: acting }: Case) {
 		order,
 		sources,
 		articles,
-		versions,
 		nameOf,
 		g1,
 		names,
 		ids,
-		acting,
 		end,
 		rejoin,
 		endGone,
@@ -338,7 +334,6 @@ async function world({ given, actor: acting }: Case) {
 		reads,
 		leaks,
 		history,
-		tool,
 	};
 }
 type World = Awaited<ReturnType<typeof world>>;

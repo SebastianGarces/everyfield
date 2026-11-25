@@ -476,11 +476,10 @@ test("AC:CASE-DOC-016 an import becomes native content, a malformed Word file ch
 			}),
 		),
 	);
-	const word = (entries: Parameters<typeof W.storedZip>[0]) => W.storedZip(entries);
 	const malformed: [string, Uint8Array][] = [
 		["malformed_DOCX", Buffer.from("PK\u0003\u0004 not a Word file")],
-		["no document part", word([{ name: "word/other.xml", data: "<x/>" }])],
-		["broken XML", word([{ name: "word/document.xml", data: "<w:document><w:body>" }])],
+		["no document part", W.storedZip([{ name: "word/other.xml", data: "<x/>" }])],
+		["broken XML", W.storedZip([{ name: "word/document.xml", data: "<w:document><w:body>" }])],
 	];
 	await untouched(admin, async () => {
 		for (const [name, bytes] of malformed)

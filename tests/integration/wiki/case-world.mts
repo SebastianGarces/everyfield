@@ -6,7 +6,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import type { SourceView } from "../../../packages/contracts/src/wiki/index.ts";
 import { fixture, ok, type Actor } from "../../support/fixture.mts";
-import { recorded, touched, untouched } from "../../support/recorded.mts";
+import { recorded, untouched } from "../../support/recorded.mts";
 
 export const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const { cases } = JSON.parse(readFileSync(new URL("../../../docs/acceptance/knowledge.json", import.meta.url), "utf8"));
@@ -164,10 +164,8 @@ export async function wikiWorld(prefix: string) {
 		one,
 		actor,
 		cmd,
-		reading,
 		revise,
 		article,
-		affiliate,
 		church,
 		publish,
 		view,
@@ -176,7 +174,6 @@ export async function wikiWorld(prefix: string) {
 		stored,
 		kept: async (who: Actor, articleId: string) => present((await stored(who, articleId))[0], "reading"),
 		recorded: <T,>(body: () => Promise<T>) => recorded(admin, body),
-		touched: <T,>(body: () => Promise<T>) => touched(admin, body),
 		untouched: <T,>(body: () => Promise<T>) => untouched(admin, body),
 		close: () => f.close(),
 	};
