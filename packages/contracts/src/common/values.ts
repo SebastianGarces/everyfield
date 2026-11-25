@@ -19,6 +19,7 @@ export const revision = z
 	.brand<"Revision">();
 export const role = z.enum(["owner", "admin", "member"]);
 export const organizationKind = z.enum(["sending_church", "sending_network"]);
+export type OrganizationKind = z.infer<typeof organizationKind>;
 export const owner = z
 	.discriminatedUnion("kind", [
 		z.strictObject({ kind: z.literal("account"), id: accountId }),

@@ -28,7 +28,7 @@ export function FrameNotFound() {
 					</Button>
 				}
 			>
-				The link may be out of date, or this page is not part of your workspace.
+				The link may be out of date, or this page is not part of your account.
 			</StatePanel>
 		</Card>
 	);

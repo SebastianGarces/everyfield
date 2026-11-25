@@ -22,8 +22,8 @@ async function gate(returnTo: SitePath, title: string): Promise<{ viewer: Viewer
 				<Card>
 					{seat.ok ? (
 						<StatePanel tone="lock" icon={LockKeyIcon} title="Messages are not part of your seat" headingLevel="h2">
-							Messages belong to a church plant workspace. Your account has no current seat in one, so there is nothing
-							to show here.
+							Messages belong to a church plant account. You have no current seat in one, so there is nothing to show
+							here.
 						</StatePanel>
 					) : (
 						<StatePanel tone="error" title="Messages did not load" headingLevel="h2">
