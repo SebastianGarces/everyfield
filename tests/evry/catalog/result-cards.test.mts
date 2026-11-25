@@ -30,6 +30,8 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { randomUUID } from "node:crypto";
+import { createAssessments } from "../../../packages/domain/src/intelligence/index.ts";
+import { installGeographyRelease, pipelineWriter } from "../../../packages/domain/src/organizations/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligence-church.mts";
 
@@ -43,6 +45,12 @@ const oversightActor = async (who: "owner" | "director") => {
 	const ch = await oversightChurch();
 	return evryActor((await readViewer(ch.db, ch.seats[who].session as never))!.authority!);
 };
+const onCedar = async (operation: string, input: unknown = {}) =>
+	invokeRead((await oversightChurch()).db, await oversightActor("owner"), adapters.get(operation)!, input);
+const onNetwork = async (operation: string, input: unknown = {}) =>
+	invokeRead((await oversightChurch()).db, await oversightActor("director"), adapters.get(operation)!, input);
+let linked: Promise<void> | null = null;
+const linkedChurch = async () => (linked ??= (await oversightChurch()).churchLinked());
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
@@ -309,6 +317,62 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			},
 		]),
 	),
+	"intelligence.readAssessmentHistory": async () => onCedar("intelligence.readAssessmentHistory"),
+	"intelligence.readAssessmentRun": async () => {
+		const history = await onCedar("intelligence.readAssessmentHistory");
+		return onCedar("intelligence.readAssessmentRun", { runId: history.rows[0]!.id });
+	},
+	"intelligence.readColdStartGuidance": async () => {
+		const ch = await oversightChurch();
+		const viewer = await readViewer(ch.db, ch.plants["Grace Tulsa"]!.owner.session as never);
+		return invokeRead(ch.db, evryActor(viewer!.authority!), adapters.get("intelligence.readColdStartGuidance")!, {});
+	},
+	"intelligence.readOwnFeedback": async () => {
+		const ch = await oversightChurch();
+		const actor = await oversightActor("owner");
+		const runId = (await onCedar("intelligence.readAssessmentHistory")).rows[0]!.id;
+		await createAssessments().submitFeedback(ch.db, actor.authority, {
+			runId,
+			ordinal: 0,
+			rating: "useful",
+			comment: "",
+		});
+		return onCedar("intelligence.readOwnFeedback");
+	},
+	"oversight.listSendingChurches": async () => {
+		await linkedChurch();
+		return onNetwork("oversight.listSendingChurches");
+	},
+	"oversight.getSendingChurch": async () => {
+		await linkedChurch();
+		const [church] = (await onNetwork("oversight.listSendingChurches")).rows;
+		return onNetwork("oversight.getSendingChurch", { churchId: church!.id });
+	},
+	"geography.listReportingRegionCandidates": async () => {
+		await installGeographyRelease(church.admin);
+		return read("geography.listReportingRegionCandidates", { city: "Fort Worth", stateProvince: "TX", country: "US" });
+	},
+	"pipeline.readGoals": async () => {
+		const dana = await setupActor(PIPELINE_SPECS.dana.session);
+		await pipelineWriter.saveGoal(church.db, dana.authority, {
+			goalId: randomUUID(),
+			expectedRevision: null,
+			leaderTarget: 6,
+			plantTarget: 2,
+			targetYear: 2028,
+			rationale: "Two campuses are full.",
+			countingFrom: null,
+			counts: [],
+		});
+		return invokeRead(church.db, dana, adapters.get("pipeline.readGoals")!, {});
+	},
+	"pipeline.readConversationCounts": async () =>
+		invokeRead(
+			church.db,
+			await setupActor(PIPELINE_SPECS.dana.session),
+			adapters.get("pipeline.readConversationCounts")!,
+			{},
+		),
 	"organizationIntelligence.readLocationHistory": async () => {
 		const ch = await oversightChurch();
 		return invokeRead(

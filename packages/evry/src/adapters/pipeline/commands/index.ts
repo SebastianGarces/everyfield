@@ -292,8 +292,7 @@ type Card = {
 };
 const changed = (field: string, before: unknown, after: unknown) =>
 	JSON.stringify(before) === JSON.stringify(after) ? [] : [{ field, before, after }];
-const card = ({ refusal, ...review }: Card, args: object) =>
-	reviewed({ ...review, ...(refusal && { refusal }) }, args);
+const card = ({ refusal, ...review }: Card, args: object) => reviewed({ ...review, ...(refusal && { refusal }) }, args);
 const found = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T => {
 	if (reply.status !== "ok") throw new EvryRefusal("not_found");
 	return reply.value;
@@ -344,7 +343,11 @@ export const saveGoal = approvedNow({
 			...changed("targetYear", was ? String(was.targetYear) : null, String(goal.targetYear)),
 			...changed("rationale", was?.rationale ?? null, goal.rationale),
 			...changed("countingFrom", was ? dayText(was.countingFrom) : null, dayText(next.countingFrom)),
-			...changed("goalCounts", was ? countText(was.counts) : null, goal.counts.length || was ? countText(goal.counts) : null),
+			...changed(
+				"goalCounts",
+				was ? countText(was.counts) : null,
+				goal.counts.length || was ? countText(goal.counts) : null,
+			),
 		];
 		return card(
 			{
@@ -382,7 +385,7 @@ const stagesInput = z.strictObject({
 		.max(30),
 	remove: z.array(z.uuid()).max(30).optional(),
 });
-const heldRow = z.object({ id: z.string(), held: z.coerce.number() });
+const heldRow = z.strictObject({ id: z.string(), held: z.coerce.number() });
 
 export const saveStages = approvedNow({
 	operation: "pipeline.saveStages",
@@ -533,7 +536,9 @@ export const enroll = approvedNow({
 					{ field: "programStage", before: null, after: stage?.label ?? null },
 					...(meeting ? [{ field: "nextMeeting", before: null, after: meetingText(meeting, p.timezone) }] : []),
 				],
-				notes: ["Their pipeline stage doesn't change. The enrollment stays on this version until the director applies a newer one."],
+				notes: [
+					"Their pipeline stage doesn't change. The enrollment stays on this version until the director applies a newer one.",
+				],
 				refusal,
 			},
 			args,
@@ -632,8 +637,7 @@ export const applyVersion = approvedNow({
 		const refusal =
 			closed(e) ??
 			(e.newerVersion ? null : `${e.person.name} is already on Version ${e.versionNumber}, the current one.`);
-		if (refusal)
-			return card({ target: enrollmentTarget(e), changes: [], refusal }, { enrollmentId: e.id });
+		if (refusal) return card({ target: enrollmentTarget(e), changes: [], refusal }, { enrollmentId: e.id });
 		const r = found(await readVersionReview(db, actor.authority, { enrollmentId: e.id }));
 		const stage = r.stages.find((s) => s.id === (value.stageId ?? r.stageId));
 		if (!stage) throw new EvryRefusal("invalid_input");
@@ -746,7 +750,9 @@ export const completeMilestone = approvedNow({
 					{ field: "milestone", before: null, after: m.title },
 					{ field: "milestoneProgress", before: "Not finished", after: `Finished ${dayText(value.completedOn)}` },
 				],
-				notes: [`${e.program.name}, Version ${e.versionNumber}. It shows as recorded and confirmed by you, the program leader.`],
+				notes: [
+					`${e.program.name}, Version ${e.versionNumber}. It shows as recorded and confirmed by you, the program leader.`,
+				],
 				refusal,
 			},
 			value,

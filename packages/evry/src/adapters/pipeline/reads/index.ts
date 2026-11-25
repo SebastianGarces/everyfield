@@ -9,7 +9,12 @@ import {
 	readProgram as readProgramDetail,
 	readPrograms,
 } from "@everyfield/domain/organizations";
-import { goalHeadline, STARTER_STAGES, type EnrollmentDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
+import {
+	goalHeadline,
+	STARTER_STAGES,
+	type EnrollmentDetail,
+	type ProgramVersion,
+} from "@everyfield/contracts/organizations";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -251,7 +256,13 @@ export const readProgram = {
 						kind: "item" as const,
 						id: e.id,
 						label: e.name,
-						fields: { part: "enrollment", cohort: e.cohort, status: e.status, stage: e.stage, version: e.versionNumber },
+						fields: {
+							part: "enrollment",
+							cohort: e.cohort,
+							status: e.status,
+							stage: e.stage,
+							version: e.versionNumber,
+						},
 					})),
 					...p.people.map((x) => ({
 						kind: "item" as const,
@@ -284,7 +295,7 @@ export const readProgram = {
 
 const monthText = (month: string) =>
 	new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(
-		new Date(`${month}-01T00:00:00Z`),
+		Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1),
 	);
 const PLANTS_SENT = "Not available yet";
 export const readGoals = {
