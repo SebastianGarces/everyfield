@@ -606,7 +606,7 @@ test("INV-privacy: a sending church's Member rates under the same limits, and on
 	const theirs = { runId: network.run!.runId, patternKey: near(network.groups[0]!)!.key };
 
 	const kept = [await ratingsOf(church), await ratingsOf(N), await ratingAudit(church), await ratingAudit(N)];
-	const refuses = async (authority: never, input: typeof own, why: string) => {
+	const refuses = async (authority: never, input: { runId: string; patternKey: string }, why: string) => {
 		for (const rating of ["useful", "not_useful"])
 			assert.deepEqual(await submitIntelligenceFeedback(S.runtime, authority, { ...input, rating }), refused, why);
 	};
