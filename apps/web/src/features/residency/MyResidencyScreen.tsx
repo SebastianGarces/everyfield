@@ -32,7 +32,7 @@ import { dayText } from "@everyfield/contracts/common";
 import { programProblem, KIND } from "../organizations/programs/model";
 import { useResidency } from "./context.ts";
 import { markMilestone } from "./actions";
-import { articlePath } from "../wiki/model";
+import { articlePath } from "@everyfield/contracts/wiki";
 import { meetingDay, meetingTime, milestoneAnchor, readingPath, zoneName } from "./model";
 
 type Linked = Extract<MyResidency, { status: "linked" }>;

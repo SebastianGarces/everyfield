@@ -11,7 +11,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReviewContext } from "../../../proposals/types.ts";
 import { approvedNow, reviewed, idInput } from "../../native.ts";
-import { RATING, runText } from "../reads/index.ts";
+import { LEVEL_NAME, RATING, runText } from "../reads/index.ts";
 
 type Reply = { status: "ok"; value: object } | { status: "refused"; refusal: { code: string } };
 const settled = (reply: Reply) => (reply.status === "ok" ? { revision: "1" } : { refused: reply.refusal.code });
@@ -62,8 +62,11 @@ async function patternOf(
 ) {
 	const level = patternLevel(input.patternKey);
 	const view = level ? await readIntelligence(db, authority, { level, runId: input.runId }) : null;
-	const pattern = view?.groups.flatMap((g) => g.patterns).find((p) => p.key === input.patternKey);
-	return view?.run && pattern ? { pattern, ranAt: view.run.ranAt, timeZone: view.timeZone } : null;
+	const group = view?.groups.find((g) => g.patterns.some((p) => p.key === input.patternKey));
+	const pattern = group?.patterns.find((p) => p.key === input.patternKey);
+	if (!view?.run || !group || !pattern) return null;
+	const place = view.level === "portfolio" ? LEVEL_NAME.portfolio : `${LEVEL_NAME[view.level]}, ${group.label}`;
+	return { pattern, place, ranAt: view.run.ranAt, timeZone: view.timeZone };
 }
 
 export const submitFeedback = approvedNow({
@@ -90,7 +93,7 @@ export const submitFeedback = approvedNow({
 					},
 				],
 				notes: [
-					`Plants: ${pattern.plants.map((p) => p.name).join(", ")}. Your rating of this pattern in the run of ${runText(found.ranAt, found.timeZone)}. It changes nothing in Network Intelligence.`,
+					`Group: ${found.place}. Plants: ${pattern.plants.map((p) => p.name).join(", ")}. Your rating of this pattern in the run of ${runText(found.ranAt, found.timeZone)}. It changes nothing in Network Intelligence.`,
 				],
 				...(pattern.rating === value.rating && {
 					refusal: "You already rated this pattern that way, so nothing would change.",

@@ -124,7 +124,7 @@ export const readOverseenPlant: ReadAdapter<{ plantId: string }> = {
 	operation: "oversight.getPlant",
 	description:
 		"One linked plant as its page in this organization shows it, by its plantId from oversight.listPlants: totals only for each category it shares (people by stage, open and overdue tasks, recent meetings, ministry teams), Not shared for the rest, its Launch status, readiness and latest published summary, and how many concerns its released assessment raised by lens. Never a person's name, note, interview, care record or an assessment's words: oversight shows totals only",
-	input: z.strictObject({ plantId: z.uuid() }),
+	input: z.strictObject({ plantId: idInput }),
 	allowed: organizationSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const view = await getPlant(tx, actor.authority, input.plantId);
@@ -224,7 +224,7 @@ export const readNetworkIntelligence: ReadAdapter<z.infer<typeof intelligenceInp
 	},
 };
 
-const LEVEL_NAME: Record<C.Level, string> = {
+export const LEVEL_NAME: Record<C.Level, string> = {
 	region: "Region",
 	state: "State",
 	country: "Country",

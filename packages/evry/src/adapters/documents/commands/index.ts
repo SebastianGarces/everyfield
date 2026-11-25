@@ -18,6 +18,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { attachedFile, extensionOf, stagedBytes } from "../../../attachments/store.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { idInput } from "../../native.ts";
 
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -221,9 +222,9 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 const EXCERPT = 280;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const importInput = z.strictObject({
-	attachmentId: z
-		.uuid()
-		.describe("The attachmentId of a Word (.docx) or text (.txt) file attached in this conversation"),
+	attachmentId: idInput.describe(
+		"The attachmentId of a Word (.docx) or text (.txt) file attached in this conversation",
+	),
 	title: z
 		.string()
 		.trim()

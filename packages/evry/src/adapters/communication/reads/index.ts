@@ -11,7 +11,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import { churchZone, localTime, ownerOrAdmin } from "../../tasks/reads/index.ts";
-import { id } from "../../tasks/values.ts";
+import { idInput } from "../../native.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { audienceInput, classifiedPeople } from "../audience.ts";
 
@@ -298,7 +298,7 @@ const notFound = (operation: string, exclusions: string[]): SourceResult => ({
 });
 
 const draftInput = z.strictObject({
-	communicationId: id,
+	communicationId: idInput,
 	page: z.int().min(1).max(100).optional().describe("The next part of a long body, from a previous result's next"),
 });
 const PART_CHARS = 12_000;

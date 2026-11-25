@@ -371,18 +371,23 @@ export function catalogQuery(
 			), '[]'::json) AS articles`;
 }
 
+export function navigationJson(): SQL {
+	return sql`COALESCE((
+		SELECT json_agg(json_build_object(
+			'articleId', p.article_id,
+			'revisionId', p.revision_id,
+			'sourceKind', p.source_kind,
+			'hidden', p.hidden,
+			'title', p.title,
+			'slug', p.slug,
+			'phase', p.phase,
+			'sectionKey', p.section_key
+		) ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
+		FROM picked p
+	), '[]'::json)`;
+}
+
 export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 	return sql`WITH ${corpusCtes(access, source)}
-		SELECT
-			EXISTS (SELECT FROM me) AS allowed,
-			COALESCE((
-				SELECT json_agg(json_build_object(
-					'articleId', p.article_id,
-					'title', p.title,
-					'slug', p.slug,
-					'phase', p.phase,
-					'sectionKey', p.section_key
-				) ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
-				FROM picked p
-			), '[]'::json) AS articles`;
+		SELECT EXISTS (SELECT FROM me) AS allowed, ${navigationJson()} AS articles`;
 }

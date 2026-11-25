@@ -27,7 +27,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import { ownerOrAdmin } from "../commands/index.ts";
-import { id } from "../../tasks/values.ts";
+import { idInput } from "../../native.ts";
 import { stageWarnings } from "../stage-warnings.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
@@ -267,7 +267,7 @@ export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-const warningsInput = z.strictObject({ personId: id, stage: stage.optional() });
+const warningsInput = z.strictObject({ personId: idInput, stage: stage.optional() });
 export const getStatusWarnings: ReadAdapter<z.infer<typeof warningsInput>> = {
 	operation: "people.getStatusWarnings",
 	description:

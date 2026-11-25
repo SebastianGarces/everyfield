@@ -1,10 +1,11 @@
 import "server-only";
 import { viewerActor } from "@/server/request-context";
 import type { RequestActor } from "@everyfield/domain/access";
+import { articlePath } from "@everyfield/contracts/wiki";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import type { ExportResult, GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
-import { articlePath, parseSource, sourceInput } from "./model.ts";
+import { parseSource, sourceInput } from "./model.ts";
 import { mountFor, plantContext, runSearch } from "./server.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
 

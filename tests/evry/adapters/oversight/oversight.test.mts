@@ -170,6 +170,10 @@ test("INV-evry-ni-feedback: a pattern's rating is saved as the page saves it; un
 	const first = await r.prepare(actors.director, op, input);
 	assert.equal(first.review.target?.label, row.label);
 	assert.deepEqual(first.review.changes, [{ field: "rating", before: null, after: "Useful" }]);
+	assert.match(first.review.notes![0]!, /^Group: State, Texas\. Plants: Harvest Point, Redeemer Church\. /);
+	const wide = (await view("portfolio")).groups.flatMap((g) => g.patterns)[0]!;
+	const whole = await r.prepare(actors.director, op, { ...input, patternKey: wide.key });
+	assert.match(whole.review.notes![0]!, /^Group: Whole portfolio\. Plants: /);
 	assert.equal(await rating(), null);
 	completed(await r.approve(actors.director, first));
 	assert.equal(await rating(), "useful");

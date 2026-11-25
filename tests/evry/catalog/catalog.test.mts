@@ -190,6 +190,15 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"wiki.recommendForPhase",
 		"wiki.reading.resume",
 		"wiki.article.exportPdf",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+		"wiki.articleNeighbors",
+		"wiki.contextGuide",
+		"wiki.bookmarks.list",
+		"wiki.reading.recent",
+		"wiki.reading.stats",
+		"wiki.feedback.getMine",
 		"documents.listOwned",
 		"documents.read",
 		"documents.readCoreValuesEvidence",
@@ -558,7 +567,7 @@ test("INV-row-liveness: no liveness rule names a table r or c, which the queries
 	assert.deepEqual(outerAliases("FROM person live_r WHERE live_r.kind='r'"), []);
 });
 
-const TOOL_SCHEMA_BUDGET = 205_000;
+const TOOL_SCHEMA_BUDGET = 206_000;
 
 test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within their byte budget", async () => {
 	const idle = {

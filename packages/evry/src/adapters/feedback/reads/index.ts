@@ -2,7 +2,7 @@ import type { FeedbackCategory, FeedbackReply, FeedbackStatus, OwnFeedback } fro
 import { feedbackWriter } from "@everyfield/domain/feedback";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import { plantSeat } from "../../native.ts";
+import { plantSeat, idInput } from "../../native.ts";
 
 export const CATEGORY_NAME: Record<FeedbackCategory, string> = {
 	bug: "Bug",
@@ -66,7 +66,7 @@ export const FEEDBACK_READS = [
 		operation: "feedback.getOwnStatus",
 		description:
 			"One piece of feedback the user sent, by its id from feedback.listOwn: its type, date, status and public issue. Feedback the user did not send is not found",
-		input: z.strictObject({ feedbackId: z.uuid() }),
+		input: z.strictObject({ feedbackId: idInput }),
 		allowed: plantSeat,
 		async invoke(tx, actor, input): Promise<SourceResult> {
 			const found = valueOf(await feedbackWriter.getOwnStatus(tx, actor.authority, input));

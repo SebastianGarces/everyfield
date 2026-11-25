@@ -3,7 +3,7 @@ import { owner } from "@everyfield/contracts/common";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
-import { nativeWrite, notes, plantSeat, settled } from "../../native.ts";
+import { nativeWrite, notes, plantSeat, settled, idInput } from "../../native.ts";
 
 const own = (context: PeopleContext, accountId: string) => ({
 	session: context.session,
@@ -17,7 +17,7 @@ export const finalizeAvatar = nativeWrite({
 	operation: "account.finalizeAvatar",
 	description:
 		"Propose making a photo the user attached (a photo reference's id) their own account photo. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ uploadId: z.uuid() }),
+	input: z.strictObject({ uploadId: idInput }),
 	allowed: plantSeat,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${you},'changes',jsonb_build_array(jsonb_build_object('field','photo','before',to_jsonb(a.avatar_object_id),'after',${value.uploadId}::text))) AS review,

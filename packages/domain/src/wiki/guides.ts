@@ -1,4 +1,6 @@
-export type GuideEntry = { readonly route: `/${string}`; readonly slug: string; readonly heading: string };
+import { appPage, type AppRoute } from "@everyfield/contracts/wiki";
+
+export type GuideEntry = { readonly route: AppRoute; readonly slug: string; readonly heading: string };
 
 export const GUIDE_ROUTES = [
 	{ route: "/people", slug: "core-group/follow-up/database-management", heading: "What to Track" },
@@ -52,24 +54,7 @@ export const GUIDE_ROUTES = [
 	},
 ] as const satisfies readonly GuideEntry[];
 
-const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function segments(path: string): string[] {
-	return path.split("/").filter(Boolean);
-}
-
-export function guideFor(route: string): GuideEntry | null {
-	const parts = segments(route.split(/[?#]/, 1)[0] ?? "");
-	return (
-		GUIDE_ROUTES.find((entry) => {
-			const pattern = segments(entry.route);
-			return (
-				pattern.length === parts.length &&
-				pattern.every((segment, index) => {
-					const part = parts[index] ?? "";
-					return segment.startsWith("[") ? RECORD_ID.test(part) : segment === part;
-				})
-			);
-		}) ?? null
-	);
+export function guideFor(path: string): GuideEntry | null {
+	const page = appPage(path);
+	return GUIDE_ROUTES.find((entry) => entry.route === page?.route) ?? null;
 }

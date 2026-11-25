@@ -517,7 +517,7 @@ export const enroll = approvedNow({
 		const args = {
 			enrollmentId,
 			...value,
-			stageId: stage?.id ?? randomUUID(),
+			stageId: stage?.id,
 			nextMeetingAt: meeting,
 		};
 		const refusal = !p.published
@@ -691,6 +691,9 @@ const milestoneOf = (e: EnrollmentDetail, milestoneId: string) => {
 	return m;
 };
 
+const markedText = ({ completion: c }: EnrollmentDetail["milestones"][number]) =>
+	c && c.confirmedOn === null ? `Marked done ${dayText(c.completedOn)}` : null;
+
 export const confirmMilestone = approvedNow({
 	operation: "development.confirmMilestone",
 	description:
@@ -719,7 +722,7 @@ export const confirmMilestone = approvedNow({
 					{ field: "milestone", before: null, after: m.title },
 					{
 						field: "milestoneProgress",
-						before: c && c.confirmedOn === null ? `Marked done ${dayText(c.completedOn)}` : null,
+						before: markedText(m),
 						after: "Confirmed by you",
 					},
 				],
@@ -756,7 +759,11 @@ export const completeMilestone = approvedNow({
 				target: enrollmentTarget(e),
 				changes: [
 					{ field: "milestone", before: null, after: m.title },
-					{ field: "milestoneProgress", before: "Not finished", after: `Finished ${dayText(value.completedOn)}` },
+					{
+						field: "milestoneProgress",
+						before: markedText(m) ?? "Not finished",
+						after: `Finished ${dayText(value.completedOn)}`,
+					},
 				],
 				notes: [
 					`${e.program.name}, Version ${e.versionNumber}. It shows as recorded and confirmed by you, the program leader.`,

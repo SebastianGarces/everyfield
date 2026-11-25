@@ -1,4 +1,4 @@
-import { dayText, localDate } from "@everyfield/contracts/common";
+import { dayText } from "@everyfield/contracts/common";
 import { countdown, GUEST_NAME_MAX, type History, type Milestone, type Plan } from "@everyfield/contracts/launch";
 import type { Transaction } from "@everyfield/db/client";
 import { createLaunchReader } from "@everyfield/domain/launch";
@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { plantAdmin, plantSeat } from "../../native.ts";
+import { plantAdmin, plantSeat, dayInput } from "../../native.ts";
 
 const reader = createLaunchReader();
 
@@ -277,7 +277,7 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 }
 
 const journalInput = z.strictObject({
-	since: localDate.optional(),
+	since: dayInput.optional(),
 });
 export const readJournal = {
 	operation: "launch.readJournal",

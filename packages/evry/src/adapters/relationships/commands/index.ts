@@ -2,7 +2,7 @@ import { sql } from "@everyfield/db/query";
 import { readSharingDisclosure } from "@everyfield/domain/organizations";
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { z } from "zod";
-import { committed, nativeWrite, notes, plantAdmin } from "../../native.ts";
+import { committed, nativeWrite, notes, plantAdmin, idInput } from "../../native.ts";
 import { COLUMN } from "../../sharing/commands/index.ts";
 import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
@@ -70,7 +70,7 @@ export const end = nativeWrite({
 	operation: "associations.end",
 	description:
 		"Propose ending this church's connection with an organization (organizationId from privacy.getSharing); sharing with it stops. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ organizationId: z.uuid() }),
+	input: z.strictObject({ organizationId: idInput }),
 	allowed: plantAdmin,
 	review(actor, value) {
 		const shared = sql.join(

@@ -2,6 +2,7 @@ import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { COMPOSE_READS, readCatalog, READ_DOMAINS, READ_DRAFT, READ_REVIEW, UPDATE_DRAFT } from "../catalog/catalog.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../catalog/types.ts";
+import { idInput } from "../adapters/native.ts";
 import { outcomeOf } from "../context/compile.ts";
 import type { ReviewOutcome } from "../conversations/store.ts";
 import type { EvryActor } from "../context/actor.ts";
@@ -106,7 +107,7 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Of
 		tools.read_review = tool({
 			description:
 				"Say what became of the changes you proposed in this conversation: waiting, approved, declined or expired, and an approved change's recorded outcome. Give proposalId for one, or leave it out for the latest. Answer only from it; it never repeats what a change said.",
-			inputSchema: z.strictObject({ proposalId: z.uuid().optional() }),
+			inputSchema: z.strictObject({ proposalId: idInput.optional() }),
 			execute: async (call) => handlers.readReview(call),
 		});
 	const writes = allowedWrites(actor, offered);

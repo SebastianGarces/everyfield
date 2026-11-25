@@ -107,13 +107,55 @@ function cut(blocks: Block[]): string {
 	return out.flatMap((block) => block.lines).join("\n");
 }
 
-export function sectionExcerpt(contentType: string, body: string, heading?: string): string {
-	const blocks = wikiBlocks(contentType, body);
-	const start = heading ? blocks.findIndex((block) => block.kind === "heading" && block.text === heading) : -1;
+const LABEL = 180;
+type Heading = { level: 2 | 3; text: string };
+type Placed = Heading & { at: number };
+
+function placedHeadings(blocks: readonly Block[]): Placed[] {
+	const found = blocks.flatMap((block, at): Placed[] =>
+		block.kind === "heading" && (block.level === 2 || block.level === 3) && block.text
+			? [
+					{
+						at,
+						level: block.level,
+						text: block.text.length > LABEL ? `${block.text.slice(0, LABEL - 1).trimEnd()}…` : block.text,
+					},
+				]
+			: [],
+	);
+	const taken = new Set(found.map((heading) => heading.text));
+	const seen = new Set<string>();
+	return found.map((heading) => {
+		let text = heading.text;
+		if (seen.has(text)) {
+			for (let n = 2; taken.has(text); n++) text = `${heading.text} (${n})`;
+			taken.add(text);
+		}
+		seen.add(text);
+		return { ...heading, text };
+	});
+}
+
+export function articleHeadings(contentType: string, body: string): Heading[] {
+	return placedHeadings(wikiBlocks(contentType, body)).map(({ level, text }) => ({ level, text }));
+}
+
+function sectionOf(blocks: Block[], heading: string): string | null {
+	const listed = placedHeadings(blocks).find((item) => item.text === heading)?.at;
+	const start = listed ?? blocks.findIndex((block) => block.kind === "heading" && block.text === heading);
 	const opening = blocks[start];
-	if (opening?.kind !== "heading") return cut(blocks);
+	if (opening?.kind !== "heading") return null;
 	const end = blocks.findIndex(
 		(block, index) => index > start && block.kind === "heading" && block.level <= opening.level,
 	);
-	return cut(blocks.slice(start, end < 0 ? undefined : end));
+	return cut(blocks.slice(start, end < 0 ? undefined : end)) || opening.lines.join("\n");
+}
+
+export function namedSection(contentType: string, body: string, heading: string): string | null {
+	return sectionOf(wikiBlocks(contentType, body), heading);
+}
+
+export function sectionExcerpt(contentType: string, body: string, heading?: string): string {
+	const blocks = wikiBlocks(contentType, body);
+	return (heading ? sectionOf(blocks, heading) : null) ?? cut(blocks);
 }

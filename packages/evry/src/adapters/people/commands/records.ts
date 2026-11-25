@@ -17,8 +17,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { plantAdmin } from "../../native.ts";
-import { day, id } from "../../tasks/values.ts";
+import { dayInput as day, idInput as id, plantAdmin } from "../../native.ts";
 
 type Change = { field: string; before: unknown; after: unknown };
 type Prepared = {

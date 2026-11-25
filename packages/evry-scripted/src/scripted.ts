@@ -14,6 +14,7 @@ import { overviewStep } from "./scripted-overview.ts";
 import { invitationStep } from "./scripted-invitation.ts";
 import { networkStep } from "./scripted-network.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
+import { wikiBrowseStep } from "./scripted-wiki-browse.ts";
 import { wikiEditorStep } from "./scripted-wiki-editor.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
 import { planterStep } from "./scripted-planter.ts";
@@ -985,6 +986,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (overview) return overview;
 	const editor = wikiEditorStep(options, text);
 	if (editor) return editor;
+	const browse = wikiBrowseStep(options, text);
+	if (browse) return browse;
 	const pipeline = pipelineStep(options, text);
 	if (pipeline) return pipeline;
 	const launch = launchStep(options, text);

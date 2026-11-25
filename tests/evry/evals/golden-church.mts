@@ -47,6 +47,11 @@ const SIGNUP_TASK = id(0xd13);
 const INTEREST_MEETING = id(0xd21);
 let wikiId = 0x5000;
 export const WIKI = wikiIds(() => id(wikiId++));
+export const GUIDE = {
+	article: id(0x5101),
+	revision: id(0x5102),
+	body: "Read this first.\n\n## Overview of the Three Documents\n\nEach one has a single job.\n\n## Who Signs Them\n\nOnly adults sign.",
+};
 
 export const DOCS = {
 	coreValues: {
@@ -594,6 +599,15 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 	const roles = WIKI.phaseTwo[1]!;
 	await run(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,policy_version,last_read_meaningful_sequence,bookmarked,revision)
 		VALUES(${id(0x5100)},${owner},${roles.article},${roles.global},${PLANT},0.4,'2026-11-08T15:00:00.000Z','wiki-reading-v1',1,false,1)`);
+	await run(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
+		VALUES(${GUIDE.article},'article','core-group/commitment/the-three-key-documents','00000000-0000-0000-0000-000000000000')`);
+	await run(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,
+			content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
+		VALUES(${GUIDE.revision},${GUIDE.article},'00000000-0000-0000-0000-000000000000',${WIKI.release},1,'The Three Key Documents',
+			'core-group/commitment/the-three-key-documents','The Three Key Documents',${GUIDE.body},'safe_mdx',3,1,md5(${GUIDE.revision}::text),
+			clock_timestamp(),true,1,${WIKI.section},ARRAY['launch-team/launch-team-roles']::text[])`);
+	await run(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,completed_at,completed_revision_id,completed_fraction,policy_version,last_read_meaningful_sequence,bookmarked,revision)
+		VALUES(${id(0x5103)},${owner},${GUIDE.article},${GUIDE.revision},${PLANT},0.9,'2026-11-07T15:00:00.000Z','2026-11-07T15:00:00.000Z',${GUIDE.revision},0.9,'wiki-reading-v1',1,true,1)`);
 	await seedNotifications(run);
 	await seedOversight(run);
 }
