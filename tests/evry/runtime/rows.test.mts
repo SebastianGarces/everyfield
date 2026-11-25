@@ -341,6 +341,8 @@ test("INV-row-photos: reading people who have photos saves and sends the model n
 			inPeople("people.listPeople", { hasPhoto: true }),
 			inPeople("people.getPerson", { personId: person }),
 			inPeople("people.getPerson", { personId: linked }),
+			inPeople("people.getPersonPhoto", { personId: person }),
+			inPeople("people.getPersonPhoto", { personId: linked }),
 			inPeople("people.checkForDuplicates", { displayName: "Alex Rivera" }),
 			{ operation: "people.getHousehold", input: { householdId: home } },
 			{ operation: "people.getHouseholdMembers", input: { householdId: home } },
