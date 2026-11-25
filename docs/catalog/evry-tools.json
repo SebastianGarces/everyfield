@@ -11,6 +11,7 @@
     "associations.end",
     "associations.getHistory",
     "associations.invite",
+    "associations.listInvitations",
     "associations.resendInvitation",
     "associations.revokeInvitation",
     "calendar.getContext",

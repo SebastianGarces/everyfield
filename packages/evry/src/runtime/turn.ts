@@ -267,6 +267,7 @@ async function run(
 					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh), deps.mail ?? null);
 				} catch (error) {
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
+					if (error instanceof EvryRefusal && error.problem) return { error: error.code, problem: error.problem };
 					if (attempt < LIMITS.readRetries && isTransient(error)) continue;
 					const still = await deps.freshActor(session).catch(() => null);
 					const lost = error instanceof EvryRefusal && error.code === "access_denied";

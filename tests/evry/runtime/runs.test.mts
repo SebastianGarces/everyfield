@@ -400,13 +400,17 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"seats.revokeInvitation",
 						"seats.changeOrdinaryRole",
 						"seats.remove",
+						"settings.saveSection",
 						"plant.updateProfile",
 						"plant.setTimezone",
 						"church.digestSchedule.set",
 						"privacy.setSharing",
 						"associations.invite",
+						"associations.resendInvitation",
+						"associations.revokeInvitation",
 						"associations.end",
 						"account.finalizeAvatar",
+						"account.removeAvatar",
 						"account.requestDeletion",
 						"onboarding.declareJourney",
 						"identity.answerLeadOnboarding",
@@ -416,6 +420,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"intelligence.submitFeedback",
 						...taskWrites,
 						...wikiWrites,
+						"documents.saveNative",
+						"documents.generate",
 						"documents.createFromTemplate",
 						"documents.exportNative",
 						"documents.archive",
@@ -438,23 +444,39 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							"notifications.markAllVisibleRead",
 							"notifications.setPreferences",
 							...MEMBER_MEETINGS_WRITES,
+							"settings.saveSection",
 							"account.finalizeAvatar",
+							"account.removeAvatar",
 							"account.requestDeletion",
 							"feedback.submit",
 							...memberTaskWrites,
 							...wikiWrites,
+							"documents.generate",
 						]
 					: who === "orgOwner"
 						? [
 								"notifications.setPreferences",
 								"notifications.oversightDigestCadence.set",
+								"settings.saveSection",
+								"associations.resendInvitation",
+								"associations.revokeInvitation",
+								"associations.declineInvitation",
+								"account.removeAvatar",
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
 								"development.saveProgram",
 								"development.draftNextVersion",
 								...orgWikiWrites,
 							]
-						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
+						: [
+								"settings.saveSection",
+								"associations.resendInvitation",
+								"associations.revokeInvitation",
+								"account.removeAvatar",
+								"onboarding.createPlant",
+								"discovery.create",
+								"discovery.convertToPlant",
+							],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const OVERVIEW_READS = [
@@ -517,7 +539,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 			"documents.read",
 			"documents.readCoreValuesEvidence",
 			"documents.templates.list",
+			"documents.templates.contextual",
+			"documents.templates.get",
+			"documents.resolveContext",
+			"documents.preview",
+			"documents.history.list",
+			"documents.history.get",
+			"documents.download",
 		];
+		const ownReads = ["associations.listInvitations", "associations.getHistory", "settings.getSection"];
 		assert.deepEqual(
 			operations,
 			who === "owner"
@@ -585,6 +615,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"launch.readWorkspace",
 						"launch.readJournal",
 						"launch.readDebrief",
+						...ownReads,
+						"account.getAvatar",
 					]
 				: who === "member"
 					? [
@@ -606,6 +638,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							"launch.readCountdown",
 							"launch.readWorkspace",
 							"launch.readDebrief",
+							...ownReads,
+							"account.getAvatar",
 						]
 					: who === "orgOwner"
 						? [
@@ -619,9 +653,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"organizationIntelligence.readHistory",
 								"organizationIntelligence.readLocations",
 								"organizationIntelligence.readLocationHistory",
+								...ownReads,
+								"organizations.getProfile",
+								"account.getAvatar",
 							]
 						: who === "seatless"
-							? ["discovery.getProfile"]
+							? ["discovery.getProfile", ...ownReads, "account.getAvatar"]
 							: [],
 		);
 	}
@@ -789,6 +826,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"calendar_read",
 			"communication_read",
+			"connections_read",
 			"dashboard_read",
 			"documents_read",
 			"feedback_read",
@@ -805,6 +843,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"propose_change",
 			"seats_read",
 			"select_returned_rows",
+			"settings_read",
 			"sharing_read",
 			"signals_read",
 			"tasks_read",

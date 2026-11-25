@@ -43,6 +43,7 @@ const AREA_NAMES: Record<string, string> = {
 	followups: "follow-ups",
 	seats: "seats or invitations",
 	privacy: "sharing",
+	associations: "connections",
 };
 
 function readOnlyAreas(catalog: Catalog) {
@@ -266,6 +267,8 @@ const READ_AREAS: Record<string, string> = {
 	launch: "Read the Launch plan: the countdown, milestones, Launch history and Launch Sunday's guests.",
 	intelligence:
 		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
+	connections: "Read your pending link invitations and the history of your links.",
+	settings: "Read your settings, your organization's profile and your own account name and photo.",
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
 const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
@@ -297,12 +300,25 @@ const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 		text: "Prepare your organization's own version of a Wiki article for your review: draft it, change its text, publish it or hide it.",
 	},
 	{
-		prefix: "documents.",
+		prefix: "documents.saveNative",
+		text: "Write a document, or change the words of one you have, for your review.",
+	},
+	{
+		prefix: "documents.generate",
+		text: "Fill in a library template, show you a preview, then make the file for your review.",
+	},
+	{
+		prefix: "documents.createFromTemplate",
 		text: "Prepare Church Documents for your review: start one from a template, save a file, archive one or mark your core values.",
 	},
 	{
 		prefix: "seats.",
 		text: "Prepare seat, invitation, church settings, sharing and connection changes for your review.",
+	},
+	{ prefix: "settings.", text: "Change your account name, or remove your account photo, for your review." },
+	{
+		prefix: "associations.revokeInvitation",
+		text: "Resend, withdraw or decline a pending link invitation for your review, as your seat allows.",
 	},
 	{ prefix: "launch.", text: "Prepare Launch plan changes for your review, as your seat allows." },
 	{ prefix: "feedback.", text: "Send feedback about Everyfield after you review it." },

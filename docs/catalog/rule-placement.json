@@ -4752,6 +4752,11 @@
       "requirement": "REQ-PPL-009",
       "operation": "people.setGuardianContact",
       "reason": "T-487 (WP-012): the Household card's parent or guardian contact."
+    },
+    {
+      "requirement": "REQ-IDN-020",
+      "operation": "associations.listInvitations",
+      "reason": "T-632: the pending list those invitation actions start from."
     }
   ],
   "rule_additions": [
@@ -5165,6 +5170,11 @@
       "id": "people.setGuardianContact",
       "requirement": "REQ-PPL-009",
       "reason": "T-487 (WP-012): staff name an adult in a child's household as the child's parent or guardian contact on the Person screen."
+    },
+    {
+      "id": "associations.listInvitations",
+      "requirement": "REQ-IDN-020",
+      "reason": "T-632: Evry lists the pending link invitations the asker's own side sent or received, so one can be resent, withdrawn or declined."
     }
   ],
   "shared_rewrites": {

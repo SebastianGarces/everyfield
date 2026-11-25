@@ -184,8 +184,15 @@ export function settingsCommands() {
 			setDigestSchedule: ops.sections.setDigestSchedule,
 			previewPlantTimezone: ops.timezones.previewPlantTimezone,
 			setPlantTimezone: ops.timezones.setPlantTimezone,
+			saveSection: ops.sections.saveSection,
+			getOwnSection: ops.sections.getOwnSection,
 		},
-		account: { finalizeAvatar: ops.avatar.finalizeAvatar, requestAccountDeletion: ops.deletion.requestAccountDeletion },
+		account: {
+			finalizeAvatar: ops.avatar.finalizeAvatar,
+			getAvatar: ops.avatar.getAvatar,
+			removeAvatar: ops.avatar.removeAvatar,
+			requestAccountDeletion: ops.deletion.requestAccountDeletion,
+		},
 	};
 }
 

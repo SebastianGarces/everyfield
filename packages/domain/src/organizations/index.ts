@@ -39,7 +39,16 @@ export {
 export type { GeographyReference, OrganizationEffects, OrganizationRefusalCode, RelationshipNotice };
 export { OrganizationRefusal, refuse } from "./core.ts";
 
-export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
+export {
+	idsIn,
+	linkInvitations,
+	namesFor,
+	pairOf,
+	pendingFor,
+	residencyLinks,
+	subjectFacts,
+	targetsFor,
+} from "./reads.ts";
 export type { Kind, Viewer } from "./reads.ts";
 export {
 	pipelineWriter,

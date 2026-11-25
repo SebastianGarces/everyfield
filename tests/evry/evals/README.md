@@ -19,6 +19,8 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
 | `followups.test.mts`     | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
 | `settings.test.mts`      | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
+| `connections.test.mts`   | `connections.cases.json` (21 cases)                                                                                      | Settings reads and changes, link invitations, link history and the own photo (scripted)     |
+| `documents.test.mts`     | `documents.cases.json` (17 cases)                                                                                        | Documents written, changed and made from templates, and downloads (scripted model)          |
 | `onboarding.test.mts`    | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
 | `pipeline.test.mts`      | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
 | `communication.test.mts` | `communication.cases.json` (26 cases)                                                                                    | Email reads, template removal and contact log corrections (scripted model)                  |
@@ -43,6 +45,15 @@ approves the review and runs its effect. Its completed card must read exactly `c
 no attempt, and exactly `ordinary` once the switch is back on. They make no model call. The golden, household and follow-up suites
 offer the model only the operations they were recorded with (`RECORDED` in `golden-harness.mts`, ruling D-1137), so
 their recordings stay valid until the next recording run adds these tools.
+
+## The documents and connections suites (scripted model)
+
+`documents.test.mts` and `connections.test.mts` score T-632's tools on the scripted model
+(`packages/evry-scripted/src/scripted-documents.ts`, `scripted-connections.ts`) through `scripted-turns.mts`: each turn runs
+the real catalog, adapters and review cards, each approved effect runs twice and must close the second time, and the saved
+record is read back. `documents.test.mts` renders real files, so it runs in the tsx half of `test:db`. The recorded suites
+leave these tools out (`LATER` in `golden-harness.mts`) until the batched recording adds them (D-1300): take them out of
+`LATER` then and record their cases with the rest.
 
 ## The onboarding suite (scripted model)
 

@@ -572,7 +572,7 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 	for (const who of ["ana", "ben"] as const)
 		assert.deepEqual(
 			readCatalog(await actorOf(who)).reviewedWrites.map((w) => w.operation),
-			["development.draftNextVersion"],
+			["settings.saveSection", "account.removeAvatar", "development.draftNextVersion"],
 			who,
 		);
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {

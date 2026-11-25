@@ -4,7 +4,13 @@ import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import type { createInvitationService } from "@everyfield/domain/identity";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
-import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "@everyfield/contracts/settings/server";
+import type { SectionResult } from "@everyfield/contracts/settings";
+import type {
+	DeletionProducer,
+	NativeAccountProducer,
+	SettingsProducer,
+	SettingsReply,
+} from "@everyfield/contracts/settings/server";
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
@@ -26,9 +32,9 @@ export type NativePorts = {
 	organizations: OrganizationAdapter<WriteTx>;
 	settings: Pick<
 		SettingsProducer<WriteTx>,
-		"updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone"
-	>;
-	account: Pick<NativeAccountProducer<WriteTx>, "finalizeAvatar"> &
+		"updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone" | "saveSection"
+	> & { getOwnSection(tx: WriteTx, authority: RequestActor, raw: unknown): Promise<SettingsReply<SectionResult>> };
+	account: Pick<NativeAccountProducer<WriteTx>, "finalizeAvatar" | "getAvatar" | "removeAvatar"> &
 		Pick<DeletionProducer<WriteTx>, "requestAccountDeletion">;
 	onboarding: OnboardingProducer<WriteTx>;
 	appVersion: string | null;

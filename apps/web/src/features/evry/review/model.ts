@@ -87,6 +87,8 @@ export type Operation =
 	| "documents.archive"
 	| "documents.designateCoreValues"
 	| "documents.importTextOrWord"
+	| "documents.saveNative"
+	| "documents.generate"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
@@ -214,8 +216,13 @@ export type SettingsOperation =
 	| "church.digestSchedule.set"
 	| "privacy.setSharing"
 	| "associations.invite"
+	| "associations.resendInvitation"
+	| "associations.revokeInvitation"
+	| "associations.declineInvitation"
 	| "associations.end"
+	| "settings.saveSection"
 	| "account.finalizeAvatar"
+	| "account.removeAvatar"
 	| "account.requestDeletion"
 	| "organizations.updateProfile"
 	| OnboardingOperation;
@@ -530,6 +537,10 @@ const FIELD_LABEL: Record<string, string> = {
 	digestSchedule: "Church digest",
 	connection: "Connection",
 	recipientEmail: "Sent to",
+	accountName: "Account name",
+	accountPhoto: "Photo",
+	warningDays: "Warning after (days)",
+	alertDays: "Alert after (days)",
 	account: "Your login",
 	church: "Church",
 	whereYouAre: "Where you are",
@@ -712,7 +723,14 @@ const SHARED = new Set<string>(SHARING_CATEGORIES);
 const WORDS: Record<string, Record<string, string>> = {
 	role: ROLE_LABEL,
 	access: { ...ROLE_LABEL, removed: "Removed" },
-	invitation: { pending: "Waiting", sent_again: "Sent again", new_link: "New link", revoked: "Revoked" },
+	invitation: {
+		pending: "Waiting",
+		sent_again: "Sent again",
+		new_link: "New link",
+		revoked: "Revoked",
+		declined: "Declined",
+	},
+	accountPhoto: { shown: "Your photo", none: "None, your initials show" },
 	connection: {
 		connected: "Connected",
 		ended: "Ended",
@@ -726,13 +744,17 @@ const WORDS: Record<string, Record<string, string>> = {
 const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zone})` : zone);
 
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
-	/^(seats|plant|church|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
+	/^(seats|plant|church|privacy|settings|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
 	operation === "identity.answerLeadOnboarding";
-export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
+export function settingsLink(
+	operation: SettingsOperation,
+	target: Review["review"]["target"] = null,
+): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
-	if (operation.startsWith("plant.") || operation.startsWith("church."))
+	if (operation.startsWith("plant.") || operation.startsWith("church.") || target?.kind === "church")
 		return { href: "/settings/church", label: "Open Church settings" };
-	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
+	if (operation.startsWith("account.") || operation === "settings.saveSection")
+		return { href: "/settings/account", label: "Open your account" };
 	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
 		return { href: "/onboarding", label: "Open setup" };
 	if (operation.startsWith("organizations."))
@@ -798,7 +820,7 @@ export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
 	if (review.operation === "tasks.create") return String(changes.find((c) => c.field === "title")?.after ?? "New task");
-	if (review.operation === "documents.importTextOrWord")
+	if (review.operation === "documents.importTextOrWord" || review.operation === "documents.saveNative")
 		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
 	if (review.operation === "tasks.assignFollowUp") return counted(n, "follow-up");
@@ -812,6 +834,8 @@ export function delayedText(review: Review): string | null {
 		case "seats.invite":
 			return `The invitation to ${String(review.review.changes.find((c) => c.field === "invitation")?.after ?? who)} is saved, but its email is delayed. You do not need to send it again unless it expires.`;
 		case "seats.resendInvitation":
+			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
+		case "associations.resendInvitation":
 			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
 		case "associations.invite":
 			return `The invitation to ${who} is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.`;
@@ -832,7 +856,10 @@ const delayedChange = (c: Change): Change => ({
 });
 
 export const shownNotes = (review: Review): string[] =>
-	delayedText(review) !== null && review.operation.startsWith("seats.") ? [] : (review.review.notes ?? []);
+	delayedText(review) !== null &&
+	(review.operation.startsWith("seats.") || review.operation === "associations.resendInvitation")
+		? []
+		: (review.review.notes ?? []);
 
 export function savedText(review: Review): string {
 	const delayed = delayedText(review);
@@ -1018,8 +1045,13 @@ const TITLE: Record<Operation, string> = {
 	"church.digestSchedule.set": "Change the church digest schedule",
 	"privacy.setSharing": "Change what you share",
 	"associations.invite": "Ask to connect",
+	"associations.resendInvitation": "Resend a link invitation",
+	"associations.revokeInvitation": "Withdraw a link invitation",
+	"associations.declineInvitation": "Decline a link invitation",
 	"associations.end": "End a connection",
+	"settings.saveSection": "Change a setting",
 	"account.finalizeAvatar": "Change your photo",
+	"account.removeAvatar": "Remove your photo",
 	"account.requestDeletion": "Delete your login",
 	"organizations.updateProfile": "Update the organization profile",
 	"pipeline.proposeStageMove": "Move to another stage",
@@ -1047,6 +1079,8 @@ const TITLE: Record<Operation, string> = {
 	"documents.archive": "Archive a document",
 	"documents.designateCoreValues": "Mark as your core values",
 	"documents.importTextOrWord": "New document from a file",
+	"documents.saveNative": "Save a document",
+	"documents.generate": "Make a file from a template",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -1416,9 +1450,15 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
 	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
 	"documents.importTextOrWord": "The new document opens in Documents with the file's text, for your church to edit.",
+	"documents.generate":
+		"Approving makes the file from exactly these values and saves it with your church's files. A template is starting text, not legal advice.",
 };
 
-export function documentResult(review: Review): { href: string; label: string } | null {
+export function documentResult(review: Review): { href: string; label: string; file?: true } | null {
+	if (review.operation === "documents.saveNative" && !review.review.target && !review.review.withheld)
+		return review.receipt?.receiptId
+			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
+			: null;
 	if (review.operation === "documents.importTextOrWord")
 		return review.receipt?.receiptId
 			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
@@ -1429,6 +1469,12 @@ export function documentResult(review: Review): { href: string; label: string } 
 		case "documents.createFromTemplate":
 			return review.receipt?.receiptId
 				? { href: `/documents/church/${review.receipt.receiptId}`, label: "Open the new document" }
+				: null;
+		case "documents.saveNative":
+			return target.href ? { href: target.href, label: `Open ${target.label}` } : null;
+		case "documents.generate":
+			return review.receipt?.receiptId
+				? { href: `/documents/files/${review.receipt.receiptId}`, label: "Download the file", file: true }
 				: null;
 		case "documents.exportNative":
 			return { href: `/documents/church/${target.id}`, label: "Open in Church Documents" };
@@ -1464,6 +1510,10 @@ export function documentRefusalText(code: string | undefined): string {
 }
 
 export function consequence(review: Review): string | null {
+	if (review.operation === "documents.saveNative")
+		return review.review.target
+			? "Approving saves this as the document's current text."
+			: "The new document opens in Documents for your church to edit.";
 	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
@@ -1768,6 +1818,7 @@ export function settingsRefusalText(code: string | undefined): string {
 		case "revision_conflict":
 		case "conflict":
 		case "stale_preview":
+		case "stale_revision":
 			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		case "access_denied":
 		case "unavailable":
@@ -1776,6 +1827,7 @@ export function settingsRefusalText(code: string | undefined): string {
 		case "protected_owner":
 			return "The Owner's seat can't be changed here, so nothing was saved.";
 		case "invitation_cooldown":
+		case "resend_cooldown":
 			return "An invitation can go again one minute after the last one, so nothing was sent. Ask again in a minute.";
 		case "invitation_rate_limited":
 		case "invitation_limit":
