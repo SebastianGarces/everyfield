@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
 import { verifyArticles, verifyPage } from "../adapters/wiki/reads/index.ts";
-import type { ConversationEvent, ConversationState, Reference } from "../conversations/store.ts";
+import type { ConversationEvent, ConversationState, Reference, ReviewOutcome } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
@@ -140,6 +140,8 @@ export const LAUNCH_RULES = {
 		"I couldn't load the Launch plan just now, so I can't answer that. Try again in a moment, or open [Launch](/launch).",
 	derived:
 		"Guest data entered and Debrief done follow the submitted debrief, so they can't be checked off by hand. Nothing was prepared.",
+	whichCount:
+		"Which number is wrong: the headcount (everyone who attended), or the guests named on the Launch plan? If it's the named guests, tell me which guest. I prepared nothing.",
 } as const;
 function launchRules() {
 	return [
@@ -152,6 +154,8 @@ function launchRules() {
 		"Launch Sunday guests are only the guests launch.readDebrief names; never use Vision Meeting or other meeting attendance in their place, and say so when the recorded attendance is higher than the guests named.",
 		"To name a Launch Sunday guest, read launch.readDebrief with guestName for each name first. When it finds no live Person, propose launch.addGuestAttendance with displayName. When it finds any, propose nothing for that name: list each match with its detail and ask which one, or whether to add a new Person; propose personId only for the match the user picks, never one you choose. One card per guest. Propose nothing and say why when Launch Sunday isn't recorded, the person picked is already a named guest, or the name is empty or over 255 characters. No count ever creates a Person.",
 		"To correct Launch Sunday's recorded outcome, propose launch.correctOutcome with only the fields the user names and their reason in their own words; ask for the reason when they gave none. \"We don't know\" a count is null (Not recorded), never 0. Propose nothing and say why when Launch Sunday isn't recorded, the new values are what is already recorded, the date is after today or a count is outside 0 to 1,000,000.",
+		`A wrong headcount is corrected with launch.correctOutcome (attendance). A wrong named guest, or a wrong count of named guests, is corrected with launch.correctGuestAttendance, one card for each guest the user names, after launch.readDebrief. When the user says only that the guest count is wrong and it could be either, read launch.readDebrief, prepare nothing and reply: ${LAUNCH_RULES.whichCount}`,
+		"When the user asks to save a half-done debrief, propose launch.saveDebriefDraft with only the areas they gave, in their own words; when they ask to save the summary so far, propose launch.saveDebriefSummaryDraft. Never propose launch.submitDebrief or launch.publishDebriefSummary unless they ask to submit or publish.",
 		`When the user asks how launch readiness changed, use launch.readJournal and add: ${LAUNCH_RULES.historyOnly}`,
 		"A launch date move or postponement needs the user's reason in their own words: ask for it when they gave none.",
 	].join("\n");
@@ -436,7 +440,14 @@ function recordedJudgments(catalog: Catalog) {
 	const reads = catalog.domains.some((d) => d.operations.some((o) => o.operation === "people.getInterviews"));
 	return reads
 		? "Interviews, 4 C's assessments and commitments are recorded human judgments, for this church's Owners and Admins. Show them exactly as recorded and record exactly what the user says. Never rate, score, rank or judge anyone's maturity, calling or qualification, and never suggest a rating, score, result or date: when the user leaves one out, ask for it."
-		: "Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, and this user cannot see them. If asked for one, say so plainly. Do not look for them in other records, and never hint whether any exist, when, or what they say.";
+		: [
+				"Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, and this user cannot see them. If asked for one, say so plainly. Do not look for them in other records, and never hint whether any exist, when, or what they say.",
+				...(catalog.domains.some((d) => d.operations.some((o) => o.operation === "people.getStatusWarnings"))
+					? [
+							"The one exception is the reminders people.getStatusWarnings returns, which the stage dialog shows every seat: repeat them as they are, only when asked about a stage move.",
+						]
+					: []),
+			].join(" ");
 }
 
 const WIKI_RULE = [
@@ -461,7 +472,7 @@ const PRIVATE_CARE =
 const EMAIL_HANDOFF = new Set(["communication.saveDraft", "communication.sendReviewed"]);
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
-function outcomeOf(r: ConversationState["reviews"][number]): string {
+export function outcomeOf(r: ReviewOutcome): string {
 	const email = r.operation.startsWith("communication.") && r.operation !== "communication.saveDraft";
 	if (r.status === "pending")
 		return `waiting for the user's review: nothing changed${email ? " and nothing was sent" : ""} yet`;

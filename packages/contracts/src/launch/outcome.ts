@@ -93,6 +93,10 @@ export const addGuestRequest = z.strictObject({
 	requestKey,
 	input: z.union([z.strictObject({ personId: recordId }), z.strictObject({ displayName: z.string() })]),
 });
+export const correctGuestRequest = z.strictObject({
+	...envelope,
+	input: z.strictObject({ guestId: recordId, personId: recordId.nullable() }),
+});
 export const debriefRequest = z.strictObject({
 	...envelope,
 	input: z.strictObject({ draftId: recordId.nullable(), answers: debriefAnswers }),
@@ -116,6 +120,7 @@ export const namedGuest = z.strictObject({
 	personId: recordId,
 	displayName: z.string(),
 	recordedAt: instant,
+	revision,
 });
 export type NamedGuest = z.infer<typeof namedGuest>;
 export const guests = z.strictObject({
@@ -210,6 +215,14 @@ export const historyChange = z.discriminatedUnion("kind", [
 		reason: z.string().nullable(),
 	}),
 	z.strictObject({ kind: z.literal("guest"), name: z.string().nullable(), added: z.boolean() }),
+	z.strictObject({
+		kind: z.literal("guest_correction"),
+		event: z.enum(["relinked", "voided"]),
+		from: z.string().nullable(),
+		to: z.string().nullable(),
+		countBefore: z.int().min(0),
+		countAfter: z.int().min(0),
+	}),
 	z.strictObject({ kind: z.literal("debrief"), event: z.enum(["submitted", "corrected"]), version: z.int() }),
 	z.strictObject({ kind: z.literal("summary"), version: z.int() }),
 	z.strictObject({

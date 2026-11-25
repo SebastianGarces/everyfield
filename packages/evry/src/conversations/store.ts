@@ -348,22 +348,32 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 	);
 }
 
-const stateRow = z.strictObject({
-	attachments: z.array(attachmentState),
-	reviews: z.array(
-		proposalRow.extend({ delivery: z.strictObject({ delivered: z.number(), total: z.number() }).nullable() }),
-	),
+const REVIEW_PAGE = 24;
+const reviewRow = proposalRow.extend({
+	delivery: z.strictObject({ delivered: z.number(), total: z.number() }).nullable(),
 });
+export type ReviewOutcome = z.infer<typeof reviewRow>;
+const stateRow = z.strictObject({ attachments: z.array(attachmentState), reviews: z.array(reviewRow) });
 export type ConversationState = z.infer<typeof stateRow>;
-export async function conversationState(db: Database, actor: EvryActor, conversationId: string) {
-	const r = await db.execute(sql`
-		SELECT ${attachmentsOf("c")} AS attachments,
-			coalesce((SELECT jsonb_agg(x.proposal || jsonb_build_object('delivery',x.delivery) ORDER BY x.created_at,x.id) FROM (
+const ownReviews = (actor: EvryActor, only: string | null) =>
+	sql`proposal p WHERE p.conversation_id=c.id AND ${readable(actor)} AND (${only}::uuid IS NULL OR p.id=${only}::uuid)`;
+const reviewsJson = (actor: EvryActor, only: string | null) =>
+	sql`coalesce((SELECT jsonb_agg(x.proposal || jsonb_build_object('delivery',x.delivery) ORDER BY x.created_at,x.id) FROM (
 				SELECT p.id,p.created_at,${projection("p")} AS proposal,
 					CASE WHEN p.review->'target'->>'kind'='message' THEN (SELECT jsonb_build_object('delivered',count(*) FILTER (WHERE m.delivered_at IS NOT NULL),'total',count(*))
 						FROM mail m WHERE m.tenant_id=p.tenant_id AND m.logical_key LIKE 'communication/'||(p.review->'target'->>'id')||'/%'
 							AND m.state NOT IN ('refused','failed','cancelled')) END AS delivery
-				FROM proposal p WHERE p.conversation_id=c.id AND ${readable(actor)} ORDER BY p.created_at DESC,p.id DESC LIMIT 24) x),'[]'::jsonb) AS reviews
+				FROM ${ownReviews(actor, only)} ORDER BY p.created_at DESC,p.id DESC LIMIT ${REVIEW_PAGE}) x),'[]'::jsonb)`;
+export async function conversationState(db: Database, actor: EvryActor, conversationId: string) {
+	const r = await db.execute(sql`
+		SELECT ${attachmentsOf("c")} AS attachments,${reviewsJson(actor, null)} AS reviews
 		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	return r.rows.length ? stateRow.parse(r.rows[0]) : null;
+}
+
+export async function readReviews(db: Database, actor: EvryActor, conversationId: string, only: string | null) {
+	const r = await db.execute(sql`
+		SELECT (SELECT count(*)::int FROM ${ownReviews(actor, only)}) AS total,${reviewsJson(actor, only)} AS reviews
+		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+	return r.rows.length ? z.strictObject({ total: z.int(), reviews: z.array(reviewRow) }).parse(r.rows[0]) : null;
 }

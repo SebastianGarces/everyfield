@@ -7,10 +7,10 @@ const live = <RowName extends string>(row: SqlLiteral<RowName>) =>
 
 export function retainedEvents(events: SQL): SQL {
 	return sql`SELECT e.sequence,e.turn_id,e.kind,e.created_at,
-		CASE WHEN k.withheld>0
+		(CASE WHEN k.withheld>0
 				THEN jsonb_set(e.body,'{result}',(e.body->'result')||jsonb_build_object('rows',k.rows,'total',NULL,'completeness','partial','withheldRows',k.withheld))
 			WHEN g.gone THEN e.body||'{"text":"","withheld":true}'::jsonb
-			ELSE e.body END AS body
+			ELSE e.body END)-'notes' AS body
 		FROM (${events}) e
 		LEFT JOIN (
 			SELECT t.conversation_id, t.sequence, k.rows, jsonb_array_length(coalesce(t.body->'result'->'rows','[]'::jsonb))-jsonb_array_length(k.rows) AS withheld

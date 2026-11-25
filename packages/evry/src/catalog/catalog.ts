@@ -51,6 +51,10 @@ export const READ_DOMAINS = {
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
+export const COMPOSE_READS = "evry.composeReads";
+export const READ_DRAFT = "evry.readDraft";
+export const UPDATE_DRAFT = "evry.updateDraft";
+export const READ_REVIEW = "evry.readReview";
 
 export const MEMBER_PHASES =
 	"Your Member seat does not include the church's phase journey. Ask an Owner or Admin if you need it.";
