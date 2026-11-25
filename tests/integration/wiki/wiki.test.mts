@@ -11,6 +11,7 @@ import { GUIDE_ROUTES, guideFor } from "../../../packages/domain/src/wiki/guides
 import { sessionId } from "../../../packages/contracts/src/common/values.ts";
 import type { SourceView } from "../../../packages/contracts/src/wiki/index.ts";
 import type { SQL } from "../../../packages/db/src/query.ts";
+import { stepsAround, treeModel } from "../../../packages/contracts/src/wiki/index.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
@@ -606,10 +607,12 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
+			const steps = stepsAround(treeModel(nav.groups, new Set()), guide);
 			assert.deepEqual(
-				neighbors.articles.map((item) => item.articleId),
-				[guideExtra, sibling],
+				[neighbors.previous?.articleId, neighbors.next?.articleId],
+				[steps.previous?.id, steps.next?.id],
 			);
+			assert.equal(Boolean(neighbors.previous ?? neighbors.next), true);
 			const toc = ok(await api.tableOfContents(db, await actor(people.owner), { articleId: guide }));
 			assert.deepEqual(toc.headings, [
 				{ level: 2, text: "Open" },

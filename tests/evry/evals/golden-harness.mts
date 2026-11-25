@@ -74,6 +74,7 @@ import { PEOPLE_RECORD_COMMANDS } from "../../../packages/evry/src/adapters/peop
 import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
+import { BROWSE_READS } from "../../../packages/evry/src/adapters/wiki/reads/browse.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
 const LATER = new Set<string>([
@@ -105,6 +106,7 @@ const LATER = new Set<string>([
 	"documents.history.get",
 	"documents.download",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
+	...BROWSE_READS.map((a) => a.operation),
 	"organizationIntelligence.readHistory",
 	"organizationIntelligence.readLocations",
 	"organizationIntelligence.readLocationHistory",
@@ -119,7 +121,7 @@ const LATER = new Set<string>([
 	READ_REVIEW,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
-const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
+const SCRIPTED_ONLY = new Set<string>(["documents.importTextOrWord", ...BROWSE_READS.map((a) => a.operation)]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -489,7 +491,11 @@ export async function converse(
 		catalog,
 		history: events,
 		text,
-		references: await resolveReferences(db, actor, page ? [{ kind: "article", slug: page }] : []),
+		references: await resolveReferences(
+			db,
+			actor,
+			page ? [page.startsWith("/") ? { kind: "page", route: page } : { kind: "article", slug: page }] : [],
+		),
 		now: NOW,
 		state,
 		settingsGuidance: false,

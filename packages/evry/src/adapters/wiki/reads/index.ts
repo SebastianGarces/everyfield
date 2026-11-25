@@ -1,31 +1,17 @@
-import type { Database, Transaction } from "@everyfield/db/client";
-import type { WikiArticle, WikiReply } from "@everyfield/contracts/wiki";
+import { appPage } from "@everyfield/contracts/wiki";
+import type { Database } from "@everyfield/db/client";
 import { readCatalog as phaseCatalog } from "@everyfield/domain/phases";
-import { createWikiProducer, sectionExcerpt } from "@everyfield/domain/wiki";
+import { namedSection, sectionExcerpt } from "@everyfield/domain/wiki";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { present } from "../../../runtime/captured.ts";
+import { articleRow, inPlant, read, shown, value, wiki } from "../shared.ts";
+import { BROWSE_READS } from "./browse.ts";
 
-const wiki = createWikiProducer();
-export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
-
-export const articleHref = (slug: string) => `/wiki/${slug.split("/").map(encodeURIComponent).join("/")}`;
 const pdfHref = (articleId: string) => `/api/wiki/pdf?article=${articleId}`;
 
-function articleRow(article: WikiArticle, fields: SourceRow["fields"] = {}): SourceRow {
-	return {
-		kind: "article",
-		id: article.revisionId,
-		label: article.title,
-		fields: { articleId: article.articleId, href: articleHref(article.slug), source: article.sourceKind, ...fields },
-	};
-}
-function value<T>(reply: WikiReply<T>): T {
-	if (reply.status === "ok") return reply.value;
-	throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
-}
 const listed = (operation: string, rows: SourceRow[], exclusions: string[], more = false): SourceResult => ({
 	operation,
 	status: rows.length ? "available" : "not_found",
@@ -36,11 +22,6 @@ const listed = (operation: string, rows: SourceRow[], exclusions: string[], more
 	completeness: more ? "partial" : "complete",
 	exclusions,
 });
-async function shown(tx: Transaction, actor: EvryActor, articleId: string) {
-	const { article } = value(await wiki.getArticle(tx, actor.authority, { articleId }));
-	return article && !article.hidden && article.body != null ? article : null;
-}
-
 const SHOWN = 5;
 const searchInput = z.strictObject({
 	query: z.string().trim().min(1).max(200).describe("The topic's key words, like: vision meeting"),
@@ -74,15 +55,21 @@ export const referenceExcerpt: ReadAdapter<z.infer<typeof excerptInput>> = {
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const article = await shown(tx, actor, input.articleId);
-		const rows = article
-			? [
-					articleRow(article, {
-						section: input.heading ?? null,
-						excerpt: sectionExcerpt(article.contentType, present(article.body), input.heading),
-					}),
-				]
-			: [];
-		return listed("wiki.referenceExcerpt", rows, ["the rest of the article"]);
+		if (!article) return listed("wiki.referenceExcerpt", [], ["the rest of the article"]);
+		const body = present(article.body);
+		const excerpt = input.heading
+			? namedSection(article.contentType, body, input.heading)
+			: sectionExcerpt(article.contentType, body);
+		if (excerpt === null)
+			return {
+				...listed("wiki.referenceExcerpt", [], ["the rest of the article"]),
+				facts: { unknownSection: input.heading ?? null },
+			};
+		return listed(
+			"wiki.referenceExcerpt",
+			[articleRow(article, { section: input.heading ?? null, excerpt })],
+			["the rest of the article"],
+		);
 	},
 };
 
@@ -111,7 +98,6 @@ export const resume: ReadAdapter<Record<string, never>> = {
 	allowed: inPlant,
 	async invoke(tx, actor): Promise<SourceResult> {
 		const { article } = value(await wiki.readingResume(tx, actor.authority, {}));
-		const read = (a: WikiArticle) => `${Math.round(Number(a.observedFraction) * 100)}%`;
 		const rows = article ? [articleRow(article, { read: read(article), completed: article.completed })] : [];
 		return listed("wiki.reading.resume", rows, ["other readers' progress"]);
 	},
@@ -131,7 +117,7 @@ export const exportPdf: ReadAdapter<z.infer<typeof pdfInput>> = {
 	},
 };
 
-export const WIKI_READS = [search, referenceExcerpt, recommendForPhase, resume, exportPdf] as const;
+export const WIKI_READS = [search, referenceExcerpt, recommendForPhase, resume, exportPdf, ...BROWSE_READS] as const;
 
 export async function verifyArticles(db: Database, actor: EvryActor, slugs: readonly string[]) {
 	if (!slugs.length || !inPlant(actor)) return [];
@@ -141,5 +127,13 @@ export async function verifyArticles(db: Database, actor: EvryActor, slugs: read
 	return slugs.flatMap((slug) => {
 		const a = bySlug.get(slug);
 		return a ? [{ kind: "article" as const, id: a.articleId, label: a.title }] : [];
+	});
+}
+
+export function verifyPage(actor: EvryActor, routes: readonly string[]) {
+	if (!inPlant(actor)) return [];
+	return routes.slice(0, 1).flatMap((route) => {
+		const page = appPage(route);
+		return page ? [{ kind: "page" as const, id: page.route, label: page.name }] : [];
 	});
 }

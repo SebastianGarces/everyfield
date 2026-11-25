@@ -9,7 +9,7 @@ import {
 	PageHeader,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { humanCredit } from "@everyfield/contracts/wiki";
+import { articlePath, humanCredit, PHASE_NAME, stepsAround, type Step } from "@everyfield/contracts/wiki";
 import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import {
@@ -25,17 +25,7 @@ import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
 import { FRAME, HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
 import { WikiEditor } from "./editor.tsx";
 import { ArticleFeedback } from "./feedback.tsx";
-import {
-	type ArticleVersion,
-	articleBlocks,
-	articlePath,
-	editPath,
-	percentLabel,
-	PHASE_NAME,
-	stepsAround,
-	type Listed,
-	type Step,
-} from "./model.ts";
+import { type ArticleVersion, articleBlocks, editPath, percentLabel, type Listed } from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 import type { WikiPageData } from "./server.ts";
 

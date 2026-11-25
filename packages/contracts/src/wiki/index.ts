@@ -15,12 +15,13 @@ export const sourceView = z.discriminatedUnion("kind", [
 export type SourceView = z.infer<typeof sourceView>;
 
 const page = z.number().int().min(1).max(1000);
+const sourceKind = z.enum(["church", "network", "global"]);
 const fraction = z.string().regex(/^(?:0(?:\.\d{1,6})?|1(?:\.0{1,6})?)$/);
 
 export const wikiArticle = z.strictObject({
 	articleId: z.uuid(),
 	sourceId: z.uuid(),
-	sourceKind: z.enum(["church", "network", "global"]),
+	sourceKind,
 	hidden: z.boolean(),
 	state: z.enum(["published", "hidden", "inherited", "source_order_required"]),
 	body: z.string().nullable(),
@@ -44,7 +45,7 @@ export const wikiArticle = z.strictObject({
 	alternates: z.array(
 		z.strictObject({
 			sourceId: z.uuid(),
-			sourceKind: z.enum(["church", "network", "global"]),
+			sourceKind,
 			state: z.enum(["published", "hidden", "inherited"]),
 			title: z.string(),
 		}),
@@ -119,6 +120,7 @@ export const setSourceOrderRequest = commandEnvelope(
 
 export const listResult = z.strictObject({
 	articles: z.array(wikiArticle),
+	total: z.number().int().nonnegative(),
 	nextCursor: z.string().nullable(),
 	churches: z.array(z.uuid()),
 	networks: z.array(z.uuid()),
@@ -147,6 +149,9 @@ export const navigationResult = z.strictObject({
 			articles: z.array(
 				z.strictObject({
 					articleId: z.uuid(),
+					revisionId: z.uuid(),
+					sourceKind,
+					hidden: z.boolean(),
 					title: z.string(),
 					slug: z.string(),
 					encodedSlug: z.string(),
@@ -156,15 +161,18 @@ export const navigationResult = z.strictObject({
 		}),
 	),
 });
+const articleLink = z.strictObject({
+	articleId: z.uuid(),
+	revisionId: z.uuid(),
+	sourceKind,
+	title: z.string(),
+	slug: z.string(),
+});
+const articleStep = articleLink.extend({ group: z.string() });
 export const neighborsResult = z.strictObject({
-	articles: z.array(
-		z.strictObject({
-			articleId: z.uuid(),
-			title: z.string(),
-			slug: z.string(),
-			position: z.number().int(),
-		}),
-	),
+	previous: articleStep.nullable(),
+	next: articleStep.nullable(),
+	related: z.array(articleLink),
 	errorCode: z.literal("content_access_denied").nullable(),
 });
 export const tocResult = z.strictObject({
@@ -176,6 +184,8 @@ export const guideResult = z.strictObject({
 	missing: z.boolean(),
 	citation: z.string().nullable(),
 	articleId: z.uuid().nullable(),
+	revisionId: z.uuid().nullable(),
+	sourceKind: sourceKind.nullable(),
 	title: z.string().nullable(),
 	slug: z.string().nullable(),
 	body: z.string().nullable(),
@@ -233,7 +243,12 @@ export const statsResult = z.strictObject({
 		}),
 	),
 });
-export const recentResult = z.strictObject({ articles: z.array(wikiArticle) });
+export const readingRecentRequest = z.strictObject({ page: page.optional() });
+export const recentResult = z.strictObject({
+	articles: z.array(wikiArticle),
+	total: z.number().int().nonnegative(),
+	nextCursor: z.string().nullable(),
+});
 export const resumeResult = z.strictObject({ article: wikiArticle.nullable() });
 
 export const feedbackVote = z.enum(["helpful", "unhelpful"]);
@@ -245,6 +260,12 @@ export const feedbackMine = z.strictObject({
 	foreignVoteBody: z.string().nullable(),
 });
 export const feedbackGetMineRequest = z.strictObject({ articleId: z.uuid() });
+export const feedbackListMineRequest = z.strictObject({ page: page.optional() });
+export const feedbackMineList = z.strictObject({
+	articles: z.array(articleLink.extend({ vote: feedbackVote })),
+	total: z.number().int().nonnegative(),
+	nextCursor: z.string().nullable(),
+});
 export const feedbackSetMineRequest = commandEnvelope(z.strictObject({ articleId: z.uuid(), vote: feedbackVote }));
 
 export const organizationArticleError = z.enum(["editorial_access_denied", "review_required", "revision_conflict"]);
@@ -324,3 +345,5 @@ export const upstreamReviewResult = z.strictObject({
 
 export * from "./diagram.ts";
 export * from "./blocks.ts";
+export * from "./tree.ts";
+export * from "./pages.ts";

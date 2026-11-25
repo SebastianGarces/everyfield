@@ -6844,6 +6844,390 @@
 		}
 	},
 	{
+		"case_id": "ADP-WK-10",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.navigation",
+		"near_miss": false,
+		"question": "What's in the Wiki?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.navigation"
+				}
+			],
+			"only": ["wiki.navigation"],
+			"require": [
+				"Phase 1 · Core Group Development: 3 articles",
+				"Phase 2 · Launch Team Formation: 5 articles",
+				"Phase 3 · Training & Preparation: 1 article"
+			],
+			"derivation": "The Wiki page's contents list shows these three phases, in this order, with these articles."
+		}
+	},
+	{
+		"case_id": "ADP-WK-11",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.articles.list",
+		"near_miss": false,
+		"question": "Which Wiki articles are in the Launch Team Formation section?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.articles.list",
+					"input": {
+						"section": "~launch team"
+					}
+				}
+			],
+			"only": ["wiki.articles.list"],
+			"require": [
+				"Recruiting Your Launch Team",
+				"Launch Team Roles",
+				"Launch Team Commitments",
+				"Training Your Launch Team",
+				"Launch Team Meetings",
+				"/\\/wiki\\/launch-team\\/launch-team-roles/"
+			],
+			"forbid": ["Welcome Letters"],
+			"derivation": "The five articles of that phase, with their links, and no search."
+		}
+	},
+	{
+		"case_id": "ADP-WK-12",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.articles.list",
+		"near_miss": true,
+		"question": "Which Wiki articles are in the Youth Camps section?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.articles.list"
+				}
+			],
+			"only": ["wiki.articles.list"],
+			"require": ["no section called Youth Camps"],
+			"forbid": ["/\\/wiki\\//"],
+			"derivation": "No such section: a plain answer and no invented article."
+		}
+	},
+	{
+		"case_id": "ADP-WK-13",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.search",
+		"near_miss": true,
+		"question": "What does the Wiki say about vision meetings?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.search"
+				}
+			],
+			"only": ["wiki.search", "wiki.referenceExcerpt"],
+			"require": ["Running Your Vision Meeting"],
+			"derivation": "Near miss for browsing: a topic is a search, never the article list."
+		}
+	},
+	{
+		"case_id": "ADP-WK-14",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.tableOfContents",
+		"near_miss": false,
+		"question": "What sections does The Three Key Documents have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.tableOfContents",
+					"input": {
+						"articleId": "5b6d1f0e-0000-4000-8000-000000005101"
+					}
+				}
+			],
+			"require": ["Overview of the Three Documents", "Who Signs Them"],
+			"derivation": "The article's two headings, in order."
+		}
+	},
+	{
+		"case_id": "ADP-WK-15",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.referenceExcerpt",
+		"near_miss": false,
+		"question": "Quote the \"Who Signs Them\" section of The Three Key Documents",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.tableOfContents",
+					"input": {
+						"articleId": "5b6d1f0e-0000-4000-8000-000000005101"
+					}
+				},
+				{
+					"operation": "wiki.referenceExcerpt",
+					"input": {
+						"articleId": "5b6d1f0e-0000-4000-8000-000000005101",
+						"heading": "Who Signs Them"
+					}
+				}
+			],
+			"require": ["Only adults sign.", "/the-three-key-documents/"],
+			"forbid": ["Each one has a single job", "Read this first"],
+			"derivation": "That section only, with the article's link."
+		}
+	},
+	{
+		"case_id": "ADP-WK-16",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.articleNeighbors",
+		"near_miss": false,
+		"question": "What comes next after this article?",
+		"eval": {
+			"page": "launch-team/launch-team-meetings",
+			"calls": [
+				{
+					"operation": "wiki.articleNeighbors"
+				}
+			],
+			"only": ["wiki.articleNeighbors"],
+			"require": ["The Three Key Documents", "Phase 3 · Training & Preparation"],
+			"derivation": "Launch Team Meetings closes its phase: the page's Next is the first article of the next group."
+		}
+	},
+	{
+		"case_id": "ADP-WK-17",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.articleNeighbors",
+		"near_miss": false,
+		"question": "What's related to The Three Key Documents?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.articleNeighbors",
+					"input": {
+						"articleId": "5b6d1f0e-0000-4000-8000-000000005101"
+					}
+				}
+			],
+			"require": ["Launch Team Roles"],
+			"derivation": "The page's Related list."
+		}
+	},
+	{
+		"case_id": "ADP-WK-18",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.contextGuide",
+		"near_miss": false,
+		"question": "Show me the guide for this page",
+		"eval": {
+			"page": "/documents",
+			"calls": [
+				{
+					"operation": "wiki.contextGuide",
+					"input": {
+						"route": "/documents"
+					}
+				}
+			],
+			"only": ["wiki.contextGuide"],
+			"require": ["The Three Key Documents", "Overview of the Three Documents", "/the-three-key-documents/"],
+			"derivation": "The church is in phase 1; the guide for Documents is that page's own, whatever the phase."
+		}
+	},
+	{
+		"case_id": "ADP-WK-19",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.contextGuide",
+		"near_miss": true,
+		"question": "Show me the guide for this page",
+		"eval": {
+			"page": "/launch",
+			"calls": [
+				{
+					"operation": "wiki.contextGuide",
+					"input": {
+						"route": "/launch"
+					}
+				}
+			],
+			"only": ["wiki.contextGuide"],
+			"require": ["The Launch page has no guide."],
+			"forbid": ["/\\/wiki\\//"],
+			"derivation": "Near miss for phase suggestions: a page with no guide gets a plain answer and no suggested reading."
+		}
+	},
+	{
+		"case_id": "ADP-WK-20",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.contextGuide",
+		"near_miss": true,
+		"question": "Show me the guide for this page",
+		"eval": {
+			"noTools": true,
+			"require": ["Which page"],
+			"derivation": "The page was left out and none is named: Evry asks which page."
+		}
+	},
+	{
+		"case_id": "ADP-WK-21",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.contextGuide",
+		"near_miss": false,
+		"question": "Show me the guide for Documents",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.contextGuide",
+					"input": {
+						"route": "/documents"
+					}
+				}
+			],
+			"require": ["The Three Key Documents"],
+			"derivation": "A named page works from anywhere."
+		}
+	},
+	{
+		"case_id": "ADP-WK-22",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.recommendForPhase",
+		"near_miss": true,
+		"question": "What should I read next in the Wiki?",
+		"eval": {
+			"as": "other",
+			"calls": [
+				{
+					"operation": "wiki.recommendForPhase"
+				}
+			],
+			"only": ["wiki.recommendForPhase"],
+			"require": ["Recruiting Your Launch Team"],
+			"derivation": "Near miss for the page guide and for next articles: with no page and no article, the phase suggestions."
+		}
+	},
+	{
+		"case_id": "ADP-WK-23",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.bookmarks.list",
+		"near_miss": false,
+		"question": "What have I bookmarked in the Wiki?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.bookmarks.list"
+				}
+			],
+			"only": ["wiki.bookmarks.list"],
+			"require": ["The Three Key Documents"],
+			"forbid": ["Launch Team Roles"],
+			"derivation": "The Owner's one bookmark."
+		}
+	},
+	{
+		"case_id": "ADP-WK-24",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.reading.recent",
+		"near_miss": false,
+		"question": "What have I read recently in the Wiki?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.reading.recent"
+				}
+			],
+			"only": ["wiki.reading.recent"],
+			"require": ["/Launch Team Roles[\\s\\S]*40% read[\\s\\S]*The Three Key Documents[\\s\\S]*90% read/"],
+			"derivation": "Latest first, with how far the Owner read each."
+		}
+	},
+	{
+		"case_id": "ADP-WK-25",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.reading.stats",
+		"near_miss": false,
+		"question": "How much of the Wiki have I read?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.reading.stats"
+				}
+			],
+			"only": ["wiki.reading.stats"],
+			"require": [
+				"1 of 9 articles",
+				"Phase 3 · Training & Preparation: 1 of 1",
+				"Phase 2 · Launch Team Formation: 0 of 5"
+			],
+			"derivation": "The Wiki page's own counts: one article completed above 80%, and one at 40% that doesn't count."
+		}
+	},
+	{
+		"case_id": "ADP-WK-26",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.feedback.getMine",
+		"near_miss": false,
+		"question": "What feedback did I leave on Welcome Letters?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.feedback.getMine"
+				}
+			],
+			"require": ["/Welcome Letters.*: none/"],
+			"derivation": "The Owner left none on that article."
+		}
+	},
+	{
+		"case_id": "ADP-WK-27",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "wiki/reads",
+		"operation": "wiki.feedback.getMine",
+		"near_miss": false,
+		"question": "What feedback have I left?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "wiki.feedback.getMine"
+				}
+			],
+			"only": ["wiki.feedback.getMine"],
+			"require": ["haven't left feedback"],
+			"derivation": "No article named: their own list, which is empty."
+		}
+	},
+	{
 		"case_id": "ADP-A-01",
 		"extra": true,
 		"adapter": "people-assessments",

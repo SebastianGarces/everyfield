@@ -327,6 +327,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"wiki.recommendForPhase",
 		"wiki.reading.resume",
 		"wiki.article.exportPdf",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+		"wiki.articleNeighbors",
+		"wiki.contextGuide",
+		"wiki.bookmarks.list",
+		"wiki.reading.recent",
+		"wiki.reading.stats",
+		"wiki.feedback.getMine",
 	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
