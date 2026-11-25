@@ -1,0 +1,210 @@
+{
+	"suite": "documents",
+	"model": "scripted",
+	"note": "T-632: writing and editing documents, library templates, previews, made files and their downloads, asked in Hope Fellowship (golden-church.mts) on the scripted model with the real adapters, approvals and private storage. Cases run in this order on one church; each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "DOC-01",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "write a launch-team welcome letter",
+			"operation": "documents.saveNative",
+			"calls": [],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": null,
+				"changes": [
+					["title", null, "Launch team welcome letter"],
+					[
+						"text",
+						null,
+						"Welcome to the launch team\n\nWe are glad you said yes to helping start this church.\n\nWhat to expect\n\n• Team night every other Thursday\n• A ministry to serve in\n\nReply to this letter with any question."
+					]
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "DOC-02",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "in the Launch team welcome letter, change \"every other Thursday\" to \"every Tuesday\"",
+			"operation": "documents.saveNative",
+			"calls": ["documents.listOwned", "documents.read"],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": "Launch team welcome letter",
+				"changes": [["text", "Team night every other Thursday", "Team night every Tuesday"]],
+				"notes": ["Everything else in the document stays as it is."]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "DOC-03",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "in the Conflict of Interest Policy, change \"shall disclose\" to \"must at once disclose\"",
+			"operation": "documents.saveNative",
+			"calls": ["documents.listOwned", "documents.read"],
+			"answer": ["Quote"]
+		},
+		{
+			"id": "DOC-04",
+			"criterion": 2,
+			"actor": "member",
+			"ask": "write a launch-team welcome letter",
+			"operation": "documents.saveNative",
+			"calls": [],
+			"answer": ["Only an Owner or Admin of this church can write or change its documents."]
+		},
+		{
+			"id": "DOC-05",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "which templates fit phase 2?",
+			"operation": "documents.templates.contextual",
+			"calls": ["documents.templates.contextual"],
+			"answer": ["1 template fits: ", "(launch-team-commitment)"]
+		},
+		{
+			"id": "DOC-06",
+			"criterion": 3,
+			"actor": "member",
+			"ask": "which templates fit the article core-group/commitment/the-three-key-documents?",
+			"operation": "documents.templates.contextual",
+			"calls": ["documents.templates.contextual"],
+			"answer": ["3 templates fit: ", "(commitment-card)", "(member-expectations)", "(launch-team-commitment)"]
+		},
+		{
+			"id": "DOC-07",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "which templates fit phase 6?",
+			"operation": "documents.templates.contextual",
+			"calls": ["documents.templates.contextual"],
+			"answer": ["No library template fits that."]
+		},
+		{
+			"id": "DOC-08",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "show me the guest-sign-in-sheet template",
+			"operation": "documents.templates.get",
+			"calls": ["documents.templates.get"],
+			"answer": ["is made as PDF", "(required)"]
+		},
+		{
+			"id": "DOC-09",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "fill in the follow-up-letter template with pastor_name=\"Pastor Nate Ellis\"",
+			"operation": "documents.resolveContext",
+			"calls": ["documents.resolveContext"],
+			"answer": ["Hope Fellowship (from the church profile)", "Pastor Nate Ellis (your text)"]
+		},
+		{
+			"id": "DOC-10",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "fill in the launch-sunday-checklists template",
+			"operation": "documents.resolveContext",
+			"calls": ["documents.resolveContext"],
+			"answer": ["Hope Fellowship (from the church profile)", "blank (missing)"]
+		},
+		{
+			"id": "DOC-11",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "preview the follow-up-letter template with pastor_name=\"Pastor Nate Ellis\"",
+			"operation": "documents.preview",
+			"calls": ["documents.preview"],
+			"answer": ["Pastor Nate Ellis (your text)", "This is a preview: nothing is saved."]
+		},
+		{
+			"id": "DOC-12",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "what files have we made?",
+			"operation": "documents.history.list",
+			"calls": ["documents.history.list"],
+			"answer": ["No file has been made yet."]
+		},
+		{
+			"id": "DOC-13",
+			"criterion": 6,
+			"actor": "member",
+			"ask": "make the file from the follow-up-letter template with pastor_name=\"Pastor Nate Ellis\"",
+			"operation": "documents.generate",
+			"calls": ["documents.preview"],
+			"proposal": {
+				"operation": "documents.generate",
+				"target": "Vision Meeting Follow-up Letter",
+				"changes": [
+					["template", null, "Vision Meeting Follow-up Letter"],
+					["format", null, "PDF"],
+					["Church Name", null, "Hope Fellowship (from the church profile)"],
+					["Pastor Name", null, "Pastor Nate Ellis (your text)"]
+				]
+			},
+			"approve": "completed"
+		},
+		{
+			"id": "DOC-14",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "which files did we make?",
+			"operation": "documents.history.list",
+			"calls": ["documents.history.list"],
+			"answer": ["1 file: Vision Meeting Follow-up Letter (PDF, Ready)."]
+		},
+		{
+			"id": "DOC-15",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "open the follow-up letter file",
+			"operation": "documents.history.get",
+			"calls": ["documents.history.list", "documents.history.get"],
+			"answer": ["Vision Meeting Follow-up Letter is a PDF file, ready"]
+		},
+		{
+			"id": "DOC-16",
+			"criterion": 8,
+			"actor": "member",
+			"ask": "download the follow-up letter file",
+			"operation": "documents.download",
+			"calls": ["documents.history.list", "documents.download"],
+			"answer": ["[Download Vision Meeting Follow-up Letter](/documents/files/"]
+		},
+		{
+			"id": "DOC-17",
+			"criterion": 8,
+			"actor": "other",
+			"ask": "download the follow-up letter file",
+			"operation": "documents.download",
+			"calls": ["documents.history.list"],
+			"answer": ["I can't find a ready file by that name"]
+		},
+		{
+			"id": "DOC-18",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "in the Launch team welcome letter, change \"start\" to \"plant\", \"glad\" to \"thankful\" and \"any question\" to \"your questions\"",
+			"operation": "documents.saveNative",
+			"calls": ["documents.listOwned", "documents.read"],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": "Launch team welcome letter",
+				"changes": [
+					[
+						"text",
+						"We are glad you said yes to helping start this church.",
+						"We are thankful you said yes to helping plant this church."
+					],
+					["text", "Reply to this letter with any question.", "Reply to this letter with your questions."]
+				],
+				"notes": ["Everything else in the document stays as it is."]
+			},
+			"approve": "completed"
+		}
+	]
+}

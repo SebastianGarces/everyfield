@@ -47,6 +47,14 @@ export async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise
 		return refusals.refusalOf(error);
 	}
 }
+export async function principalOf(tx: Pick<Tx, "execute">, session: string) {
+	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(session)})`);
+	const p = z
+		.object({ account_id: accountId, display_name: z.string(), email: z.string(), verified: z.boolean() })
+		.safeParse(raw.rows[0]);
+	if (!p.success || !p.data.verified) deny("unavailable");
+	return p.data;
+}
 export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "read") {
 	const bound = await lockedWrite(tx);
 	if (
@@ -74,17 +82,13 @@ export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "pre
 		return { ...locked, identity: locked.actor };
 	}
 
-	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
-	const p = z
-		.object({ account_id: accountId, display_name: z.string(), email: z.string(), verified: z.boolean() })
-		.safeParse(raw.rows[0]);
-	if (!p.success || !p.data.verified) deny("unavailable");
+	const p = await principalOf(tx, ctx.session);
 
 	const a = await currentActor(tx, ctx.session, ctx.selected);
 	if (a.status !== "active") deny("unavailable");
 	const [account] = await tx.select().from(t.account).where(eq(t.account.id, a.accountId));
 	if (!account) deny("unavailable");
-	return { identity: a, account, principal: p.data, plant: null, organization: null, setup: null };
+	return { identity: a, account, principal: p, plant: null, organization: null, setup: null };
 }
 export async function self(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "command") {
 	const a = await actor(tx, ctx, use);

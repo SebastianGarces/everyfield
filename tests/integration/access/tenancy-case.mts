@@ -82,6 +82,8 @@ export type Seeded = Record<
 	| "vision"
 	| "teamMeeting"
 	| "network"
+	| "waiting"
+	| "waitingChurch"
 	| "task"
 	| "weekly"
 	| "ministry"

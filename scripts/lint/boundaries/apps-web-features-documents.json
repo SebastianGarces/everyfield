@@ -1,0 +1,6 @@
+{
+	"public": {
+		"PdfPreview.tsx": "the PDF page preview Evry shows for a filled template",
+		"preview-client.ts": "the template preview render Evry shows before a file is made"
+	}
+}

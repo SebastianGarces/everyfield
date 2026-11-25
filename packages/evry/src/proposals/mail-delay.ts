@@ -8,7 +8,12 @@ import { readable, type Operation, type Proposal } from "./review.ts";
 
 export type ShownProposal = Proposal & MailDelay;
 
-const INVITES: ReadonlySet<Operation> = new Set(["seats.invite", "seats.resendInvitation", "associations.invite"]);
+const INVITES: ReadonlySet<Operation> = new Set([
+	"seats.invite",
+	"seats.resendInvitation",
+	"associations.invite",
+	"associations.resendInvitation",
+]);
 
 async function unsentInvitations(db: Database, actor: EvryActor, ids: readonly string[]): Promise<ReadonlySet<string>> {
 	try {
@@ -21,7 +26,7 @@ async function unsentInvitations(db: Database, actor: EvryActor, ids: readonly s
 			WHERE p.id=ANY(${sql.param(ids)}::uuid[]) AND ${readable(actor)} AND p.outcome='completed'
 				AND m.state IN ('pending','refused') AND j.state IN ('ready','retry_wait','claimed')
 				AND i.state='pending' AND i.revision::text=p.receipt->>'revision'
-				AND i.created_at>clock_timestamp()-interval '720 hours'`);
+				AND CASE WHEN i.purpose='seat' THEN i.created_at ELSE coalesce(i.resent_at,i.created_at) END>clock_timestamp()-interval '720 hours'`);
 		return new Set(
 			z
 				.array(z.strictObject({ id: z.uuid() }))
