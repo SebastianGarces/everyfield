@@ -743,7 +743,7 @@ A sending church turns pipeline totals for its network off and on; each choice h
 - Operations: pipelineSharing.setConsent
 - Catalog: MUL-016
 - Cases: ADR1-016
-- Test: `tests/integration/organizations/consent.test.mts`: `AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches`
+- Test: `tests/integration/organizations/consent.test.mts`: `AC:ADR1-016 pipeline totals default off, are shared per relationship and need two churches`
 - Browser, behavior proof (acts and checks the result), from state sending-church:
 
 ```bash

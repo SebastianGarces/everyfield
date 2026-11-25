@@ -724,8 +724,9 @@ SELECT (SELECT revision::text FROM x) AS current,coalesce((SELECT status='active
 
 const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string) => sql`x AS (SELECT e.id,e.version_id,
  e.person_id,e.revision FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
- AND p.organization_id=e.organization_id WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
- AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p),
+ AND p.organization_id=e.organization_id JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
+ WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
+ AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
 m AS (SELECT m.id,m.lineage,m.hands_on FROM development_milestone m JOIN x ON m.version_id=x.version_id
  WHERE m.id=${milestoneId}::uuid AND m.organization_id=${w.organization}::uuid)`;
 
@@ -850,8 +851,9 @@ function applyVersion(db: Database, authority: RequestActor, raw: unknown) {
 			sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,ev.version_number
  FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version ev ON ev.id=e.version_id AND ev.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
  WHERE e.id=${input.enrollmentId}::uuid AND e.organization_id=${org}::uuid AND e.status='active'
-  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p),
+  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
 t AS (SELECT v.id,v.version_number FROM development_program_version v JOIN x ON v.id=x.current_version_id
  WHERE v.id=${input.versionId}::uuid AND v.organization_id=${org}::uuid AND v.id<>x.version_id
   AND ${basisOf(org)}=${input.basis}),
@@ -895,8 +897,9 @@ x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_i
  FROM i JOIN development_enrollment e ON e.id=i.enrollment_id AND e.organization_id=${org}::uuid
  JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version ev ON ev.id=e.version_id AND ev.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
  WHERE e.program_id=${input.programId}::uuid AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid
- FOR UPDATE OF e FOR SHARE OF p),
+ FOR UPDATE OF e FOR SHARE OF p,pn),
 t AS (SELECT v.id,v.version_number FROM development_program_version v WHERE v.id=${input.versionId}::uuid
  AND v.organization_id=${org}::uuid AND v.id=(SELECT p.current_version_id FROM development_program p
   WHERE p.id=${input.programId}::uuid AND p.organization_id=${org}::uuid)),
