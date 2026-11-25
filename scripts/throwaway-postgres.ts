@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { basename } from "node:path";
 import type { Runner } from "./check.ts";
+import { ownerLabels } from "./containers.ts";
 
 export const IMAGE = "pgvector/pgvector:0.8.7-pg18";
 const DATABASE = "everyfield_ci";
@@ -17,6 +18,7 @@ export type PostgresOptions = {
 	sleep: (ms: number) => void;
 	watch: (container: string) => () => void;
 	scope?: string;
+	labels?: string[];
 };
 
 export class DatabaseError extends Error {}
@@ -45,8 +47,21 @@ export const databaseEnv = (url: string) => ({
 	EVERYFIELD_DISPOSABLE_DATABASE: "1",
 });
 
-export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { stop: () => void } {
-	const { root, env, run, readyTimeoutMs, sleep, scope } = options;
+export const urlOf = (password: string, port: string) => `postgres://${USER}:${password}@127.0.0.1:${port}/${DATABASE}`;
+
+type Migration = Pick<PostgresOptions, "root" | "env" | "run"> &
+	Pick<ThrowawayPostgres, "container" | "url" | "password">;
+
+export function migrate({ root, env, run, container, url, password }: Migration) {
+	console.error(`database: corepack pnpm db:migrate on ${container}`);
+	const migrated = run("corepack", ["pnpm", "db:migrate"], { cwd: root, env: { ...env, ...databaseEnv(url) } });
+	process.stderr.write(migrated.output.replaceAll(password, "***"));
+	if (migrated.status !== 0) throw new DatabaseError("pnpm db:migrate failed on the throwaway database");
+}
+
+export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { stop: () => void; keep: () => void } {
+	const { root, env, run, readyTimeoutMs, sleep, scope, labels = [] } = options;
+	const owner = ownerLabels(root);
 	const docker = (...args: string[]) => run("docker", args, { cwd: root, env });
 	const label = `${LABEL}=${checkoutLabel(scope ? `${root}#${scope}` : root)}`;
 	const left = docker("ps", "-aq", "--filter", `label=${label}`);
@@ -60,7 +75,7 @@ export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { s
 	const container = `evf-${scope ?? "check"}-db-${slug}-${randomBytes(3).toString("hex")}`;
 	const password = randomBytes(18).toString("hex");
 	const started = docker(
-		...["run", "-d", "--rm", "--name", container, "--label", label],
+		...["run", "-d", "--rm", "--name", container, "--label", label, ...owner, ...labels],
 		...["-e", `POSTGRES_USER=${USER}`, "-e", `POSTGRES_PASSWORD=${password}`, "-e", `POSTGRES_DB=${DATABASE}`],
 		...["-p", "127.0.0.1::5432", IMAGE],
 	);
@@ -81,12 +96,9 @@ export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { s
 		}
 		const port = docker("port", container, "5432/tcp").stdout.split("\n")[0]?.split(":").pop()?.trim();
 		if (!port || !/^\d+$/.test(port)) throw new DatabaseError("Docker reported no port for the database");
-		const url = `postgres://${USER}:${password}@127.0.0.1:${port}/${DATABASE}`;
-		console.error(`check test:db: corepack pnpm db:migrate on ${container}`);
-		const migrated = run("corepack", ["pnpm", "db:migrate"], { cwd: root, env: { ...env, ...databaseEnv(url) } });
-		process.stderr.write(migrated.output.replaceAll(password, "***"));
-		if (migrated.status !== 0) throw new DatabaseError("pnpm db:migrate failed on the throwaway database");
-		return { container, image: IMAGE, url, password, stop };
+		const url = urlOf(password, port);
+		migrate({ root, env, run, container, url, password });
+		return { container, image: IMAGE, url, password, stop, keep: unwatch };
 	} catch (error) {
 		stop();
 		throw error;

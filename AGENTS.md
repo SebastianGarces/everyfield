@@ -41,6 +41,7 @@ pings him for `evf ask owner`, stuck or environment failures, usage limits and l
   better-* skills. `evf.toml` sets every role to Opus 5.5 medium.
 - Use one portless preview per worktree (`bin/dev stack up`). No Vercel preview deployments, except `bin/qa` for Nora's
   QA previews (`docs/runbooks/qa-preview.md`).
+- Never start a database container by hand; use `bin/dev pg` or `bin/app up`, which the sweep cleans (`bin/dev help`).
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
@@ -132,7 +133,6 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 - `subtract-before-you-add`: Remove dead weight first.
 - `test-behavior-not-implementation`: Call code as users do; assert the exact result.
 - `type-system-discipline`: Illegal states unrepresentable; parse at boundaries.
-
 
 ## Progress and context
 
