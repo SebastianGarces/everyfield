@@ -13,6 +13,7 @@ import { issueRestrictedDeletionSession } from "../../../packages/domain/src/set
 import { approveProposal } from "../../../packages/evry/src/index.ts";
 import { openedDeletion } from "../../support/deletion-cookie.mts";
 import { ok, raced, refused, type Actor } from "../../support/fixture.mts";
+import { frozenClock } from "../../support/test-database.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { caseWorld, propose, proposes, read, rowsOf, sql, type CaseWorld } from "./case-world.mts";
 
@@ -329,22 +330,28 @@ test("AC:EVRY-FAMILY-IDENTITY-PLATFORM one invite gives one seat, Owner and Admi
 		["cancelUntil", "requestId", "requestedAt", "revision", "status", "subject"],
 		"no normal content",
 	);
-	await w.at(new Date(Date.parse(witness.until)).toISOString());
-	const late = await restricted();
-	const cancelled = gatedTransaction(w.db, (tx) =>
-		deletion.cancelAccountDeletion(
-			tx as never,
-			late as never,
-			{
-				requestKey: randomUUID(),
-				expectedRevision: witness.rev,
-				input: { subject, requestId: witness.request_id },
-			} as never,
-		),
-	);
-	refused(await cancelled, "deadline_passed");
-	assert.equal(
-		(await w.one(sql`SELECT state FROM lifecycle_witness WHERE opaque_subject_id=${member.id}`)).state,
-		"pending_deletion",
-	);
+	const deadline = Date.parse(witness.until);
+	const cancelAt = async (instant: number) => {
+		await w.at(new Date(instant).toISOString());
+		return frozenClock(w.admin, w.schema, new Date(instant).toISOString(), async () => {
+			const held = await restricted();
+			return gatedTransaction(w.db, (tx) =>
+				deletion.cancelAccountDeletion(
+					tx as never,
+					held as never,
+					{
+						requestKey: randomUUID(),
+						expectedRevision: witness.rev,
+						input: { subject, requestId: witness.request_id },
+					} as never,
+				),
+			);
+		});
+	};
+	const stateOf = async () =>
+		(await w.one(sql`SELECT state FROM lifecycle_witness WHERE opaque_subject_id=${member.id}`)).state;
+	refused(await cancelAt(deadline), "deadline_passed");
+	assert.equal(await stateOf(), "pending_deletion");
+	ok(await cancelAt(deadline - 1));
+	assert.equal(await stateOf(), "cancelled");
 });
