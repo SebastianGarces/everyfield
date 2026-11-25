@@ -1040,67 +1040,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 	void midTurn;
 });
 
-test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {
-	const owner = await actor("owner");
-	const outputs: unknown[] = [];
-	const call = (toolName: string, input: unknown) => ({
-		type: "tool-call" as const,
-		toolCallId: randomUUID(),
-		toolName,
-		input: JSON.stringify(input),
-	});
-	const base = scriptedModel();
-	const usage = {
-		inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-		outputTokens: { total: 5, text: 5, reasoning: 0 },
-	};
-	const model: LanguageModelV4 = {
-		...base,
-		async doStream(options) {
-			if (options.responseFormat?.type === "json") return base.doStream(options);
-			const last = options.prompt.at(-1);
-			const part = last?.role === "tool" ? last.content.at(-1) : undefined;
-			if (part?.type === "tool-result" && part.output.type === "json") outputs.push(part.output.value);
-			const [listed] = outputs;
-			const resultId = listed && typeof listed === "object" && "resultId" in listed ? listed.resultId : undefined;
-			const parts =
-				outputs.length === 0
-					? [call("people_read", { operation: "people.listPeople", input: { search: "Alex" } })]
-					: outputs.length === 1
-						? [call("select_returned_rows", { resultId, ids: [people.alexRivera, people.casey] })]
-						: outputs.length === 2
-							? [call("select_returned_rows", { resultId, ids: [people.alexRivera] })]
-							: [
-									{ type: "text-start" as const, id: "t" },
-									{ type: "text-delta" as const, id: "t", delta: "Selected Alex Rivera." },
-									{ type: "text-end" as const, id: "t" },
-								];
-			return {
-				stream: new ReadableStream({
-					start(c) {
-						for (const p of parts) c.enqueue(p);
-						c.enqueue({
-							type: "finish",
-							finishReason: { unified: outputs.length < 3 ? "tool-calls" : "stop", raw: undefined },
-							usage,
-						});
-						c.close();
-					},
-				}),
-			};
-		},
-	};
-	const id = await ask(owner, "Select Alex from the people result.");
-	assert.equal(await work(qualified(model)), "succeeded");
-	assert.deepEqual(outputs[1], { error: "not_returned", rejected: 1 }, "a row the result never returned is refused");
-	const { cards } = await events(owner, id);
-	assert.equal(cards.length, 2);
-	assert.deepEqual(
-		[cards[1]!.operation, cards[1]!.result.rows.map((r) => r.id), cards[1]!.originalTotal],
-		["evry.selectReturnedRows", [people.alexRivera], 2],
-	);
-});
-
 test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff; a third failure ends the turn truthfully", async () => {
 	const owner = await actor("owner");
 	const flaky = (failures: number) => {

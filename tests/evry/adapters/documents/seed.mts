@@ -1,15 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { forkTemplate, nativeFromText } from "../../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../../packages/domain/src/documents/doc-templates.ts";
-import { admin, sql } from "../../runtime/support.mts";
+import { sql } from "../../../../packages/db/src/query.ts";
+import type { Database } from "../../../../packages/db/src/client.ts";
 
 export type Seeded = { id: string; title: string; text: string | null };
 
 export async function seedDocument(
+	admin: Database,
 	tenant: string,
 	kind: "native" | "core_values" | "church_document",
 	title: string,
-	text: string | null,
+	text: string | object | null,
 	daysAgo = 1,
 ): Promise<Seeded> {
 	const id = randomUUID();
@@ -21,7 +23,7 @@ export async function seedDocument(
 				...(await forkTemplate(policy, { id: `doc-${id}`, data: { church_name: "Synthetic" } })),
 				title,
 			})
-		: JSON.stringify(nativeFromText(text ?? ""));
+		: JSON.stringify(text && typeof text === "object" ? text : nativeFromText(text ?? ""));
 	await admin.execute(sql`INSERT INTO document(id,tenant_id,kind,title,revision,template_id,template_version,document_class,use_church_branding,input_provenance)
 		VALUES(${id},${tenant},${kind},${title},1,${church ? policy.id : null},${church ? policy.version : null},
 			${church ? policy.class : null},${church ? true : null},${church ? "[]" : null}::jsonb)`);
@@ -29,5 +31,5 @@ export async function seedDocument(
 		VALUES(${revision},${tenant},${id},1,${body},${"0".repeat(64)},clock_timestamp()-make_interval(days=>${daysAgo}),
 			clock_timestamp()-make_interval(days=>${daysAgo}))`);
 	await admin.execute(sql`UPDATE document SET current_revision_id=${revision} WHERE id=${id}`);
-	return { id, title, text };
+	return { id, title, text: typeof text === "string" ? text : null };
 }
