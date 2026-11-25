@@ -2,8 +2,8 @@ import "../../../platform/setup.mts";
 import { openedDeletion } from "../../../../support/deletion-cookie.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createSecretKey, randomBytes, randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { S3Client } from "../../../../../packages/db/src/schema/storage.ts";
@@ -393,8 +393,7 @@ before(async () => {
 		},
 	};
 	dir = await mkdtemp(join(tmpdir(), "wp056-restore-"));
-	const keyFile = join(dir, "backup.key");
-	await writeFile(keyFile, randomBytes(32), { mode: 0o600 });
+	const key = createSecretKey(randomBytes(32));
 	await mkdir(join(dir, "backup"), { mode: 0o700 });
 	const store = new BackupDirectory(join(dir, "backup"));
 	const sealed = await createEncryptedCopy(
@@ -406,16 +405,14 @@ before(async () => {
 				operation_ids: [COPY_OPERATION],
 				environment: "isolated-test",
 			},
-			keyFile,
+			key,
 			source: { snapshot: plain },
 		},
 	);
 	assert.ok(sealed.copy_encrypted, JSON.stringify(sealed));
 	assert.equal(sealed.effective_expires_at, EXPIRES);
-	const otherKey = join(dir, "other.key");
-	await writeFile(otherKey, randomBytes(32), { mode: 0o600 });
-	await assert.rejects(openEncryptedCopy(store, sealed.location, otherKey));
-	copy = await openEncryptedCopy(store, sealed.location, keyFile);
+	await assert.rejects(openEncryptedCopy(store, sealed.location, createSecretKey(randomBytes(32))));
+	copy = await openEncryptedCopy(store, sealed.location, key);
 	await at(NOW);
 });
 after(async () => {
