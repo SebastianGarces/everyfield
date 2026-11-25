@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { frozenClock, instant, owner } from "../../../packages/contracts/src/common/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { authorizeNoticeMail } from "../../../packages/domain/src/jobs/notice-mail.ts";
+import { authorizeNotificationMail } from "../../../packages/domain/src/jobs/notice-mail.ts";
 import {
 	createMailService,
 	MAIL_PASSES,
@@ -61,7 +61,7 @@ const notices = (s: MeetingsWorld, meetingId: string) =>
 		.then((list) => list.map((n) => [n.slot, n.recipient, n.state]));
 const sent: string[] = [];
 let answer: (to: string) => Awaited<ReturnType<MailTransport["send"]>> = () => ({ kind: "accepted", id: randomUUID() });
-const service = (s: MeetingsWorld, authorize = authorizeNoticeMail) =>
+const service = (s: MeetingsWorld, authorize = authorizeNotificationMail) =>
 	createMailService({
 		db: s.db,
 		encryptionKey: Buffer.alloc(32, 3),
@@ -78,7 +78,7 @@ const service = (s: MeetingsWorld, authorize = authorizeNoticeMail) =>
 			},
 		},
 	});
-async function tick(s: MeetingsWorld, meetingId: string, at: string, authorize = authorizeNoticeMail) {
+async function tick(s: MeetingsWorld, meetingId: string, at: string, authorize = authorizeNotificationMail) {
 	await s.admin.execute(sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second'
 		WHERE kind='notification' AND subject_record_id=${meetingId} AND state='ready' AND eligible_at<=${at}::timestamptz`);
 	return createNotificationWorker({ mail: service(s, authorize) }).run(s.db, new Date(at).toISOString());

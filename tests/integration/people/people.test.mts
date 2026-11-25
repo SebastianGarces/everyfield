@@ -2074,10 +2074,13 @@ async function untouched<T>(body: () => Promise<T>) {
 }
 const refusedUntouched = async (body: () => Promise<{ status: string }>, code = "unavailable") =>
 	refused(await untouched(body), code);
-async function held<T>(start: (t: WriteTx) => Promise<T>) {
+async function held<T>(
+	start: (t: WriteTx) => Promise<T>,
+	transact: (body: (t: WriteTx) => Promise<T>) => Promise<T> = caseTx,
+) {
 	const { promise: gate, resolve: release } = Promise.withResolvers<void>();
 	const { promise: holding, resolve: ready } = Promise.withResolvers<void>();
-	const first = caseTx(async (t) => {
+	const first = transact(async (t) => {
 		const value = await start(t);
 		ready();
 		await gate;
@@ -2345,11 +2348,13 @@ test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep histor
 	const other = await casePerson("Attends first"),
 		attending = await casePerson("Checked in while retiring");
 	const retireOther = await retireRequest(attending.id);
-	const entering = await held((t) =>
-		attendance.checkIn(t, at(alexAccount) as never, {
-			requestKey: randomUUID(),
-			input: { meetingId: raced, personId: attending.id },
-		}),
+	const entering = await held(
+		(t) =>
+			attendance.checkIn(t, at(alexAccount) as never, {
+				requestKey: randomUUID(),
+				input: { meetingId: raced, personId: attending.id },
+			}),
+		(body) => meetingWrite(alexAccount, body),
 	);
 	const [entered, after] = await entering.settle(
 		caseWrite(alexAccount, (t, c) => write.retirePerson(t, c, retireOther, noReminders)),
@@ -3119,7 +3124,9 @@ test("AC:TARGET-PPL-005 a person's photo moves to version 2 once, a failed save 
 		refused(denied.value);
 		assert.deepEqual(denied.tables, []);
 	}
-	const replaced = await recorded(admin, () => touched(admin, () => save()));
+	const replaced = await recorded(admin, () =>
+		touched(admin, () => native(0, (t, c) => fields.setPersonPhoto(t, c, request))),
+	);
 	assert.deepEqual(replaced.added, { ...nothing, audits: ["people.updated"], jobs: ["object_cleanup"] });
 	assert.deepEqual(replaced.value.tables, ["audit_event", "job", "person", "plant", "record"]);
 	const saved = ok(replaced.value.value);
@@ -3133,7 +3140,9 @@ test("AC:TARGET-PPL-005 a person's photo moves to version 2 once, a failed save 
 			receiptId: null,
 		},
 	);
-	const again = await recorded(admin, () => touched(admin, () => save()));
+	const again = await recorded(admin, () =>
+		touched(admin, () => native(0, (t, c) => fields.setPersonPhoto(t, c, request))),
+	);
 	assert.deepEqual([ok(again.value.value), again.value.tables, again.added], [saved, [], nothing]);
 	const versions = (
 		await admin.execute(
@@ -3226,8 +3235,8 @@ test("AC:TARGET-PPL-005 a merge can take the source's photo and keeps the other,
 		);
 		ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId, bytes }));
 		ok(
-			await tx((t) =>
-				fields.setPersonPhoto(t, ctx(), {
+			await withPeopleWrite(db, await authorityOf(db, actors[0]), (t, c) =>
+				fields.setPersonPhoto(t, c, {
 					requestKey: randomUUID(),
 					expectedRevision: p.revision,
 					input: { personId: p.id, uploadId },

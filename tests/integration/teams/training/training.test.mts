@@ -5,7 +5,11 @@ import { randomUUID } from "node:crypto";
 import { tenantId } from "../../../../packages/contracts/src/common/index.ts";
 import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { peopleMerge, peopleUnmerge, peopleWriter } from "../../../../packages/domain/src/people/index.ts";
-import { createAttendanceWriter, attendanceReader } from "../../../../packages/domain/src/meetings/index.ts";
+import {
+	createAttendanceWriter,
+	attendanceReader,
+	withMeetingsWrite,
+} from "../../../../packages/domain/src/meetings/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
 	teamsReader,
@@ -124,14 +128,12 @@ async function held(meetingId: string, personIds: string[], who = 0) {
 		);
 	const { attendanceRevision } = ok(await attendanceReader.listAttendance(db, await viewer(who), { meetingId }));
 	ok(
-		await run(
-			attendance.finalizeAttendance,
-			{
+		await withMeetingsWrite(db, await viewer(who), (t, c) =>
+			attendance.finalizeAttendance(t, c, {
 				requestKey: key(),
 				expectedRevision: attendanceRevision,
 				input: { meetingId, attendeeIds: personIds },
-			},
-			who,
+			}),
 		),
 	);
 	ok(
