@@ -845,7 +845,7 @@ test("AC:CASE-DOC-021 the child protection policy prints church plant, never a b
 	assert.equal(/every ?field/i.test(text.replaceAll("Everyfield", "")), false);
 });
 
-test("AC:CASE-DOC-022 an Admin creates a bylaws document with its merge values in revision 1; member-refused", async () => {
+test("AC:CASE-DOC-022 an Admin creates a bylaws document with its merge values in revision 1; member-refused; fixed-layout-refused", async () => {
 	const c = caseOf("CASE-DOC-022");
 	const filesBefore = await count(sql`file_object`);
 	const generatedBefore = await count(sql`generated_document`);
@@ -893,16 +893,16 @@ test("AC:CASE-DOC-022 an Admin creates a bylaws document with its merge values i
 		refused(reply, member.expected.result.error_code);
 		assert.equal("value" in reply, false);
 	});
-});
 
-test("REQ-DOC-022 a template with no document file, a budget workbook and an email template make no Church Document", async () => {
+	const fixed = caseOf("CASE-DOC-022", "fixed-layout-refused");
+	const documents = () => count(sql`document`);
+	const held = await documents();
 	await untouched(admin, async () => {
-		for (const template of ["response-card", "vision-meeting-agenda", "first-year-budget", "vision-meeting-invitation"])
-			refused(
-				await create({ template, merge_fields: { church_name: "Harvest Point" }, request_key: `fixed-${template}` }),
-				"unavailable",
-			);
+		refused(await create(fixed.action.arguments), "unavailable");
+		for (const template of ["vision-meeting-agenda", "first-year-budget", "vision-meeting-invitation"])
+			refused(await create({ ...fixed.action.arguments, template, request_key: `fixed-${template}` }), "unavailable");
 	});
+	assert.equal((await documents()) > held, fixed.expected.result.document_created);
 });
 
 test("AC:CASE-DOC-023 revision 2 exports in the church theme as PDF and export-docx; download-after-edit-and-kit-change returns the same bytes; new-export-uses-new-theme", async () => {

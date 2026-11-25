@@ -260,8 +260,7 @@ async function generated(id: string, unplaced: string[] = []) {
 				autoFill: autoFill ?? null,
 			})),
 	);
-	const overrides = Object.fromEntries(Object.entries(merge_fields).filter(([key]) => !unplaced.includes(key)));
-	const input = { templateId: template, format, overrides };
+	const input = { templateId: template, format, overrides: merge_fields };
 	const request = { ...input, requestKey: request_key };
 	for (const other of (["pdf", "docx", "xlsx"] as const).filter((f) => !c.given.template.formats.includes(f)))
 		refused(
@@ -282,7 +281,7 @@ async function generated(id: string, unplaced: string[] = []) {
 	const row = await one<{ inputs: unknown }>(sql`SELECT inputs FROM generated_document WHERE id=${made.id}`);
 	assert.deepEqual(
 		row.inputs,
-		Object.entries(overrides).map(([key, value]) => ({ key, value, source: "override" })),
+		Object.entries(merge_fields).map(([key, value]) => ({ key, value, source: "override" })),
 	);
 	const bytes = await savedBytes(made);
 	assert.deepEqual(bytes, Buffer.from(present(preview.artifact), "base64"));
@@ -648,9 +647,9 @@ describe("named editable templates", { concurrency: 1 }, () => {
 });
 
 test("a merge value that the card or the sign-in sheet has no place to print is refused and saves nothing", async () => {
-	for (const [id, path] of [
-		["CASE-DOC-004", "overrides.pastor_name"],
-		["CASE-DOC-006", "overrides.meeting_date"],
+	for (const [id, key, value] of [
+		["CASE-DOC-004", "pastor_name", "Alex Rivera"],
+		["CASE-DOC-006", "meeting_date", "2026-10-20"],
 	] as const) {
 		const { template, format, merge_fields } = caseOf(id).action.arguments;
 		const error = refused(
@@ -658,12 +657,17 @@ test("a merge value that the card or the sign-in sheet has no place to print is 
 				documentsWriter.generate(
 					db,
 					authority,
-					{ templateId: template, format, overrides: merge_fields, requestKey: `${id}-unplaced` },
+					{
+						templateId: template,
+						format,
+						overrides: { ...merge_fields, [key]: value },
+						requestKey: `${id}-unplaced`,
+					},
 					storage,
 				),
 			),
 			"invalid_input",
 		);
-		assert.deepEqual(error.details.issues, [{ path, problem: "Unknown merge field." }]);
+		assert.deepEqual(error.details.issues, [{ path: `overrides.${key}`, problem: "Unknown merge field." }]);
 	}
 });

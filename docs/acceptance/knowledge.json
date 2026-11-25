@@ -357,7 +357,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Core Group Commitment Card with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -424,8 +427,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -443,8 +445,7 @@
           "template": "commitment-card",
           "format": "pdf",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-004-generate"
         }
@@ -603,7 +604,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Guest Sign-in Sheet with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -670,9 +674,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -690,9 +692,7 @@
           "template": "guest-sign-in-sheet",
           "format": "pdf",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-006-generate"
         }
@@ -3002,7 +3002,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "An Admin creates a bylaws Church Document and gets the merge values in revision 1. A Member is refused. A fixed-layout template is refused.",
       "given": {
         "P": {
@@ -3126,8 +3129,8 @@
           "given": {
             "template": {
               "fixture_type": "document_template",
-              "id": "commitment-card",
-              "document_class": "operational",
+              "id": "response-card",
+              "document_class": "outward-facing",
               "editable": false,
               "formats": [
                 "pdf"
@@ -3146,7 +3149,7 @@
           "action": {
             "operation": "documents.createFromTemplate",
             "arguments": {
-              "template": "commitment-card",
+              "template": "response-card",
               "merge_fields": {
                 "church_name": "Harvest Point"
               },
@@ -10845,7 +10848,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Plant-specific guide/corevalues native Church Document and extant plant local Wiki read; plant Wiki edit attempted.",
       "given": {
         "P": {
@@ -21821,7 +21827,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-067",
       "given": {
         "P": {
@@ -21881,8 +21890,8 @@
           "active": true,
           "published": true,
           "hidden": false,
-          "override": "S1",
-          "body": "S1 guidance."
+          "override": null,
+          "body": null
         },
         "S2": {
           "fixture_type": "article_source_fixture",
@@ -23570,7 +23579,10 @@
       "work_packages": [
         "WP-003"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/platform-cases.test.mts"
+      ],
       "description": "Producer private storage proof with immutable exact-object binding, fresh authority at issue/finalize/reconnect, signature and checksum validation, finite presign expiry and no public caching. Office/PDF previews are inert text. Old bearer URLs retain only bounded expiry.",
       "layers": [
         "request",
@@ -23609,7 +23621,7 @@
           "new_url_after_revoke": null,
           "client_key_accepted": false,
           "cache_control": "private, no-store",
-          "max_url_ttl_seconds": 60
+          "max_url_ttl_seconds": 300
         },
         "event": null
       }

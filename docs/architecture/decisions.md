@@ -229,3 +229,11 @@ Asked on 2026-11-25 (evf D-2608) "AF-020: should the organization get a notice w
 ## D104, 2026-11-25: a venue's capacity is at least 1; TARGET-MTG-003's capacity 0 conflicts with that (D-2656, T-637)
 
 Asked on 2026-11-25 (evf D-2656) "TARGET-MTG-003: may a venue have capacity 0, or must it be at least 1?", the owner chose "Keep the clause: 0 is refused": REQ-MTG-003 (capacity 1 or more when supplied) wins over the case, as in D103. The case's capacity 0 with the venue accepted stays as written in docs/acceptance/meetings-follow-up.json, and its test asserts that 0 is refused with nothing stored, that 1 and an empty capacity are accepted, and every other expected result.
+
+## D105, 2026-11-25: Church Documents may start from the commitment card, the sign-in sheet and the budget worksheet; REQ-DOC-022's refusal conflicts with that (D-2693, T-639)
+
+Asked on 2026-11-25 (evf D-2693) "CASE-DOC-022 refuses a Church Document from the commitment card, but the app allows it. What stands?", Jonah, as Sebastian's delegate, chose "card": "Keep the shipped Church Documents from the commitment card, sign-in sheet and budget (WP-036, PR 413, owner-approved templates). Prove the refusal with the response card, agenda and first-year budget as the case now does." REQ-DOC-022's words "Fixed-layout, budget and email templates are refused" stay as written; they hold for every template outside the Church Documents list.
+
+## D106, 2026-11-25: there is no plant-owned Wiki; a church's entitled Wiki reading is a linked source's published text (D-2694, T-639)
+
+Asked on 2026-11-25 (evf D-2694) "WIKI52-003 says a church still reads its own plant Wiki text. The product has none. What should it prove?", Jonah, as Sebastian's delegate, chose "linked": "Accept a linked church's published text as P1. v3 has no plant Wiki and nothing writes one; keep the edit-refused and own-document asserts. No new plant Wiki read." REQ-KNOW-077 and REQ-KNOW-137 keep their words.
