@@ -5,7 +5,14 @@ import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import type { DeliveryMessage } from "../../../packages/domain/src/communication/delivery.ts";
-import { answerRsvpToken, describeRsvpToken } from "../../../packages/domain/src/meetings/index.ts";
+import { applyMailCallback } from "../../../packages/domain/src/jobs/webhook.ts";
+import {
+	answerRsvpToken,
+	describeRsvpToken,
+	guestsWriter,
+	meetingsReader,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
 import { renderEmailHtml } from "../../../packages/contracts/src/communication/email.ts";
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
 import { ok, refused } from "../../support/fixture.mts";
@@ -224,6 +231,66 @@ for (const [type, title] of [
 		assert.equal(count.n, 1);
 	});
 }
+
+test("AC:TARGET-MTG-018 AC:TARGET-MTG-008 an unknown or opened meeting email claims no reply, and only a new send reopens a link an Admin answered", async () => {
+	const m = await meeting("vision_meeting", new Date(Date.now() + 3 * day));
+	const g = await person("Una Vale", "una@example.test");
+	await guest(m, g);
+	const facts = () =>
+		rows(sql`SELECT rsvp, rsvp_source, presence, card_response FROM participation WHERE meeting_id = ${m}`);
+	const untouched = [{ rsvp: "pending", rsvp_source: null, presence: "absent", card_response: null }];
+	const contacts = () => rows(sql`SELECT id FROM contact_outcome WHERE person_id = ${g}`);
+	const mailOf = (communicationId: string) =>
+		rows<{ state: string; opened_at: string | null }>(
+			sql`SELECT state, opened_at FROM mail WHERE communication_id = ${communicationId}`,
+		);
+	const lost = await scheduled(m, [g]);
+	const accepted = ok(await lost.schedule());
+	await communicationWriter.dispatchAttempt(
+		f.db,
+		owner.actor,
+		{
+			requestKey: key(),
+			expectedRevision: accepted.revision,
+			input: { communicationId: lost.saved.communicationId },
+		},
+		sendOnly(async () => ({ outcome: "unknown" })),
+		keys,
+	);
+	assert.deepEqual(await mailOf(lost.saved.communicationId), [{ state: "unknown", opened_at: null }]);
+	assert.deepEqual([await facts(), await contacts()], [untouched, []]);
+
+	const s = await send(m, [g]);
+	ok(await s.dispatch());
+	const { token } = tokenOf(s.transport.sent[0]!);
+	const [mail] = await rows<{ id: string }>(
+		sql`SELECT provider_message_id AS id FROM mail WHERE communication_id = ${s.communicationId}`,
+	);
+	const opened = { type: "email.opened", created_at: "2026-10-13T16:00:00.000Z", data: { email_id: mail!.id } };
+	await applyMailCallback(f.db, new TextEncoder().encode(JSON.stringify(opened)), key());
+	const list = ok(await meetingsReader.listGuests(f.db, owner.actor, { meetingId: m }));
+	assert.deepEqual(list.emailOpens, [{ personId: g, openedAt: "2026-10-13T16:00:00.000Z" }]);
+	assert.deepEqual([await facts(), await contacts()], [untouched, []]);
+
+	const [current] = list.guests;
+	ok(
+		await withMeetingsWrite(f.db, owner.actor, (tx, ctx) =>
+			guestsWriter.correctRsvp(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: current!.revision,
+				input: { meetingId: m, personId: g, rsvp: null },
+			}),
+		),
+	);
+	refused(await answerRsvpToken(f.db, { token, rsvp: "declined" }), "token_closed");
+	assert.equal((await guestRow(m, g)).rsvp, "pending");
+	const renewed = await send(m, [g]);
+	ok(await renewed.dispatch());
+	const fresh = tokenOf(renewed.transport.sent[0]!).token;
+	assert.notEqual(fresh, token);
+	refused(await answerRsvpToken(f.db, { token, rsvp: "declined" }), "token_closed");
+	assert.equal(ok(await answerRsvpToken(f.db, { token: fresh, rsvp: "confirmed" })).rsvp, "confirmed");
+});
 
 test("AC:COM-010 a link lasts to the later of seven days and the meeting start", async () => {
 	const far = await meeting("orientation", new Date(Date.now() + 20 * day));

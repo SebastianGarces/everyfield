@@ -220,4 +220,4 @@ A Vision meeting's guests get a follow-up due two days later and a 48-hour windo
 - Catalog: TSK-011
 - Cases: TARGET-TSK-011, TARGET-MTG-021
 - Test: `tests/integration/followups/followups.test.mts`: `AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC:ROLE43-015 AC:TARGET-TSK-004 obligations measure 48 hours at a frozen asOf, separate from contact and waiver`
-- Test: `tests/integration/followups/followups.test.mts`: `AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time`
+- Test: `tests/integration/followups/followups.test.mts`: `AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time across both clock changes`

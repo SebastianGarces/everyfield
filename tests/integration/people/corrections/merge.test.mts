@@ -1,6 +1,7 @@
 import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
+import { recorded, untouched } from "../../../support/recorded.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
-import { authorityOf, church, isActivity, reads, type Row } from "../people-support.mts";
+import { authorityOf, church, isActivity, noReminders, reads, type Row } from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -58,10 +59,10 @@ const personRow = (id: string) =>
 	one<PersonRow>(sql`SELECT state,merged_into_person_id,revision::text,display_name,email,stage,commitment_state,household_id
  FROM person WHERE id=${sql.param(id)}`);
 
-async function person(name: string, input = {}) {
+async function person(name: string, input = {}, who: Who = 0) {
 	return ok(
 		await tx((t) =>
-			people.createPerson(t, ctx(), {
+			people.createPerson(t, ctx(who), {
 				requestKey: key(),
 				input: { displayName: name, adultClassification: "adult", ...input },
 			}),
@@ -402,7 +403,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.equal((await personRow(s.id)).revision, back.s.revision);
 });
 
-test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT Unmerge refuses after a merged field is edited again, the survivor retires or a chained merge, names it and changes nothing", async () => {
+test("AC:TARGET-PPL-025 AC:TARGET-PPL-017 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT Unmerge refuses after a merged field is edited again, the survivor retires or a chained merge, names it and changes nothing", async () => {
 	const edit = async (d: { id: string }) =>
 		ok(
 			await tx(async (t) =>
@@ -493,6 +494,95 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV
 		(await rows(sql`SELECT count(*)::int n FROM person WHERE display_name LIKE 'Avery%' AND state='live'`))[0]!.n,
 		3,
 	);
+});
+
+test("AC:TARGET-PPL-016 a duplicate check hints only at this church's live people, ignores weak or wildcard text, merges nothing and leaves an intended duplicate allowed", async () => {
+	const family = "family@example.test";
+	const alex = await person("Alex Rivera", { email: family, phone: "(555) 018-2233" });
+	const mara = await person("Mara Rivera", { email: " Family@Example.TEST " });
+	const named = await person("Rivera");
+	const literal = await person("Riv%");
+	const short = await person("R", { phone: "18-2233" });
+	await admin.execute(sql`UPDATE person SET email='family' WHERE id=${short.id}`);
+	const retiring = await person("Rivera", { email: family });
+	const merging = await person("Rivera", { email: family });
+	const foreign = await person("Rivera", { email: family, phone: "5550182233" }, 2);
+	const check = async (input: object, who: Who = 0) =>
+		ok(await untouched(admin, () => tx((t) => checkForDuplicates(t, ctx(who), input)))).items.map((h) => [
+			h.personId,
+			h.match,
+			h.signals,
+		]);
+	const search = { displayName: "Rivera", email: family };
+	const lasting = [
+		[alex.id, "exact", ["email"]],
+		[mara.id, "exact", ["email"]],
+	];
+	assert.deepEqual(await check(search), [
+		...lasting,
+		[retiring.id, "exact", ["email", "name"]],
+		[merging.id, "exact", ["email", "name"]],
+		[named.id, "potential", ["name"]],
+	]);
+	const reviewRevision = ok(
+		await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: retiring.id })),
+	).reviewRevision;
+	ok(
+		await tx((t) =>
+			people.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: key(),
+					expectedRevision: retiring.revision,
+					input: { personId: retiring.id, reason: "Moved away", reviewRevision, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+	ok(await merge(merging.id, named.id));
+	const live = [...lasting, [named.id, "potential", ["name"]]];
+	assert.deepEqual(await check(search), live);
+	assert.deepEqual(await check(search, 1), live);
+	assert.deepEqual(await check({ ...search, phone: "5550182233" }, 2), [
+		[foreign.id, "exact", ["email", "phone", "name"]],
+	]);
+	assert.deepEqual(await check({ displayName: "  rIVERA ", email: " FAMILY@example.test  " }), live);
+	for (const phone of ["555.018.2233", "555 018 2233", "(555)018-2233"])
+		assert.deepEqual(await check({ phone }), [[alex.id, "exact", ["phone"]]], phone);
+	for (const weak of [
+		{},
+		{ displayName: "", email: "", phone: "" },
+		{ displayName: "   ", email: "  ", phone: " - " },
+		{ displayName: "R", email: "family", phone: "18-2233" },
+		{ displayName: "%", email: "%@%" },
+		{ displayName: "Rivera%", email: "family_example.test" },
+		{ displayName: "R_vera", email: "fam%@example.test" },
+		{ displayName: "\\Rivera" },
+		{ displayName: "Alex" },
+	])
+		assert.deepEqual(await check(weak), [], JSON.stringify(weak));
+	assert.deepEqual(await check({ displayName: "riv%" }), [[literal.id, "potential", ["name"]]]);
+	assert.deepEqual(await check({ ...search, excludePersonId: alex.id }), live.slice(1));
+	refused(
+		await untouched(admin, () =>
+			tx((t) => checkForDuplicates(t, { session: actors[2].session, selected: church(plants[0]) }, search)),
+		),
+	);
+
+	const { value: intended, added } = await recorded(admin, () => person("Rivera", { email: family }));
+	assert.deepEqual(added, { audits: ["people.created"], jobs: [], notices: 0, mail: 0 });
+	assert.deepEqual(await check(search), [
+		...lasting,
+		[intended.id, "exact", ["email", "name"]],
+		[named.id, "potential", ["name"]],
+	]);
+	for (const p of [alex, mara, named, literal, intended]) assert.equal((await personRow(p.id)).state, "live");
+	const [a, b] = [await personRow(alex.id), await personRow(mara.id)];
+	const r = ok(await untouched(admin, () => review(alex.id, mara.id)));
+	assert.deepEqual(r.blockers, { causes: [], leadership: [], invitations: [] });
+	assert.deepEqual([await personRow(alex.id), await personRow(mara.id)], [a, b]);
 });
 
 test("AC:REQ-PPL-016 the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
@@ -736,6 +826,243 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reas
 	);
 });
 
+test("AC:TARGET-PPL-015 a correction based on an older view, on another person or church, or with forged provenance writes nothing, and only one of two corrections of one record is saved", async () => {
+	const alex = await person("Alex", { stage: "prospect" });
+	const other = await person("Not Alex");
+	const witness = await person("Wren Witness", { stage: "leader" });
+	const theirs = await person("Casey Foreign", {}, 2);
+	const assess = async (personId: string, who: Who) =>
+		ok(
+			await tx((t) =>
+				assessments.createAssessment(t, ctx(who), {
+					requestKey: key(),
+					input: {
+						personId,
+						occurredOn: day(6),
+						committed: lens(3),
+						compelled: lens(3),
+						contagious: lens(3),
+						courageous: lens(3),
+					},
+				}),
+			),
+		).assessment;
+	const score = await assess(alex.id, 0);
+	const foreignScore = await assess(theirs.id, 2);
+	const talk = ok(
+		await tx((t) =>
+			interviews.createInterview(t, ctx(), {
+				requestKey: key(),
+				input: { personId: alex.id, occurredOn: day(5), ...criteria("pass"), result: "qualified", nextSteps: null },
+			}),
+		),
+	).interview;
+	const card = async (occurredOn: string) =>
+		ok(
+			await tx((t) =>
+				commitments.createCommitment(t, ctx(), {
+					requestKey: key(),
+					input: { personId: alex.id, kind: "core_group", occurredOn, witness: { personId: witness.id } },
+				}),
+			),
+		).commitment;
+	const first = await card(day(20)),
+		second = await card(day(10));
+	assert.equal((await personRow(alex.id)).stage, "core_group");
+	ok(await correct("assessment", alex.id, score.id, score.revision, { committed: lens(4) }, 3));
+	const author = async () => {
+		const read = ok(await tx((t) => assessments.getAssessments(t, ctx(), { personId: alex.id }))).latest!;
+		return [read.total, read.revision, "accountId" in read.actor && read.actor.accountId, read.recordedAt];
+	};
+	assert.deepEqual(await author(), [13, "2", actors[0].id, score.recordedAt]);
+
+	const blocked: [string, () => Promise<{ status: string }>, string][] = [
+		["older view", () => correct("assessment", alex.id, score.id, "1", { committed: lens(5) }), "conflict"],
+		[
+			"forged author",
+			() =>
+				tx((t) =>
+					recordCorrections.correctPersonRecord(t, ctx(), {
+						requestKey: key(),
+						expectedRevision: "2",
+						input: {
+							recordType: "assessment",
+							personId: alex.id,
+							recordId: score.id,
+							changes: { committed: lens(5) },
+							originalAuthor: actors[2].id,
+						},
+					}),
+				),
+			"invalid_input",
+		],
+		["another person", () => correct("assessment", other.id, score.id, "2", { committed: lens(5) }), "conflict"],
+		["foreign person", () => correct("assessment", theirs.id, score.id, "2", { committed: lens(5) }), "unavailable"],
+		[
+			"foreign person and record",
+			() => correct("assessment", theirs.id, foreignScore.id, "1", { committed: lens(5) }),
+			"unavailable",
+		],
+		[
+			"foreign record",
+			() => correct("assessment", alex.id, foreignScore.id, "1", { committed: lens(5) }),
+			"unavailable",
+		],
+		["foreign actor", () => correct("assessment", alex.id, score.id, "2", { committed: lens(5) }, 2), "unavailable"],
+		[
+			"foreign actor naming this church",
+			() =>
+				tx((t) =>
+					recordCorrections.correctPersonRecord(
+						t,
+						{ session: actors[2].session, selected: church(plants[0]) },
+						{
+							requestKey: key(),
+							expectedRevision: "2",
+							input: {
+								recordType: "assessment",
+								personId: alex.id,
+								recordId: score.id,
+								changes: { committed: lens(5) },
+							},
+						},
+					),
+				),
+			"unavailable",
+		],
+		["Member", () => correct("assessment", alex.id, score.id, "2", { committed: lens(5) }, 1), "unavailable"],
+		...[{ total: 20 }, { actor: actors[2].id }, { recordedAt: "2026-10-13T16:00:00.000Z" }, { personId: other.id }].map(
+			(forged): [string, () => Promise<{ status: string }>, string] => [
+				JSON.stringify(forged),
+				() => correct("assessment", alex.id, score.id, "2", { committed: lens(5), ...forged }),
+				"invalid_input",
+			],
+		),
+		...[
+			{ witness: { personId: other.id } },
+			{ witnessPersonId: other.id },
+			{ document: { uploadId: key() } },
+			{ occurredOn: day(19) },
+		].map((forged): [string, () => Promise<{ status: string }>, string] => [
+			JSON.stringify(forged),
+			() => correct("commitment", alex.id, first.id, first.revision, { notes: "Moved", ...forged }),
+			"invalid_input",
+		]),
+		[
+			"interview assessor",
+			() => correct("interview", alex.id, talk.id, talk.revision, { result: "follow_up", interviewer: actors[2].id }),
+			"invalid_input",
+		],
+		[
+			"future interview",
+			() => correct("interview", alex.id, talk.id, talk.revision, { occurredOn: day(-1) }),
+			"invalid_input",
+		],
+	];
+	for (const [name, attempt, code] of blocked) {
+		const found = await untouched(admin, attempt);
+		assert.equal(found.status, "refused", name);
+		refused(found, code);
+	}
+	assert.equal(ok(await corrections(alex.id)).total, 1);
+	assert.deepEqual(await author(), [13, "2", actors[0].id, score.recordedAt]);
+	assert.equal((await personRow(alex.id)).stage, "core_group");
+	ok(await correct("assessment", theirs.id, foreignScore.id, "1", { committed: lens(5) }, 2));
+
+	const input = (committed: object) => ({
+		requestKey: key(),
+		expectedRevision: "2",
+		input: { recordType: "assessment", personId: alex.id, recordId: score.id, changes: { committed } },
+	});
+	const { promise: ready, resolve: saved } = Promise.withResolvers<void>();
+	const { promise: done, resolve: release } = Promise.withResolvers<void>();
+	const race = recorded(admin, async () => {
+		const winner = tx(async (t) => {
+			const result = await recordCorrections.correctPersonRecord(t, ctx(), input(lens(5)));
+			saved();
+			await done;
+			return result;
+		});
+		await ready;
+		const loser = tx((t) => recordCorrections.correctPersonRecord(t, ctx(3), input(lens(1))));
+		try {
+			await waitingOnLock(db);
+		} finally {
+			release();
+		}
+		return Promise.all([winner, loser]);
+	});
+	const { value, added } = await race;
+	assert.equal(ok(value[0]).outcome, "changed");
+	refused(value[1], "conflict");
+	assert.deepEqual(added, { audits: ["people.corrected"], jobs: [], notices: 0, mail: 0 });
+	assert.deepEqual(await author(), [14, "3", actors[0].id, score.recordedAt]);
+	assert.deepEqual(
+		ok(await corrections(alex.id)).items.map((x) => [x.changes, "accountId" in x.actor && x.actor.accountId]),
+		[
+			[[{ field: "committed", old: lens(4), new: lens(5) }], actors[0].id],
+			[[{ field: "committed", old: lens(3), new: lens(4) }], actors[3].id],
+		],
+	);
+
+	ok(await correct("interview", alex.id, talk.id, talk.revision, { result: "not_qualified" }));
+	assert.equal((await personRow(alex.id)).stage, "core_group");
+
+	const lifecycle = (commitmentId: string, expectedRevision: string, correction: object) =>
+		tx((t) =>
+			commitments.correctCommitmentLifecycle(t, ctx(3), {
+				requestKey: key(),
+				expectedRevision,
+				input: { commitmentId, correction, reason: "Never signed" },
+			}),
+		);
+	const acquired = async () => {
+		const read = ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: alex.id })));
+		return [read.firstAcquisition, read.current.state, read.current.effectiveOn];
+	};
+	assert.deepEqual(await acquired(), [
+		{ status: "known", occurredOn: day(20), evidenceId: first.id },
+		"active",
+		day(20),
+	]);
+	for (const forged of [
+		{ action: "correct", occurredOn: day(-1) },
+		{ action: "correct", occurredOn: "2026-02-30" },
+		{ action: "correct", occurredOn: day(19), witness: { personId: other.id } },
+		{ action: "void", document: null },
+	])
+		refused(await untouched(admin, () => lifecycle(first.id, first.revision, forged)), "invalid_input");
+	const voided = await recorded(admin, () => lifecycle(first.id, first.revision, { action: "void" }));
+	assert.equal(ok(voided.value).outcome, "changed");
+	assert.deepEqual(voided.added, { audits: ["people.corrected"], jobs: [], notices: 0, mail: 0 });
+	assert.deepEqual(await acquired(), [
+		{ status: "known", occurredOn: day(10), evidenceId: second.id },
+		"active",
+		day(10),
+	]);
+	const entry = ok(await corrections(alex.id)).items[0]!;
+	assert.deepEqual(
+		[entry.recordId, entry.changes, entry.reason, "accountId" in entry.actor && entry.actor.accountId],
+		[first.id, [{ field: "voided", old: false, new: true }], "Never signed", actors[3].id],
+	);
+	refused(await untouched(admin, () => lifecycle(first.id, "2", { action: "void" })), "invalid_subject");
+	refused(
+		await untouched(admin, () => correct("commitment", alex.id, first.id, "2", { notes: "Late" })),
+		"invalid_subject",
+	);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT signed_on::text AS on,witness_person_id FROM commitment WHERE person_id=${alex.id} ORDER BY signed_on`,
+		),
+		[
+			{ on: day(20), witness_person_id: witness.id },
+			{ on: day(10), witness_person_id: witness.id },
+		],
+	);
+	assert.equal((await personRow(alex.id)).stage, "core_group");
+	assert.deepEqual(await author(), [14, "3", actors[0].id, score.recordedAt]);
+});
+
 test("AC:ADR1-017 organization duplicates are hints for a human, and an organization merge and Unmerge follow the same rules", async () => {
 	const org = randomUUID(),
 		other = randomUUID(),
@@ -840,7 +1167,7 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 	);
 });
 
-test("AC:REQ-PPL-024 the reference registry names every Person foreign key in the database exactly once", async () => {
+test("AC:REQ-PPL-024 AC:TARGET-PPL-017 the reference registry names every Person foreign key in the database exactly once", async () => {
 	const declared = await rows<{
 		t: string;
 		col: string;

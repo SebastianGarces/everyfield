@@ -15,7 +15,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "Person Contact with unmet recorded interview warning; second Person already Leader",
       "given": {
         "P": {
@@ -315,7 +318,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/fields/fields.test.mts"
+      ],
       "description": "Tag northside in plant-A; same name in plant-B; Person has existing tag family",
       "given": {
         "P": {
@@ -626,7 +632,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/fields/fields.test.mts"
+      ],
       "description": "Alex has hospitality basic and music advanced; category labels overlap",
       "given": {
         "P": {
@@ -919,7 +928,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "Alex has two dated approved four-Cs records; Admin and Member accounts",
       "given": {
         "P": {
@@ -1135,7 +1147,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "Alex Prospect; advanced Casey Leader; approved interview criteria version",
       "given": {
         "P": {
@@ -1438,7 +1453,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "Alex classified adult with no commitment; Casey classified minor; original attachment staged to Admin+plant",
       "given": {
         "P": {
@@ -1822,7 +1840,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Contact Alex invited but not attended; Casey already Leader; first actual Vision attendance and team assignment fixtures",
       "given": {
         "P": {
@@ -2108,7 +2129,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "One Person has no follow-up task; source `handleFollowUpInitiated` has no functioning caller",
       "given": {
         "P": {
@@ -2367,7 +2391,10 @@
         "WP-011",
         "WP-048"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/pipeline-metrics.test.mts"
+      ],
       "description": "At frozen October 13 observation time, three live canonical Persons have two current prospect records and one current attendee. Alex crossed prospect to attendee twice with intervening backward moves; Casey crossed once; Jamie moved only outside the October window. Count each canonical Person once for the exact adjacent forward transition. Reconstruct the October 1 source cohort of three; an empty July source cohort returns Unknown rather than division by zero.",
       "given": {
         "P": {
@@ -9662,7 +9689,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "25 People with equal `createdAt`; AND 2 tags; search literal%/_; retired People and another church's page; switch card/filter/page; unresolved adult classification for people with no birth date.",
       "given": {
         "P": {
@@ -10087,7 +10117,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Whitespace name, single-name Launch guest, nullable clear, forged account/storage key, valid partial address; request background field.",
       "given": {
         "P": {
@@ -10190,7 +10223,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Retire assigned Person and concurrently insert attendance; restore ordinary retired versus merged source; foreign ID.",
       "given": {
         "P": {
@@ -10290,7 +10326,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Two active unlinked same-email contacts; linked contact email changed; concurrent accept; removed seat; Owner with and without actual commitment.",
       "given": {
         "P": {
@@ -10419,7 +10458,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Foreign/retired Person; failed save and cleanup; replace cached photo; merge chooses source photo and safe inverse.",
       "given": {
         "P": {
@@ -10530,7 +10572,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
       "given": {
         "P": {
@@ -10636,7 +10681,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "All 7 stages; foreign ID reorder; stale column order; completed/waived/overdue/undated task and uncovered sans duty.",
       "given": {
         "P": {
@@ -10736,7 +10784,10 @@
       "work_packages": [
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/people.test.mts"
+      ],
       "description": "3 activities at one instant; author A/B; forged `personId` with valid note ID; edit and delete; ordinary audit row.",
       "given": {
         "P": {
@@ -10911,7 +10962,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/fields/fields.test.mts"
+      ],
       "description": "Person retired while household create; concurrent join/delete; own meaningful address versus blank; preview propagation then stale edit; empty with retired history.",
       "given": {
         "P": {
@@ -11021,7 +11075,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/guardian-contacts.test.mts"
+      ],
       "description": "Admin A marks adults in child Kid's household as Kid's parent or guardian contacts, adds a second and removes one; tries a child, a person not recorded, a birth date showing a child, someone outside the household, a retired person and a person in plant Q; then the adult and Kid leave the household.",
       "given": {
         "P": {
@@ -11138,7 +11195,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/fields/fields.test.mts"
+      ],
       "description": "Foreign tag/Person; same-name race; repeated assign/remove; nullable color; linked tag delete.",
       "given": {
         "P": {
@@ -11250,7 +11310,10 @@
       "work_packages": [
         "WP-012"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/fields/fields.test.mts"
+      ],
       "description": "Every enum/null clear; foreign skill ID; stale edit/remove; role qualification record referencing historical skill.",
       "given": {
         "P": {
@@ -11365,7 +11428,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "Four 1/5 scores+forged total; same/out of order dates; prospect assessment; Member/org read; corrected historical score.",
       "given": {
         "P": {
@@ -11492,7 +11558,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "Each 4 results on prospect and advanced leader; backdated repeat interview; fail activity write; text next step without task review.",
       "given": {
         "P": {
@@ -11622,7 +11691,10 @@
       "work_packages": [
         "WP-014"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "10 MiB valid file and failed commit; foreign witness; repeat launch-team card on leader; withdrawal then reactivation; historical signed date.",
       "given": {
         "P": {
@@ -11735,7 +11807,10 @@
       "work_packages": [
         "WP-015"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/corrections/merge.test.mts"
+      ],
       "description": "Same-record two corrections, foreign Person with known record ID, forged total/provenance, invalid first event correction, attempted original document/witness replacement.",
       "given": {
         "P": {
@@ -11848,7 +11923,11 @@
       "work_packages": [
         "WP-015"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/corrections/merge.test.mts",
+        "tests/integration/people/csv/duplicates.test.mts"
+      ],
       "description": "Blank/short/wildcard input, email casing/phone format, same family name/shared mailbox, foreign/retired candidate.",
       "given": {
         "P": {
@@ -11962,7 +12041,12 @@
       "work_packages": [
         "WP-015"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/corrections/cross-domain.test.mts",
+        "tests/integration/people/corrections/history.test.mts",
+        "tests/integration/people/corrections/merge.test.mts"
+      ],
       "description": "Conflicting attendance/card/training/RSVP/follow-up and two accounts; safe unchanged merge+inverse; stale/chained/irreversible effects; later consumer registration.",
       "given": {
         "P": {
@@ -12077,7 +12161,11 @@
       "work_packages": [
         "WP-013"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/csv/csv.test.mts",
+        "tests/integration/people/csv/stored-upload.test.mts"
+      ],
       "description": "CSV multiline/BOM/bad quote/formula; existing and within-file duplicates; 3 rows with middle DB failure and lost response; changed preview digest; over cap file.",
       "given": {
         "P": {
@@ -12679,7 +12767,10 @@
       "work_packages": [
         "WP-013"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/csv/csv.test.mts"
+      ],
       "description": "Each filter+AND tags, empty set, multiline quote, formula-like contacts, foreign/org request, >page export.",
       "given": {
         "P": {
@@ -12937,7 +13028,10 @@
         "WP-019",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/corrections/history.test.mts"
+      ],
       "description": "Multi-role Person with former team/earned revoked training, typed contact versus delivered email, foreign/deleted/merged Person.",
       "given": {
         "P": {
@@ -13066,7 +13160,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Ask for noop source helper, save interview next steps, explicit reviewed follow-up draft/creation.",
       "given": {
         "P": {
@@ -13172,7 +13269,10 @@
         "WP-011",
         "WP-048"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/pipeline-metrics.test.mts"
+      ],
       "description": "At October 13 `asOf`, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
@@ -13648,7 +13748,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/people/assessments/records.test.mts"
+      ],
       "description": "30 known adults plus 1 unknown; newest genuine entrant joined yesterday then with drew; earlier invalid first occurrence corrected; same adult rejoined; September 1 signature entered October 9; clock 20/21/27/28 day boundaries.",
       "given": {
         "P": {

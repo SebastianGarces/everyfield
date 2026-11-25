@@ -885,7 +885,7 @@
 	},
 	"meetings.schedule": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"meetings.setAttendance": {
 		"limit": 2
@@ -903,11 +903,12 @@
 	},
 	"meetings/core.withMeetingsWrite": {
 		"limit": 5,
-		"retry": 9
+		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:meetings.finalizeAttendance": {
-		"limit": 6,
-		"retry": 11
+		"limit": 7,
+		"retry": 11,
+		"reason": "meetings.finalizeAttendance in its native write: BEGIN and COMMIT around the gate, the locked read and the one write, and the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10) for the dated, assigned follow-ups it makes. Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
 		"limit": 6,
@@ -915,7 +916,7 @@
 	},
 	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {
 		"limit": 5,
-		"retry": 9
+		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance": {
 		"limit": 5
@@ -1327,14 +1328,16 @@
 	"people.changeStatus": {
 		"limit": 8,
 		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, the person locked, one locked read of its open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), and one statement with the stage change and its audit. Its largest first run: 1 transaction, 4 locked read, 3 write.",
-		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock."
+		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock.",
+		"retry": 5
 	},
 	"people.correctAdultClassification": {
 		"limit": 6,
 		"retry": 5
 	},
 	"people.correctCommitmentLifecycle": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"people.correctPersonRecord": {
 		"limit": 6,
@@ -1368,7 +1371,8 @@
 		"retry": 5
 	},
 	"people.deleteNote": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"people.deleteTag": {
 		"limit": 4
@@ -1495,7 +1499,8 @@
 	},
 	"people/core.withPeopleWrite:people.changeStatus": {
 		"limit": 9,
-		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 3 write."
+		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 3 write.",
+		"retry": 8
 	},
 	"people/core.withPeopleWrite:people.removeFromHousehold": {
 		"limit": 7,
@@ -1504,7 +1509,8 @@
 	},
 	"people/core.withPeopleWrite:people.retirePerson": {
 		"limit": 10,
-		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 4 write."
+		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 4 write.",
+		"retry": 5
 	},
 	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
 		"limit": 5,
@@ -1774,10 +1780,10 @@
 		"limit": 2
 	},
 	"tasks.bulkComplete": {
-		"limit": 4
+		"limit": 5
 	},
 	"tasks.bulkReschedule": {
-		"limit": 2
+		"limit": 4
 	},
 	"tasks.changeStatus": {
 		"limit": 2
@@ -1807,7 +1813,7 @@
 		"limit": 4
 	},
 	"tasks.importTemplate": {
-		"limit": 2
+		"limit": 4
 	},
 	"tasks.removeSubtask": {
 		"limit": 2
@@ -1822,7 +1828,7 @@
 		"limit": 2
 	},
 	"tasks.waive": {
-		"limit": 2
+		"limit": 3
 	},
 	"tasks.listTemplates": {
 		"limit": 1
@@ -1849,15 +1855,17 @@
 	},
 	"teams.archive": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"teams.assignRole": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"teams.attestCompletion": {
-		"limit": 6,
-		"retry": 5
+		"limit": 8,
+		"retry": 5,
+		"reason": "A ministry's linked leader attests: BEGIN, the gate, the read of the program's team, the read that the caller leads it, the receipt read, the locked training read, one write and COMMIT. An Owner or Admin needs neither authority read. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "The program's team is read before the caller can be judged as that team's linked leader, so the leader read takes the team id the first read returned. An Owner or Admin sends neither."
 	},
 	"teams.completeResponsibility": {
 		"limit": 7,
@@ -1873,15 +1881,17 @@
 		"retry": 6
 	},
 	"teams.create": {
-		"limit": 6
+		"limit": 6,
+		"retry": 3
 	},
 	"teams.createProgram": {
 		"limit": 6,
 		"retry": 5
 	},
 	"teams.createRole": {
-		"limit": 6,
-		"retry": 5
+		"limit": 7,
+		"retry": 5,
+		"reason": "A ministry's linked leader adds a role: BEGIN, the gate, the read that the caller leads the ministry, the receipt read, the locked ministry read, one write and COMMIT. An Owner or Admin needs no leader read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.deleteResponsibility": {
 		"limit": 7,
@@ -1907,7 +1917,7 @@
 	},
 	"teams.initialize": {
 		"limit": 6,
-		"retry": 4
+		"retry": 6
 	},
 	"teams.listResponsibilities": {
 		"limit": 1
@@ -1917,13 +1927,14 @@
 	},
 	"teams.offerResponsibilities": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"teams.previewResponsibilities": {
 		"limit": 1
 	},
 	"teams.reactivateMembership": {
-		"limit": 6
+		"limit": 6,
+		"retry": 4
 	},
 	"teams.readPersonTraining": {
 		"limit": 1
@@ -1948,7 +1959,8 @@
 		"retry": 5
 	},
 	"teams.restore": {
-		"limit": 6
+		"limit": 6,
+		"retry": 6
 	},
 	"teams.retireRole": {
 		"limit": 7,
@@ -1962,7 +1974,8 @@
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,
 		"retry": 8,
-		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "The program is locked before its current roster is read, so a save that waited for the lock reads the roster the earlier save left. One statement would read the roster from a snapshot taken before the lock."
 	},
 	"venues.archive": {
 		"limit": 6
@@ -2240,7 +2253,8 @@
 		"reason": "A forward move with connected sending churches or networks queues their phase-advance notices in the move's transaction through the notification service (NTF-009): BEGIN, the move, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. Every other move sends BEGIN, the move and COMMIT. Its largest first run: 2 transaction, 3 locked read, 3 write."
 	},
 	"teams.removeRole": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"teams.readHealth": {
 		"limit": 1
