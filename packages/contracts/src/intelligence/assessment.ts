@@ -366,6 +366,7 @@ export const citationView = z.union([
 export type CitationView = z.infer<typeof citationView>;
 
 export const readAssessmentRequest = z.strictObject({});
+export const readAssessmentRunRequest = z.strictObject({ runId: recordId });
 
 export const assessmentError = z.discriminatedUnion("code", [
 	defineSafeError("invalid_input", {}, "never"),

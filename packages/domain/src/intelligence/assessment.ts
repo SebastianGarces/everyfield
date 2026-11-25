@@ -199,6 +199,15 @@ function newestOf(r: z.infer<typeof readRow>): c.NewestRun | null {
 export function createAssessments(config: { clock?: Clock } = {}) {
 	const now = () =>
 		config.clock ? sql`${new Date(config.clock.now()).toISOString()}::timestamptz` : sql`clock_timestamp()`;
+	const publishedJson = () => sql`json_build_object('runId',cur.id,'asOf',${iso("cur.as_of")},'phase',cur.phase,
+		'rubricVersion',cur.rubric_version,'release',cur.reference_release,'activation',cur.reference_activation,
+		'result',cur.result,'delta',cur.delta,
+		'measuredOn',cur.facts->>'today','daysToLaunch',cur.facts->'launch'->'daysToLaunch',
+		'ageDays',((${now()} AT TIME ZONE x.timezone)::date-(cur.as_of AT TIME ZONE x.timezone)::date),
+		'insights',(SELECT coalesce(json_agg(json_build_object('role',i.role,'title',i.title,'severity',i.severity)
+			ORDER BY array_position(ARRAY['high','medium','low','info'],i.severity),i.ordinal),'[]'::json)
+			FROM assessment_insight i WHERE i.run_id=cur.id),
+		'facts',cur.facts,'concerns',${concernsSql("cur")})`;
 	return {
 		async requestRefresh(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
@@ -238,15 +247,7 @@ cur AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outco
 nw AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome<>'superseded'
 	ORDER BY r.captured_at DESC,r.id DESC LIMIT 1)
 SELECT (SELECT ok FROM gate) AS ok,
-	(SELECT json_build_object('runId',cur.id,'asOf',${iso("cur.as_of")},'phase',cur.phase,'rubricVersion',cur.rubric_version,
-		'release',cur.reference_release,'activation',cur.reference_activation,'result',cur.result,'delta',cur.delta,
-		'measuredOn',cur.facts->>'today','daysToLaunch',cur.facts->'launch'->'daysToLaunch',
-		'ageDays',((${now()} AT TIME ZONE x.timezone)::date-(cur.as_of AT TIME ZONE x.timezone)::date),
-		'insights',(SELECT coalesce(json_agg(json_build_object('role',i.role,'title',i.title,'severity',i.severity)
-			ORDER BY array_position(ARRAY['high','medium','low','info'],i.severity),i.ordinal),'[]'::json)
-			FROM assessment_insight i WHERE i.run_id=cur.id),
-		'facts',cur.facts,'concerns',${concernsSql("cur")})
-		FROM cur,x) AS current,
+	(SELECT ${publishedJson()} FROM cur,x) AS current,
 	(SELECT x.phase FROM x) AS current_phase,
 	EXISTS(SELECT FROM assessment_seen v JOIN cur ON cur.id=v.run_id WHERE v.account_id=${s.me}::uuid) AS seen,
 	(SELECT coalesce(json_agg(json_build_object('ordinal',f.ordinal,'rating',f.rating,'comment',f.comment,
@@ -266,6 +267,44 @@ SELECT (SELECT ok FROM gate) AS ok,
 					seen: r.seen,
 					feedback: r.feedback,
 				} satisfies z.output<typeof c.assessmentView>;
+			});
+		},
+
+		async readRun(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const q = c.readAssessmentRunRequest.safeParse(raw);
+				if (!q.success) deny("invalid_input");
+				const s = scopeOf(authority);
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
+x AS (SELECT pl.id,pl.timezone FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
+cur AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome='published' AND r.id=${q.data.runId}::uuid)
+SELECT (SELECT ok FROM gate) AS ok,(SELECT ${publishedJson()} FROM cur,x) AS run`);
+				const r = z.object({ ok: z.boolean(), run: storedCurrent.nullable() }).parse(rows[0]);
+				if (!r.ok) deny("access_denied");
+				if (!r.run) deny("not_found");
+				return present(r.run, await readCatalog());
+			});
+		},
+
+		async readOwnFeedback(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
+			return settle(async () => {
+				if (!c.readOwnFeedbackRequest.safeParse(raw).success) deny("invalid_input");
+				const s = scopeOf(authority);
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
+f AS (SELECT f.*,i.title,r.available_at,coalesce(r.facts->>'today',(r.as_of AT TIME ZONE pl.timezone)::date::text) AS measured_on
+	FROM assessment_feedback f JOIN assessment_run r ON r.id=f.run_id AND r.plant_id=f.plant_id AND r.outcome='published'
+	JOIN assessment_insight i ON i.run_id=f.run_id AND i.ordinal=f.ordinal JOIN plant pl ON pl.id=r.plant_id
+	WHERE f.plant_id=${s.plant}::uuid AND f.account_id=${s.me}::uuid AND (SELECT ok FROM gate)
+	ORDER BY r.available_at DESC,r.id DESC,f.ordinal LIMIT ${c.OWN_FEEDBACK_MAX}::int)
+SELECT (SELECT ok FROM gate) AS ok,(SELECT coalesce(json_agg(json_build_object('runId',f.run_id,'measuredOn',f.measured_on,
+	'title',f.title,'ordinal',f.ordinal,'rating',f.rating,'comment',f.comment,'recordedAt',${iso("f.recorded_at")})
+	ORDER BY f.available_at DESC,f.run_id DESC,f.ordinal),'[]'::json) FROM f) AS feedback,
+	(SELECT timezone FROM plant WHERE id=${s.plant}::uuid AND (SELECT ok FROM gate)) AS timezone`);
+				const r = z
+					.object({ ok: z.boolean(), feedback: z.array(z.unknown()), timezone: z.string().nullable() })
+					.parse(rows[0]);
+				if (!r.ok) deny("access_denied");
+				return c.ratedFindings.parse({ timeZone: r.timezone, findings: r.feedback });
 			});
 		},
 

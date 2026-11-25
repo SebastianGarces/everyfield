@@ -15,6 +15,9 @@ export async function publishVersion(input: unknown) {
 export async function enroll(input: unknown) {
 	return programCall((db, authority) => programWriter.enroll(db, authority, input));
 }
+export async function endEnrollment(input: unknown) {
+	return programCall((db, authority) => programWriter.endEnrollment(db, authority, input));
+}
 export async function recordMilestone(input: unknown) {
 	return programCall((db, authority) => programWriter.recordMilestone(db, authority, input));
 }

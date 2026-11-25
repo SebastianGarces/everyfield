@@ -1120,6 +1120,21 @@
 						],
 						"cases": ["ADR1-012"]
 					}
+				},
+				{
+					"id": "end-enrollment",
+					"says": "The program's current director ends an active enrollment as Completed or Withdrawn from a dialog with neither preselected. The ended page offers no further change, and the person can be enrolled again.",
+					"catalog": ["MUL-011"],
+					"operations": ["development.updateEnrollment"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/programs.test.mts",
+								"name": "AC:ADR1-011 ending is refused with nothing written for anyone but the current director, a bad status, a stale revision and an unknown enrollment"
+							}
+						],
+						"cases": ["ADR1-011"]
+					}
 				}
 			]
 		},

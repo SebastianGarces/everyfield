@@ -8,10 +8,12 @@ import { readViewer, RequestActor } from "../../../packages/domain/src/access/se
 import {
 	pipelineWriter,
 	readPipelineBoard,
+	readPipelineGoals,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
 import {
 	programWriter,
+	readEnrollment,
 	readProgram,
 	readPrograms,
 	readVersionReview,
@@ -37,7 +39,16 @@ import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { evalDatabase, seedHope } from "./golden-church.mts";
-import { ANA_NOTE, PEOPLE, RESIDENCY_READING, seedPipeline, sessionOf, type PipelineName } from "./pipeline-church.mts";
+import {
+	ANA_NOTE,
+	linkResident,
+	markMilestone,
+	PEOPLE,
+	RESIDENCY_READING,
+	seedPipeline,
+	sessionOf,
+	type PipelineName,
+} from "./pipeline-church.mts";
 
 type Change = { field: string; before: unknown; after: unknown };
 type Case = {
@@ -462,7 +473,81 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 			);
 		},
 	},
+	"NET-02": { after: async () => assert.equal((await goals()).length, 1) },
+	"NET-03": {
+		after: async () =>
+			assert.deepEqual(
+				(await goals()).map((g) => [g.leaderTarget, g.plantTarget, g.targetYear, g.rationale]),
+				[[8, 2, 2028, "two campuses are full"]],
+			),
+	},
+	"NET-07": {
+		after: async () =>
+			assert.deepEqual(
+				(await board("dana")).stages.map((x) => x.label),
+				["Potential leader", "Assessed", "Apprentice", "Resident", "Commissioned", "Stepped back"],
+			),
+	},
+	"NET-16": { after: async () => assert.deepEqual(await versions(), { "Casey Lee": 2, "Jordan Reyes": 2 }) },
+	"NET-17": {
+		after: async () => {
+			const account = await linkResident(admin, PEOPLE.casey, "Casey Lee");
+			await markMilestone(admin, stages.residency.enrollmentId, "Lead a vision night", account, "2026-10-01");
+		},
+	},
+	"NET-23": {
+		after: async () => {
+			const e = (await residency()).enrollments.find((x) => x.name === "Jordan Reyes")!;
+			assert.equal(e.status, "withdrawn");
+		},
+	},
+	"NET-25": {
+		after: async () => {
+			const personId = randomUUID();
+			ok(
+				await pipelineWriter.addPerson(db, await authority("dana"), {
+					personId,
+					displayName: "Casey Nguyen",
+					email: null,
+					responsibleSeatId: null,
+					stageId: stages.grace.Apprentice!,
+				}),
+			);
+			const p = await residency("dana");
+			ok(
+				await programWriter.enroll(db, await authority("dana"), {
+					enrollmentId: randomUUID(),
+					programId: p.id,
+					personId,
+					cohort: "Fall cohort",
+					startedOn: p.today,
+					expectedEndOn: `${Number(p.today.slice(0, 4)) + 2}${p.today.slice(4, 8)}01`,
+					stageId: p.published!.stages[0]!.id,
+					nextMeetingAt: null,
+				}),
+			);
+		},
+	},
+	"NET-27": {
+		after: async () =>
+			assert.deepEqual(
+				(await residency()).enrollments.map((e) => [e.name, e.status]),
+				[
+					["Casey Nguyen", "active"],
+					["Casey Lee", "completed"],
+					["Jordan Reyes", "withdrawn"],
+				],
+			),
+	},
+	"NET-18": {
+		after: async () => {
+			const e = ok(await readEnrollment(db, await authority("ana"), { enrollmentId: stages.residency.enrollmentId }));
+			assert.equal(e.milestones.find((m) => m.title === "Lead a vision night")?.completion?.confirmer, "Ana Ruiz");
+		},
+	},
 };
+const goals = async () => ok(await readPipelineGoals(db, await authority("dana"))).goals;
+const versions = async () => Object.fromEntries((await residency()).enrollments.map((e) => [e.name, e.versionNumber]));
 
 test("AC:ADR1-015 INV-evry-pipeline: every pipeline and program case passes on the scripted model, each asker's answers and refusals match their own Pipeline page and native writes, and each approved change reads back on the Pipeline and Programs pages", async () => {
 	for (const who of ["dana", "ana", "ben"] as const)
@@ -575,7 +660,15 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 	for (const who of ["ana", "ben"] as const)
 		assert.deepEqual(
 			readCatalog(await actorOf(who)).reviewedWrites.map((w) => w.operation),
-			["settings.saveSection", "account.removeAvatar", "development.draftNextVersion"],
+			[
+				"settings.saveSection",
+				"account.removeAvatar",
+				"development.draftNextVersion",
+				"development.updateEnrollment",
+				"development.applyVersion",
+				"development.confirmMilestone",
+				"development.completeMilestone",
+			],
 			who,
 		);
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {
@@ -596,12 +689,8 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 			"pipeline.correctConversation",
 			"pipeline.moveStage",
 			"pipeline.recordAssessmentOccurrence",
-			"development.completeMilestone",
-			"development.confirmMilestone",
 			"development.recordFeedback",
 			"development.publishVersion",
-			"development.enroll",
-			"development.applyVersion",
 			"development.recordMilestone",
 			"development.addFeedback",
 		])

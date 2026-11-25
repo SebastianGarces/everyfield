@@ -2264,6 +2264,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.endEnrollment": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.enroll": {
 		"limit": 4,
 		"retry": 4
@@ -2279,6 +2283,10 @@
 	"programs.savePlan": {
 		"limit": 5,
 		"retry": 5
+	},
+	"programs.updateEnrollment": {
+		"limit": 4,
+		"retry": 4
 	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
 		"limit": 5,

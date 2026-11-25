@@ -13,7 +13,8 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { coldStartTitle, QUALITY, SEVERITY_LABEL, STANDING } from "../intelligence/assessment-model.ts";
+import { coldStartTitle } from "@everyfield/contracts/intelligence";
+import { QUALITY, SEVERITY_LABEL, STANDING } from "../intelligence/assessment-model.ts";
 import { CardFailed } from "./cards.tsx";
 import type { Loaded } from "./model.ts";
 

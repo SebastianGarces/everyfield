@@ -31,7 +31,7 @@ type Case = {
 	calls: string[];
 	answer: string[];
 	absent?: string[];
-	proposal?: { operation: string; target: string; changes?: Change[] };
+	proposal?: { operation: string; target: string; changes?: Change[]; refusal?: string };
 	approve?: true;
 };
 export const loadCases = (file: string) =>
@@ -86,7 +86,14 @@ export function harness(db: Database, today: Date, native: NativePorts | null = 
 		return { reads, answer, proposals, results: JSON.stringify(results.map((e) => e.body)) };
 	}
 	async function approveAndRun(actor: EvryActor, proposal: Proposal) {
-		await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
+		const approved = await approveProposal(
+			db,
+			actor,
+			proposal.id,
+			{ revision: proposal.revision, digest: proposal.digest },
+			null,
+		);
+		if (approved.proposal.outcome) return approved.proposal.outcome;
 		const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 		assert.ok(claim, "the effect is queued");
 		const outcome = await executeProposal(
@@ -125,6 +132,6 @@ export function checkCase(
 	assert.equal(p.review.target?.label ?? null, c.proposal.target === "null" ? null : fill(c.proposal.target), c.id);
 	if (c.proposal.changes)
 		assert.deepEqual(p.review.changes, JSON.parse(fill(JSON.stringify(c.proposal.changes))), c.id);
-	assert.equal(p.review.refusal, undefined, `${c.id} card can be approved`);
+	assert.equal(p.review.refusal, c.proposal.refusal, `${c.id} card can be approved`);
 	return p;
 }

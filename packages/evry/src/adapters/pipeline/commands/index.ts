@@ -1,15 +1,49 @@
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import { sql } from "@everyfield/db/query";
-import { programKind, programPlan, programRhythm, type ProgramDetail } from "@everyfield/contracts/organizations";
-import { pipelineWriter, programWriter, readProgram } from "@everyfield/domain/organizations";
+import {
+	ENROLLMENT_END_NOTES,
+	ENROLLMENT_STATUS,
+	enrollmentOutcome,
+	enrollRequest,
+	goalCount,
+	goalHeadline,
+	pipelineStageKind,
+	programKind,
+	programPlan,
+	programRhythm,
+	saveGoalRequest,
+	type EnrollmentDetail,
+	type ProgramDetail,
+} from "@everyfield/contracts/organizations";
+import {
+	pipelineWriter,
+	programWriter,
+	readEnrollment,
+	readPipelineBoard,
+	readPipelineGoals,
+	readProgram,
+	readVersionReview,
+} from "@everyfield/domain/organizations";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { approvedNow, change, organizationSeat, target } from "../../native.ts";
+import { localWhenText } from "../../../catalog/labels.ts";
+import {
+	approvedNow,
+	change,
+	organizationSeat,
+	reviewed,
+	target,
+	dayInput,
+	rowId,
+	localTimeInput,
+} from "../../native.ts";
+import { STAGE_KIND } from "../reads/index.ts";
 
-const settled = (
-	reply: { status: "ok"; value: { revision: string } } | { status: "refused"; refusal: { code: string } },
-) => (reply.status === "ok" ? { revision: reply.value.revision } : { refused: reply.refusal.code });
+const settled = (reply: { status: "ok"; value: object } | { status: "refused"; refusal: { code: string } }) =>
+	reply.status === "ok"
+		? { revision: "revision" in reply.value ? String(reply.value.revision) : "1" }
+		: { refused: reply.refusal.code };
 
 export const proposeStageMove = approvedNow({
 	operation: "pipeline.proposeStageMove",
@@ -262,8 +296,520 @@ export const draftNextVersion = approvedNow({
 	run: async (db, authority, args) => settled(await programWriter.savePlan(db, authority, args)),
 });
 
+type Card = {
+	target: { kind: "person" | "program" | "organization"; id: string; label: string; href?: string };
+	changes: { field: string; before: unknown; after: unknown }[];
+	notes?: string[];
+	refusal?: string | null;
+};
+const changed = (field: string, before: unknown, after: unknown) =>
+	JSON.stringify(before) === JSON.stringify(after) ? [] : [{ field, before, after }];
+const card = ({ refusal, ...review }: Card, args: object) => reviewed({ ...review, ...(refusal && { refusal }) }, args);
+const found = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T => {
+	if (reply.status !== "ok") throw new EvryRefusal("not_found");
+	return reply.value;
+};
+
+const goalInput = z
+	.strictObject({
+		goalId: rowId.optional(),
+		leaderTarget: saveGoalRequest.shape.leaderTarget.optional(),
+		plantTarget: saveGoalRequest.shape.plantTarget.optional(),
+		targetYear: saveGoalRequest.shape.targetYear.optional(),
+		rationale: saveGoalRequest.shape.rationale.optional(),
+		countingFrom: dayInput.optional(),
+		counts: saveGoalRequest.shape.counts.optional(),
+	})
+	.refine((g) => Object.keys(g).some((k) => k !== "goalId"), "empty goal");
+const countText = (counts: readonly z.infer<typeof goalCount>[]) =>
+	counts.map((c) => `${c.label}, reached ${STAGE_KIND[c.kind]}`);
+
+export const saveGoal = approvedNow({
+	operation: "pipeline.saveGoal",
+	description:
+		"Propose adding a sending goal or changing one: leaders to develop, churches to plant, the year, why, the day it counts from and up to four counts (each a stage kind with its label). To change a goal give its goalId from pipeline.readGoals and only the fields the user names: the rest stay. counts, when given, is the whole new list. A new goal needs leaderTarget, plantTarget, targetYear and the user's own why (rationale): ask for what is missing. countingFrom is a local date, today or earlier; a new goal counts from today without one. Nothing changes until the user approves",
+	input: goalInput,
+	async review(actor, value, { db }) {
+		const goals = found(await readPipelineGoals(db, actor.authority));
+		const was = goals.goals.find((g) => g.id === value.goalId);
+		if (value.goalId && !was) throw new EvryRefusal("not_found");
+		const next = {
+			leaderTarget: value.leaderTarget ?? was?.leaderTarget,
+			plantTarget: value.plantTarget ?? was?.plantTarget,
+			targetYear: value.targetYear ?? was?.targetYear,
+			rationale: value.rationale ?? was?.rationale,
+			countingFrom: value.countingFrom ?? was?.countingFrom ?? goals.asOf,
+			counts: value.counts ?? was?.counts.map(({ kind, label }) => ({ kind, label })) ?? [],
+		};
+		const request = saveGoalRequest.safeParse({
+			goalId: was?.id ?? randomUUID(),
+			expectedRevision: was?.revision ?? null,
+			...next,
+			countingFrom: value.countingFrom ?? was?.countingFrom ?? null,
+		});
+		if (!request.success) throw new EvryRefusal("invalid_input");
+		const goal = request.data;
+		const changes = [
+			...changed("leaderTarget", was?.leaderTarget ?? null, goal.leaderTarget),
+			...changed("plantTarget", was?.plantTarget ?? null, goal.plantTarget),
+			...changed("targetYear", was ? String(was.targetYear) : null, String(goal.targetYear)),
+			...changed("rationale", was?.rationale ?? null, goal.rationale),
+			...changed("countingFrom", was ? dayText(was.countingFrom) : null, dayText(next.countingFrom)),
+			...changed(
+				"goalCounts",
+				was ? countText(was.counts) : null,
+				goal.counts.length || was ? countText(goal.counts) : null,
+			),
+		];
+		return card(
+			{
+				target: {
+					kind: "organization",
+					id: actor.owner.id,
+					label: was ? goalHeadline(was) : "New sending goal",
+				},
+				changes,
+				notes: ["Saving a goal moves no one and changes no stage."],
+				refusal:
+					next.countingFrom > goals.asOf
+						? "The counting-from date can't be after today, so there is nothing to approve."
+						: changes.length
+							? null
+							: "The goal already says this, so nothing would change.",
+			},
+			goal,
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await pipelineWriter.saveGoal(db, authority, args)),
+});
+
+const stagesInput = z.strictObject({
+	stages: z
+		.array(
+			z.strictObject({
+				stageId: rowId.optional(),
+				label: z.string().trim().min(1).max(80),
+				kind: pipelineStageKind.optional(),
+			}),
+		)
+		.min(1)
+		.max(30),
+	remove: z.array(rowId).max(30).optional(),
+});
+const heldRow = z.strictObject({ id: z.string(), held: z.coerce.number() });
+
+export const saveStages = approvedNow({
+	operation: "pipeline.saveStages",
+	description:
+		"Propose renaming, adding, reordering or removing this organization's pipeline stages. Read pipeline.listPeople first, then give every stage that stays, in its new order: a kept stage by its stageId with its label (its current one unless the user renames it), a new stage with a label and the kind it counts as (potential_leader, apprentice, resident, commissioned, not_continuing or other; other when the user names none). List removed stages in remove. A stage's kind never changes, a stage with people in it can't be removed, and no person moves. Nothing changes until the user approves",
+	input: stagesInput,
+	async review(actor, value, { db }) {
+		const board = found(await readPipelineBoard(db, actor.authority, {}));
+		const held = new Map(
+			z
+				.array(heldRow)
+				.parse(
+					(
+						await db.execute(sql`SELECT pp.stage_id AS id,count(*) AS held FROM pipeline_person pp
+							JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id AND p.state IN ('live','retired')
+							WHERE pp.organization_id=${actor.owner.id}::uuid GROUP BY pp.stage_id`)
+					).rows,
+				)
+				.map((r) => [r.id, r.held]),
+		);
+		const byId = new Map<string, (typeof board.stages)[number]>(board.stages.map((s) => [s.id, s]));
+		const removing = new Set(value.remove ?? []);
+		const kept = new Set(value.stages.flatMap((s) => (s.stageId ? [s.stageId] : [])));
+		const known = [...kept, ...removing].every((id) => byId.has(id));
+		const once = kept.size === value.stages.filter((s) => s.stageId).length;
+		const clear = [...removing].every((id) => !kept.has(id));
+		if (!known || !once || !clear || board.stages.some((s) => !kept.has(s.id) && !removing.has(s.id)))
+			throw new EvryRefusal("invalid_input");
+		const rows = value.stages.map((s) => {
+			const was = s.stageId ? byId.get(s.stageId) : undefined;
+			return {
+				id: was?.id ?? randomUUID(),
+				label: s.label,
+				kind: s.kind ?? was?.kind ?? ("other" as const),
+				expectedRevision: was?.revision ?? null,
+				was,
+			};
+		});
+		const removed = board.stages.filter((s) => removing.has(s.id));
+		const rekinded = rows.find((r) => r.was && r.kind !== r.was.kind)?.was;
+		const labels = rows.map((r) => r.label.toLowerCase());
+		const twice = rows.find((r, n) => labels.indexOf(r.label.toLowerCase()) !== n);
+		const occupied = removed.find((s) => (held.get(s.id) ?? 0) > 0);
+		const renamed = rows.filter((r) => r.was && r.was.label !== r.label);
+		const added = rows.filter((r) => !r.was);
+		const stays = board.stages.filter((s) => kept.has(s.id)).map((s) => s.id);
+		const natural = [...stays, ...added.map((r) => r.id)];
+		const moved = rows.some((r, n) => r.id !== natural[n]);
+		const changes = [
+			...(renamed.length
+				? [{ field: "renamedStages", before: renamed.map((r) => r.was?.label), after: renamed.map((r) => r.label) }]
+				: []),
+			...(added.length
+				? [
+						{
+							field: "addedStages",
+							before: null,
+							after: added.map((r) => `${r.label}, counted as ${STAGE_KIND[r.kind]}`),
+						},
+					]
+				: []),
+			...(removed.length ? [{ field: "removedStages", before: removed.map((s) => s.label), after: null }] : []),
+			...(moved
+				? [{ field: "stageOrder", before: board.stages.map((s) => s.label), after: rows.map((r) => r.label) }]
+				: []),
+		];
+		const refusal = rekinded
+			? `${rekinded.label} counts as ${STAGE_KIND[rekinded.kind]}, and a stage's kind can't change. Add a new stage instead.`
+			: twice
+				? `Two stages would be called ${twice.label}. Each stage needs its own name.`
+				: occupied
+					? `${occupied.label} still has ${counted(held.get(occupied.id) ?? 0, "person", "people")}, so it can't be removed. Move or remove them first. Retired people count too.`
+					: changes.length
+						? null
+						: "The stages are already like this, so nothing would change.";
+		return card(
+			{
+				target: { kind: "organization", id: actor.owner.id, label: "Pipeline stages" },
+				changes,
+				notes: ["No person moves. Only the stages listed here change."],
+				refusal,
+			},
+			{
+				stages: rows.map(({ id, label, kind, expectedRevision }) => ({ id, label, kind, expectedRevision })),
+				removed: removed.map((s) => ({ id: s.id, expectedRevision: s.revision })),
+			},
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await pipelineWriter.saveStages(db, authority, args)),
+});
+
+const enrollInput = z.strictObject({
+	programId: rowId,
+	personId: rowId,
+	cohort: z.string().trim().min(1).max(80),
+	startedOn: dayInput,
+	expectedEndOn: dayInput,
+	stageId: rowId.optional(),
+	nextMeetingAt: localTimeInput.nullable().optional(),
+});
+const meetingText = (at: string | null, zone: string) => (at ? `${localWhenText(at)} (${zone})` : null);
+const enrollmentHref = (enrollmentId: string) => `/organization/pipeline/programs/enrollments/${enrollmentId}`;
+
+export const enroll = approvedNow({
+	operation: "development.enroll",
+	description:
+		"Propose enrolling one live pipeline person (personId, a candidate row of development.readProgram with enrolled: true) in a published program: the cohort's name, the start and expected end dates, the program stage (stageId of the published version; the first stage without one) and the next meeting as a local date and time in the organization's time zone, if any. Ask for a cohort or date the user didn't give. Their pipeline stage doesn't change. Owner or Admin. Nothing changes until the user approves",
+	input: enrollInput,
+	async review(actor, value, { db }) {
+		const p = found(await readProgram(db, actor.authority, { programId: value.programId }));
+		const person = p.people.find((x) => x.personId === value.personId);
+		if (!person) throw new EvryRefusal("not_found");
+		const stages = p.published?.stages ?? [];
+		const stage = value.stageId ? stages.find((s) => s.id === value.stageId) : stages[0];
+		if (p.published && !stage) throw new EvryRefusal("invalid_input");
+		const duplicate = p.enrollments.some((e) => e.personId === value.personId && e.status === "active");
+		const meeting = value.nextMeetingAt ?? null;
+		const enrollmentId = randomUUID();
+		const args = {
+			enrollmentId,
+			...value,
+			stageId: stage?.id,
+			nextMeetingAt: meeting,
+		};
+		const refusal = !p.published
+			? `${p.name} has no published version yet. Its director publishes it from Programs before anyone is enrolled.`
+			: duplicate
+				? `${person.name} is already enrolled in ${p.name}. Each person can have one active enrollment per program.`
+				: value.expectedEndOn < value.startedOn
+					? "The expected end can't be before the start."
+					: null;
+		if (!refusal && !enrollRequest.safeParse(args).success) throw new EvryRefusal("invalid_input");
+		return card(
+			{
+				target: {
+					kind: "person",
+					id: person.personId,
+					label: person.name,
+					href: enrollmentHref(enrollmentId),
+				},
+				changes: [
+					{ field: "program", before: null, after: p.published ? `${p.name}, Version ${p.published.number}` : p.name },
+					{ field: "cohort", before: null, after: value.cohort },
+					{ field: "startedOn", before: null, after: dayText(value.startedOn) },
+					{ field: "expectedEndOn", before: null, after: dayText(value.expectedEndOn) },
+					{ field: "programStage", before: null, after: stage?.label ?? null },
+					...(meeting ? [{ field: "nextMeeting", before: null, after: meetingText(meeting, p.timezone) }] : []),
+				],
+				notes: [
+					"Their pipeline stage doesn't change. The enrollment stays on this version until the director applies a newer one.",
+				],
+				refusal,
+			},
+			args,
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await programWriter.enroll(db, authority, args)),
+});
+
+const directedEnrollment = async (
+	db: Parameters<typeof readEnrollment>[0],
+	authority: Parameters<typeof readEnrollment>[1],
+	enrollmentId: string,
+) => {
+	const e = found(await readEnrollment(db, authority, { enrollmentId }));
+	if (!e.viewer.director) throw new EvryRefusal("access_denied");
+	return e;
+};
+const enrollmentTarget = (e: EnrollmentDetail): Card["target"] => ({
+	kind: "person",
+	id: e.person.personId,
+	label: e.person.name,
+	href: enrollmentHref(e.id),
+});
+const closed = (e: EnrollmentDetail) =>
+	e.status === "active"
+		? null
+		: `${e.person.name}'s enrollment in ${e.program.name} has ended as ${ENROLLMENT_STATUS[e.status]}, so it can't change.`;
+
+const updateInput = z
+	.strictObject({
+		enrollmentId: rowId,
+		changes: z
+			.strictObject({
+				cohort: z.string().trim().min(1).max(80).optional(),
+				expectedEndOn: dayInput.optional(),
+				stageId: rowId.optional(),
+				nextMeetingAt: localTimeInput.nullable().optional(),
+			})
+			.refine((c) => Object.keys(c).length > 0, "empty changes")
+			.optional(),
+		outcome: enrollmentOutcome.optional(),
+	})
+	.refine((v) => (v.changes === undefined) !== (v.outcome === undefined), "changes or outcome, not both");
+
+function endReview(e: EnrollmentDetail, outcome: z.infer<typeof enrollmentOutcome>) {
+	return card(
+		{
+			target: enrollmentTarget(e),
+			changes: [{ field: "status", before: ENROLLMENT_STATUS.active, after: ENROLLMENT_STATUS[outcome] }],
+			notes: [`${e.program.name}, Version ${e.versionNumber}.`, ...ENROLLMENT_END_NOTES],
+			refusal: closed(e),
+		},
+		{ enrollmentId: e.id, expectedRevision: e.revision, outcome },
+	);
+}
+
+export const updateEnrollment = approvedNow({
+	operation: "development.updateEnrollment",
+	description:
+		"Propose changing one active enrollment the user directs (enrollmentId from development.readProgram): only the fields named, of its cohort, expected end date, program stage (stageId, a stage row of that enrollment's own version) and next meeting (a local date and time in the organization's time zone, or null to clear it). Its version, finished milestones and the person's pipeline stage stay. Or, with outcome instead of changes, end it as completed or withdrawn; it can't be reopened. Nothing changes until the user approves",
+	input: updateInput,
+	allowed: organizationSeat,
+	async review(actor, value, { db }) {
+		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);
+		if (value.outcome) return endReview(e, value.outcome);
+		const c = value.changes ?? {};
+		const stage = c.stageId ? e.stages.find((s) => s.id === c.stageId) : e.stage;
+		if (!stage) throw new EvryRefusal("invalid_input");
+		const program = found(await readProgram(db, actor.authority, { programId: e.program.id }));
+		const end = c.expectedEndOn ?? e.expectedEndOn;
+		const before = e.nextMeeting ? meetingText(e.nextMeeting.at, e.nextMeeting.timezone) : null;
+		const changes = [
+			...changed("cohort", e.cohort, c.cohort ?? e.cohort),
+			...changed("expectedEndOn", dayText(e.expectedEndOn), dayText(end)),
+			...changed("programStage", e.stage.label, stage.label),
+			...changed(
+				"nextMeeting",
+				before,
+				c.nextMeetingAt === undefined ? before : meetingText(c.nextMeetingAt, program.timezone),
+			),
+		];
+		return card(
+			{
+				target: enrollmentTarget(e),
+				changes,
+				notes: [
+					`${e.program.name}, Version ${e.versionNumber}. The version, finished milestones and their pipeline stage stay as they are.`,
+				],
+				refusal:
+					closed(e) ??
+					(end < e.startedOn
+						? `The expected end can't be before the start, ${dayText(e.startedOn)}.`
+						: changes.length
+							? null
+							: "The enrollment already says this, so nothing would change."),
+			},
+			{ enrollmentId: e.id, expectedRevision: e.revision, changes: c },
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) =>
+		settled(
+			await ("outcome" in args
+				? programWriter.endEnrollment(db, authority, args)
+				: programWriter.updateEnrollment(db, authority, args)),
+		),
+});
+
+const applyInput = z.strictObject({ enrollmentId: rowId, stageId: rowId.optional() });
+
+export const applyVersion = approvedNow({
+	operation: "development.applyVersion",
+	description:
+		"Propose moving one enrollment the user directs (enrollmentId from development.readProgram) to the program's current published version. The card lists the added, removed and changed milestones and the new program stage: the matching one, or stageId, a stage of the published version, when the user names another. Finished milestones are kept. Nothing changes until the user approves",
+	input: applyInput,
+	allowed: organizationSeat,
+	async review(actor, value, { db }) {
+		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);
+		const refusal =
+			closed(e) ??
+			(e.newerVersion ? null : `${e.person.name} is already on Version ${e.versionNumber}, the current one.`);
+		if (refusal) return card({ target: enrollmentTarget(e), changes: [], refusal }, { enrollmentId: e.id });
+		const r = found(await readVersionReview(db, actor.authority, { enrollmentId: e.id }));
+		const stage = r.stages.find((s) => s.id === (value.stageId ?? r.stageId));
+		if (!stage) throw new EvryRefusal("invalid_input");
+		const titles = (ms: readonly { title: string; finished: boolean }[]) =>
+			ms.map((m) => (m.finished ? `${m.title} (finished)` : m.title));
+		const work = (m: (typeof r.added)[number]) =>
+			[m.title, m.handsOn ? "hands-on assignment" : null, m.description].filter(Boolean).join(", ");
+		return card(
+			{
+				target: enrollmentTarget(e),
+				changes: [
+					{ field: "programVersion", before: `Version ${r.fromNumber}`, after: `Version ${r.toNumber}` },
+					{ field: "programStage", before: r.stage, after: stage.label },
+					...(r.added.length ? [{ field: "addedMilestones", before: null, after: titles(r.added) }] : []),
+					...(r.changed.length
+						? [
+								{
+									field: "changedMilestones",
+									before: r.changed.map((c) => work(c.before)),
+									after: r.changed.map((c) => work(c.after)),
+								},
+							]
+						: []),
+					...(r.removed.length ? [{ field: "removedMilestones", before: titles(r.removed), after: null }] : []),
+				],
+				notes: [
+					r.carried.length
+						? `Finished work kept: ${r.carried.join("; ")}.`
+						: "No finished milestone carries over, because none is finished yet.",
+					`Only ${r.name} changes version. Finished work on removed milestones stays in their record.`,
+				],
+			},
+			{ enrollmentId: e.id, versionId: r.versionId, stageId: stage.id, basis: r.basis },
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await programWriter.applyVersion(db, authority, args)),
+});
+
+const milestoneOf = (e: EnrollmentDetail, milestoneId: string) => {
+	const m = e.milestones.find((x) => x.id === milestoneId);
+	if (!m) throw new EvryRefusal("not_found");
+	return m;
+};
+
+export const confirmMilestone = approvedNow({
+	operation: "development.confirmMilestone",
+	description:
+		"Propose confirming one milestone the linked resident marked done and shares (its progress says Waiting for confirmation), by enrollmentId and milestoneId from development.readProgram. Only the program's current director. Nothing changes until the user approves",
+	input: z.strictObject({ enrollmentId: rowId, milestoneId: rowId }),
+	allowed: organizationSeat,
+	async review(actor, value, { db }) {
+		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);
+		const m = milestoneOf(e, value.milestoneId);
+		const c = m.completion;
+		const refusal =
+			closed(e) ??
+			(e.resident.status === "not_linked"
+				? `${e.person.name} has no linked account, so there is nothing to confirm. Record the milestone as finished instead.`
+				: e.resident.milestones === "not_shared"
+					? `${e.person.name} doesn't share milestone progress, so there is nothing to confirm here.`
+					: !c
+						? `${e.person.name} hasn't marked this milestone done yet. They mark it on My residency.`
+						: c.confirmedOn !== null
+							? "This milestone is already confirmed."
+							: null);
+		return card(
+			{
+				target: enrollmentTarget(e),
+				changes: [
+					{ field: "milestone", before: null, after: m.title },
+					{
+						field: "milestoneProgress",
+						before: c && c.confirmedOn === null ? `Marked done ${dayText(c.completedOn)}` : null,
+						after: "Confirmed by you",
+					},
+				],
+				notes: [`${e.program.name}, Version ${e.versionNumber}.`],
+				refusal,
+			},
+			value,
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await programWriter.confirmMilestone(db, authority, args)),
+});
+
+export const completeMilestone = approvedNow({
+	operation: "development.completeMilestone",
+	description:
+		"Propose recording one milestone as finished for someone with no linked account, by enrollmentId and milestoneId from development.readProgram, with the day they finished it (a local date, today or earlier; ask when the user gave none). A linked resident marks their own milestones on My residency. Only the program's current director. Nothing changes until the user approves",
+	input: z.strictObject({ enrollmentId: rowId, milestoneId: rowId, completedOn: dayInput }),
+	allowed: organizationSeat,
+	async review(actor, value, { db }) {
+		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);
+		const m = milestoneOf(e, value.milestoneId);
+		const refusal =
+			closed(e) ??
+			(e.resident.status === "linked"
+				? `${e.person.name} has a linked account, so they mark this milestone themselves on My residency.`
+				: m.completion?.confirmedOn
+					? "This milestone is already recorded as finished."
+					: value.completedOn > e.today
+						? "The finish date can't be after today."
+						: null);
+		return card(
+			{
+				target: enrollmentTarget(e),
+				changes: [
+					{ field: "milestone", before: null, after: m.title },
+					{
+						field: "milestoneProgress",
+						before: "Not finished",
+						after: `Finished ${dayText(value.completedOn)}`,
+					},
+				],
+				notes: [
+					`${e.program.name}, Version ${e.versionNumber}. It shows as recorded and confirmed by you, the program leader.`,
+				],
+				refusal,
+			},
+			value,
+		);
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await programWriter.recordMilestone(db, authority, args)),
+});
+
 export const PIPELINE_COMMANDS = {
 	"pipeline.proposeStageMove": proposeStageMove,
+	"pipeline.saveGoal": saveGoal,
+	"pipeline.saveStages": saveStages,
 	"development.saveProgram": saveProgram,
 	"development.draftNextVersion": draftNextVersion,
+	"development.enroll": enroll,
+	"development.updateEnrollment": updateEnrollment,
+	"development.applyVersion": applyVersion,
+	"development.confirmMilestone": confirmMilestone,
+	"development.completeMilestone": completeMilestone,
 } as const;

@@ -51,7 +51,7 @@ function readOnlyAreas(catalog: Catalog) {
 	const written = new Set(catalog.reviewedWrites.map((w) => namespace(w.operation)));
 	const read = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => namespace(o.operation))));
 	return [...read]
-		.filter((n) => n !== "notifications" && n !== "calendar" && n !== "mail" && !written.has(n))
+		.filter((n) => n !== "notifications" && n !== "calendar" && n !== "mail" && n !== "geography" && !written.has(n))
 		.map((n) => AREA_NAMES[n] ?? n);
 }
 
@@ -98,7 +98,7 @@ function churchRule(actor: EvryActor) {
 
 export const PIPELINE_RULES = {
 	nativeOnly:
-		"Leadership conversations are logged on the Pipeline page, not here, and so are notes, assessments and milestone completions. Open [Pipeline](/organization/pipeline) and log it on the person's record. Nothing was logged.",
+		"Leadership conversations are logged on the Pipeline page, not here, and so are notes and assessments. Open [Pipeline](/organization/pipeline) and log it on the person's record. Nothing was logged.",
 	noJudgment:
 		"I can't read or summarize staff notes or feedback, rank people, or judge anyone's calling or readiness to plant. I can list the people in each stage, or show who hasn't moved in six months.",
 	ownPipeline:
@@ -106,17 +106,23 @@ export const PIPELINE_RULES = {
 	ownPrograms:
 		"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs.",
 	programNative:
-		"Versions are published on the program's page in Programs, not here, and so are enrollments, moving enrolled people to a newer version, milestones and feedback. Open [Programs](/organization/pipeline/programs) and do it on the program's page. Nothing was published.",
+		"Versions are published on the program's page in Programs, not here, and feedback is written there too. Open [Programs](/organization/pipeline/programs) and do it on the program's page. Nothing was published.",
 	directorOnly: "Only a program's current director edits its plan, as its page in Programs shows.",
+	enrollmentDirectorOnly:
+		"Only a program's current director changes an enrollment, applies a new version or records and confirms milestones, as its page in Programs shows.",
+	unclearEnd:
+		"Did the enrollment end as Completed, because they finished the program, or as Withdrawn, because they left it? Nothing was prepared.",
 } as const;
 function pipelineRules() {
 	return [
-		`When the user asks to log or record a leadership conversation, a note, an assessment or a milestone completion, prepare nothing and reply: ${PIPELINE_RULES.nativeOnly}`,
+		`When the user asks to log or record a leadership conversation, a note or an assessment, prepare nothing and reply: ${PIPELINE_RULES.nativeOnly}`,
 		`Never read, quote or summarize staff notes, feedback or move reasons, never rank or compare people, and never judge anyone's calling or readiness. When the user asks for one, prepare nothing and reply: ${PIPELINE_RULES.noJudgment}`,
 		`When the user asks about another organization's pipeline or people, read only this organization's pipeline and reply: ${PIPELINE_RULES.ownPipeline}`,
 		"A stage move proposes only the person and the stage. Never repeat the user's reason for a move in a proposal or an answer: the user types the reason on the review card.",
-		`When the user asks to publish a version, enroll someone, move enrolled people to a newer version, or record a milestone or feedback, prepare nothing and reply: ${PIPELINE_RULES.programNative}`,
+		`When the user asks to publish a version or write feedback, prepare nothing and reply: ${PIPELINE_RULES.programNative}`,
 		`To draft a program's next version, read it with development.readProgram first. ${PIPELINE_RULES.directorOnly} When development.readProgram says the user does not direct it, prepare nothing and say who directs it. Otherwise propose the whole changed plan with development.draftNextVersion, starting from the draft in progress or else the published version: keep each kept or renamed milestone's lineage, and never change the reading list, the name, the kind or the director.`,
+		"Sending goals come only from pipeline.readGoals and conversation counts only from pipeline.readConversationCounts: give the figures with the day each goal counts from. Never say who met whom. To add or change a goal propose pipeline.saveGoal with only the fields the user names. To change the pipeline's stages read pipeline.listPeople and propose pipeline.saveStages with every stage that stays, in order, and the removed ones in remove. When the card is refused, say its reason.",
+		`To enroll someone, update an enrollment, apply the current version to someone, or confirm or record a milestone, read development.readProgram first (the programs, then the program with enrolled: true, then the enrollment). To enroll, propose development.enroll with a candidate; ask for the cohort and dates when the user gave none. ${PIPELINE_RULES.enrollmentDirectorOnly} When directedByYou is false, prepare nothing and say who directs it. A milestone Waiting for confirmation is confirmed with development.confirmMilestone. For someone whose account is Not linked, record it with development.completeMilestone and the finish date; someone Linked marks it themselves on My residency. Name one person and one milestone per card. To end an enrollment, propose development.updateEnrollment with its outcome: completed when they finished the program, withdrawn when they dropped out or left it. When which one isn't clear, prepare nothing and ask: ${PIPELINE_RULES.unclearEnd} Ask too when the person or program is unclear. When its status is not Active, prepare nothing and say how it ended. Say an enrollment ended as Withdrawn, never that the person finished.`,
 		`When the user asks about another organization's programs, read only this organization's programs and reply: ${PIPELINE_RULES.ownPrograms}`,
 	].join("\n");
 }
@@ -174,6 +180,7 @@ function intelligenceRules() {
 		`Committed adults come only from intelligence.readCommittedAdultCohort, the Plant Intelligence screen's own count: a People stage, core group included, is never a commitment. Give the known count and the date it was measured. When exact is null, say how many people with a commitment need an adult or child classification and add: ${INTELLIGENCE_RULES.unclassified} When the criterion is met, say so.`,
 		"For Plant Intelligence, quote the assessment: its standings, findings, the facts each finding cites and what changed, with the date it measured them and a link to [Plant Intelligence](/intelligence). Team health comes from teams.aggregateHealth with its dates. Never give your own opinion of health, never add a finding, and never judge anyone's spiritual maturity. Private weekly check-ins are never read or quoted.",
 		`To turn an assessment suggestion into tasks, read intelligence.readAssessment and then tasks.list with words from the suggestion. When an open task already covers it, name that task and propose nothing. Otherwise propose tasks.create for the practical step only. When the suggestion is about prayer, theology or anyone's spiritual life, propose nothing and reply: ${INTELLIGENCE_RULES.noSpiritualTasks}`,
+		"For how assessments changed over time use intelligence.readAssessmentHistory, and for one earlier assessment intelligence.readAssessmentRun with its id. Use only published assessments. When newer is set, say it and the published sentence. With no assessment yet, when asked where to start, use intelligence.readColdStartGuidance: give its title, body and results, then its steps in order with their details, and call nothing met or unmet. For the user's own ratings use intelligence.readOwnFeedback; when it is empty, say they gave none.",
 		`A refresh or feedback on a finding is a review card (intelligence.requestRefresh, intelligence.submitFeedback). When no tool offers it, prepare nothing and reply: ${INTELLIGENCE_RULES.ownerOnly}`,
 	].join("\n");
 }
@@ -186,21 +193,35 @@ export const OVERSIGHT_RULES = {
 		"Network Intelligence doesn't rank or score plants or places, so I can't say which one is doing best. I can show you the patterns it found instead, for one Region, state or country or across your whole portfolio.",
 	earlierRunLocation:
 		"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one.",
+	releasedOnly:
+		"I can only use what your plants have released to you, so I can't open one plant's own assessments or say what they said.",
+	intelligenceOwnerOnly:
+		"Only an Owner or Admin can refresh Network Intelligence or rate its patterns. Nothing was requested.",
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;
-function oversightRules() {
+function oversightRules(kind: EvryActor["contextKind"]) {
 	return [
+		kind === "sending_network"
+			? "Sending churches come only from oversight.listSendingChurches and oversight.getSendingChurch: this network's current links. Link each with its href."
+			: "",
+		`When the user asks how a plant changed over time or about one of its assessments, read oversight.listPlants, then oversight.getPlant and organizationIntelligence.readHistory (level portfolio, then earlier runs by runId), and reply first: ${OVERSIGHT_RULES.releasedOnly} Then give the plant's released health and concerns now and the Network Intelligence runs with the patterns that named it in each. A plant that shares none is Not shared.`,
+		`A Network Intelligence refresh or a rating of one pattern is a review card (organizationIntelligence.requestRefresh, organizationIntelligence.submitFeedback). When the user asks to refresh one plant's assessment, pass its plantId and say only that plant can ask for its own assessment. When no tool offers it, prepare nothing and reply: ${OVERSIGHT_RULES.intelligenceOwnerOnly}`,
 		"Plant oversight comes only from oversight.listPlants, oversight.getPlant and organizationIntelligence.read: what this organization's own pages show. A plant that doesn't share Plant Intelligence findings is Not shared, never zero or healthy.",
 		`When the user asks for a plant's people, notes, interviews, care or assessment text, read only that plant's totals with oversight.getPlant and reply first: ${OVERSIGHT_RULES.totalsOnly} Never name a person.`,
 		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
 		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
-	].join("\n");
+	]
+		.filter(Boolean)
+		.join("\n");
 }
 
 function placeRules() {
 	return `Network Intelligence by place and over time comes from organizationIntelligence.readHistory (one level or every level, one named place, an earlier run, or what changed since the run before), organizationIntelligence.readLocations (where each plant is placed now) and organizationIntelligence.readLocationHistory (a plant's saved locations and the runs that used each). Quote groups and patterns as they come, say why a group has no pattern, link each plant you name with its plantLinks or href and link the page view with href. A plant with No Region set still counts at its state, its country and the whole portfolio. ${OVERSIGHT_RULES.earlierRunLocation} Never give a street address or coordinates. When asked which plant or place is doing best, or to rank or score them, reply: ${OVERSIGHT_RULES.noPlaceRanking}`;
 }
+
+const REGION_RULE =
+	"To correct this church's reporting Region, read geography.listReportingRegionCandidates, with the place the user states or none for the saved one. With one candidate propose organizations.correctReportingLocation; with more than one ask which; with none say the official Region list has no Region for that place and prepare nothing.";
 
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
@@ -210,11 +231,11 @@ function roleRule(actor: EvryActor) {
 	const scope =
 		actor.contextKind === "plant"
 			? "invite people, change seats and invitations, or change this church's settings, sharing and connections"
-			: "invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs";
+			: "invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people";
 	const setup =
 		actor.contextKind === "plant"
-			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}\n${intelligenceRules()}`
-			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}\n${oversightRules()}`;
+			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}\n${intelligenceRules()}\n${REGION_RULE}`
+			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}\n${oversightRules(actor.contextKind)}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
@@ -262,7 +283,7 @@ const READ_AREAS: Record<string, string> = {
 	seats: "Read who has a seat here and the open invitations.",
 	sharing: "Read what your church shares with each connection.",
 	onboarding: "See where setup stands, or your own Discovery space.",
-	pipeline: "Read your organization's pipeline and draft a program plan.",
+	pipeline: "Read your organization's pipeline, sending goals and programs, and draft a program plan.",
 	calendar: "Work out dates and times in your church's time zone, including the daylight saving changes.",
 	wiki: "Find what the Wiki says, what to read next and where you left off.",
 	documents: "Find your church's documents and the Church Document templates.",
@@ -273,6 +294,7 @@ const READ_AREAS: Record<string, string> = {
 		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
 	connections: "Read your pending link invitations and the history of your links.",
 	settings: "Read your settings, your organization's profile and your own account name and photo.",
+	geography: "Find the reporting Regions your church's place can have.",
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
 const WIKI_BROWSING =
@@ -328,7 +350,22 @@ const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 	},
 	{ prefix: "launch.", text: "Prepare Launch plan changes for your review, as your seat allows." },
 	{ prefix: "feedback.", text: "Send feedback about Everyfield after you review it." },
-	{ prefix: "pipeline.", text: "Prepare a pipeline stage move or a new program for your review." },
+	{
+		prefix: "pipeline.",
+		text: "Prepare pipeline changes for your review: a stage move, your stages and your sending goals.",
+	},
+	{
+		prefix: "development.",
+		text: "Prepare program changes for your review, as your seat allows: a new program or version draft, enrollments and milestones.",
+	},
+	{
+		prefix: "organizationIntelligence.",
+		text: "Prepare a Network Intelligence refresh, or your rating of a pattern, for your review.",
+	},
+	{
+		prefix: "organizations.correctReportingLocation",
+		text: "Prepare a correction of your church's reporting Region for your review.",
+	},
 	{
 		prefix: "intelligence.",
 		text: "Prepare a Plant Intelligence refresh, or your feedback on a finding, for your review.",

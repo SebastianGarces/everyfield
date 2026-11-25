@@ -48,6 +48,7 @@ flowchart LR
   s4 -- "link #quot;Church planting residency#quot;, then link #quot;Casey Lee#quot;" --> s5
   s5 -.- s5_st0(("enrollment"))
   s5 --- s5_b0["confirm-milestone<br/>tests + cases"]
+  s5 --- s5_b1["end-enrollment<br/>tests + cases"]
   s6["organizations.reviews<br/>/organization/reviews /organization/reviews/[reviewId]"]
   rail -- "Sent for review" --> s6
   s6 -.- s6_st0(("empty"))
@@ -592,6 +593,15 @@ The director confirms a milestone the resident marked done, or records and confi
 - Cases: ADR1-012
 - Test: `tests/integration/organizations/residency.test.mts`: `AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step`
 - Test: `tests/integration/organizations/programs.test.mts`: `AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes`
+
+#### organizations.enrollment#end-enrollment
+
+The program's current director ends an active enrollment as Completed or Withdrawn from a dialog with neither preselected. The ended page offers no further change, and the person can be enrolled again.
+
+- Operations: development.updateEnrollment
+- Catalog: MUL-011
+- Cases: ADR1-011
+- Test: `tests/integration/organizations/programs.test.mts`: `AC:ADR1-011 ending is refused with nothing written for anyone but the current director, a bad status, a stale revision and an unknown enrollment`
 
 ### organizations.reviews
 

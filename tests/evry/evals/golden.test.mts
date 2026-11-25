@@ -1427,7 +1427,12 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	assert.deepEqual(
 		tools("member"),
 		churchTools.filter(
-			(t) => t !== "peopleAssessments_read" && t !== "phases_read" && t !== "signals_read" && t !== "intelligence_read",
+			(t) =>
+				t !== "peopleAssessments_read" &&
+				t !== "phases_read" &&
+				t !== "signals_read" &&
+				t !== "intelligence_read" &&
+				t !== "geography_read",
 		),
 	);
 	assert.deepEqual(
@@ -1474,12 +1479,21 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"account.removeAvatar",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
+			"pipeline.saveGoal",
+			"pipeline.saveStages",
 			"development.saveProgram",
 			"development.draftNextVersion",
+			"development.enroll",
+			"development.updateEnrollment",
+			"development.applyVersion",
+			"development.confirmMilestone",
+			"development.completeMilestone",
 			"wiki.organizationArticles.add",
 			"wiki.organizationArticles.edit",
 			"wiki.organizationArticles.publish",
 			"wiki.organizationArticles.hide",
+			"organizationIntelligence.requestRefresh",
+			"organizationIntelligence.submitFeedback",
 		],
 	);
 });

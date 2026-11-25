@@ -192,3 +192,28 @@ export async function seedPipeline(admin: Database, runtime: Database) {
 	});
 	return { grace, hill, anaSeat, residency };
 }
+
+export async function linkResident(admin: Executor, personId: string, name: string, shares = true) {
+	const [account, user, affiliation, invitation] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+	const email = `${user}@example.test`;
+	await admin.execute(sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${email},true,${name})`);
+	await admin.execute(sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind)
+		VALUES(${account},${user},'active','discovery')`);
+	await admin.execute(sql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,
+		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${affiliation},${account},${GRACE_AUSTIN},clock_timestamp(),false,false,false,false,false,false,false)`);
+	await admin.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,
+		accepted_account_id,resident_person_id) VALUES(${invitation},${GRACE_AUSTIN},'residency_link',${email},
+		${randomUUID()},'accepted',clock_timestamp(),${account},${personId})`);
+	await admin.execute(sql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,
+		accepted_at,consent_revision,revision,share_foundations,share_milestones)
+		VALUES(${randomUUID()},${GRACE_AUSTIN},${personId},${account},${affiliation},${invitation},clock_timestamp(),1,1,false,${shares})`);
+	await admin.execute(sql`UPDATE person SET linked_account_id=${account} WHERE id=${personId}`);
+	return account;
+}
+
+export const markMilestone = (admin: Executor, enrollmentId: string, title: string, account: string, on: string) =>
+	admin.execute(sql`INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,source,
+		completed_on,recorder_id) SELECT ${randomUUID()},e.organization_id,e.id,e.version_id,m.id,'resident',${on}::date,
+		${account} FROM development_enrollment e JOIN development_milestone m ON m.version_id=e.version_id AND m.title=${title}
+		WHERE e.id=${enrollmentId}`);

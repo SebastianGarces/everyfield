@@ -90,3 +90,4 @@ export * from "./signals.ts";
 export * from "./facts.ts";
 export * from "./assessment.ts";
 export * from "./views.ts";
+export * from "./cold-start.ts";

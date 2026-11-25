@@ -83,13 +83,6 @@ export function stageChanges(
 	return changes;
 }
 
-export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; targetYear: number }) {
-	const leaders = goal.leaderTarget ? `Develop ${counted(goal.leaderTarget, "leader")}` : "";
-	const plants = goal.plantTarget ? `plant ${counted(goal.plantTarget, "church", "churches")}` : "";
-	const aim = leaders && plants ? `${leaders} to ${plants}` : leaders || plants.replace(/^p/, "P");
-	return aim ? `${aim} by ${goal.targetYear}` : `Goal for ${goal.targetYear}`;
-}
-
 export const monthLabel = (month: string) => {
 	const name = MONTHS[Number(month.slice(5, 7)) - 1];
 	if (!name) throw new RangeError(`Not a month: ${month}`);
