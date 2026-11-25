@@ -43,6 +43,7 @@ export type Reference = { kind: "person" | "photo"; id: string } | { kind: "arti
 export type SourceRow = {
 	kind:
 		| "person"
+		| "retired_person"
 		| "household"
 		| "tag"
 		| "skill"
@@ -153,6 +154,8 @@ export const EMPTY: State = {
 	reviews: {},
 };
 
+export const UNSHOWN = new Set(["evry.readDraft", "evry.updateDraft", "evry.readReview"]);
+
 export function mergeLive(state: State, turnId: string, offset: number, text: string): State {
 	const have = state.live[turnId] ?? "";
 	if (offset > have.length || offset + text.length <= have.length) return state;
@@ -237,6 +240,7 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 				break;
 			}
 			case "tool_result":
+				if (UNSHOWN.has(e.body.operation)) break;
 				if (e.body.result.proposalId)
 					turn.blocks.push({
 						kind: "review",
