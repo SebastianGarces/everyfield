@@ -1,9 +1,16 @@
+import "./golden-clock.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
+import {
+	COMPOSE_READS,
+	readCatalog,
+	READ_DOMAINS,
+	SELECT_RETURNED_ROWS,
+	UPDATE_DRAFT,
+} from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { approveProposal } from "../../../packages/evry/src/proposals/store.ts";
 import { executeProposal } from "../../../packages/evry/src/execution/execute.ts";
@@ -16,6 +23,10 @@ import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts"
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { waitingOnLock } from "../../support/fixture.mts";
+import { seedDebrief, seedGuests, seedLaunched, seedOutcome, seedScheduled } from "./launch-church.mts";
+import { installGeographyRelease } from "../../../packages/domain/src/organizations/index.ts";
+import { assessedChurch, seedNetwork } from "./network-church.mts";
+import { seedConnected } from "./connected-church.mts";
 import { ALEX_CALL, seedCommunication, USED_TEMPLATE } from "./communication-church.mts";
 import {
 	GIVING,
@@ -46,6 +57,9 @@ import {
 	saveRecording,
 	type CaseFile,
 	type Conversation,
+	type Earlier,
+	type EvalActor,
+	type EvalChurch,
 	type Grade,
 	type Turn,
 } from "./golden-harness.mts";
@@ -86,11 +100,12 @@ type Checks = {
 	neverSent?: string[];
 };
 type Eval = Checks & {
-	as?: ActorName;
-	church?: "communication";
+	as?: EvalActor;
+	church?: keyof typeof CHURCHES;
 	text?: string;
 	page?: string;
 	offer?: string[];
+	earlier?: Earlier;
 	history?: Turn[];
 	attachments?: CaseFile[];
 	kind?: Conversation["kind"];
@@ -149,14 +164,39 @@ const extras: ExtraCase[] = json("adapters.cases.json");
 const scripted: ExtraCase[] = json("assessments.cases.json");
 type Baseline = { note: string; recordedAt: string; passed: string[] };
 const baseline: Baseline = json("golden.baseline.json");
-const RERECORD =
-	"EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts";
+const RUN = "pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server";
+const SUITE = "--test ../../tests/evry/evals/golden.test.mts";
+const RERECORD = `EVRY_EVAL_RECORD=1 ${RUN} --env-file=../../apps/web/.env.local ${SUITE}`;
 
 const church = await goldenChurch();
 after(church.close);
 const mailChurch = await goldenChurch();
 after(mailChurch.close);
 await seedCommunication(mailChurch.admin, { training: false });
+const launchedChurch = await goldenChurch();
+after(launchedChurch.close);
+await seedScheduled(launchedChurch.admin, launchedChurch.db);
+await seedLaunched(launchedChurch.db);
+await seedOutcome(launchedChurch.db, 150);
+await seedGuests(launchedChurch.db);
+await seedDebrief(launchedChurch.db);
+const connectedChurch = await goldenChurch();
+after(connectedChurch.close);
+await seedConnected(connectedChurch.admin);
+const networkChurch = await goldenChurch();
+after(networkChurch.close);
+await installGeographyRelease(networkChurch.admin);
+const networkActors = await seedNetwork(networkChurch.admin, networkChurch.db);
+const assessed = await assessedChurch();
+after(assessed.close);
+const CHURCHES = {
+	communication: mailChurch,
+	launched: launchedChurch,
+	connected: connectedChurch,
+	network: { ...networkChurch, actors: { ...networkChurch.actors, ...networkActors } },
+	assessed,
+} satisfies Record<string, EvalChurch>;
+const PINNED_SEEDS = new Set<Eval["church"]>(["launched", "network", "assessed"]);
 
 const fill = (p: string, as = (v: string) => v) =>
 	p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => as(byName(name)[field]!));
@@ -255,7 +295,8 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 		out.push({ name, ok, detail, ...tag });
 	const answer = c.answer;
 	const reads = c.calls.filter(
-		(x) => x.operation !== "evry.selectReturnedRows" && !x.operation.startsWith("calendar."),
+		(x) =>
+			x.operation !== SELECT_RETURNED_ROWS && x.operation !== COMPOSE_READS && !x.operation.startsWith("calendar."),
 	);
 	const callsText = c.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none";
 	for (const want of spec.calls ?? []) {
@@ -382,7 +423,10 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 }
 
 function gates(c: Conversation, given: string): Check[] {
-	const claims = c.answer.split(/(?<=[.!?\n])\s+/).filter((s) => CLAIM.test(s) && !NEGATED.test(s));
+	const kept = c.calls.some((x) => x.operation === UPDATE_DRAFT && !x.error);
+	const claims = c.answer
+		.split(/(?<=[.!?\n])\s+/)
+		.filter((s) => CLAIM.test(s) && !NEGATED.test(s) && !(kept && /\bplanning notes?\b/i.test(s)));
 	const reviewed = JSON.stringify(c.proposals.map((p) => p.review));
 	const contacts = CONTACTS.filter((v) => c.answer.includes(v) && !given.includes(v) && !reviewed.includes(v));
 	return [
@@ -560,7 +604,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 	const isGolden = !("extra" in item);
 	const as = spec.as ?? "owner";
 	const text = spec.text ?? item.question;
-	const at = spec.church === "communication" ? mailChurch : church;
+	const at: EvalChurch = spec.church ? CHURCHES[spec.church] : church;
 	const given = [text, ...(spec.history ?? []).map((t) => ("user" in t ? t.user : ""))].join("\n");
 	const area = isGolden ? (item as GoldenCase).scenario_id : "";
 	const row: Row = {
@@ -600,6 +644,10 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			spec.page,
 			spec.offer,
 			repetition,
+			{
+				pinIds: PINNED_SEEDS.has(spec.church),
+				...(spec.earlier ? { earlier: resolve(spec.earlier) as Earlier } : {}),
+			},
 		);
 		const checks: Check[] = [
 			{
@@ -623,7 +671,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			const t = spec.target;
 			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
-				...readCatalog(at.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+				...readCatalog(at.actors[as]!, RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
 			for (const op of t.futureOperations ?? [])
 				checks.push({
@@ -723,8 +771,7 @@ function blockingReasons(r: Row): string[] {
 }
 
 const unrecorded = (error: string) => error.startsWith("no recording for provider call");
-const reproduce = (id: string) =>
-	`EVRY_EVAL_CASES=${id} EVRY_EVAL_REPORT=/tmp/evry-${id}.md node --conditions=react-server --test tests/evry/evals/golden.test.mts`;
+const reproduce = (id: string) => `EVRY_EVAL_CASES=${id} EVRY_EVAL_REPORT=/tmp/evry-${id}.md ${RUN} ${SUITE}`;
 
 type Score = { name: string; bar: number; counted: string[]; failing: string[]; percent: number | null; met: boolean };
 const SCORES: { name: string; bar: number; of: (r: Row) => boolean | null }[] = [
@@ -1173,7 +1220,7 @@ test("INV-evry-golden-release: a case that passed in the baseline and fails now 
 	});
 	const ready = readiness([flipped, fakeRow("MON-03")], { expected: [], baseline: ["MON-02", "MON-03"] });
 	const command =
-		"EVRY_EVAL_CASES=MON-02 EVRY_EVAL_REPORT=/tmp/evry-MON-02.md node --conditions=react-server --test tests/evry/evals/golden.test.mts";
+		"EVRY_EVAL_CASES=MON-02 EVRY_EVAL_REPORT=/tmp/evry-MON-02.md pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server --test ../../tests/evry/evals/golden.test.mts";
 	assert.deepEqual(ready.regressions, [
 		{ id: "MON-02", reasons: ['check "says /Coffee shop/i" failed (answer: none)'], reproduce: command },
 	]);
@@ -1219,6 +1266,10 @@ test("INV-evry-golden: a case offers beyond the recorded catalog only the reads 
 				id,
 				["intelligence.readExitCriteria", "intelligence.readJourney"],
 			]),
+			...["ADP-LA-03", "ADP-LA-04"].map((id) => [id, ["launch.readDebrief"]]),
+			["ADP-NW-06", ["pipeline.listPeople"]],
+			...["07", "08", "09", "10", "11", "12", "13"].map((n) => [`ADP-NW-${n}`, ["development.readProgram"]]),
+			["ADP-OV-06", ["organizationIntelligence.readHistory"]],
 		],
 	);
 	for (const c of offering)

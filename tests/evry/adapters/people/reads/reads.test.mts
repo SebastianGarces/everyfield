@@ -49,7 +49,7 @@ const nothing = {
 	exclusions: [],
 };
 
-test("AC:PROVIDER48-002 AC:PROVIDER48-003 a photo read names only the current private version, for any seat in the church, and nothing for foreign, retired or guessed people", async () => {
+test("AC:PROVIDER48-002 AC:PROVIDER48-003 a photo read says only whether the person has a photo, for any seat in the church, and nothing for foreign, retired or guessed people", async () => {
 	const version = await photo(people.alexChen);
 	const key = (await admin.execute(sql`SELECT opaque_key FROM file_object WHERE id=${version}`)).rows[0]!.opaque_key;
 	for (const who of ["owner", "member"] as const) {
@@ -65,7 +65,7 @@ test("AC:PROVIDER48-002 AC:PROVIDER48-003 a photo read names only the current pr
 					kind: "person",
 					id: people.alexChen,
 					label: "Person photo",
-					fields: { photo: "available", versionId: version },
+					fields: { photo: "available" },
 				},
 			],
 			total: 1,
@@ -79,7 +79,6 @@ test("AC:PROVIDER48-002 AC:PROVIDER48-003 a photo read names only the current pr
 	const owner = await actor("owner");
 	assert.deepEqual((await invokeRead(db, owner, getPersonPhoto, { personId: people.casey })).rows[0]?.fields, {
 		photo: "absent",
-		versionId: null,
 	});
 
 	await photo(people.foreign, otherPlant);

@@ -127,6 +127,25 @@ export async function seedGuests(db: Database) {
 		ok(await writer.addGuestAttendance(db, owner, { requestKey: randomUUID(), input: { displayName } }));
 }
 
+export async function seedDebrief(db: Database) {
+	const answers = {
+		wentWell: "The worship team was ready.",
+		toChange: null,
+		operations: null,
+		followUpPlan: null,
+		supportNeeded: null,
+		missingNames: "no",
+		missingCount: null,
+	};
+	ok(
+		await writer.submitDebrief(db, await authorityOf(db, "owner"), {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { draftId: null, answers },
+		}),
+	);
+}
+
 export async function seedOutcome(db: Database, attendance: number) {
 	const plan = await planOf(db);
 	ok(
