@@ -430,7 +430,7 @@ test("AC:INH-REGRESSION-CONTEXT-RETENTION the meeting's exact facts survive a lo
 					venue: { kind: "existing", venueId: venue },
 					guests: [],
 				},
-				recipients: [alex, jordan].sort(),
+				recipients: [alex, jordan],
 				subject: "Meet your core team",
 			},
 			"the exact plan that approval would run",
