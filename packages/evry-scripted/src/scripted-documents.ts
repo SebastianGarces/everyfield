@@ -12,7 +12,8 @@ const LETTER = [
 	"Reply to this letter with any question.",
 ].join("\n\n");
 const DRAFT = /\b(?:write|draft)\s+(?:us\s+)?an?\s+([\w -]*welcome letter)\b/i;
-const EDIT = /\bin\s+(?:the|our)\s+(.+?),\s+change\s+"(.+?)"\s+to\s+"(.*?)"/is;
+const EDIT = /\bin\s+(?:the|our)\s+(.+?),\s+change\s+"/i;
+const WORDS = /"([^"]+)"\s+to\s+"([^"]*)"/g;
 const FIT = /\btemplates?\s+(?:fit|fits|are there|do you have)\b/i;
 const SHOW = /\bshow\s+(?:me\s+)?the\s+([a-z0-9-]+)\s+template\b/i;
 const FILL = /\b(fill in|preview|make (?:a|the) file from)\s+the\s+([a-z0-9-]+)\s+template\b/i;
@@ -59,7 +60,7 @@ export function documentTurn(options: LanguageModelV4CallOptions, text: string):
 		return propose("documents.saveNative", {
 			kind: "edit",
 			documentId: found.id,
-			edits: [{ find: captured(edit, 2), replace: captured(edit, 3) }],
+			edits: [...text.matchAll(WORDS)].map((m) => ({ find: captured(m, 1), replace: captured(m, 2) })),
 		});
 	}
 

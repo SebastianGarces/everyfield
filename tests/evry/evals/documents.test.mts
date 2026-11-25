@@ -111,6 +111,14 @@ const AFTER: Record<string, (receipt: string, earlier: string) => Promise<void>>
 		assert.deepEqual([now.kind, now.revision], ["native", 3]);
 		assert.equal(now.body, earlier.replace("every other Thursday", "every Tuesday"));
 	},
+	"DOC-18": async (receipt, earlier) => {
+		assert.equal(receipt, letter);
+		const words = earlier
+			.replace("glad", "thankful")
+			.replace("helping start", "helping plant")
+			.replace("any question", "your questions");
+		assert.equal((await stored(letter)).body, words);
+	},
 	"DOC-13": async (receipt) => {
 		file = receipt;
 		const [row] = (

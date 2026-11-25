@@ -183,6 +183,28 @@
 			"operation": "documents.download",
 			"calls": ["documents.history.list"],
 			"answer": ["I can't find a ready file by that name"]
+		},
+		{
+			"id": "DOC-18",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "in the Launch team welcome letter, change \"start\" to \"plant\", \"glad\" to \"thankful\" and \"any question\" to \"your questions\"",
+			"operation": "documents.saveNative",
+			"calls": ["documents.listOwned", "documents.read"],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": "Launch team welcome letter",
+				"changes": [
+					[
+						"text",
+						"We are glad you said yes to helping start this church.",
+						"We are thankful you said yes to helping plant this church."
+					],
+					["text", "Reply to this letter with any question.", "Reply to this letter with your questions."]
+				],
+				"notes": ["Everything else in the document stays as it is."]
+			},
+			"approve": "completed"
 		}
 	]
 }
