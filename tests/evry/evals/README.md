@@ -13,7 +13,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 
 | Suite                    | Cases                                                                                                                    | What it scores                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (351 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (424 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
 | `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
@@ -34,13 +34,26 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `phases.test.mts`        | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
 | `kill-switches.test.mts` | `kill-switches.cases.json`                                                                                               | Evry with a kill switch off: model calls paused (zero calls), outbound mail paused          |
 
-## The Wiki browsing cases (scripted model)
+## The recorded tools of T-630, T-631, T-632 and T-633
 
-ADP-WK-10 to ADP-WK-27 (T-633) cover the nine Wiki browsing reads (`wiki.navigation` to `wiki.feedback.getMine`,
-`packages/evry/src/adapters/wiki/reads/browse.ts`) in the golden run. They carry `"model": "scripted"`
-(`packages/evry-scripted/src/scripted-wiki-browse.ts`): their operations are in `LATER` and `SCRIPTED_ONLY`, so no
-recorded case is offered them and no call is paid. They move to the real model with the next batched re-record (D-1300).
-A case's `page` is an article's slug, or an app route when it starts with `/`.
+The recorded suites offer every tool these four tasks added (T-635). Their golden cases, all on the real model:
+
+- T-630, a planter's week: ADP-C-15 to ADP-C-20, ADP-R-23, ADP-M-38, ADP-LA-01 to ADP-LA-04 and ADP-S-02 to ADP-S-05.
+  The harness runs the real planning notes, review outcomes and composed reads; ADP-S-05 is one composed answer.
+- T-631, network: ADP-NW-01 to ADP-NW-13, ADP-GE-01 to ADP-GE-04, ADP-AS-01 to ADP-AS-06 and ADP-OV-01 to ADP-OV-06.
+- T-632, documents and settings: ADP-CN-01 to ADP-CN-15 and ADP-DT-01 to ADP-DT-13.
+- T-633, Wiki browsing: ADP-WK-10 to ADP-WK-27. A case's `page` is an article's slug, or an app route when it starts
+  with `/`.
+
+`eval.church` names the church a case runs in, so no other case's facts change: `launched` (`launch-church.mts`),
+`connected` (`connected-church.mts`: link invitations, a photo and an earlier file), `network` (`network-church.mts`: Grace
+Austin's pipeline, goal, residency and its two versions, and the official Regions) and `assessed` (the intelligence
+church in `NOW`'s frame, with two published assessments). The launched, network and assessed churches hold ids and times
+the seed makes, so the harness pins them in what the model sees (`withPinnedSeed`). `eval.earlier` seeds earlier notes or
+cards. The document templates render TSX, so `golden.test.mts` runs in the `tsx` half of `test:db`.
+
+Tools other tasks hold in `LATER` (`golden-harness.mts`) stay out of the recorded suites, except where a case names one
+in `eval.offer`: ADP-LA-03 and ADP-LA-04, ADP-NW-06 to ADP-NW-13 and ADP-OV-06 do.
 
 ## The settings suite (scripted model)
 
@@ -60,9 +73,8 @@ their recordings stay valid until the next recording run adds these tools.
 `documents.test.mts` and `connections.test.mts` score T-632's tools on the scripted model
 (`packages/evry-scripted/src/scripted-documents.ts`, `scripted-connections.ts`) through `scripted-turns.mts`: each turn runs
 the real catalog, adapters and review cards, each approved effect runs twice and must close the second time, and the saved
-record is read back. `documents.test.mts` renders real files, so it runs in the tsx half of `test:db`. The recorded suites
-leave these tools out (`LATER` in `golden-harness.mts`) until the batched recording adds them (D-1300): take them out of
-`LATER` then and record their cases with the rest.
+record is read back. `documents.test.mts` renders real files, so it runs in the tsx half of `test:db`.
+The recorded suites score the same tools on the real model (above).
 
 ## The onboarding suite (scripted model)
 
@@ -117,7 +129,7 @@ The NET cases (T-631) ask the same suite for sending goals, conversation counts,
 milestones. OVS-33 to OVS-44 do the same for sending churches, how a plant changed, and a Network Intelligence refresh or
 rating; INT-13 to INT-19 for past assessments, where to start and the asker's own ratings; SET-35 to SET-38 for the
 reporting Region. `tests/evry/adapters/{pipeline,oversight,intelligence/reads,settings}` hold each tool's comparison with
-its native command and every refusal. The recorded suites leave these tools out too.
+its native command and every refusal. The recorded suites score T-631's tools on the real model (above).
 NET-21 to NET-27 (T-646) end an enrollment as Completed or Withdrawn, with an unclear outcome, person or program, for a
 seat that does not direct it, and one that has already ended.
 
@@ -323,14 +335,14 @@ The cases whose result depends on the database clock, now pinned:
 ```sh
 pnpm --filter @everyfield/evry test:db            # golden, households and follow-ups, replayed offline on Postgres
 pnpm --filter @everyfield/evry test:unit          # classify, replayed offline
-EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests/evry/evals/golden.test.mts
+EVRY_EVAL_REPORT=/tmp/evry-golden.md pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server --test ../../tests/evry/evals/golden.test.mts
 ```
 
 The golden, household and follow-up suites need a database `testDatabase` accepts: the shared development database, or a throwaway local
 Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`,
 `EVERYFIELD_DISPOSABLE_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
 
-`test:db` runs four files at a time (its two `tsx` documents files, two at a time). Each file is its own process with its own schema, login roles, pinned database clock
+`test:db` runs four files at a time (its `tsx` files, the documents and golden suites, two at a time). Each file is its own process with its own schema, login roles, pinned database clock
 and host clock, so the files share no rows, clocks or ports. What they do share is Postgres's lock table: one schema's
 migration or drop takes thousands of locks, so `testDatabase` runs both under the migration lock, one at a time
 (`tests/evry/runtime/schema-locks.test.mts`).
@@ -344,7 +356,7 @@ the readiness. A full run fails if an approved case is missing from it, or if a 
 a grade. Keep reports outside the repository. To reproduce one case alone:
 
 ```sh
-EVRY_EVAL_CASES=SAF-13 EVRY_EVAL_REPORT=/tmp/evry-SAF-13.md node --conditions=react-server --test tests/evry/evals/golden.test.mts
+EVRY_EVAL_CASES=SAF-13 EVRY_EVAL_REPORT=/tmp/evry-SAF-13.md pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server --test ../../tests/evry/evals/golden.test.mts
 ```
 
 ### What a result means
@@ -359,6 +371,7 @@ EVRY_EVAL_CASES=SAF-13 EVRY_EVAL_REPORT=/tmp/evry-SAF-13.md node --conditions=re
   was recorded. Only those checks are excused: they are reported, not blocking. Any other failing check (a global gate
   included), an error such as a missing recording, or a named check that starts to pass still fails `test:db`, so
   the list only shrinks and the rest of the case stays guarded. Never add a check to a marker to hide a regression.
+  A follow-up case (`followups.cases.json`) takes the same marker.
 - **Alpha gap.** A Partially case passed today's checks but not its full target from the approved file, such as
   SAF-05's phone and email for an Owner or Admin. Gaps are reported and never fail CI. Every Partially case must meet
   its target before alpha (Sebastian, 7 Nov).
@@ -423,7 +436,7 @@ behind a new `finding` marker, is a release-blocking regression in the report, w
 that case. It does not fail CI by itself. Rewrite the baseline only when a run is accepted, from a full run:
 
 ```sh
-EVRY_EVAL_BASELINE=write EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests/evry/evals/golden.test.mts
+EVRY_EVAL_BASELINE=write EVRY_EVAL_REPORT=/tmp/evry-golden.md pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server --test ../../tests/evry/evals/golden.test.mts
 ```
 
 ### The real-model alpha run
@@ -441,8 +454,8 @@ does too. Each suite records its own file. The golden, household and follow-up s
 above in the shell; they win over the env file's:
 
 ```sh
-EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
-EVRY_EVAL_RECORD=1 EVRY_EVAL_CASES=SAF-04,PIP-03 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts
+EVRY_EVAL_RECORD=1 pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server --env-file=../../apps/web/.env.local --test ../../tests/evry/evals/golden.test.mts
+EVRY_EVAL_RECORD=1 EVRY_EVAL_CASES=SAF-04,PIP-03 pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server --env-file=../../apps/web/.env.local --test ../../tests/evry/evals/golden.test.mts
 EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/classify.test.mts
 EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/households.test.mts
 EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/followups.test.mts
@@ -453,12 +466,11 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 422 golden rows that run on `gpt-6-luna` from scratch is 2,115 calls, about $7.13
+**Cost.** Recording all 513 golden rows that run on `gpt-6-luna` from scratch is 2,485 calls, about $9.21
 (`spend.allMicroUsd` in `golden.recorded.json`; judge calls and journey repetitions 2 and 3 included: the repetitions
-are 107 calls, $0.43). The household
-file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
-a cent (their `spend`). Re-recording only the changed cases costs about
-one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
+are 105 calls, $0.49). The household file is 10 calls, about $0.03, the follow-up file 12, about $0.04, the
+kill-switch file 5, about $0.03, and `classify.recorded.json` is 32 calls, about a tenth of a cent (their `spend`).
+Re-recording only the changed cases costs about one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
 pass the provider's per-minute limit: search the files for "Rate limit" afterwards, re-record those cases with
 `EVRY_EVAL_CASES`, then do one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
 
