@@ -17,14 +17,12 @@
 				"seats.invite",
 				"seats.list",
 				"seats.listInvitations",
-				"plant.previewTimezoneChange",
 				"plant.setDigestSchedule",
 				"seats.appointAdmin",
 				"seats.demote",
 				"seats.readCurrentMembership"
 			],
 			"through": {
-				"plant.previewTimezoneChange": "plant.setTimezone",
 				"plant.setDigestSchedule": "church.digestSchedule.set",
 				"seats.appointAdmin": "seats.changeOrdinaryRole",
 				"seats.demote": "seats.changeOrdinaryRole",
@@ -219,8 +217,12 @@
 			"operations": ["feedback.admin.changeStatus", "feedback.admin.list"]
 		},
 		{
-			"decision": "T-655 spec: runs before sign-in",
+			"decision": "T-655 (spec: it runs before sign-in)",
 			"operations": ["invitations.describeRegistrationContext"]
+		},
+		{
+			"decision": "D-2691",
+			"operations": ["plant.previewTimezoneChange"]
 		}
 	]
 }

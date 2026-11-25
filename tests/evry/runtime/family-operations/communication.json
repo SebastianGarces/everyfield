@@ -75,5 +75,10 @@
 			"operations": ["mail.suppression.restoreReviewed"]
 		}
 	],
-	"withheld": []
+	"withheld": [
+		{
+			"decision": "D-2691",
+			"operations": ["communication.templates.get"]
+		}
+	]
 }

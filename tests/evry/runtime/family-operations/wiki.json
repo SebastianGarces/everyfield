@@ -47,5 +47,10 @@
 			"operations": ["wiki.reading.recordView", "wiki.reading.updateProgress"]
 		}
 	],
-	"withheld": []
+	"withheld": [
+		{
+			"decision": "D-2691",
+			"operations": ["wiki.articles.get"]
+		}
+	]
 }

@@ -101,5 +101,10 @@
 			"operations": ["reference.activateGeneration", "reference.auditLanguage", "reference.rollbackActivation"]
 		}
 	],
-	"withheld": []
+	"withheld": [
+		{
+			"decision": "D-2691",
+			"operations": ["intelligence.markAssessmentSeen", "intelligence.readRubric"]
+		}
+	]
 }
