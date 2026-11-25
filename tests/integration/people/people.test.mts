@@ -10,7 +10,8 @@ import {
 	reads as read,
 	type Reply,
 } from "./people-support.mts";
-import { faulted, recorded, touched, untouched } from "../../support/recorded.mts";
+import { frozenClock } from "../../support/test-database.mts";
+import { failingWrite, faulted, recorded, touched, untouched } from "../../support/recorded.mts";
 import { fixture as invitationFixture } from "../identity/invitations-support.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -51,6 +52,9 @@ import {
 	type TaskContext,
 } from "../../../packages/domain/src/tasks/index.ts";
 import { runDueObjectCleanup } from "../../../packages/domain/src/jobs/object-cleanup.ts";
+import { runDuePurges } from "../../../packages/domain/src/jobs/lifecycle-purge.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
+import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
 import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
 
 const database = await fixture({ prefix: "wp011", max: 6, plant: { timezone: "America/New_York" } });
@@ -59,9 +63,11 @@ const db = database.pools.runtime;
 const cases = await fixture({
 	prefix: "wp011_cases",
 	max: 6,
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"] },
 	plant: { timezone: "America/Chicago", name: "P" },
 	clock: new Date("2026-10-13T16:00:00Z"),
 });
+const casePools: Partial<typeof cases.pools> & { cleanup?: typeof cases.admin } = cases.pools;
 const caseDb = cases.pools.runtime;
 const P = cases.tenant,
 	Q = await cases.plant({ timezone: "America/New_York", name: "Q" });
@@ -2297,6 +2303,167 @@ test("AC:TARGET-PPL-002 a Launch guest with one name becomes a prospect from the
 		["prospect", "meeting_guest_list", "unknown", { state: "unknown" }],
 	);
 	assert.deepEqual(ok(await caseTx((t) => getAccountLink(t, at(alexAccount), { personId }))), { status: "unlinked" });
+});
+
+test("AC:WP011-KNOW-069 AC:WP011-KNOW-099 a person saved with one name has nothing else assumed, is saved once, and stays the church's after its author's account is removed", async (t) => {
+	const author = await cases.actor(P, "admin", {
+		email: `author-${randomUUID()}@example.test`,
+		user: { name: "Morgan" },
+	});
+	const request = { requestKey: "WP011-KNOW-099", input: { displayName: "Jamie" } };
+	const create = () => caseWrite(author, (t, c) => write.createPerson(t, c, request));
+	const made = await recorded(cases.admin, create);
+	const { person } = ok(made.value);
+	assert.deepEqual(made.added, { ...nothing, audits: ["people.created"] });
+	assert.deepEqual(ok(await untouched(cases.admin, create)).person, person);
+	const facts = async (who: Actor) => {
+		const read_ = plantPerson(await caseTx((t) => read.getPerson(t, at(who), { personId: person.id })));
+		return {
+			displayName: read_.displayName,
+			adultClassification: read_.adultClassification,
+			commitment: read_.commitment,
+			link: ok(await caseTx((t) => getAccountLink(t, at(who), { personId: person.id }))).status,
+			owner: read_.owner,
+		};
+	};
+	const expected = {
+		displayName: "Jamie",
+		adultClassification: "unknown",
+		commitment: { state: "unknown" },
+		link: "unlinked",
+		owner: church(P.id),
+	};
+	assert.deepEqual(await facts(author), expected);
+	const created = async () =>
+		ok(await caseTx((t) => read.getActivities(t, at(alexAccount), { personId: person.id }))).items.map((item) =>
+			item.kind === "activity" ? [item.action, item.actor] : [],
+		);
+	const attribution = () =>
+		cases.admin
+			.execute(
+				sql`SELECT actor_id,actor_token IS NOT NULL AS scoped FROM audit_event
+				WHERE subject_id=${person.id}::uuid AND action='people.created'`,
+			)
+			.then((r) => r.rows);
+	assert.deepEqual(await attribution(), [{ actor_id: author.id, scoped: true }]);
+	const named = await created();
+	assert.ok(JSON.stringify(named).includes(author.id), JSON.stringify(named));
+
+	const deletion = deletionOperations({
+		queue: (t, i) =>
+			queueJobs(t, [
+				{
+					tenant: i.subject.id,
+					kind: "lifecycle_purge",
+					subject: i.witnessId,
+					key: "purge/" + i.requestId,
+					revision: i.revision,
+					eligibleAt: i.eligibleAt,
+				},
+			]),
+		workspaceNotice: quiet,
+	});
+	const subject = { kind: "account" as const, id: accountId.parse(author.id) };
+	const { r } = (
+		await cases.admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM account WHERE id=${author.id}::uuid`)
+	).rows[0]!;
+	await cases.admin.execute(
+		sql`UPDATE seat SET accepted_at='2026-01-01T00:00:00Z' WHERE account_id=${author.id}::uuid`,
+	);
+	const requested = new Date("2026-09-13T16:00:00Z");
+	t.mock.timers.enable({ apis: ["Date"], now: requested });
+	ok(
+		await frozenClock(cases.admin, cases.schema, requested.toISOString(), () =>
+			caseTx((x) =>
+				deletion.requestAccountDeletion(
+					x,
+					{ session: author.session, selected: subject },
+					envelope(r, { confirmed: true }),
+				),
+			),
+		),
+	);
+	t.mock.timers.setTime(Date.parse("2026-10-13T16:00:00Z"));
+	assert.equal(await runDuePurges(caseDb, casePools.cleanup!, memoryStorage(), 10), 1);
+	t.mock.timers.reset();
+	assert.deepEqual(
+		(
+			await cases.admin.execute(sql`SELECT w.state,(SELECT email FROM auth_user WHERE id=${author.user}::uuid) AS email
+				FROM lifecycle_witness w WHERE opaque_subject_id=${author.id}::uuid`)
+		).rows,
+		[{ state: "purged", email: `removed-${author.id}@removed.invalid` }],
+	);
+	assert.deepEqual(await facts(alexAccount), expected, "the church keeps the person whole");
+	assert.deepEqual(await attribution(), [{ actor_id: null, scoped: true }], "only the church's own token stays");
+	const unnamed = JSON.stringify(await created());
+	for (const gone of [author.id, author.email, "Morgan"]) assert.equal(unnamed.includes(gone), false, gone);
+});
+
+test("AC:WP011-KNOW-098 a guest named at a meeting becomes a person in the same transaction, an existing person is reused when chosen, and a matching name links no account", async () => {
+	const namesake = await cases.actor(P, "member", {
+		email: `jamie-${randomUUID()}@example.test`,
+		user: { name: "Jamie" },
+	});
+	const meetingId = await caseMeeting();
+	const request = {
+		requestKey: "WP011-KNOW-098",
+		input: { meetingId, displayName: "Jamie" },
+	};
+	const guest = () => meetingWrite(alexAccount, (t, c) => guestsWriter.createGuestContact(t, c, request));
+	const named = async () =>
+		(
+			await cases.admin.execute<{ id: string }>(
+				sql`SELECT id FROM person WHERE plant_id=${P.id}::uuid AND display_name='Jamie' AND source='meeting_guest_list'`,
+			)
+		).rows.map((x) => x.id);
+	const before = await named();
+	for (const table of ["participation", "audit_event"]) {
+		await failingWrite(cases.admin, { on: table, event: "INSERT OR UPDATE" }, () =>
+			refusedUntouched(guest, "required_write_failed"),
+		);
+		assert.deepEqual(await named(), before, `a failed ${table} leaves no person`);
+	}
+	const { personId: guestId } = ok(await guest()).guest.person;
+	assert.deepEqual(
+		(await named()).filter((id) => !before.includes(id)),
+		[guestId],
+	);
+	assert.deepEqual(ok(await untouched(cases.admin, guest)).guest.person.personId, guestId);
+	const unlinked = async (id: string) => {
+		const person = plantPerson(await caseTx((t) => read.getPerson(t, at(alexAccount), { personId: id })));
+		assert.deepEqual(
+			[person.displayName, person.source, person.adultClassification, person.commitment],
+			["Jamie", "meeting_guest_list", "unknown", { state: "unknown" }],
+		);
+		assert.deepEqual(ok(await caseTx((t) => getAccountLink(t, at(alexAccount), { personId: id }))), {
+			status: "unlinked",
+		});
+	};
+	await unlinked(guestId);
+
+	const second = await caseMeeting();
+	const people = async () =>
+		(await cases.admin.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM person`)).rows[0]!.n;
+	const held = await people();
+	const invited = ok(
+		await meetingWrite(alexAccount, (t, c) =>
+			guestsWriter.inviteGuest(t, c, {
+				requestKey: randomUUID(),
+				input: { meetingId: second, personId: guestId, inviterPersonId: null },
+			}),
+		),
+	);
+	assert.equal(invited.guest.person.personId, guestId);
+	assert.equal(await people(), held, "the chosen person is reused");
+
+	const direct = await casePerson("Jamie", { source: "meeting_guest_list" });
+	assert.notEqual(direct.id, guestId);
+	for (const id of [direct.id, guestId]) await unlinked(id);
+	assert.deepEqual(
+		(await cases.admin.execute(sql`SELECT count(*)::int AS n FROM person WHERE linked_account_id=${namesake.id}::uuid`))
+			.rows,
+		[{ n: 0 }],
+	);
 });
 
 const presenceOf = async (meetingId: string, personId: string) =>

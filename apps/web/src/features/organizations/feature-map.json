@@ -1432,7 +1432,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/organizations/consent.test.mts",
-								"name": "AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches"
+								"name": "AC:ADR1-016 pipeline totals default off, are shared per relationship and need two churches"
 							}
 						],
 						"cases": ["ADR1-016"],
