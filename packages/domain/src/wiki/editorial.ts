@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import type { Owner } from "@everyfield/contracts/common";
 import {
 	feedbackGetMineRequest,
+	feedbackListMineRequest,
 	feedbackMine,
+	feedbackMineList,
 	feedbackSetMineRequest,
 	organizationArticleCommand,
 	organizationArticleResult,
@@ -13,14 +15,27 @@ import {
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
 import type { PeopleContext } from "@everyfield/contracts/people";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor, WriteTx } from "../access/session.ts";
 import { organizationSeatContext } from "../access/organization-seat.ts";
 import { queueJobsFor } from "../jobs/queue.ts";
-import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, refused, runRead, runWrite, type Runner } from "./core.ts";
+import { corpusCtes } from "./corpus.ts";
+import {
+	GLOBAL,
+	PAGE,
+	claimedWrite,
+	deny,
+	meSql,
+	ownWrite,
+	parse,
+	refused,
+	runRead,
+	runWrite,
+	type Runner,
+} from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
 type Mine = z.infer<typeof feedbackMine>;
@@ -58,7 +73,7 @@ function votesOf(raw: unknown) {
 	return voteList.parse(parsed ?? []);
 }
 
-export function getMine(db: Database, authority: RequestActor, raw: unknown) {
+export function getMine(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackGetMineRequest, raw);
 	const context = authority.actor.context;
 	const none = () => mineValue({ articleId: input.articleId, currentVote: null, ownHistoryVotes: [] });
@@ -84,6 +99,54 @@ export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 			currentVote: votes.at(-1) ?? null,
 			ownHistoryVotes: votes,
 		});
+	});
+}
+
+export function listMine(db: Database | Transaction, authority: RequestActor, raw: unknown) {
+	const input = parse(feedbackListMineRequest, raw);
+	const context = authority.actor.context;
+	const none = { articles: [], total: 0, nextCursor: null };
+	if (context.kind !== "seat" || context.owner.kind !== "plant")
+		return runRead<z.output<typeof feedbackMineList>>(async () => none);
+	const owner = context.owner;
+	const page = input.page ?? 1;
+	return runRead<z.output<typeof feedbackMineList>>(async () => {
+		const result = await db.execute(sql`
+			WITH ${corpusCtes({ authority, owner }, { kind: "current" })},
+			votes AS (
+				SELECT DISTINCT ON (a.result->>'articleId')
+					a.result->>'articleId' AS article_id, a.result->>'currentVote' AS vote, a.occurred_at
+				FROM audit_event a
+				WHERE a.actor_id = (SELECT account_id FROM me) AND a.action = 'feedback.received'
+					AND a.result->>'articleId' IS NOT NULL
+				ORDER BY a.result->>'articleId', a.occurred_at DESC, a.id DESC
+			),
+			mine AS (
+				SELECT p.article_id, p.revision_id, p.source_kind, p.title, p.slug, v.vote, v.occurred_at
+				FROM votes v JOIN picked p ON p.article_id::text = v.article_id AND NOT p.hidden
+				WHERE v.vote IS NOT NULL
+			)
+			SELECT
+				EXISTS (SELECT FROM me) AS allowed,
+				(SELECT count(*)::int FROM mine) AS total,
+				COALESCE((
+					SELECT json_agg(json_build_object(
+						'articleId', m.article_id, 'revisionId', m.revision_id, 'sourceKind', m.source_kind,
+						'title', m.title, 'slug', m.slug, 'vote', m.vote
+					) ORDER BY m.occurred_at DESC, m.article_id)
+					FROM (
+						SELECT * FROM mine ORDER BY occurred_at DESC, article_id OFFSET ${(page - 1) * PAGE} LIMIT ${PAGE}
+					) m
+				), '[]'::json) AS articles`);
+		const row = z
+			.object({ allowed: z.boolean(), total: z.number().int(), articles: feedbackMineList.shape.articles })
+			.parse(result.rows[0]);
+		if (!row.allowed) deny("access_denied");
+		return {
+			articles: row.articles,
+			total: row.total,
+			nextCursor: page * PAGE < row.total ? String(page + 1) : null,
+		};
 	});
 }
 

@@ -1,7 +1,16 @@
 import { organizationSeatOf, viewerActor } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
 import type { Lost } from "@everyfield/contracts/common";
-import { humanCredit, type WikiArticle, type WikiReply } from "@everyfield/contracts/wiki";
+import {
+	articlePath,
+	humanCredit,
+	readCounts,
+	relatedArticles,
+	treeModel,
+	type TreeModel,
+	type WikiArticle,
+	type WikiReply,
+} from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createWikiProducer, type StoredEditor } from "@everyfield/domain/wiki";
@@ -9,17 +18,14 @@ import { cache } from "react";
 import "server-only";
 import {
 	type ArticleVersion,
-	articlePath,
 	listed,
 	pdfFilename,
 	sourceInput,
 	sourceRows,
-	treeModel,
 	type Listed,
 	type SourceChoice,
 	type SourceOrder,
 	type SourceRow,
-	type TreeModel,
 } from "./model.ts";
 import { isTransient, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { parseJson } from "../../server/platform/json.ts";
@@ -196,8 +202,7 @@ export async function loadWiki(
 			hit && source.kind !== "current" ? articleOf(mount, actor, hit.articleId, source) : null,
 		]);
 		const tree = treeModel(nav.value.groups, read);
-		const articleCount = visibleIds.length;
-		const readCount = visibleIds.filter((id) => read.has(id)).length;
+		const { done: readCount, total: articleCount, phases: phaseCounts } = readCounts(tree);
 		if (slug && !hit) {
 			return {
 				tree,
@@ -275,15 +280,7 @@ export async function loadWiki(
 			]);
 			feedback = vote;
 			if (editor) editorName = names.get(editor.organizationId) ?? "Your organization";
-			const titles = new Map(nav.value.groups.flatMap((group) => group.articles).map((item) => [item.articleId, item]));
-			const phaseItems = tree.phases.find((phase) => phase.number === shown.phase)?.items ?? [];
-			if (shown.phase != null && phaseItems.length) {
-				phaseRead = {
-					phase: shown.phase,
-					done: phaseItems.filter((item) => item.read).length,
-					total: phaseItems.length,
-				};
-			}
+			phaseRead = phaseCounts.find((count) => count.phase === shown.phase) ?? null;
 			article = {
 				article: shown,
 				sources: sourceRows(preferred, names),
@@ -305,10 +302,11 @@ export async function loadWiki(
 									(shown.sourceKind === "church" ? "Sending church" : "Network"),
 							},
 				orderPrompt: seat.canOrder && source.kind === "current" && preferred.state === "source_order_required",
-				related: shown.relatedIds.flatMap((id) => {
-					const item = titles.get(id);
-					return item ? [{ articleId: id, title: item.title, href: articlePath(item.slug) }] : [];
-				}),
+				related: relatedArticles(nav.value.groups, shown.relatedIds).map((item) => ({
+					articleId: item.articleId,
+					title: item.title,
+					href: articlePath(item.slug),
+				})),
 			};
 		}
 		if (article && editor) {

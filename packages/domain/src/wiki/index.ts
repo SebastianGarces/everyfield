@@ -27,6 +27,7 @@ import {
 	emitUpstreamReview,
 	getMine,
 	getOrganizationDraft,
+	listMine,
 	hideOrganizationArticle,
 	publishOrganizationArticle,
 	setMine,
@@ -37,7 +38,7 @@ import { getReadingRevision, listCompletedArticles, listOrganizationNames, readE
 
 export const wikiEffects = { setBookmark: setBookmarkIn, setMine: setMineIn };
 
-export { sectionExcerpt } from "./excerpt.ts";
+export { articleHeadings, namedSection, sectionExcerpt } from "./excerpt.ts";
 export { runDueWikiEmbedding, wikiPassageEmbedder } from "./embedding.ts";
 
 export type { StoredEditor } from "./page.ts";
@@ -68,6 +69,7 @@ export function createWikiProducer(config: WikiConfig = {}) {
 		updateProgress,
 		setSourceOrder,
 		getMine,
+		listMine,
 		setMine,
 		addOrganizationArticle,
 		editOrganizationArticle,
