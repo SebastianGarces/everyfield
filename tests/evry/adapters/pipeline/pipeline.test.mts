@@ -748,6 +748,6 @@ test("INV-evry-pipeline-tools: each seat kind is offered the pipeline and progra
 	for (const name of ["ana", "ben"] as const)
 		assert.deepEqual(
 			readCatalog(who[name]).reviewedWrites.map((w) => w.operation),
-			directed,
+			["settings.saveSection", "account.removeAvatar", ...directed],
 		);
 });
