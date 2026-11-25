@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { createServer } from "node:http";
 import { once } from "node:events";
