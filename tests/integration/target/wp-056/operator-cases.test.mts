@@ -584,7 +584,7 @@ test("AC:CASE-OPS-008 a preview of another checkout or server is not accepted, a
 			keys: {
 				encryptionKey: Buffer.alloc(32, 1),
 				addressKey: Buffer.alloc(32, 2),
-				from: "church@everyfield.app",
+				from: "church@example.test",
 				origin: "https://preview.localhost",
 				optOutKeys: null,
 			},
