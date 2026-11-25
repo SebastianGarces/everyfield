@@ -1,7 +1,6 @@
 import "../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
@@ -29,8 +28,10 @@ import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
 import { pinSchemaClock } from "../../support/test-database.mts";
 import { MAILING } from "./church-address.mts";
 import {
+	caseOf,
 	deliverAs,
 	firstRow,
+	pinnedDate,
 	readAs,
 	rowsFrom,
 	writeAs,
@@ -42,20 +43,7 @@ import {
 	type WriteOp,
 } from "./communication-support.mts";
 
-type Case = {
-	id: string;
-	given: Record<string, Record<string, unknown>>;
-	clock: { now: string };
-	action: { arguments: Record<string, unknown> };
-	expected: { result: Record<string, unknown>; event: null };
-	subcases?: (Pick<Case, "action" | "expected"> & { name: string })[];
-};
-const { cases } = JSON.parse(
-	readFileSync(new URL("../../../docs/acceptance/communications-notifications.json", import.meta.url), "utf8"),
-) as { cases: Case[] };
-const caseOf = (id: string) => cases.find((c) => c.id === id) ?? assert.fail(`no case ${id}`);
-const NOW = new Date(caseOf("CASE-COM-006").clock.now);
-mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
+const NOW = pinnedDate(caseOf("CASE-COM-006").clock.now);
 
 let f: Fixture;
 let plant: Church;

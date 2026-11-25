@@ -76,11 +76,13 @@ export function sendOnly(send: DeliveryTransport["send"]): DeliveryTransport {
 	return { send, cancel: unused, reschedule: unused, paused: false };
 }
 
-export type AcceptanceCase = {
+type AcceptanceCase = {
 	id: string;
 	given: Record<string, Record<string, unknown>>;
 	clock: { now: string };
+	action: { arguments: Record<string, unknown> };
 	expected: { result: Record<string, unknown>; event: null };
+	subcases?: (Pick<AcceptanceCase, "action" | "expected"> & { name: string })[];
 };
 const { cases } = JSON.parse(
 	readFileSync(new URL("../../../docs/acceptance/communications-notifications.json", import.meta.url), "utf8"),
