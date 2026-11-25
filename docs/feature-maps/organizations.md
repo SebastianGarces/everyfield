@@ -807,9 +807,10 @@ The addressed Owner or Admin accepts once and a retry returns the same result; t
 - Operations: associations.respondInvitation
 - Catalog: IDN-020
 - Cases: TARGET-IDN-020
-- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history`
+- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 ending one pair keeps other links, content and minimal history`
 - Test: `tests/integration/organizations/relationships.test.mts`: `INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries`
-- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve`
+- Test: `tests/integration/organizations/relationships.test.mts`: `AC:ROLE43-016 wrong side, Member, proof, expiry and revoked initiator cannot approve`
+- Test: `tests/integration/organizations/connections.test.mts`: `AC:TARGET-IDN-020 another affiliate cannot approve this link, competing decisions settle once, and a failed write keeps nothing`
 - Test: `tests/unit/organizations/invitation-proof.test.mts`: `the route answers the read as the page did: signed out, unavailable, expired or the request`
 - Test: `tests/integration/organizations/relationships.test.mts`: `discovery invitations expire after 30 days: the receiver sees who to ask, a new request goes through, and a resend restarts the 30 days`
 

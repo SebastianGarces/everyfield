@@ -1601,6 +1601,10 @@
 								"name": "AC:ROLE43-016 wrong side, Member, proof, expiry and revoked initiator cannot approve"
 							},
 							{
+								"file": "tests/integration/organizations/connections.test.mts",
+								"name": "AC:TARGET-IDN-020 another affiliate cannot approve this link, competing decisions settle once, and a failed write keeps nothing"
+							},
+							{
 								"file": "tests/unit/organizations/invitation-proof.test.mts",
 								"name": "the route answers the read as the page did: signed out, unavailable, expired or the request"
 							},
