@@ -9,8 +9,11 @@ import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/ta
 import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { createSignals } from "../../../packages/domain/src/intelligence/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
-import { ACTOR_SPECS, PLANT, type ActorName } from "./golden-church.mts";
+import { ACTOR_SPECS, pinHostClock, PLANT, type ActorName } from "./golden-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+
+export const LAUNCH_NOW = new Date("2026-11-25T12:01:00Z");
+pinHostClock(LAUNCH_NOW);
 
 export const ZONE = "America/Chicago";
 export const today = () =>
