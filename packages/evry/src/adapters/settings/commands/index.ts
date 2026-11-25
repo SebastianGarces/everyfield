@@ -5,7 +5,7 @@ import { digestSchedule as digestScheduleValue, plantProfile } from "@everyfield
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { regionLabel } from "@everyfield/contracts/oversight";
-import { change, committed, nativeWrite, patchChanges, plantAdmin, reviewed, settled } from "../../native.ts";
+import { change, committed, nativeWrite, patchChanges, plantAdmin, reviewed, settled, idInput } from "../../native.ts";
 import { placeText, regionCandidates, statedLocality } from "../reads/index.ts";
 import { ZONE_NAME } from "../../../catalog/labels.ts";
 
@@ -165,7 +165,7 @@ export const correctReportingLocation = nativeWrite({
 	operation: "organizations.correctReportingLocation",
 	description:
 		"Propose correcting this church's reporting place and Region, as Settings > Church saves them: the Region (regionItemId, a candidate row of geography.listReportingRegionCandidates) and the same city, state or province and country it was listed for (leave them out for the saved place). The history keeps the earlier place. Owner or Admin. Nothing changes until the user approves the exact review.",
-	input: statedLocality.extend({ regionItemId: z.uuid() }),
+	input: statedLocality.extend({ regionItemId: idInput }),
 	allowed: plantAdmin,
 	async review(actor, { regionItemId, ...stated }, { db }) {
 		const { saved, locality, candidates } = await regionCandidates(db, actor, stated);

@@ -7,7 +7,7 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { present } from "../../../runtime/captured.ts";
-import { plantAdmin } from "../../native.ts";
+import { idInput, plantAdmin } from "../../native.ts";
 
 const assessments = createAssessments();
 const facts = createFacts();
@@ -181,9 +181,7 @@ async function findingRows(tx: Transaction, actor: EvryActor, a: c.Assessment): 
 		...a.supporting.map((p) => ({ role: "supporting", p })),
 		...a.positives.map((p) => ({ role: "positive", p })),
 	];
-	const keys = [
-		...new Set(points.flatMap(({ p }) => p.citations.filter((x) => x.kind === "fact").map((x) => x.key))),
-	];
+	const keys = [...new Set(points.flatMap(({ p }) => p.citations.filter((x) => x.kind === "fact").map((x) => x.key)))];
 	const values = new Map<string, string | number>();
 	for (const key of keys.slice(0, CITED)) {
 		const v = await assessments.resolveCitation(tx, actor.authority, { runId: a.runId, key });
@@ -218,7 +216,12 @@ export const readAssessment: ReadAdapter<Record<string, never>> = {
 		const a = await currentOf(tx, actor);
 		if (!a) return noAssessment("intelligence.readAssessment");
 		const rows = await findingRows(tx, actor, a);
-		return result("intelligence.readAssessment", rows, { ...assessedFacts(a), runId: a.runId, summary: a.summary }, PRIVATE);
+		return result(
+			"intelligence.readAssessment",
+			rows,
+			{ ...assessedFacts(a), runId: a.runId, summary: a.summary },
+			PRIVATE,
+		);
 	},
 };
 
@@ -292,7 +295,7 @@ export const readAssessmentRun: ReadAdapter<{ runId: string }> = {
 	operation: "intelligence.readAssessmentRun",
 	description:
 		"One published assessment of this church, an earlier one or the latest, by its id from intelligence.readAssessmentHistory: its summary, date and phase in facts, its findings (item rows with a role, as intelligence.readAssessment gives them) and its scorecard (lens and criterion rows), all from that assessment's own snapshot. Say the date it measured. When newer says one is being prepared or waiting, say so and say which assessment this is. Owners and Admins",
-	input: z.strictObject({ runId: z.uuid() }),
+	input: z.strictObject({ runId: idInput }),
 	allowed: plantAdmin,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const operation = "intelligence.readAssessmentRun";

@@ -10,7 +10,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReviewContext } from "../../../proposals/types.ts";
-import { approvedNow, reviewed } from "../../native.ts";
+import { approvedNow, reviewed, idInput } from "../../native.ts";
 import { RATING, runText } from "../reads/index.ts";
 
 type Reply = { status: "ok"; value: object } | { status: "refused"; refusal: { code: string } };
@@ -21,7 +21,7 @@ export const requestRefresh = approvedNow({
 	operation: "organizationIntelligence.requestRefresh",
 	description:
 		"Propose a new Network Intelligence run from what linked plants share now, as the page's Refresh makes. Give plantId (from oversight.listPlants) when the user asked to refresh one plant's assessment: the card says this refreshes Network Intelligence and that only that plant can ask for its own assessment. Owner or Admin. Nothing runs until the user approves",
-	input: z.strictObject({ plantId: z.uuid().optional() }),
+	input: z.strictObject({ plantId: idInput.optional() }),
 	async review(actor, value, { db }) {
 		const view = await readIntelligence(db, actor.authority, { level: "portfolio", runId: null });
 		if (!view) throw new EvryRefusal("access_denied");
@@ -66,7 +66,7 @@ async function patternOf(
 	return view?.run && pattern ? { pattern, ranAt: view.run.ranAt, timeZone: view.timeZone } : null;
 }
 const rated = z.strictObject({
-	requestId: z.uuid(),
+	requestId: idInput,
 	runId: z.string(),
 	patternKey: z.string(),
 	rating: z.enum(["useful", "not_useful"]),
@@ -77,7 +77,7 @@ export const submitFeedback = approvedNow({
 	description:
 		"Propose the user's own rating, useful or not useful, of one Network Intelligence pattern they can read now: its patternKey and the runId, both from organizationIntelligence.readHistory. Only their own rating changes, never the pattern. Owner or Admin. Nothing is saved until the user approves",
 	input: z.strictObject({
-		runId: z.uuid(),
+		runId: idInput,
 		patternKey: C.feedbackRequest.shape.patternKey,
 		rating: C.feedbackRequest.shape.rating,
 	}),

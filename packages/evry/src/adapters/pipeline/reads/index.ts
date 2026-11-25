@@ -20,7 +20,7 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import type { EvryActor } from "../../../context/actor.ts";
 import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { organizationSeat } from "../../native.ts";
+import { organizationSeat, idInput } from "../../native.ts";
 import { localWhenText } from "../../../catalog/labels.ts";
 
 function sixMonthsBefore(day: string) {
@@ -37,7 +37,7 @@ const value = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T 
 };
 
 const listInput = z.strictObject({
-	stageId: z.uuid().optional(),
+	stageId: idInput.optional(),
 	stale: z.boolean().optional(),
 	page: z.int().min(1).max(10_000).optional(),
 });
@@ -171,9 +171,9 @@ export const readProgram = {
 	description:
 		"This organization's development programs as Programs shows them. Without programId: each program with its kind, director, whether the user directs it, its published version number and whether a draft is in progress. With programId (a program row's id): its published version and its draft, each with rhythm and expected length in facts and, as rows, its stages, its milestones (each with its lineage, which carries it across versions) and its reading list, and whether the user directs it. Only the program's current director edits its plan, through development.draftNextVersion. With programId and enrolled: true, also the enrollments the user's Programs page shows (enrollment rows) and, for an Owner or Admin, the pipeline people who can be enrolled (candidate rows, by personId). With enrollmentId (an enrollment row's id) alone: that one enrollment's cohort, dates, stage, next meeting and version in facts, the stages of its version (stage rows) and its milestones (milestone rows, each with its progress as the page shows it: Not finished, Waiting for confirmation, Finished or Progress not shared). It never returns feedback, notes or reasons",
 	input: z.strictObject({
-		programId: z.uuid().optional(),
+		programId: idInput.optional(),
 		enrolled: z.boolean().optional(),
-		enrollmentId: z.uuid().optional(),
+		enrollmentId: idInput.optional(),
 	}),
 	allowed: organizationSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {

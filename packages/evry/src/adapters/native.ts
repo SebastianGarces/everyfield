@@ -2,7 +2,8 @@ import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
-import type { z } from "zod";
+import { localDate, localDateTime } from "@everyfield/contracts/common";
+import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
 import type { RequestActor, WriteTx } from "@everyfield/domain/access";
@@ -15,6 +16,11 @@ export const accountContext = (actor: EvryActor) => actor.owner.kind === "accoun
 export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 export const organizationAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
+export const idInput = z.string().refine((v) => z.uuid().safeParse(v).success, "not an id");
+export const dayInput = z.string().refine((v) => localDate.safeParse(v).success, "not a YYYY-MM-DD day");
+export const localTimeInput = z
+	.string()
+	.refine((v) => localDateTime.safeParse(v).success, "not a YYYY-MM-DDTHH:MM:SS local time");
 export const networkSeat = (actor: EvryActor) => actor.contextKind === "sending_network" && actor.role !== null;
 export const organizationSeat = (actor: EvryActor) => actor.owner.kind === "organization" && actor.role !== null;
 
