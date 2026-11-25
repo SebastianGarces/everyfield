@@ -16,7 +16,7 @@
 	"surfaces": [
 		{
 			"id": "evry.panel",
-			"says": "The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. The catalog endpoint is listed for completeness: nothing in the app calls it, so no step reaches it.",
+			"says": "The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. Production with no provider record says Evry isn't available yet. Nothing in the app calls the catalog endpoint.",
 			"routes": [],
 			"endpoints": [
 				"/api/evry/catalog",

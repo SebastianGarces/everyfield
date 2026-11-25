@@ -166,9 +166,10 @@ export function EvryPanel({
 			size="xl"
 			bodyRef={view === "chat" ? box : undefined}
 			onOpenAutoFocus={(e) => {
-				if (view !== "chat" || !available) return;
+				if (view !== "chat") return;
 				e.preventDefault();
-				focusComposer();
+				if (available) focusComposer();
+				else if (e.currentTarget instanceof HTMLElement) e.currentTarget.focus();
 			}}
 			title={
 				<span className="flex items-center gap-3">
