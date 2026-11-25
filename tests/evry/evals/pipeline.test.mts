@@ -495,6 +495,50 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 			await markMilestone(admin, stages.residency.enrollmentId, "Lead a vision night", account, "2026-10-01");
 		},
 	},
+	"NET-23": {
+		after: async () => {
+			const e = (await residency()).enrollments.find((x) => x.name === "Jordan Reyes")!;
+			assert.equal(e.status, "withdrawn");
+		},
+	},
+	"NET-25": {
+		after: async () => {
+			const personId = randomUUID();
+			ok(
+				await pipelineWriter.addPerson(db, await authority("dana"), {
+					personId,
+					displayName: "Casey Nguyen",
+					email: null,
+					responsibleSeatId: null,
+					stageId: stages.grace.Apprentice!,
+				}),
+			);
+			const p = await residency("dana");
+			ok(
+				await programWriter.enroll(db, await authority("dana"), {
+					enrollmentId: randomUUID(),
+					programId: p.id,
+					personId,
+					cohort: "Fall cohort",
+					startedOn: p.today,
+					expectedEndOn: `${Number(p.today.slice(0, 4)) + 2}${p.today.slice(4, 8)}01`,
+					stageId: p.published!.stages[0]!.id,
+					nextMeetingAt: null,
+				}),
+			);
+		},
+	},
+	"NET-27": {
+		after: async () =>
+			assert.deepEqual(
+				(await residency()).enrollments.map((e) => [e.name, e.status]),
+				[
+					["Casey Nguyen", "active"],
+					["Casey Lee", "completed"],
+					["Jordan Reyes", "withdrawn"],
+				],
+			),
+	},
 	"NET-18": {
 		after: async () => {
 			const e = ok(await readEnrollment(db, await authority("ana"), { enrollmentId: stages.residency.enrollmentId }));

@@ -2271,6 +2271,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.endEnrollment": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.enroll": {
 		"limit": 4,
 		"retry": 4

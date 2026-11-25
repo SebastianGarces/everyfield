@@ -1,17 +1,18 @@
 import { sql } from "drizzle-orm";
-import { database, closeDatabase } from "../src/client.ts";
+import { closeDatabase, createDatabase } from "../src/client.ts";
 import { early_access_request } from "../src/schema/tables.ts";
 import { developmentHosts, assertDevelopmentDatabase } from "../src/development.ts";
 
+const connectionString = process.env.DATABASE_URL;
 let allowed = false;
 try {
-	allowed = developmentHosts.has(assertDevelopmentDatabase(process.env.DATABASE_URL).hostname);
+	allowed = developmentHosts.has(assertDevelopmentDatabase(connectionString).hostname);
 } catch {}
-if (!allowed) {
+if (!allowed || !connectionString) {
 	console.error("Reset refused. Use the everyfield-v3 shared development database outside production.");
 	process.exit(1);
 }
-const db = database();
+const db = createDatabase({ connectionString, max: 5 });
 try {
 	await db.transaction(async (tx) => {
 		await tx.execute(sql`SELECT pg_advisory_xact_lock(7341097)`);

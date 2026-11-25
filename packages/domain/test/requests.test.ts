@@ -8,15 +8,17 @@ import { migrate } from "../../db/src/schema/migrate.ts";
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 
-import { database, expireAccessRequests, exportAccessRequests } from "@everyfield/db";
-import { receiveAccessRequest } from "../src/early-access/index.js";
+import { expireAccessRequests, exportAccessRequests, receiveAccessRequest } from "../src/early-access/index.js";
+import { jobDatabase } from "../../../apps/web/src/server/database.ts";
+import { setServerEnv } from "../../../tests/support/server-env.mts";
 import { GET } from "../../../apps/web/src/app/api/cron/access-retention/route.js";
 
 const source = assertDevelopmentDatabase(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL);
 const isolatedSchema = "db1_early_" + randomUUID().replaceAll("-", "");
 source.searchParams.set("options", `-c search_path=${isolatedSchema},pg_catalog,pg_temp`);
 process.env.DATABASE_URL = source.href;
-const db = database();
+setServerEnv({ IDENTITY_DATABASE_URL: source.href });
+const db = createDatabase({ connectionString: source.href, max: 5 });
 before(async () => {
 	await db.execute(querySql`CREATE SCHEMA ${querySql.identifier(isolatedSchema)}`);
 	await migrate(db, isolatedSchema);
@@ -71,6 +73,7 @@ beforeEach(async () => {
 after(async () => {
 	await db.execute(querySql`DROP SCHEMA ${querySql.identifier(isolatedSchema)} CASCADE`);
 	await closeDatabase(db);
+	await closeDatabase(jobDatabase() as typeof db);
 });
 
 test("INV-access: accepted forms normalize email, store every field and send one complete owner email each", async () => {

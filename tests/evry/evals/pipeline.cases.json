@@ -1008,6 +1008,114 @@
 				"Leadership conversations are logged on the Pipeline page, not here, and so are notes and assessments."
 			],
 			"absent": ["milestone"]
+		},
+		{
+			"id": "NET-21",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "end Jordan's enrollment in the residency",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Did the enrollment end as Completed, because they finished the program, or as Withdrawn, because they left it? Nothing was prepared."
+			],
+			"absent": ["finished Church"]
+		},
+		{
+			"id": "NET-22",
+			"criterion": 14,
+			"actor": "luis",
+			"ask": "Jordan dropped out of the residency",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director changes an enrollment",
+				"directed by Ana Ruiz, so I prepared nothing."
+			],
+			"absent": ["finished Church"]
+		},
+		{
+			"id": "NET-23",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Jordan dropped out of the residency",
+			"operation": "development.updateEnrollment",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.updateEnrollment",
+				"target": "Jordan Reyes",
+				"changes": [
+					{
+						"field": "status",
+						"before": "Active",
+						"after": "Withdrawn"
+					}
+				],
+				"notes": [
+					"Church planting residency, Version 2.",
+					"An ended enrollment cannot be changed or reopened.",
+					"Its milestones and feedback stay in the record.",
+					"Their pipeline stage does not change."
+				]
+			},
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-24",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Jordan finished the residency",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Jordan Reyes's enrollment in Church planting residency has ended as Withdrawn. Nothing was prepared."
+			],
+			"absent": ["has finished"]
+		},
+		{
+			"id": "NET-25",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Casey dropped out",
+			"calls": ["development.readProgram"],
+			"answer": ["Which program? Grace Austin has"],
+			"absent": ["review card"]
+		},
+		{
+			"id": "NET-26",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Casey finished the residency",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": ["Which person: Casey Lee or Casey Nguyen? Nothing was prepared."],
+			"absent": ["review card"]
+		},
+		{
+			"id": "NET-27",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "mark Casey Lee's enrollment in the residency as completed",
+			"operation": "development.updateEnrollment",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.updateEnrollment",
+				"target": "Casey Lee",
+				"changes": [
+					{
+						"field": "status",
+						"before": "Active",
+						"after": "Completed"
+					}
+				],
+				"notes": [
+					"Church planting residency, Version 2.",
+					"An ended enrollment cannot be changed or reopened.",
+					"Its milestones and feedback stay in the record.",
+					"Their pipeline stage does not change."
+				]
+			},
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"approve": {},
+			"outcome": "completed"
 		}
 	]
 }

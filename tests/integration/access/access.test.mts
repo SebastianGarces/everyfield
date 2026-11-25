@@ -164,6 +164,13 @@ test("AC:ADR1-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization duties a
 	}
 	for (const a of [resident, unrelated]) assert.deepEqual(await read(a), unavailable);
 	assert.deepEqual(await read(admin, other), unavailable);
+	for (const status of ["completed", "withdrawn"]) {
+		await db.admin.execute(querySql`UPDATE development_enrollment SET status=${status} WHERE person_id=${p}`);
+		assert.deepEqual(await read(director), unavailable, `directing only a ${status} enrollment gives no record access`);
+		assert.equal((await read(admin)).status, "allowed");
+		assert.equal((await read(staff)).status, "allowed");
+	}
+	await db.admin.execute(querySql`UPDATE development_enrollment SET status='active' WHERE person_id=${p}`);
 	assert.deepEqual(await read(admin, { ...o, organizationKind: "sending_network" }), unavailable);
 	assert.deepEqual(await effects(), before, "reading records nothing");
 	const inv = id(),

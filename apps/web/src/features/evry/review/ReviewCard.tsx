@@ -103,7 +103,7 @@ import {
 	missingRequired,
 	openAfter,
 	openCriteria,
-	operationTitle,
+	reviewTitle,
 	peopleResult,
 	phaseOf,
 	photoRef,
@@ -834,7 +834,7 @@ function Affects({ review }: { review: Review }) {
 				</span>
 				<span className="min-w-0">
 					<span className="block truncate font-medium text-ink">{name}</span>
-					<span className="block text-xs text-text-3">{operationTitle(review.operation)}</span>
+					<span className="block text-xs text-text-3">{reviewTitle(review)}</span>
 				</span>
 			</div>
 		);
@@ -907,7 +907,7 @@ function Affects({ review }: { review: Review }) {
 			)}
 			<span className="min-w-0">
 				<span className="block truncate font-medium text-ink">{name}</span>
-				<span className="block text-xs text-text-3">{operationTitle(review.operation)}</span>
+				<span className="block text-xs text-text-3">{reviewTitle(review)}</span>
 			</span>
 		</div>
 	);

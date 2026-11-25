@@ -687,6 +687,41 @@ SELECT (SELECT revision::text FROM x) AS current,coalesce((SELECT staged FROM ok
 	});
 }
 
+function endEnrollment(db: Database, authority: RequestActor, raw: unknown) {
+	return write<{ revision: string }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.endEnrollmentRequest, raw);
+		const org = w.organization;
+		const row = await one(
+			w,
+			z.object({ current: z.string().nullable(), active: z.boolean(), revision: z.string().nullable() }),
+			sql`WITH x AS (SELECT e.id,e.revision,e.status
+ FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
+ WHERE e.id=${input.enrollmentId}::uuid AND e.organization_id=${org}::uuid
+  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
+u AS (UPDATE development_enrollment e SET status=${input.outcome},revision=e.revision+1 FROM x
+ WHERE e.id=x.id AND e.organization_id=${org}::uuid AND x.status='active' AND x.revision=${input.expectedRevision}::bigint
+ RETURNING e.revision),
+a AS (${w.audit({
+				action: "development.enrollment_updated",
+				kind: "edit",
+				subjectType: "development_enrollment",
+				subject: sql`x.id`,
+				before: sql`x.revision`,
+				after: sql`u.revision`,
+				metadata: { fields: ["status"], outcome: input.outcome },
+			})}
+ FROM x,u RETURNING id)
+SELECT (SELECT revision::text FROM x) AS current,coalesce((SELECT status='active' FROM x),false) AS active,
+ (SELECT revision::text FROM u) AS revision`,
+		);
+		if (row.revision) return { revision: row.revision };
+		if (!row.current) refuse();
+		if (!row.active) refuse({ code: "enrollment_ended" });
+		return refuse({ code: "conflict" });
+	});
+}
+
 const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string) => sql`x AS (SELECT e.id,e.version_id,
  e.person_id,e.revision FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
  AND p.organization_id=e.organization_id WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
@@ -895,6 +930,7 @@ export const programWriter = {
 	publishVersion,
 	enroll,
 	updateEnrollment,
+	endEnrollment,
 	recordMilestone,
 	confirmMilestone,
 	addFeedback,

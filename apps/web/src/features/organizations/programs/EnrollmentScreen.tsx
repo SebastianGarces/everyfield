@@ -1,6 +1,6 @@
 "use client";
 
-import type { EnrollmentDetail, VersionReview } from "@everyfield/contracts/organizations";
+import { ENROLLMENT_STATUS, type EnrollmentDetail, type VersionReview } from "@everyfield/contracts/organizations";
 import { CheckmarkCircle02Icon, Layers01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -9,6 +9,7 @@ import {
 	Card,
 	CardBody,
 	CardHeader,
+	CardHeading,
 	CardTitle,
 	Dialog,
 	DialogBody,
@@ -27,6 +28,7 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import { dayText } from "@everyfield/contracts/common";
 import { PIPELINE_PATH } from "../board/model";
 import { addFeedback, applyVersion, confirmMilestone, recordMilestone } from "./actions";
+import { EndEnrollmentDialog } from "./EndEnrollment";
 import { rereadEnrollment, reviewVersion } from "./fetch.ts";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { Detail } from "./ProgramScreen";
@@ -42,13 +44,16 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 	const enrollment = local?.from === initial ? local.value : initial;
 	const [recording, setRecording] = useState<Milestone | null>(null);
 	const [reviewing, setReviewing] = useState(false);
+	const [ending, setEnding] = useState(false);
 	const director = enrollment.viewer.director && enrollment.status === "active";
 	const resident = enrollment.resident;
 	const firstName = enrollment.person.name.split(" ")[0] ?? enrollment.person.name;
 
 	async function reread() {
 		const answer = await rereadEnrollment(enrollment.id).catch(() => null);
-		if (answer?.status === "ok") setLocal({ from: initial, value: answer.value });
+		if (answer?.status !== "ok") return null;
+		setLocal({ from: initial, value: answer.value });
+		return answer.value;
 	}
 
 	const finished = enrollment.milestones.filter((m) => m.completion?.confirmedOn).length;
@@ -100,7 +105,14 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 			<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 max-app-md:grid-cols-1">
 				<Card>
 					<CardHeader>
-						<CardTitle>Enrollment</CardTitle>
+						<CardHeading>
+							<CardTitle>Enrollment</CardTitle>
+						</CardHeading>
+						{director ? (
+							<Button variant="secondary" size="sm" className="flex-none" onClick={() => setEnding(true)}>
+								End enrollment
+							</Button>
+						) : null}
 					</CardHeader>
 					<CardBody>
 						<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
@@ -114,7 +126,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 									: "Not set"}
 							</Detail>
 							<Detail term="Plan">{`Version ${enrollment.versionNumber}`}</Detail>
-							<Detail term="Status">{enrollment.status === "active" ? "Active" : enrollment.status}</Detail>
+							<Detail term="Status">{ENROLLMENT_STATUS[enrollment.status]}</Detail>
 							<Detail term="Director">{enrollment.program.director.name}</Detail>
 							<Detail term="Everyfield account">{resident.status === "linked" ? "Linked" : "Not linked"}</Detail>
 							{resident.status === "linked" ? (
@@ -210,6 +222,17 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 					}}
 				/>
 			) : null}
+			<EndEnrollmentDialog
+				open={ending}
+				enrollment={enrollment}
+				onClose={() => setEnding(false)}
+				onEnded={async (status) => {
+					setLocal({ from: initial, value: { ...enrollment, status } });
+					setEnding(false);
+					await reread();
+				}}
+				reread={reread}
+			/>
 			{director && enrollment.newerVersion ? (
 				<ApplyDialog
 					open={reviewing}
@@ -239,7 +262,7 @@ function MilestoneRow({
 	director: boolean;
 	recordedOn?: number;
 	onRecord: () => void;
-	onChanged: () => Promise<void>;
+	onChanged: () => Promise<unknown>;
 }) {
 	const c = m.completion;
 	const linked = enrollment.resident.status === "linked";
@@ -276,7 +299,9 @@ function MilestoneRow({
 					{m.description ? <span className="[overflow-wrap:anywhere] text-text-2">{m.description}</span> : null}
 					{c && c.confirmedOn === null ? (
 						<>
-							<span className="font-medium text-amber-600">Waiting for confirmation</span>
+							<span className="font-medium text-amber-600">
+								{enrollment.status === "active" ? "Waiting for confirmation" : "Not confirmed"}
+							</span>
 							<span className="text-text-2">
 								{c.recorder ?? enrollment.person.name} marked it done {dayText(c.completedOn)}
 							</span>
@@ -337,7 +362,7 @@ function Feedback({
 	milestone: Milestone;
 	enrollment: EnrollmentDetail;
 	director: boolean;
-	onChanged: () => Promise<void>;
+	onChanged: () => Promise<unknown>;
 }) {
 	const [writing, setWriting] = useState(false);
 	const [body, setBody] = useState("");

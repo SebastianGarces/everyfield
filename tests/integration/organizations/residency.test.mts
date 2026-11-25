@@ -809,6 +809,105 @@ test("INV-lock-order: a resident's sharing change or leave from a stale revision
 		});
 });
 
+test("AC:ADR1-013 My residency drops a program its director ended; other programs, the link and sharing stay, no notice is sent and the resident's mark is refused", async () => {
+	const second = randomUUID();
+	const p = ok(
+		await programWriter.createProgram(f.db, await authority(dana), {
+			programId: second,
+			kind: "apprenticeship",
+			name: "Grace Apprenticeship",
+			directorSeatId: (
+				await f.admin.execute(sql`SELECT director_seat_id AS id FROM development_program
+				WHERE id=${program}`)
+			).rows[0]!.id as string,
+			plan: {
+				rhythm: "weekly",
+				expectedMonths: 6,
+				stages: [{ label: "Starting", minMonths: 1, maxMonths: 2 }],
+				milestones: [],
+				readings: [],
+			},
+		}),
+	);
+	ok(
+		await programWriter.publishVersion(f.db, await authority(ana), { programId: second, expectedRevision: p.revision }),
+	);
+	const published = ok(await readProgram(f.db, await authority(dana), { programId: second })).published!;
+	const enrollInSecond = async (enrollmentId: string) =>
+		ok(
+			await programWriter.enroll(f.db, await authority(dana), {
+				enrollmentId,
+				programId: second,
+				personId: caseyPerson,
+				cohort: "Fall 2026",
+				startedOn: "2026-10-01",
+				expectedEndOn: "2027-12-31",
+				stageId: published.stages[0]!.id,
+				nextMeetingAt: "2026-12-01T19:00:00",
+			}),
+		);
+	const ids = async () => {
+		const view = await mine();
+		assert.equal(view.status, "linked");
+		return view.status === "linked" ? view.enrollments.map((e) => e.id) : [];
+	};
+	const facts = async () =>
+		(
+			await f.admin
+				.execute(sql`SELECT (SELECT to_jsonb(l) FROM residency_link l WHERE l.account_id=${casey.id}) AS link,
+				(SELECT count(*) FROM job)::int AS jobs`)
+		).rows[0];
+	const enrollmentId = randomUUID();
+	await enrollInSecond(enrollmentId);
+	assert.deepEqual((await ids()).sort(), [caseyEnrollment, enrollmentId].sort());
+	const before = await facts();
+	for (const [id, left] of [
+		[enrollmentId, [caseyEnrollment]],
+		[caseyEnrollment, []],
+	] as const) {
+		const e = await enrollment(ana, id);
+		ok(
+			await programWriter.endEnrollment(f.db, await authority(ana), {
+				enrollmentId: id,
+				expectedRevision: e.revision,
+				outcome: id === enrollmentId ? "completed" : "withdrawn",
+			}),
+		);
+		assert.deepEqual(await ids(), left);
+	}
+	assert.deepEqual(await facts(), before);
+	const ended = await enrollment(ana);
+	assert.equal(ended.resident.status, "linked");
+	const open = ended.milestones.find((m) => !m.completion) ?? ended.milestones[0]!;
+	const refused = await residentWriter.markMilestone(f.db, await authority(casey), {
+		enrollmentId: caseyEnrollment,
+		milestoneId: open.id,
+	});
+	assert.deepEqual(refused, { status: "refused", refusal: { code: "unavailable" } });
+	await f.admin.execute(sql`UPDATE development_enrollment SET status='active' WHERE id=${caseyEnrollment}`);
+
+	const raced = await enrollment(ana);
+	let held!: () => void, release!: () => void;
+	const locked = new Promise<void>((r) => (held = r));
+	const released = new Promise<void>((r) => (release = r));
+	const holder = f.admin.transaction(async (tx) => {
+		await tx.execute(sql`UPDATE development_enrollment SET status='completed' WHERE id=${caseyEnrollment}`);
+		held();
+		await released;
+	});
+	await locked;
+	const waiting = residentWriter.markMilestone(f.db, await authority(casey), {
+		enrollmentId: caseyEnrollment,
+		milestoneId: open.id,
+	});
+	await waitingOnLock(f.db, { count: 1 });
+	release();
+	await holder;
+	assert.deepEqual(await waiting, { status: "refused", refusal: { code: "unavailable" } });
+	assert.deepEqual((await enrollment(ana)).milestones, raced.milestones);
+	await f.admin.execute(sql`UPDATE development_enrollment SET status='active' WHERE id=${caseyEnrollment}`);
+});
+
 test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Grace Austin sees her as not linked; its own facts stay", async () => {
 	const l = (await linkRow())!;
 	await asResident("residency.leave", {

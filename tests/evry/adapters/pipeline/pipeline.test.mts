@@ -731,6 +731,146 @@ const pick = (m: { lineage: string; title: string; description: string | null; h
 	handsOn: m.handsOn,
 });
 
+async function newlyEnrolled(displayName: string) {
+	const [personId, enrollmentId] = [randomUUID(), randomUUID()];
+	const stageId = (await board()).stages[0]!.id;
+	ok(
+		await pipelineWriter.addPerson(db, await authority("dana"), {
+			personId,
+			displayName,
+			email: null,
+			responsibleSeatId: null,
+			stageId,
+		}),
+	);
+	const p = await program("dana");
+	ok(
+		await programWriter.enroll(db, await authority("dana"), {
+			enrollmentId,
+			programId: p.id,
+			personId,
+			cohort: "Ending cohort",
+			startedOn: "2026-10-01",
+			expectedEndOn: "2028-10-01",
+			stageId: p.published!.stages[0]!.id,
+			nextMeetingAt: "2026-12-03T09:30:00",
+		}),
+	);
+	return { personId, before: await enrollment("ana", enrollmentId) };
+}
+
+for (const [outcome, label, words] of [
+	["completed", "Completed", "has ended as Completed"],
+	["withdrawn", "Withdrawn", "has ended as Withdrawn"],
+] as const)
+	test(`AC:ADR1-011 the current director's approved card ends an enrollment as ${outcome} as the page does, once`, async () => {
+		const op = "development.updateEnrollment";
+		const asked = await newlyEnrolled(`Evry ${label}`);
+		const page = await newlyEnrolled(`Page ${label}`);
+		const id = asked.before.id;
+		const place = async () =>
+			ok(await readPipelinePersonRecord(db, await authority("dana"), { personId: asked.personId })).stage;
+		const placed = await place();
+		const card = await r.prepare(who.ana, op, { enrollmentId: id, outcome });
+		assert.deepEqual(card.review, {
+			target: {
+				kind: "person",
+				id: asked.personId,
+				label: `Evry ${label}`,
+				href: `/organization/pipeline/programs/enrollments/${id}`,
+			},
+			changes: [{ field: "status", before: "Active", after: label }],
+			notes: [
+				`${asked.before.program.name}, Version ${asked.before.versionNumber}.`,
+				"An ended enrollment cannot be changed or reopened.",
+				"Its milestones and feedback stay in the record.",
+				"Their pipeline stage does not change.",
+			],
+		});
+		assert.deepEqual(await enrollment("ana", id), asked.before);
+		const late = await r.prepare(who.ana, op, { enrollmentId: id, outcome });
+		completed(await r.approve(who.ana, card));
+		assert.equal(await r.replayed(who.ana, card), true);
+		ok(
+			await programWriter.endEnrollment(db, await authority("ana"), {
+				enrollmentId: page.before.id,
+				expectedRevision: page.before.revision,
+				outcome,
+			}),
+		);
+		const own = <T extends { id: string; person: unknown }>({ id: _id, person: _person, ...rest }: T) => rest;
+		const after = await enrollment("ana", id);
+		assert.deepEqual(after, {
+			...asked.before,
+			status: outcome,
+			revision: String(Number(asked.before.revision) + 1),
+		});
+		assert.deepEqual(own(after), own(await enrollment("ana", page.before.id)));
+		assert.deepEqual(await place(), placed);
+		const audit = await audits("development.enrollment_updated", id);
+		assert.equal(audit.length, 1);
+		assert.deepEqual(audit, await audits("development.enrollment_updated", page.before.id));
+		assert.deepEqual(audit[0]?.metadata, { fields: ["status"], outcome });
+
+		refusedAs(await r.approve(who.ana, late), "enrollment_ended");
+		const ended = `Evry ${label}'s enrollment in ${after.program.name} ${words}, so it can't change.`;
+		await r.refusedCard(who.ana, op, { enrollmentId: id, outcome }, ended);
+		await r.refusedCard(who.ana, op, { enrollmentId: id, changes: { cohort: "Late" } }, ended);
+		await r.refusedCard(who.ana, "development.applyVersion", { enrollmentId: id }, ended);
+		const milestoneId = after.milestones[0]!.id;
+		await r.refusedCard(who.ana, "development.confirmMilestone", { enrollmentId: id, milestoneId }, ended);
+		await r.refusedCard(
+			who.ana,
+			"development.completeMilestone",
+			{ enrollmentId: id, milestoneId, completedOn: "2026-10-02" },
+			ended,
+		);
+		const read = await invokeRead(db, who.ana, programRead as never, { enrollmentId: id });
+		assert.equal(read.facts?.status, label);
+		assert.equal((await audits("development.enrollment_updated", id)).length, 1);
+	});
+
+test("AC:ADR1-011 Evry prepares no end for anyone but the current director, and a change or a new director after the card refuses it", async () => {
+	const op = "development.updateEnrollment";
+	const { before } = await newlyEnrolled("Evry Refused");
+	const input = { enrollmentId: before.id, outcome: "withdrawn" };
+	for (const [name, code] of [
+		["dana", "access_denied"],
+		["luis", "access_denied"],
+		["ben", "not_found"],
+		["hill", "not_found"],
+	] as const)
+		await r.refuses(who[name], op, input, code);
+	const seen = await invokeRead(db, who.dana, programRead as never, { enrollmentId: before.id });
+	assert.deepEqual([seen.facts?.directedByYou, seen.facts?.director], [false, "Ana Ruiz"]);
+	for (const bad of [
+		{ enrollmentId: before.id },
+		{ ...input, changes: { cohort: "Both" } },
+		{ ...input, outcome: "active" },
+		{ ...input, outcome: "paused" },
+	])
+		await r.refuses(who.ana, op, bad, "invalid_input");
+
+	const handed = await r.prepare(who.ana, op, input);
+	await admin.execute(sql`UPDATE development_program SET director_seat_id=(SELECT id FROM seat
+		WHERE organization_id=${GRACE_AUSTIN} AND role='admin' AND ended_at IS NULL LIMIT 1) WHERE id=${seeded.residency.programId}`);
+	refusedAs(await r.approve(who.ana, handed), "access_denied");
+	await admin.execute(
+		sql`UPDATE development_program SET director_seat_id=${seeded.anaSeat} WHERE id=${seeded.residency.programId}`,
+	);
+
+	const stale = await r.prepare(who.ana, op, input);
+	ok(
+		await programWriter.updateEnrollment(db, await authority("ana"), {
+			enrollmentId: before.id,
+			expectedRevision: before.revision,
+			changes: { cohort: "Changed first" },
+		}),
+	);
+	refusedAs(await r.approve(who.ana, stale), "revision_conflict");
+	assert.equal((await enrollment("ana", before.id)).status, "active");
+});
+
 test("INV-evry-pipeline-tools: each seat kind is offered the pipeline and program writes its pages give it, and never publishing a version", async () => {
 	const directed = [
 		"development.draftNextVersion",

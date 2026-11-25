@@ -88,6 +88,26 @@ export const updateEnrollmentRequest = z.strictObject({
 		.refine((c) => Object.keys(c).length > 0),
 });
 
+export const enrollmentOutcome = z.enum(["completed", "withdrawn"]);
+export type EnrollmentOutcome = z.infer<typeof enrollmentOutcome>;
+export const enrollmentStatus = z.enum(["active", ...enrollmentOutcome.options]);
+export type EnrollmentStatus = z.infer<typeof enrollmentStatus>;
+export const ENROLLMENT_STATUS: Record<EnrollmentStatus, string> = {
+	active: "Active",
+	completed: "Completed",
+	withdrawn: "Withdrawn",
+};
+export const ENROLLMENT_END_NOTES = [
+	"An ended enrollment cannot be changed or reopened.",
+	"Its milestones and feedback stay in the record.",
+	"Their pipeline stage does not change.",
+] as const;
+export const endEnrollmentRequest = z.strictObject({
+	enrollmentId: recordId,
+	expectedRevision: revision,
+	outcome: enrollmentOutcome,
+});
+
 export const recordMilestoneRequest = z.strictObject({
 	enrollmentId: recordId,
 	milestoneId: recordId,
@@ -193,7 +213,7 @@ export const programDetail = z.strictObject({
 			personId,
 			name: z.string(),
 			cohort: z.string(),
-			status: z.enum(["active", "completed"]),
+			status: enrollmentStatus,
 			stage: z.string(),
 			versionNumber: z.int().min(1),
 		}),
@@ -244,7 +264,7 @@ export const enrollmentDetail = z.strictObject({
 	cohort: z.string(),
 	startedOn: localDate,
 	expectedEndOn: localDate,
-	status: z.enum(["active", "completed"]),
+	status: enrollmentStatus,
 	stage: z.strictObject({ id: recordId, label: z.string() }),
 	stages: z.array(z.strictObject({ id: recordId, label: z.string() })),
 	nextMeeting: z.strictObject({ at: localDateTime, timezone: z.string() }).nullable(),
@@ -290,6 +310,7 @@ export const programRefusal = z.discriminatedUnion("code", [
 	z.strictObject({ code: z.literal("conflict") }),
 	z.strictObject({ code: z.literal("not_published") }),
 	z.strictObject({ code: z.literal("already_enrolled") }),
+	z.strictObject({ code: z.literal("enrollment_ended") }),
 	z.strictObject({ code: z.literal("no_stages") }),
 	z.strictObject({ code: z.literal("linked_resident") }),
 	z.strictObject({
