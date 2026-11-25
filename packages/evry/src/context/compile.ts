@@ -5,7 +5,7 @@ import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
-import { verifyArticles } from "../adapters/wiki/reads/index.ts";
+import { verifyArticles, verifyPage } from "../adapters/wiki/reads/index.ts";
 import type { ConversationEvent, ConversationState, Reference, ReviewOutcome } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
@@ -272,6 +272,8 @@ const READ_AREAS: Record<string, string> = {
 		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
+const WIKI_BROWSING =
+	"Browse and search the Wiki, show the guide for the page you're on, say what to read next, and read back your bookmarks, reading history and feedback.";
 const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 	{
 		prefix: "people.",
@@ -343,6 +345,12 @@ const ROLE_NAME = { owner: "an Owner", admin: "an Admin", member: "a Member" } a
 export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "role">) {
 	const reads = catalog.domains.map((d) => READ_AREAS[d.domain]).filter((t): t is string => !!t);
 	const ops = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
+	if (ops.has("wiki.navigation"))
+		reads.splice(
+			reads.findIndex((text) => text === READ_AREAS.wiki),
+			1,
+			WIKI_BROWSING,
+		);
 	if (ops.has("people.previewImport"))
 		reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
 	const writes = WRITE_AREAS.filter((a) =>
@@ -362,7 +370,7 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	lines.push("", "I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.");
 	return lines.join("\n");
 }
-export type VerifiedReference = { kind: "person" | "photo" | "article"; id: string; label: string };
+export type VerifiedReference = { kind: "person" | "photo" | "article" | "page"; id: string; label: string };
 
 export async function resolveReferences(
 	db: Database,
@@ -385,7 +393,11 @@ export async function resolveReferences(
 			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
 		: [];
 	const slugs = [...new Set(bounded.flatMap((r) => (r.kind === "article" ? [r.slug] : [])))];
-	return [...people, ...attached, ...(await verifyArticles(db, actor, slugs))];
+	const pages = verifyPage(
+		actor,
+		bounded.flatMap((r) => (r.kind === "page" ? [r.route] : [])),
+	);
+	return [...people, ...attached, ...(await verifyArticles(db, actor, slugs)), ...pages];
 }
 
 function taskRules(catalog: Catalog) {
@@ -442,6 +454,13 @@ const WIKI_RULE = [
 	"When the user asks what the Wiki says, answer only from Wiki tool results: quote the excerpt as the Wiki's words, with the article's title as a markdown link to its href.",
 	"When no Wiki article matches, say the Wiki has nothing on it. Never answer from general knowledge as if it were the Wiki.",
 	"No tool writes or edits Wiki content: the Wiki is shared reading. When asked to edit the Wiki or add the church's own writing to it, say churches keep their own writing in Church Documents, and offer no change.",
+].join(" ");
+
+const PAGE_GUIDE_RULE = [
+	"For what is in the Wiki use wiki.navigation, and for the articles of a section or phase wiki.articles.list: never search for them. When a section has no articles or doesn't exist, say so and name no other article as its own.",
+	"To quote one section of an article, read wiki.tableOfContents and pass its heading to wiki.referenceExcerpt exactly as listed. When the article has no such section, say so and never quote its start in its place.",
+	"For the guide to a page, call wiki.contextGuide with the page the user names, or else the page reference. With neither, ask which page. When that page has no guide, say it has none; wiki.recommendForPhase suggestions are not a page's guide.",
+	"The user's reading, bookmarks and feedback are only their own; you never see another reader's.",
 ].join(" ");
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
@@ -584,6 +603,7 @@ export function compileContext(input: {
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),
 		input.actor.contextKind === "plant" && input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
+		ops.has("wiki.contextGuide") ? PAGE_GUIDE_RULE : "",
 		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),

@@ -13,7 +13,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 
 | Suite                    | Cases                                                                                                                    | What it scores                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (333 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (351 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
 | `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
@@ -31,6 +31,14 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `task-plan.test.mts`     | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
 | `phases.test.mts`        | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
 | `kill-switches.test.mts` | `kill-switches.cases.json`                                                                                               | Evry with a kill switch off: model calls paused (zero calls), outbound mail paused          |
+
+## The Wiki browsing cases (scripted model)
+
+ADP-WK-10 to ADP-WK-27 (T-633) cover the nine Wiki browsing reads (`wiki.navigation` to `wiki.feedback.getMine`,
+`packages/evry/src/adapters/wiki/reads/browse.ts`) in the golden run. They carry `"model": "scripted"`
+(`packages/evry-scripted/src/scripted-wiki-browse.ts`): their operations are in `LATER` and `SCRIPTED_ONLY`, so no
+recorded case is offered them and no call is paid. They move to the real model with the next batched re-record (D-1300).
+A case's `page` is an article's slug, or an app route when it starts with `/`.
 
 ## The settings suite (scripted model)
 

@@ -1,12 +1,11 @@
 "use client";
 
-import { organizationBodyFits } from "@everyfield/contracts/wiki";
+import { articlePath, organizationBodyFits } from "@everyfield/contracts/wiki";
 import { Button, ConfirmDialog, Field, InlineAlert, Select, Textarea } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useReducer, useRef, useState, useTransition } from "react";
 import { hideWikiSource, publishWikiArticle, saveWikiDraft, type OrgResult } from "./actions.ts";
 import {
-	articlePath,
 	articleTextChanged,
 	changedSectionLabels,
 	editorBlocksFromBody,

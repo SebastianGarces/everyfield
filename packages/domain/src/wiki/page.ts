@@ -1,4 +1,4 @@
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { alias, and, eq, inArray } from "@everyfield/db/query";
 import { article_editor_state, article_revision, organization, reading } from "@everyfield/db/tables";
 import "server-only";
@@ -57,7 +57,7 @@ export async function getReadingRevision(db: Database, actor: RequestActor, arti
 }
 
 export async function listCompletedArticles(
-	db: Database,
+	db: Database | Transaction,
 	actor: RequestActor,
 	articleIds: string[],
 ): Promise<Set<string>> {

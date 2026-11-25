@@ -119,12 +119,18 @@ test("INV-retry: only the last turn that did not complete, with no run active an
 	assert.equal(endNotice({ state: "failed", reason: "failed", error: { code: "model_unavailable" } }).tone, "neutral");
 });
 
-test("AC:UI45-006 INV-page: only a person page offers a reference", () => {
+test("AC:UI45-006 INV-page: a page offers its record and its known route, and only a church offers a route", () => {
 	const id = "0E0B6B0C-1A2B-4C3D-8E4F-5A6B7C8D9E0F";
-	assert.deepEqual(pageReferences(`/people/${id}`), [{ kind: "person", id: id.toLowerCase() }]);
-	assert.deepEqual(pageReferences("/people"), []);
-	assert.deepEqual(pageReferences(`/people/${id}/edit`), []);
-	assert.deepEqual(pageReferences(null), []);
+	assert.deepEqual(pageReferences(`/people/${id}`, true), [
+		{ kind: "person", id: id.toLowerCase() },
+		{ kind: "page", route: "/people/[personId]" },
+	]);
+	assert.deepEqual(pageReferences(`/people/${id}`, false), [{ kind: "person", id: id.toLowerCase() }]);
+	assert.deepEqual(pageReferences("/people", true), [{ kind: "page", route: "/people" }]);
+	assert.deepEqual(pageReferences("/people", false), []);
+	assert.deepEqual(pageReferences("/wiki/a/b", true), [{ kind: "article", slug: "a/b" }]);
+	assert.deepEqual(pageReferences(`/people/${id}/edit`, true), []);
+	assert.deepEqual(pageReferences(null, true), []);
 });
 
 test("INV-turns: live text of a turn with a withheld text is never shown", () => {
