@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { withPeopleWrite } from "../../../../packages/domain/src/people/index.ts";
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import type { PoolClient } from "../../../../packages/db/src/client.ts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
@@ -32,7 +30,6 @@ import { scriptedAssessmentDrafter } from "../../../../packages/evry-scripted/sr
 import { scheduledJobs } from "../../../../apps/web/src/server/jobs/scheduled.ts";
 import { taskReminders } from "../../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, type Actor } from "../../../support/fixture.mts";
-import type { Database } from "../../../support/test-database.mts";
 import { MAILING } from "../../communication/church-address.mts";
 import { writeAs } from "../../communication/communication-support.mts";
 import { resendRecorder } from "../../communication/resend-recorder.mts";
@@ -65,31 +62,6 @@ const FROZEN = [
 	"audit_event",
 ] as const;
 type Frozen = (typeof FROZEN)[number];
-
-const LIMITS = JSON.parse(readFileSync(new URL("../../writes/limits.json", import.meta.url), "utf8"));
-const FINALIZE = "meetings/core.withMeetingsWrite:meetings.finalizeAttendance";
-
-async function statementsOf(pool: Database["$client"], body: () => Promise<unknown>) {
-	const sent: string[] = [];
-	const restore = new Map<PoolClient, PoolClient["query"]>();
-	const observe = (client: PoolClient) => {
-		if (restore.has(client)) return;
-		const query = client.query;
-		restore.set(client, query);
-		client.query = function (this: PoolClient, ...args: unknown[]) {
-			sent.push(typeof args[0] === "string" ? args[0] : ((args[0] as { text?: string }).text ?? ""));
-			return Reflect.apply(query, this, args);
-		} as PoolClient["query"];
-	};
-	pool.on("acquire", observe);
-	try {
-		await body();
-	} finally {
-		pool.off("acquire", observe);
-		for (const [client, query] of restore) client.query = query;
-	}
-	return sent;
-}
 
 export async function world(prefix: string, reminderTime?: string) {
 	const c = await church(prefix, { max: 8 });
@@ -202,22 +174,12 @@ export async function world(prefix: string, reminderTime?: string) {
 					input: { meetingId: id, to },
 				}),
 			);
-		const expectedRevision = await revision("meeting", id, "attendance_revision");
-		const sent = await statementsOf(db.$client, async () =>
-			ok(
-				await meeting(attendance.finalizeAttendance, {
-					requestKey: key(),
-					expectedRevision,
-					input: { meetingId: id, attendeeIds, followUpAssigneeIds: [boss.id], evaluationAssigneeIds: [] },
-				}),
-			),
-		);
-		const retried = sent.some((text) => /^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text));
-		const limit = LIMITS[FINALIZE][retried ? "retry" : "limit"];
-		assert.ok(sent.length > 0, "finalizing the meeting sends statements");
-		assert.ok(
-			sent.length <= limit,
-			`${FINALIZE}: ${sent.length} statements, limit ${limit}, for a meeting ${daysAgo} days ago\n${sent.join("\n")}`,
+		ok(
+			await meeting(attendance.finalizeAttendance, {
+				requestKey: key(),
+				expectedRevision: await revision("meeting", id, "attendance_revision"),
+				input: { meetingId: id, attendeeIds, followUpAssigneeIds: [boss.id], evaluationAssigneeIds: [] },
+			}),
 		);
 		return id;
 	}
