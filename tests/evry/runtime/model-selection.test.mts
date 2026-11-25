@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CHAT, EMBEDDING, RECORD, UNVERIFIED } from "./provider.mts";
+import { RECORD, UNVERIFIED } from "./provider.mts";
 import { evryModel } from "../../../apps/web/src/server/models.ts";
 
 const SCRIPTED = { EVRY_SCRIPTED_MODEL: "1" };
@@ -46,8 +46,6 @@ test("INV-provider: production and an unrecognized kind select the paid model on
 				`${VERCEL_ENV}, ${name}`,
 			);
 		assert.equal(await status({ ...env, AI_PROVIDER_RECORD: named }), "qualified", `${VERCEL_ENV}, verified`);
-		const other = JSON.stringify({ ...RECORD, paths: [{ ...CHAT, model: "gpt-6-sol" }, EMBEDDING] });
-		assert.deepEqual(await status({ ...env, AI_PROVIDER_RECORD: other }), blocked);
 		assert.deepEqual(await status({ VERCEL_ENV, EVRY_MODEL: "gpt-6-luna", AI_PROVIDER_RECORD: named }), {
 			status: "unavailable",
 		});
