@@ -1,13 +1,11 @@
 import type { LanguageModelV4 } from "@ai-sdk/provider";
-import { appPage } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import { generateText, Output, type ModelMessage } from "ai";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
-import { verifyArticles } from "../adapters/wiki/reads/index.ts";
-import { inPlant } from "../adapters/wiki/shared.ts";
+import { verifyArticles, verifyPage } from "../adapters/wiki/reads/index.ts";
 import type { ConversationEvent, ConversationState, Reference } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
@@ -391,10 +389,10 @@ export async function resolveReferences(
 			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
 		: [];
 	const slugs = [...new Set(bounded.flatMap((r) => (r.kind === "article" ? [r.slug] : [])))];
-	const page = inPlant(actor)
-		? bounded.flatMap((r) => (r.kind === "page" ? (appPage(r.route) ?? []) : []))[0]
-		: undefined;
-	const pages = page ? [{ kind: "page" as const, id: page.route, label: page.name }] : [];
+	const pages = verifyPage(
+		actor,
+		bounded.flatMap((r) => (r.kind === "page" ? [r.route] : [])),
+	);
 	return [...people, ...attached, ...(await verifyArticles(db, actor, slugs)), ...pages];
 }
 

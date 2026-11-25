@@ -1,3 +1,4 @@
+import { appPage } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import { readCatalog as phaseCatalog } from "@everyfield/domain/phases";
 import { namedSection, sectionExcerpt } from "@everyfield/domain/wiki";
@@ -126,5 +127,13 @@ export async function verifyArticles(db: Database, actor: EvryActor, slugs: read
 	return slugs.flatMap((slug) => {
 		const a = bySlug.get(slug);
 		return a ? [{ kind: "article" as const, id: a.articleId, label: a.title }] : [];
+	});
+}
+
+export function verifyPage(actor: EvryActor, routes: readonly string[]) {
+	if (!inPlant(actor)) return [];
+	return routes.slice(0, 1).flatMap((route) => {
+		const page = appPage(route);
+		return page ? [{ kind: "page" as const, id: page.route, label: page.name }] : [];
 	});
 }

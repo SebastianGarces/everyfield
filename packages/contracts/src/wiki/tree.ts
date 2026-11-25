@@ -1,4 +1,4 @@
-import type { SitePath } from "../identity/navigation.ts";
+import type { SitePath } from "../identity/index.ts";
 
 export const PHASE_NAME = [
 	"Discovery",

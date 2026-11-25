@@ -405,6 +405,9 @@ const navRow = z.object({
 	phase: z.coerce.number().int().nullable(),
 	sectionKey: z.string(),
 });
+function articleLink({ articleId, revisionId, sourceKind, title, slug }: Omit<z.infer<typeof navRow>, "sectionKey">) {
+	return { articleId, revisionId, sourceKind, title, slug };
+}
 function navGroups(articles: z.infer<typeof navRow>[]) {
 	const groups = new Map<string, z.infer<typeof navRow>[]>();
 	for (const article of articles) {
@@ -414,9 +417,11 @@ function navGroups(articles: z.infer<typeof navRow>[]) {
 	return navigationResult.parse({
 		groups: [...groups.entries()].map(([name, items]) => ({
 			name,
-			articles: items.map(({ sectionKey: _sectionKey, ...item }) => ({
-				...item,
+			articles: items.map((item) => ({
+				...articleLink(item),
+				hidden: item.hidden,
 				encodedSlug: encodeURIComponent(item.slug),
+				phase: item.phase,
 			})),
 		})),
 	}).groups;
@@ -453,23 +458,16 @@ export function articleNeighbors(db: Database | Transaction, authority: RequestA
 		if (!row.related) return value;
 		const groups = navGroups(row.articles);
 		const byId = new Map(row.articles.map((article) => [article.articleId, article]));
-		const link = ({ articleId, revisionId, sourceKind, title, slug }: Omit<z.infer<typeof navRow>, "sectionKey">) => ({
-			articleId,
-			revisionId,
-			sourceKind,
-			title,
-			slug,
-		});
 		const steps = stepsAround(treeModel(groups, new Set()), input.articleId);
 		const stepOf = (step: Step | null) => {
 			const article = step && byId.get(step.id);
-			return article ? { ...link(article), group: step.group } : null;
+			return article ? { ...articleLink(article), group: step.group } : null;
 		};
 		return {
 			...value,
 			previous: stepOf(steps.previous),
 			next: stepOf(steps.next),
-			related: relatedArticles(groups, row.related).map(link),
+			related: relatedArticles(groups, row.related).map(articleLink),
 		};
 	});
 }
