@@ -175,9 +175,7 @@ function plantStep(t: Turn): Step {
 	const read = (operation: string, input: unknown = {}) => call("intelligence_read", { operation, input });
 	if (t.offers("oversight.listPlants")) return null;
 	if (REGION.test(t.text)) {
-		if (!t.offers("geography.listReportingRegionCandidates")) {
-			return ownerOnly(t);
-		}
+		if (!t.offers("geography.listReportingRegionCandidates")) return ownerOnly(t);
 		if (t.last?.refusal) return say(t.last.refusal);
 		if (t.last?.proposalId) return say(CARD);
 		const to = REGION_TO.exec(t.text);
@@ -450,9 +448,7 @@ function programStep(t: Turn): Step {
 	if (!(enroll || asked)) return null;
 	if (t.last?.refusal) return say(t.last.refusal);
 	if (t.last?.proposalId) return say(CARD);
-	if (enroll && !t.offers("development.enroll")) {
-		return ownerOnly(t);
-	}
+	if (enroll && !t.offers("development.enroll")) return ownerOnly(t);
 	const outs = t.all("development.readProgram");
 	const list = outs.find((o) => !o.facts?.programId);
 	if (!list) return read({});

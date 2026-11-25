@@ -297,7 +297,6 @@ const monthText = (month: string) =>
 	new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(
 		Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1),
 	);
-const PLANTS_SENT = "Not available yet";
 export const readGoals = {
 	operation: "pipeline.readGoals",
 	description:
@@ -332,7 +331,7 @@ export const readGoals = {
 				canEdit: g.canEdit,
 				pipelineToday: g.kinds.map((k) => `${STAGE_KIND[k.kind]}: ${k.count}`).join("; ") || null,
 				activeResidents: g.activeResidents,
-				plantsSent: PLANTS_SENT,
+				plantsSent: "Not available yet",
 			},
 		};
 	},
