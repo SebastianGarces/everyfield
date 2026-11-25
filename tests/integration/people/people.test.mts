@@ -2053,7 +2053,10 @@ async function caseMeeting(plant: { id: string } = P) {
 const quiet = async () => undefined;
 const attendance = createAttendanceWriter({ reminders: quiet }),
 	tasks = createTaskWriter({ reminders: quiet });
-const revised = async <T,>(personId: string, body: (t: WriteTx, c: PeopleContext, revision: string) => Promise<T>) => {
+const revised = async <T,>(
+	personId: string,
+	body: (t: WriteTx, c: PeopleContext, revision: string) => Promise<Reply<T>>,
+) => {
 	const revision = await caseRevision(personId);
 	return caseWrite(alexAccount, (t, c) => body(t, c, revision));
 };
