@@ -316,19 +316,13 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 	});
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
 		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
-		const plantDomains = [
-			"people",
-			"peopleOrganization",
-			"tasks",
-			"followups",
-			"meetings",
-			"teams",
-			"wiki",
-			"documents",
-		];
+		const plantDomains = ["people", "peopleOrganization", "tasks", "followups", "meetings", "teams"];
+		const shared = ["wiki", "documents"];
 		assert.deepEqual(
-			readCatalog(actor).domains.filter((d) => plantDomains.includes(d.domain)),
-			[],
+			readCatalog(actor)
+				.domains.filter((d) => [...plantDomains, ...shared].includes(d.domain))
+				.map((d) => d.domain),
+			actor.contextKind === "account" ? shared : [],
 			actor.contextKind,
 		);
 	}
@@ -519,6 +513,13 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 	);
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
 		"discovery.getProfile",
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+		"documents.listOwned",
+		"documents.read",
 		...ownReads,
 		"account.getAvatar",
 		"settings.saveSection",
@@ -528,6 +529,9 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"onboarding.createPlant",
 		"discovery.create",
 		"discovery.convertToPlant",
+		"documents.saveNative",
+		"documents.archive",
+		"documents.importTextOrWord",
 	]);
 	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
 	assert.ok(plantOwner.includes("notifications.previewPlanterDigest"));
@@ -592,6 +596,32 @@ const outerAliases = (text: string) =>
 		.match(/[\w$]+/g)
 		?.filter((name) => /^[rc]$/i.test(name)) ?? [];
 
+test("INV-account-wording: an account's own-document and Wiki tools never speak of a church or another reader's data, and a plant's tools keep their own words", () => {
+	const said = (actor: EvryActor) => {
+		const catalog = readCatalog(actor);
+		return new Map(
+			[...catalog.domains.flatMap((d) => d.operations), ...catalog.reviewedWrites].map((o): [string, string] => [
+				o.operation,
+				o.description,
+			]),
+		);
+	};
+	const account = said(as("account", null));
+	const plant = said(as("plant", "owner"));
+	const own = [...account.keys()].filter((operation) => /^(wiki|documents)\./.test(operation));
+	assert.equal(own.length, 10);
+	for (const operation of own) {
+		assert.doesNotMatch(account.get(operation)!, /\bchurch|\bOwner or Admin|\bseat\b/i, operation);
+		assert.ok(plant.get(operation), operation);
+	}
+	assert.match(plant.get("documents.listOwned")!, /^List the documents this church saved in Everyfield/);
+	assert.match(plant.get("wiki.search")!, /^Search this church's Wiki by key words/);
+	const schema = (actor: EvryActor) =>
+		JSON.stringify(asSchema(modelTools(actor, {} as never).documents_read!.inputSchema as never).jsonSchema);
+	assert.doesNotMatch(schema(as("account", null)), /church/i);
+	assert.match(schema(as("plant", "owner")), /Church Documents/);
+});
+
 test("INV-row-liveness: no liveness rule names a table r or c, which the queries around it use for the checked row and its conversation", () => {
 	const rendered = new PgDialect().sqlToQuery(
 		rowLive(sql.raw("outer_row.j"), sql.raw("outer_plant"), sql.raw("outer_account")),
@@ -630,7 +660,8 @@ test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within
 			assert.doesNotMatch(JSON.stringify(schema), /"\$ref"/, `${name}: the sizes below would miss a shared definition`);
 			for (const option of schema.oneOf ?? schema.anyOf ?? [schema]) {
 				const { properties } = option as { properties: { operation?: { const: string } } };
-				bytes.set(properties.operation?.const ?? name, Buffer.byteLength(JSON.stringify(option)));
+				const tool = properties.operation?.const ?? name;
+				bytes.set(tool, Math.max(bytes.get(tool) ?? 0, Buffer.byteLength(JSON.stringify(option))));
 			}
 		}
 	const installed = [

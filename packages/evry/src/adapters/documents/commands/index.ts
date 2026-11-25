@@ -20,12 +20,15 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { attachedFile, extensionOf, stagedBytes } from "../../../attachments/store.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { plantSeat, rowId } from "../../native.ts";
+import { accountContext, plantSeat, rowId } from "../../native.ts";
 import { applyEdits, draftBody, fieldText, plainField, shownText, type Passage } from "../draft.ts";
 import { FIELD_SOURCE, FILE_FORMAT, fillInput, fillRefusal, fillRequest, type FillInput } from "../fill.ts";
 
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
+
+const privateReview = (actor: EvryActor) => (accountContext(actor) ? sql`||'{"private":true}'::jsonb` : sql``);
+const ownDocuments = (actor: EvryActor) => ownerOrAdmin(actor) || accountContext(actor);
 
 const target = sql`jsonb_build_object('kind','document','id',d.id,'label',d.title)`;
 const change = (field: string, before: SQL | null, after: SQL) =>
@@ -156,12 +159,16 @@ export const archive: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.archive",
 	description:
 		"Propose archiving one of this church's documents, a written document or a Church Document. It leaves its list and stays readable. Nothing changes until the user approves the exact review.",
+	account: {
+		description:
+			"Propose archiving one of the user's own documents. It leaves their list and stays readable. Nothing changes until the user approves the exact review.",
+	},
 	input: z.strictObject({ documentId }),
-	allowed: ownerOrAdmin,
+	allowed: ownDocuments,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${target},'changes',jsonb_build_array(
 				${change("status", text("Live"), text("Archived"))},
-				${change("list", null, sql`to_jsonb(CASE WHEN d.kind='church_document' THEN 'Church Documents' ELSE 'Documents' END)`)})) AS review,
+				${change("list", null, sql`to_jsonb(CASE WHEN d.kind='church_document' THEN 'Church Documents' ELSE 'Documents' END)`)}))${privateReview(actor)} AS review,
 			jsonb_build_object('store',CASE WHEN d.kind='church_document' THEN 'church' ELSE 'written' END,
 				'input',jsonb_build_object('documentId',d.id,'expectedRevision',d.revision::text)) AS args
 			FROM document d WHERE d.id=${value.documentId}::uuid AND d.tenant_id=${actor.owner.id}::uuid AND d.archived_at IS NULL
@@ -258,8 +265,12 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 	operation: "documents.importTextOrWord",
 	description:
 		"Propose making a new written document in Documents from a Word (.docx) or text (.txt) file attached in this conversation, the same import as the Documents page. The review names the file and the title and shows the start of the imported text. When the app refuses the file, the result carries its problem: tell the user that sentence as written, and prepare nothing else. Nothing changes until the user approves the exact review.",
+	account: {
+		description:
+			"Propose making a new private document of the user's own from a Word (.docx) or text (.txt) file attached in this conversation, the same import as their Documents page. The review names the file and the title and shows the start of the imported text. When the app refuses the file, the result carries its problem: tell the user that sentence as written, and prepare nothing else. Nothing changes until the user approves the exact review.",
+	},
 	input: importInput,
-	allowed: ownerOrAdmin,
+	allowed: ownDocuments,
 	async review(actor, value, context) {
 		if (!context.files) throw new EvryRefusal("attachment_elsewhere");
 		const file = await attachedFile(context.db, actor, context.conversationId, value.attachmentId);
@@ -282,7 +293,7 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const args = {
 			input: { conversationId: context.conversationId, attachmentId: file.id, title, format, sha256: sha256(bytes) },
 		};
-		return sql`SELECT jsonb_build_object('target',NULL,'changes',${JSON.stringify(changes)}::jsonb) AS review,
+		return sql`SELECT jsonb_build_object('target',NULL,'changes',${JSON.stringify(changes)}::jsonb)${privateReview(actor)} AS review,
 			${JSON.stringify(args)}::jsonb AS args`;
 	},
 	async execute(tx, context, args, effectKey) {
@@ -359,17 +370,21 @@ const editRow = z.strictObject({
 });
 const passageRows = (passages: readonly Passage[]) => passages.map((p) => ({ field: "text", ...p }));
 
-function reviewed(target: SQL, changes: unknown, args: unknown, lines: readonly string[]) {
+function reviewed(actor: EvryActor, target: SQL, changes: unknown, args: unknown, lines: readonly string[]) {
 	return sql`SELECT jsonb_build_object('target',${target},'changes',${JSON.stringify(changes)}::jsonb,
-		'notes',${JSON.stringify(lines)}::jsonb) AS review, ${JSON.stringify(args)}::jsonb AS args`;
+		'notes',${JSON.stringify(lines)}::jsonb)${privateReview(actor)} AS review, ${JSON.stringify(args)}::jsonb AS args`;
 }
 
 export const saveNative: ReviewedWrite<z.infer<typeof saveInput>> = {
 	operation: "documents.saveNative",
 	description:
 		"Propose saving a document's text. kind new: a document you drafted at the user's request, such as a welcome letter, put whole in text; it saves as a written document the church can edit. kind edit: change a written document or Church Document the church has, found with documents.listOwned and read with documents.read first; give only the words that change and leave the rest alone. A policy or legal document always starts from a template (documents.createFromTemplate), never from text you write. Never write core values: change a core values document only with the user's own words. When the result carries a problem, tell the user or fix the quoted words. Nothing changes until the user approves the exact review.",
+	account: {
+		description:
+			"Propose saving the text of one of the user's own documents. kind new: a document you drafted at the user's request, put whole in text; it saves as a private document only they can open. kind edit: change a document they have, found with documents.listOwned and read with documents.read first; give only the words that change and leave the rest alone. Never write a policy, a legal document or core values yourself: save only the user's own words for those. When the result carries a problem, tell the user or fix the quoted words. Nothing changes until the user approves the exact review.",
+	},
 	input: saveInput,
-	allowed: ownerOrAdmin,
+	allowed: ownDocuments,
 	async review(actor, value, context) {
 		if (value.kind === "new") {
 			const body = nativeBody.safeParse(draftBody(value.text));
@@ -379,6 +394,7 @@ export const saveNative: ReviewedWrite<z.infer<typeof saveInput>> = {
 					"This text can't be saved as a document. Use plain paragraphs, headings and lists.",
 				);
 			return reviewed(
+				actor,
 				sql`NULL`,
 				[
 					{ field: "title", before: null, after: value.title },
@@ -416,7 +432,7 @@ export const saveNative: ReviewedWrite<z.infer<typeof saveInput>> = {
 			});
 			if (!next.success) throw new EvryRefusal("invalid_input", "That change doesn't fit this document's layout.");
 			const input = { body: JSON.stringify(next.data), documentId: doc.id, expectedRevision: doc.revision };
-			return reviewed(at, changes(edited.passages), { input }, lines);
+			return reviewed(actor, at, changes(edited.passages), { input }, lines);
 		}
 		const edited = applyEdits(readNative(doc.body).body, value.edits, plainField);
 		const next = nativeBody.safeParse(edited.body);
@@ -428,7 +444,7 @@ export const saveNative: ReviewedWrite<z.infer<typeof saveInput>> = {
 			documentId: doc.id,
 			expectedRevision: doc.revision,
 		};
-		return reviewed(at, changes(edited.passages), { input }, lines);
+		return reviewed(actor, at, changes(edited.passages), { input }, lines);
 	},
 	async execute(tx, context, args) {
 		const saved = saveArgs.parse(args).input;

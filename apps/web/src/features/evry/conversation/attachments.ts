@@ -11,6 +11,16 @@ export const ATTACH = {
 	photos: "image/jpeg,image/png,image/webp",
 	photoName: /\.(jpe?g|png|webp)$/i,
 } as const;
+export type Attaches = "church" | "documents" | "photo";
+export const ACCEPTS: Record<Attaches, { accept: string; label: string; hint: string }> = {
+	church: {
+		accept: `${ATTACH.accept},${ATTACH.photos}`,
+		label: "Attach a file",
+		hint: "Attach a CSV, Word, text or PDF file, or a photo",
+	},
+	documents: { accept: ".docx,.doc,.txt,text/plain", label: "Attach a file", hint: "Attach a Word or text file" },
+	photo: { accept: ATTACH.photos, label: "Attach a photo", hint: "Attach a photo" },
+};
 export const isCsv = (name: string) => /\.csv$/i.test(name);
 export const isPdf = (name: string) => /\.pdf$/i.test(name);
 
@@ -29,7 +39,12 @@ export const fileSize = (bytes: number) =>
 export const looksLikePhoto = (file: { name: string; type: string }) =>
 	file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?)$/i.test(file.name);
 
-export function refusal(file: { name: string; size: number }, count: number): string | null {
+export const DOCUMENTS_ONLY =
+	"Evry can take Word (.docx) and text (.txt) files here. Save the file as one of those and attach it again.";
+const isWritten = (name: string) => /\.(docx|doc|txt)$/i.test(name);
+
+export function refusal(file: { name: string; size: number }, count: number, attaches: Attaches): string | null {
+	if (attaches === "documents" && !isWritten(file.name)) return DOCUMENTS_ONLY;
 	if (!/\.(csv|docx|doc|txt|pdf)$/i.test(file.name))
 		return "Evry can take CSV, Word (.docx), text (.txt) and PDF files and JPG, PNG or WebP photos. Save the file as one of those and attach it again.";
 	if (file.size === 0) return `${file.name} is empty.`;

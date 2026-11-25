@@ -8,6 +8,7 @@ import type {
 import { randomUUID } from "node:crypto";
 import { addDays, counted, countWord, dayText, weekdayOf } from "@everyfield/contracts/common";
 import { connectionStep } from "./scripted-connections.ts";
+import { accountTurn } from "./scripted-account.ts";
 import { documentTurn } from "./scripted-documents.ts";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
@@ -976,6 +977,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
 	const network = networkStep(options, text);
 	if (network) return network;
+	const account = accountTurn(options, text);
+	if (account) return account;
 	const documents = documentTurn(options, text);
 	if (documents) return documents;
 	const connection = connectionStep(options, text);

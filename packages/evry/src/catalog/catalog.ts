@@ -27,7 +27,7 @@ import {
 	SETTINGS_READS,
 	SHARING_READS,
 } from "../adapters/settings/index.ts";
-import type { ReadAdapter } from "./types.ts";
+import { worded, type ReadAdapter } from "./types.ts";
 
 export const READ_DOMAINS = {
 	people: PEOPLE_READS,
@@ -74,8 +74,9 @@ export function readCatalog(actor: EvryActor, offered: Offered = everyOperation)
 	const domains = Object.entries(READ_DOMAINS)
 		.map(([domain, adapters]) => ({
 			domain,
-			operations: (adapters as readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[])
+			operations: (adapters as readonly ReadAdapter<unknown>[])
 				.filter((a) => offered(a.operation) && a.allowed(actor))
+				.map((a) => worded(actor, a))
 				.map((a) => ({ operation: a.operation, description: a.description })),
 		}))
 		.filter((d) => d.operations.length > 0);

@@ -64,9 +64,20 @@ export type SourceResult = {
 	facts?: Record<string, string | number | boolean | null>;
 };
 
+export type AccountWording<I> = { description: string; input?: z.ZodType<I> };
+
+export function worded<I, T extends { description: string; input: z.ZodType<I>; account?: AccountWording<I> }>(
+	actor: EvryActor,
+	tool: T,
+): T {
+	if (actor.owner.kind !== "account" || !tool.account) return tool;
+	return { ...tool, description: tool.account.description, input: tool.account.input ?? tool.input };
+}
+
 export type ReadAdapter<I> = {
 	operation: string;
 	description: string;
+	account?: AccountWording<I>;
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
 	load?(input: I, files: ConversationFiles): Promise<unknown>;
