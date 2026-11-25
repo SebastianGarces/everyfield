@@ -1,4 +1,6 @@
-import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
+import { fixture, ok, refused, waitingOnLock, type Actor } from "../../../support/fixture.mts";
+import { faulted, recorded, untouched } from "../../../support/recorded.mts";
+import { pinSchemaClock } from "../../../support/test-database.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import {
 	authorityOf,
@@ -13,9 +15,10 @@ import {
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
 import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
-import { PeopleReadContext, type Context } from "../../../../packages/domain/src/people/core.ts";
+import { PeopleReadContext, type Context, type WriteContext } from "../../../../packages/domain/src/people/core.ts";
 import {
 	commitmentInputs,
 	commitmentInputsJson,
@@ -25,6 +28,8 @@ import {
 	commitmentCacheBackfill,
 	mergeReferencesBackfill,
 } from "../../../../packages/domain/src/people/commitments/backfill.ts";
+import { createFacts } from "../../../../packages/domain/src/intelligence/index.ts";
+import { getPlant } from "../../../../packages/domain/src/oversight/index.ts";
 import { backfill } from "../../../../packages/db/src/schema/migrate.ts";
 import {
 	assessments,
@@ -37,10 +42,13 @@ import {
 	recordCorrections,
 	saveCommitmentDocument,
 	signCommitmentDocument,
+	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
+import { organizationOwner } from "../../../../packages/contracts/src/people/values.ts";
+import { frozenClock, instant } from "../../../../packages/contracts/src/common/time.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
-const database = await fixture({ prefix: "wp014" });
+const database = await fixture({ prefix: "wp014", clock: new Date("2026-10-13T16:00:00Z") });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 const day = (n: number) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
@@ -142,7 +150,7 @@ after(async () => {
 	await database.close();
 });
 
-test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-PR249 Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
+test("AC:TARGET-PPL-012 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-PR249 Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
 	const alex = await person("Alex Rivera");
 	const warnings = async () => ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: alex.id }))).warnings;
 	assert.ok((await warnings()).includes("assessment_not_recorded"));
@@ -204,7 +212,7 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 	refused(await assess(alex.id, day(1)));
 });
 
-test("AC:GAP-PPL-013 AC:TARGET-PPL-013 AC:GAP-PPL-006 interviews: any result advances an earlier stage to interviewed with its history, an advanced stage stays, retries add nothing, no task", async () => {
+test("AC:TARGET-PPL-013 interviews: any result advances an earlier stage to interviewed with its history, an advanced stage stays, retries add nothing, no task", async () => {
 	for (const result of ["qualified", "qualified_with_notes", "not_qualified", "follow_up"]) {
 		const early = await person("Alex " + result),
 			leader = await person("Casey " + result, "leader");
@@ -268,7 +276,7 @@ function privateStorage() {
 }
 const actorOf = (who: Who) => gatedTransaction(db, (t) => authorityOf(t, actors[who]));
 
-test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: card and Core Group together; dated withdrawal and reactivation keep stage and first acquisition; corrections with history", async () => {
+test("AC:TARGET-PPL-014 AC:CA021 commitments: card and Core Group together; dated withdrawal and reactivation keep stage and first acquisition; corrections with history", async () => {
 	const alex = await person("Alex Rivera"),
 		casey = await person("Casey Reed", "leader"),
 		foreign = ok(
@@ -653,6 +661,729 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 			byteCount: png.length,
 		});
 	assert.equal(await unattached(later[1]!), false);
+});
+
+const quiet = { jobs: [], notices: 0, mail: 0 };
+async function churchOf(source = database) {
+	const plant = await source.plant(),
+		other = await source.plant();
+	const seat = async (role: "admin" | "member", at: typeof plant) => ({
+		...(await source.actor(at, role)),
+		plant: at.id,
+	});
+	const owner = await seat("admin", plant),
+		member = await seat("member", plant),
+		outsiders = [await seat("member", other), await seat("admin", other)];
+	const pool = source.pools.runtime;
+	type Seat = Actor & { plant: string };
+	const context = (who: Seat) => ({ session: who.session, selected: church(who.plant) });
+	const read = <T,>(body: (t: WriteTx, c: ReturnType<typeof context>) => Promise<T>, who: Seat = owner) =>
+		gatedTransaction(pool, (t) => body(t, context(who)));
+	const save = async <T,>(body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>, who: Seat = owner) =>
+		withPeopleWrite(pool, await authorityOf(pool, who), body);
+	const resend: typeof save = (body, who = owner) => gatedTransaction(pool, (t) => body(t, context(who)));
+	const add = async (displayName: string, input: object = {}) =>
+		ok(
+			await save((t, c) =>
+				people.createPerson(t, c, {
+					requestKey: key(),
+					input: { displayName, adultClassification: "adult", ...input },
+				}),
+			),
+		).person;
+	const revision = async (id: string) =>
+		(await source.admin.execute<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${id}`)).rows[0]!.r;
+	const move = (
+		personId: string,
+		stage: string,
+		reason: string,
+		expectedRevision: string,
+		requestKey: string = key(),
+		who: Seat = owner,
+	) =>
+		save(
+			(t, c) =>
+				people.changeStatus(
+					t,
+					c,
+					{ requestKey, expectedRevision, input: { personId, stage, reason, handoffs: [] } },
+					noReminders,
+				),
+			who,
+		);
+	const denied = async (call: (who: Seat, personId: string) => Promise<Reply<unknown>>, personId: string) => {
+		for (const who of outsiders) {
+			const { correlationId: _, ...known } = refused(await untouched(source.admin, () => call(who, personId)));
+			const { correlationId: __, ...unknown } = refused(await call(who, key()));
+			assert.deepEqual(known, unknown, "a real person answers as an unknown one");
+		}
+	};
+	const card = (
+		personId: string,
+		occurredOn: string,
+		{
+			kind = "core_group",
+			requestKey = key(),
+			who = owner,
+			...input
+		}: { kind?: string; requestKey?: string; who?: Seat; witness?: object } = {},
+	) =>
+		save(
+			(t, c) => commitments.createCommitment(t, c, { requestKey, input: { personId, kind, occurredOn, ...input } }),
+			who,
+		);
+	const lifecycle = (
+		operation: "withdrawCommitment" | "reactivateCommitment",
+		personId: string,
+		effectiveOn: string,
+		expectedRevision: string,
+		{ requestKey = key(), who = owner }: { requestKey?: string; who?: Seat } = {},
+	) =>
+		save(
+			(t, c) => commitments[operation](t, c, { requestKey, expectedRevision, input: { personId, effectiveOn } }),
+			who,
+		);
+	const held = async (personId: string) => ok(await read((t, c) => commitments.getCommitments(t, c, { personId })));
+	const facts = async (at?: string) =>
+		ok(
+			await createFacts(at ? { clock: frozenClock(instant.parse(new Date(at).toISOString())) } : {}).readFacts(
+				pool,
+				await authorityOf(pool, owner),
+				{},
+			),
+		);
+	return {
+		plant,
+		owner,
+		member,
+		outsiders,
+		read,
+		save,
+		resend,
+		add,
+		revision,
+		move,
+		denied,
+		card,
+		lifecycle,
+		held,
+		facts,
+	};
+}
+const rated = (score: number) => ({ score, notes: null });
+const fourCs = (score: number) => ({
+	committed: rated(score),
+	compelled: rated(score),
+	contagious: rated(score),
+	courageous: rated(score),
+});
+
+test("AC:GAP-PPL-006 a missing interview warns without blocking the move, which keeps its reason and order, and a later interview keeps a leader a leader", async () => {
+	const w = await churchOf();
+	const alex = await w.add("Alex Rivera"),
+		casey = await w.add("Casey Reed", { stage: "leader" });
+	const warnings = async () => ok(await w.read((t, c) => reads.getStatusWarnings(t, c, { personId: alex.id })));
+	const shown = await warnings();
+	assert.deepEqual(
+		[shown.warnings, shown.hardGate, shown.revision],
+		[["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"], false, alex.revision],
+	);
+	const requestKey = key();
+	const forward = () => w.move(alex.id, "attendee", "Interview warning acknowledged", alex.revision, requestKey);
+	const steps = async (personId = alex.id) =>
+		(
+			await rows<{ reason: string | null; from: string; to: string; actor_id: string }>(
+				sql`SELECT reason,before_value->>'stage' AS from,after_value->>'stage' AS to,actor_id FROM audit_event
+				WHERE subject_id=${personId} AND action='people.stage_changed' AND kind<>'noop' ORDER BY occurred_at`,
+			)
+		).map((x) => [x.from, x.to, x.reason, x.actor_id]);
+	await w.denied(
+		(who, id) => w.move(id, "attendee", "Interview warning acknowledged", alex.revision, key(), who),
+		alex.id,
+	);
+	await w.denied((who, id) => w.read((t, c) => reads.getStatusWarnings(t, c, { personId: id }), who), alex.id);
+	refused(
+		await untouched(admin, () =>
+			w.move(alex.id, "attendee", "Interview warning acknowledged", alex.revision, key(), w.member),
+		),
+	);
+	await faulted(admin, "audit_event", forward);
+	const { value, added } = await recorded(admin, forward);
+	const moved = ok(value);
+	assert.deepEqual([moved.person.id, moved.person.stage, moved.outcome], [alex.id, "attendee", "changed"]);
+	assert.deepEqual(added, { audits: ["people.stage_changed"], ...quiet });
+	assert.deepEqual(ok(await untouched(admin, forward)), moved);
+	const first = ["prospect", "attendee", "Interview warning acknowledged", w.owner.id];
+	assert.deepEqual(await steps(), [first]);
+	assert.deepEqual(
+		[await stageOf(alex.id), await stageOf(casey.id), await steps(casey.id)],
+		["attendee", "leader", []],
+	);
+	assert.deepEqual((await warnings()).warnings, shown.warnings, "the warning stays until an interview is recorded");
+	refused(await untouched(admin, () => w.move(alex.id, "following_up", "Seen before", alex.revision)), "conflict");
+	const back = () => w.move(alex.id, "prospect", "Entered by mistake", moved.person.revision);
+	await faulted(admin, "audit_event", back);
+	assert.deepEqual([await stageOf(alex.id), await steps()], ["attendee", [first]], "the earlier move stays");
+	ok(await back());
+	assert.deepEqual(await steps(), [first, ["attendee", "prospect", "Entered by mistake", w.owner.id]]);
+	const moves = ok(await w.read((t, c) => reads.getActivities(t, c, { personId: alex.id }))).items;
+	assert.deepEqual(
+		moves.flatMap((m) => (m.kind === "stage_changed" ? [[m.from, m.to]] : [])),
+		[
+			["attendee", "prospect"],
+			["prospect", "attendee"],
+		],
+	);
+
+	const later = await recorded(admin, () =>
+		w.save((t, c) =>
+			interviews.createInterview(t, c, {
+				requestKey: key(),
+				input: {
+					personId: casey.id,
+					occurredOn: "2026-10-12",
+					...criteria(),
+					result: "qualified",
+					nextSteps: "Discuss commitment",
+				},
+			}),
+		),
+	);
+	const kept = ok(later.value);
+	assert.deepEqual(
+		[
+			kept.person.personId,
+			kept.person.stage,
+			kept.person.stageChange,
+			kept.interview.occurredOn,
+			kept.interview.nextSteps,
+		],
+		[casey.id, "leader", null, "2026-10-12", "Discuss commitment"],
+	);
+	assert.deepEqual(later.added, { audits: ["people.recorded"], ...quiet });
+	assert.deepEqual([await stageOf(casey.id), await count("interview", casey.id)], ["leader", 1]);
+});
+
+test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 dated Four Cs ratings keep every record, the latest by date, the total the server adds up and a corrected score's history", async () => {
+	const w = await churchOf();
+	const alex = await w.add("Alex Rivera");
+	const rate = (
+		personId: string,
+		occurredOn: string,
+		score: number,
+		{
+			requestKey = key(),
+			who = w.owner,
+			run = w.save,
+			...extra
+		}: { requestKey?: string; who?: typeof w.owner; run?: typeof w.save; total?: number } = {},
+	) =>
+		run(
+			(t, c) =>
+				assessments.createAssessment(t, c, { requestKey, input: { personId, occurredOn, ...fourCs(score), ...extra } }),
+			who,
+		);
+	const history = async (personId: string) =>
+		ok(await w.read((t, c) => assessments.getAssessments(t, c, { personId })));
+	ok(await rate(alex.id, "2026-10-01", 2));
+	ok(await rate(alex.id, "2026-10-05", 4));
+	const requestKey = key();
+	const third = (run = w.save) => rate(alex.id, "2026-10-12", 3, { requestKey, run });
+	await w.denied((who, id) => rate(id, "2026-10-12", 3, { who }), alex.id);
+	refused(await untouched(admin, () => rate(alex.id, "2026-10-12", 3, { who: w.member })));
+	for (const table of ["four_cs", "audit_event"]) await faulted(admin, table, third);
+	assert.equal((await history(alex.id)).total, 2, "the two earlier records stay");
+	const { value, added } = await recorded(admin, third);
+	const { assessment, person: after } = ok(value);
+	assert.deepEqual(added, { audits: ["people.recorded"], ...quiet });
+	assert.deepEqual(ok(await untouched(admin, () => third(w.resend))), ok(value));
+	assert.deepEqual([assessment.total, assessment.occurredOn, after.stage], [12, "2026-10-12", "prospect"]);
+	assert.deepEqual(
+		Object.keys(assessment).sort(),
+		[
+			"actor",
+			"committed",
+			"compelled",
+			"contagious",
+			"courageous",
+			"id",
+			"occurredOn",
+			"personId",
+			"recordedAt",
+			"revision",
+			"total",
+		],
+		"the record holds human ratings and no model judgment",
+	);
+	assert.deepEqual(assessment.actor, { kind: "current_account", accountId: w.owner.id });
+	const all = await history(alex.id);
+	assert.deepEqual(
+		[all.total, all.latest?.occurredOn, all.items.map((a) => [a.occurredOn, a.total])],
+		[
+			3,
+			"2026-10-12",
+			[
+				["2026-10-12", 12],
+				["2026-10-05", 16],
+				["2026-10-01", 8],
+			],
+		],
+	);
+
+	const jamie = await w.add("Jamie Chen");
+	refused(await untouched(admin, () => rate(jamie.id, "2026-10-10", 1, { total: 20 })), "invalid_input");
+	const low = ok(await rate(jamie.id, "2026-10-10", 1));
+	assert.deepEqual([low.assessment.total, low.person.stage], [4, "prospect"]);
+	const same = ok(await rate(jamie.id, "2026-10-10", 2)).assessment;
+	const early = ok(await rate(jamie.id, "2026-09-01", 5)).assessment;
+	const latest = async () => {
+		const { latest, items } = await history(jamie.id);
+		return [latest?.id, latest?.occurredOn, items.map((a) => [a.occurredOn, a.total])];
+	};
+	assert.deepEqual(await latest(), [
+		same.id,
+		"2026-10-10",
+		[
+			["2026-10-10", 8],
+			["2026-10-10", 4],
+			["2026-09-01", 20],
+		],
+	]);
+	const correction = await recorded(admin, () =>
+		w.save((t, c) =>
+			recordCorrections.correctPersonRecord(t, c, {
+				requestKey: key(),
+				expectedRevision: early.revision,
+				input: {
+					recordType: "assessment",
+					personId: jamie.id,
+					recordId: early.id,
+					reason: "Copied the wrong column",
+					changes: { compelled: { score: 2, notes: null } },
+				},
+			}),
+		),
+	);
+	ok(correction.value);
+	assert.deepEqual(correction.added, { audits: ["people.corrected"], ...quiet });
+	assert.deepEqual(await latest(), [
+		same.id,
+		"2026-10-10",
+		[
+			["2026-10-10", 8],
+			["2026-10-10", 4],
+			["2026-09-01", 17],
+		],
+	]);
+	const { items } = ok(await w.read((t, c) => recordCorrections.listRecordCorrections(t, c, { personId: jamie.id })));
+	assert.deepEqual(
+		items.map((i) => [i.recordId, i.reason, i.actor, i.changes]),
+		[
+			[
+				early.id,
+				"Copied the wrong column",
+				{ kind: "current_account", accountId: w.owner.id },
+				[{ field: "compelled", old: { score: 5, notes: null }, new: { score: 2, notes: null } }],
+			],
+		],
+	);
+	assert.equal(await stageOf(jamie.id), "prospect");
+
+	const full = (who: typeof w.owner) => w.read((t, c) => assessments.getAssessments(t, c, { personId: jamie.id }), who);
+	ok(await full(w.owner));
+	refused(await full(w.member));
+	ok(await w.read((t, c) => reads.getPerson(t, c, { personId: jamie.id }), w.member));
+	await w.denied((who, personId) => w.read((t, c) => assessments.getAssessments(t, c, { personId }), who), jamie.id);
+	const network = await database.organization("sending_network");
+	await admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
+		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${w.plant.id},${network.id},clock_timestamp(),true,true,true,true,true,true,true)`);
+	const director = await database.actor(network, "owner");
+	for (const selected of [church(w.plant.id), organizationOwner.parse(network)])
+		refused(
+			await tx((t) => assessments.getAssessments(t, { session: director.session, selected }, { personId: jamie.id })),
+		);
+	const view = await getPlant(db, await authorityOf(db, director), w.plant.id);
+	assert.equal(view?.sections.people?.status, "shared");
+	assert.doesNotMatch(JSON.stringify(view), /compelled|contagious|courageous/);
+
+	const pat = await w.add("Pat Unrated");
+	const warned = ok(await w.read((t, c) => reads.getStatusWarnings(t, c, { personId: pat.id })));
+	assert.deepEqual([warned.warnings.includes("assessment_not_recorded"), warned.hardGate], [true, false]);
+	assert.equal(ok(await w.move(pat.id, "interviewed", "Talked on Sunday", pat.revision)).person.stage, "interviewed");
+});
+
+test("AC:GAP-PPL-013 AC:TARGET-PPL-013 an interview keeps its date, recorded day, criteria, result and next steps, counts once and adds no task", async () => {
+	const w = await churchOf();
+	const talk = (
+		personId: string,
+		result: string,
+		{
+			occurredOn = "2026-10-10",
+			nextSteps = "Review commitment",
+			requestKey = key(),
+			who = w.owner,
+			run = w.save,
+		}: {
+			occurredOn?: string;
+			nextSteps?: string;
+			requestKey?: string;
+			who?: typeof w.owner;
+			run?: typeof w.save;
+		} = {},
+	) =>
+		run(
+			(t, c) =>
+				interviews.createInterview(t, c, {
+					requestKey,
+					input: { personId, occurredOn, ...criteria(), result, nextSteps },
+				}),
+			who,
+		);
+	const alex = await w.add("Alex Rivera"),
+		casey = await w.add("Casey Reed", { stage: "leader" });
+	const requestKey = key();
+	const interviewed = (run = w.save) => talk(alex.id, "follow_up", { requestKey, run });
+	await w.denied((who, id) => talk(id, "follow_up", { who }), alex.id);
+	await w.denied((who, personId) => w.read((t, c) => interviews.getInterviews(t, c, { personId }), who), alex.id);
+	refused(await untouched(admin, () => talk(alex.id, "follow_up", { who: w.member })));
+	for (const table of ["interview", "person", "audit_event"]) await faulted(admin, table, interviewed);
+	assert.deepEqual([await stageOf(alex.id), await count("interview", alex.id)], ["prospect", 0]);
+	const { value, added } = await recorded(admin, interviewed);
+	const saved = ok(value);
+	assert.deepEqual(added, { audits: ["people.recorded"], ...quiet });
+	assert.deepEqual(ok(await untouched(admin, () => interviewed(w.resend))), saved);
+	assert.deepEqual(
+		[
+			saved.interview.occurredOn,
+			saved.interview.recordedAt.slice(0, 10),
+			saved.interview.result,
+			saved.interview.nextSteps,
+			saved.person.stage,
+		],
+		["2026-10-10", "2026-10-13", "follow_up", "Review commitment", "interviewed"],
+	);
+	const kept = ok(await w.read((t, c) => interviews.getInterviews(t, c, { personId: alex.id })));
+	assert.deepEqual([kept.total, kept.items], [1, [saved.interview]]);
+	assert.deepEqual(
+		[
+			saved.interview.maturity,
+			saved.interview.gifted,
+			saved.interview.chemistry,
+			saved.interview.rightReasons,
+			saved.interview.season,
+		].map((x) => x.rating),
+		["pass", "pass", "pass", "pass", "pass"],
+	);
+	const again = () => talk(alex.id, "qualified", { occurredOn: "2026-10-01" });
+	await faulted(admin, "audit_event", again);
+	assert.deepEqual(
+		ok(await w.read((t, c) => interviews.getInterviews(t, c, { personId: alex.id }))),
+		kept,
+		"the interview saved before stays",
+	);
+	const advanced = ok(await talk(casey.id, "follow_up"));
+	assert.deepEqual(
+		[advanced.person.personId, advanced.person.stage, await stageOf(casey.id), await count("interview", casey.id)],
+		[casey.id, "leader", "leader", 1],
+	);
+
+	const tasks = async () => (await rows(sql`SELECT count(*)::int n FROM task WHERE plant_id=${w.plant.id}`))[0]!.n;
+	const stages: unknown[][] = [[], []];
+	for (const result of ["qualified", "qualified_with_notes", "not_qualified", "follow_up"])
+		for (const [n, stage] of ["prospect", "leader"].entries()) {
+			const p = await w.add(`${stage} ${result}`, { stage });
+			const call = { requestKey: key(), nextSteps: "Call next week" };
+			await faulted(admin, "audit_event", () => talk(p.id, result, call));
+			assert.equal(await stageOf(p.id), stage);
+			const run = await recorded(admin, () => talk(p.id, result, call));
+			const { interview } = ok(run.value);
+			assert.deepEqual([interview.result, interview.nextSteps], [result, "Call next week"]);
+			assert.deepEqual(run.added, { audits: ["people.recorded"], ...quiet });
+			const backdated = ok(await talk(p.id, result, { occurredOn: "2026-09-01", nextSteps: "" }));
+			const all = ok(await w.read((t, c) => interviews.getInterviews(t, c, { personId: p.id })));
+			assert.deepEqual([all.latest?.id, all.total], [interview.id, 2], "a backdated interview is not the latest");
+			assert.equal(backdated.person.stageChange, null);
+			stages[n]!.push(await stageOf(p.id));
+		}
+	assert.deepEqual(stages, [
+		["interviewed", "interviewed", "interviewed", "interviewed"],
+		["leader", "leader", "leader", "leader"],
+	]);
+	assert.equal(await tasks(), 0);
+	assert.deepEqual(await rows(sql`SELECT id FROM job WHERE tenant_id=${w.plant.id}`), []);
+});
+
+test("AC:GAP-PPL-014 AC:TARGET-PPL-014 a commitment card binds its private document once, counts an adult and not a minor, and withdrawal or reactivation never moves the first acquisition", async () => {
+	const storage = privateStorage();
+	const w = await churchOf();
+	const alex = await w.add("Alex Rivera"),
+		casey = await w.add("Casey Reed", { stage: "leader", adultClassification: "child" });
+	const growth = async () => {
+		const { committedAdults, growth } = await w.facts();
+		return [committedAdults.exact, growth.lastAcquiredOn, growth.current];
+	};
+	assert.deepEqual(await growth(), [0, null, 0]);
+	const staged = async (bytes: Uint8Array, mime: string, personId: string) => {
+		const signed = ok(
+			await signCommitmentDocument(
+				db,
+				storage,
+				{ session: w.owner.session, selected: church(w.plant.id) },
+				w.owner.id,
+				{ personId, mime, byteLength: bytes.length },
+			),
+		);
+		storage.uploads.set(`private/${w.plant.id}/${signed.uploadId}`, { bytes, type: mime });
+		return signed.uploadId;
+	};
+	const attach = async (
+		documentUploadId: string,
+		personId: string,
+		{
+			requestKey = key(),
+			who = w.owner,
+			...input
+		}: { requestKey?: string; who?: typeof w.owner; occurredOn?: string; witness?: object },
+	) =>
+		saveCommitmentDocument(db, storage, await authorityOf(db, who), {
+			requestKey,
+			input: { personId, kind: "core_group", occurredOn: "2026-10-08", documentUploadId, ...input },
+		});
+	const fileOf = async (id: string) =>
+		(
+			await rows(sql`SELECT f.state,f.sha256,f.tenant_id,f.purpose,(SELECT count(*)::int FROM commitment k WHERE k.object_id=f.id) AS binds
+			FROM file_object f WHERE f.id=${id}`)
+		)[0];
+	const lapsed = await staged(png, "image/png", alex.id);
+	await pinSchemaClock(admin, schema, new Date("2026-10-13T16:05:00Z"));
+	const upload = await staged(png, "image/png", alex.id);
+	await pinSchemaClock(admin, schema, new Date("2026-10-13T16:18:00Z"));
+	const requestKey = key();
+	const sign = () => attach(upload, alex.id, { requestKey });
+	await w.denied((who, id) => attach(upload, id, { who }), alex.id);
+	await w.denied((who, id) => w.card(id, "2026-10-08", { who }), alex.id);
+	await w.denied((who, id) => w.read((t, c) => commitments.getCommitments(t, c, { personId: id }), who), alex.id);
+	refused(await untouched(admin, () => attach(upload, alex.id, { who: w.member })));
+	refused(await untouched(admin, () => attach(lapsed, alex.id, {})));
+	for (const table of ["file_object", "commitment", "person", "audit_event"]) await faulted(admin, table, sign);
+	const { value, added } = await recorded(admin, sign);
+	const saved = ok(value);
+	assert.deepEqual(added, { audits: ["people.recorded"], ...quiet });
+	assert.deepEqual(ok(await untouched(admin, sign)), saved);
+	assert.deepEqual(await fileOf(upload), {
+		state: "ready",
+		sha256: "ee5849adb3b038a1b71c76d0cac02c3d4735b01cb84e4de00791cb45ddfad22b",
+		tenant_id: w.plant.id,
+		purpose: "commitment",
+		binds: 1,
+	});
+	assert.deepEqual(
+		[await count("commitment", alex.id), saved.commitment.document.status, await growth()],
+		[1, "attached", [1, "2026-10-08", 1]],
+	);
+	refused(await untouched(admin, () => attach(upload, casey.id, {})));
+	ok(await w.card(casey.id, "2026-10-09"));
+	const counted = (await w.facts()).committedAdults;
+	assert.deepEqual([counted.exact, counted.children], [1, 1], "the minor's card is kept and not counted");
+	assert.equal((await w.facts()).growth.lastAcquiredOn, "2026-10-08");
+
+	const acquired = { status: "known", occurredOn: "2026-10-08", evidenceId: saved.commitment.id };
+	const change = async (operation: "withdrawCommitment" | "reactivateCommitment", on: string) => {
+		const call = { requestKey: key() };
+		const revision = await w.revision(alex.id);
+		const run = () => w.lifecycle(operation, alex.id, on, revision, call);
+		await w.denied((who, id) => w.lifecycle(operation, id, on, revision, { who }), alex.id);
+		refused(await untouched(admin, () => w.lifecycle(operation, alex.id, on, "1")), "conflict");
+		for (const table of ["commitment_change", "audit_event"]) await faulted(admin, table, run);
+		const done = await recorded(admin, run);
+		assert.deepEqual(done.added, { audits: ["people.updated"], ...quiet });
+		assert.deepEqual(ok(await untouched(admin, run)), ok(done.value));
+		const { state, effectiveOn } = ok(done.value).current;
+		return [state, effectiveOn];
+	};
+	assert.deepEqual(await change("withdrawCommitment", "2026-10-12"), ["withdrawn", "2026-10-12"]);
+	assert.deepEqual([await growth(), (await w.held(alex.id)).firstAcquisition], [[0, "2026-10-08", 1], acquired]);
+	assert.deepEqual(await change("reactivateCommitment", "2026-10-13"), ["active", "2026-10-13"]);
+	assert.deepEqual([await growth(), (await w.held(alex.id)).firstAcquisition], [[1, "2026-10-08", 1], acquired]);
+
+	const sharp = createRequire(import.meta.url)("../../../../packages/db/node_modules/sharp");
+	const image: Buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#2e7d32" } })
+		.jpeg()
+		.toBuffer();
+	const largest = 10 * 1024 * 1024;
+	const padding: Buffer[] = [];
+	for (let left = largest - image.length; left > 0;) {
+		const payload = left - 4 <= 65533 ? left - 4 : Math.min(65533, left - 8);
+		const segment = Buffer.alloc(4 + payload, 0x20);
+		segment.writeUInt16BE(0xfffe, 0);
+		segment.writeUInt16BE(payload + 2, 2);
+		padding.push(segment);
+		left -= segment.length;
+	}
+	const photo = Buffer.concat([image.subarray(0, 2), ...padding, image.subarray(2)]);
+	assert.equal(photo.length, 10_485_760);
+	const lee = await w.add("Lee Leader", { stage: "leader" }),
+		stranger = ok(
+			await w.save(
+				(t, c) => people.createPerson(t, c, { requestKey: key(), input: { displayName: "Foreign Riley" } }),
+				w.outsiders[1]!,
+			),
+		).person;
+	const big = await staged(photo, "image/jpeg", lee.id);
+	const old = { requestKey: key(), occurredOn: "2026-09-01" };
+	refused(await untouched(admin, () => attach(big, lee.id, { ...old, witness: { personId: stranger.id } })));
+	refused(await untouched(admin, () => attach(big, stranger.id, { ...old, who: w.outsiders[1]! })));
+	await faulted(admin, "audit_event", () => attach(big, lee.id, old));
+	assert.deepEqual([(await fileOf(big))!.state, (await fileOf(big))!.binds], ["pending", 0]);
+	const signed = ok(await attach(big, lee.id, old));
+	assert.deepEqual(
+		[
+			signed.commitment.document,
+			signed.commitment.occurredOn,
+			signed.commitment.recordedAt.slice(0, 10),
+			signed.person.stage,
+			signed.person.stageChange,
+		],
+		[
+			{ status: "attached", mediaType: "image/jpeg", byteCount: 10_485_760 },
+			"2026-09-01",
+			"2026-10-13",
+			"leader",
+			null,
+		],
+	);
+	assert.deepEqual([(await fileOf(big))!.state, (await fileOf(big))!.binds], ["ready", 1]);
+	const first = { status: "known", occurredOn: "2026-09-01", evidenceId: signed.commitment.id };
+	const since = async () => {
+		const { current, firstAcquisition, total } = await w.held(lee.id);
+		return [current.state, firstAcquisition, total, await stageOf(lee.id)];
+	};
+	assert.deepEqual(await since(), ["active", first, 1, "leader"]);
+	const repeated = ok(await w.card(lee.id, "2026-09-20", { kind: "launch_team", witness: { personId: alex.id } }));
+	assert.deepEqual([repeated.person.stage, repeated.person.stageChange], ["leader", null]);
+	ok(await w.lifecycle("withdrawCommitment", lee.id, "2026-10-01", await w.revision(lee.id)));
+	assert.deepEqual(await since(), ["withdrawn", first, 2, "leader"]);
+	ok(await w.card(lee.id, "2026-09-25"));
+	assert.deepEqual(await since(), ["withdrawn", first, 3, "leader"], "an older signature never overrides a withdrawal");
+	ok(await w.lifecycle("reactivateCommitment", lee.id, "2026-10-12", await w.revision(lee.id)));
+	assert.deepEqual(await since(), ["active", first, 3, "leader"]);
+	const { growth: after } = await w.facts();
+	assert.deepEqual(
+		[after.lastAcquiredOn, after.current, after.prior],
+		["2026-10-08", 1, 1],
+		"rejoining on October 12 is no new acquisition",
+	);
+});
+
+test("AC:TARGET-PPL-026 a withdrawal lowers the committed adults and keeps the acquisition clock, which counts church-local days from the newest genuine first signature", async () => {
+	const own = await fixture({ prefix: "adults", clock: new Date("2026-10-09T16:00:00Z") });
+	try {
+		const w = await churchOf(own);
+		await own.admin.execute(sql`UPDATE auth_session SET expires_at='2026-11-12T16:00:00Z'`);
+		const at = (now: string) => pinSchemaClock(own.admin, own.schema, new Date(now));
+		const size = async (now?: string) => {
+			const { committedAdults: a, growth: g } = await w.facts(now);
+			return {
+				known: a.known,
+				exact: a.exact,
+				status: a.status,
+				unclassified: a.needsClassifying.map((p) => p.name),
+				growth: [g.status, g.lastAcquiredOn, g.daysSince, g.current, g.prior, g.currentWithdrawn],
+			};
+		};
+		for (let n = 1; n <= 27; n++) ok(await w.card((await w.add(`Adult ${n}`)).id, "2026-08-01"));
+		const sam = await w.add("Sam Unclassified", { adultClassification: "unknown" });
+		ok(await w.card(sam.id, "2026-08-01"));
+		const late = await w.add("Lou Late");
+		const september = ok(await w.card(late.id, "2026-09-01")).commitment;
+		assert.deepEqual([september.occurredOn, september.recordedAt.slice(0, 10)], ["2026-09-01", "2026-10-09"]);
+		const sized = (known: number, status: string, ...growth: unknown[]) => ({
+			known,
+			exact: null,
+			status,
+			unclassified: ["Sam Unclassified"],
+			growth,
+		});
+		assert.deepEqual(await size(), sized(28, "not_met", "stalled", "2026-09-01", 38, 0, 1, 0));
+		const vic = await w.add("Vic Invalid");
+		const wrong = ok(await w.card(vic.id, "2026-10-05")).commitment;
+		assert.deepEqual(await size(), sized(29, "unknown", "on_track", "2026-10-05", 4, 1, 1, 0));
+		const { value, added } = await recorded(own.admin, () =>
+			w.save((t, c) =>
+				commitments.correctCommitmentLifecycle(t, c, {
+					requestKey: key(),
+					expectedRevision: wrong.revision,
+					input: {
+						commitmentId: wrong.id,
+						correction: { action: "correct", occurredOn: "2026-08-20" },
+						reason: "The card is dated August 20",
+					},
+				}),
+			),
+		);
+		ok(value);
+		assert.deepEqual(added, { audits: ["people.corrected"], ...quiet });
+		assert.deepEqual(await size(), sized(29, "unknown", "stalled", "2026-09-01", 38, 0, 2, 0));
+		assert.deepEqual(
+			ok(await w.read((t, c) => recordCorrections.listRecordCorrections(t, c, { personId: vic.id }))).items.map((i) => [
+				i.actor,
+				i.reason,
+				i.changes,
+			]),
+			[
+				[
+					{ kind: "current_account", accountId: w.owner.id },
+					"The card is dated August 20",
+					[{ field: "occurredOn", old: "2026-10-05", new: "2026-08-20" }],
+				],
+			],
+		);
+
+		await at("2026-10-12T16:00:00Z");
+		const nia = await w.add("Nia Newest");
+		ok(await w.card(nia.id, "2026-10-12"));
+		assert.deepEqual(await size(), sized(30, "met", "on_track", "2026-10-12", 0, 1, 2, 0));
+
+		await at("2026-10-13T16:00:00Z");
+		const change = async (operation: "withdrawCommitment" | "reactivateCommitment") => {
+			const call = { requestKey: key() };
+			const revision = await w.revision(nia.id);
+			const run = () => w.lifecycle(operation, nia.id, "2026-10-13", revision, call);
+			const done = await recorded(own.admin, run);
+			assert.deepEqual(done.added, { audits: ["people.updated"], ...quiet });
+			assert.deepEqual(ok(await untouched(own.admin, run)), ok(done.value));
+			return ok(done.value).current.state;
+		};
+		assert.equal(await change("withdrawCommitment"), "withdrawn");
+		assert.deepEqual(await size(), sized(29, "unknown", "on_track", "2026-10-12", 1, 1, 2, 1));
+		assert.equal(await change("reactivateCommitment"), "active");
+		ok(await w.card(nia.id, "2026-10-13", { kind: "launch_team" }));
+		const rejoined = await w.facts();
+		assert.deepEqual(
+			[
+				rejoined.committedAdults.evidence.length,
+				new Set(rejoined.committedAdults.evidence.map((e) => e.person.id)).size,
+			],
+			[30, 30],
+			"the adult who rejoined counts once",
+		);
+		const { firstAcquisition } = await w.held(nia.id);
+		assert.equal(firstAcquisition.status === "known" && firstAcquisition.occurredOn, "2026-10-12");
+		assert.deepEqual(await size(), sized(30, "met", "on_track", "2026-10-12", 1, 1, 2, 0));
+		for (const [first, last, ...growth] of [
+			["2026-11-01T00:10:00-05:00", "2026-11-01T23:50:00-06:00", "on_track", 20, 1, 0],
+			["2026-11-02T00:10:00-06:00", "2026-11-02T23:50:00-06:00", "slowed", 21, 1, 0],
+			["2026-11-08T00:10:00-06:00", "2026-11-08T23:50:00-06:00", "slowed", 27, 1, 0],
+			["2026-11-09T00:10:00-06:00", "2026-11-09T23:50:00-06:00", "stalled", 28, 0, 1],
+		] as const)
+			for (const now of [first, last]) {
+				const [status, days, current, prior] = growth;
+				assert.deepEqual(await size(now), sized(30, "met", status, "2026-10-12", days, current, prior, 0), now);
+			}
+	} finally {
+		await own.close();
+	}
 });
 
 type Letter = "a" | "b" | "c";

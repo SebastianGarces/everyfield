@@ -1605,7 +1605,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
-								"name": "AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history"
+								"name": "AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 ending one pair keeps other links, content and minimal history"
 							},
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
@@ -1613,7 +1613,11 @@
 							},
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
-								"name": "AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve"
+								"name": "AC:ROLE43-016 wrong side, Member, proof, expiry and revoked initiator cannot approve"
+							},
+							{
+								"file": "tests/integration/organizations/connections.test.mts",
+								"name": "AC:TARGET-IDN-020 another affiliate cannot approve this link, competing decisions settle once, and a failed write keeps nothing"
 							},
 							{
 								"file": "tests/unit/organizations/invitation-proof.test.mts",

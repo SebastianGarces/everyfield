@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sessionId } from "../../packages/contracts/src/common/values.ts";
-import { sql } from "../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../packages/db/src/query.ts";
 import { testDatabase, type Capability, type Database, type TestDatabase } from "./test-database.mts";
 
 type Result = { status: string; value?: unknown; error?: { code?: string; details?: unknown } };
@@ -52,6 +52,38 @@ export async function waitingOnLock(
 		if ((r.rows[0] as { n: number }).n >= count) return true;
 	}
 	throw Error("the rival transaction never waited for a lock");
+}
+
+export async function raced<const T extends readonly unknown[]>(
+	admin: Database,
+	runtime: Database,
+	lock: SQL,
+	contenders: { [K in keyof T]: () => Promise<T[K]> },
+): Promise<T> {
+	const locked = Promise.withResolvers<void>(),
+		release = Promise.withResolvers<void>();
+	const holder = admin.transaction(async (tx) => {
+		await tx.execute(lock);
+		locked.resolve();
+		await release.promise;
+	});
+	holder.catch(locked.reject);
+	const running: Promise<unknown>[] = [];
+	const settled = new AbortController();
+	try {
+		await locked.promise;
+		for (const run of contenders) {
+			const started = run();
+			running.push(started);
+			started.finally(() => settled.abort()).catch(() => {});
+			assert.equal(await waitingOnLock(runtime, { count: running.length, signal: settled.signal }), true);
+		}
+	} finally {
+		release.resolve();
+		await holder;
+		await Promise.allSettled(running);
+	}
+	return (await Promise.all(running)) as unknown as T;
 }
 
 export type Workspace =

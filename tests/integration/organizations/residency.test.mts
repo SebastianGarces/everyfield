@@ -593,6 +593,66 @@ test("AC:ADR1-003 AC:ADR1-014 milestone sharing off hides Casey's own marks; the
 	);
 });
 
+test("AC:WP007-API-MUL-003 withdrawing one of two shared choices hides only that one, moves the consent state once and shares no private document", async () => {
+	await share({ shareFoundations: true, shareMilestones: true });
+	const own = "Present your vision to the sending church leadership";
+	const title = "Casey's private prospectus";
+	const documentId = randomUUID();
+	await f.admin.execute(sql`INSERT INTO document(id,tenant_id,kind,title)
+		VALUES(${documentId},${casey.id}::uuid,'native',${title})`);
+	const reviewed = (await linkRow())!;
+	const shown = await enrollment(ana);
+	assert.deepEqual(shown.resident, {
+		status: "linked",
+		milestones: "shared",
+		foundations: { status: "shared", completed: 2, total: 6 },
+	});
+	const audits = async () =>
+		(await f.admin.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${reviewed.id}::uuid`))
+			.rows[0]!.n as number;
+	const audited = await audits();
+	const command = {
+		requestKey: randomUUID(),
+		expectedRevision: reviewed.revision,
+		input: {
+			linkId: reviewed.id,
+			expectedConsentRevision: reviewed.consent,
+			choices: { shareFoundations: false, shareMilestones: true },
+		},
+	};
+	assert.deepEqual(await asResident("residency.setSharing", command), { status: "committed" });
+	assert.deepEqual(await asResident("residency.setSharing", command), { status: "committed" });
+	const saved = (await linkRow())!;
+	assert.equal(saved.consent, String(Number(reviewed.consent) + 1));
+	await assert.rejects(asResident("residency.setSharing", { ...command, requestKey: randomUUID() }), /stale_revision/);
+	await assert.rejects(
+		gatedTransaction(f.db, async (tx) => {
+			const owner = { kind: "account" as const, id: accountId.parse(rae.id) };
+			if (!(await RequestActor.claimWrite(tx, rae.session, owner))) throw Error("no_authority");
+			return adapter["residency.setSharing"](tx, rae.session, owner, {
+				...command,
+				requestKey: randomUUID(),
+				expectedRevision: saved.revision,
+				input: { ...command.input, expectedConsentRevision: saved.consent },
+			});
+		}),
+		/unavailable/,
+	);
+	assert.deepEqual(await linkRow(), saved);
+	assert.equal(await audits(), audited + 1, "one change, however often it is sent or refused");
+	for (const reader of [ana, dana, luis]) {
+		const after = await enrollment(reader);
+		assert.deepEqual(after.resident, {
+			status: "linked",
+			milestones: "shared",
+			foundations: { status: "not_shared" },
+		});
+		assert.equal(milestoneOf(after.milestones, own).completion?.source, "resident");
+		for (const read of [after, await record(dana)]) assert.equal(JSON.stringify(read).includes(title), false);
+	}
+	await share({ shareFoundations: true, shareMilestones: false });
+});
+
 test("a new version keeps Casey's own marks on carried milestones, and shows them to Ana only while she shares", async () => {
 	const p = ok(await readProgram(f.db, await authority(ana), { programId: program }));
 	const v = p.published!;

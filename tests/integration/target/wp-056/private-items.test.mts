@@ -1,6 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { sql } from "../../../../packages/db/src/query.ts";
 import { readViewer } from "../../../../packages/domain/src/access/session.ts";
 import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
@@ -205,7 +206,7 @@ test("INV-privacy: the routes here ask every People, Messages, Intelligence, Ove
 });
 
 for (const v of VIEWERS)
-	test(`INV-privacy: by link, search, notification, digest, export, summary and Evry the ${v} sees exactly the private items their role may`, async () => {
+	test(`AC:ROLE43-012 INV-privacy: by link, search, notification, digest, export, summary and Evry the ${v} sees exactly the private items their role may`, async () => {
 		assert.deepEqual(await shown(v), SEEN[v]);
 	});
 
@@ -324,7 +325,7 @@ test("INV-privacy: correcting a care note by its id answers another Admin, a Mem
 });
 
 type Call = { tool: string; input: { operation: string; input: unknown } };
-function probing(calls: Call[], offered: string[]): QualifiedModel {
+function probing(calls: Call[], offered: string[], prompts: string[]): QualifiedModel {
 	const usage = {
 		inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
 		outputTokens: { total: 1, text: 1, reasoning: 0 },
@@ -351,6 +352,7 @@ function probing(calls: Call[], offered: string[]): QualifiedModel {
 							: [],
 				),
 			);
+			prompts.push(JSON.stringify([options.prompt, options.tools]));
 			offered.push(...(options.tools ?? []).map((t) => t.name));
 			const parts: LanguageModelV4StreamPart[] = asked
 				? [
@@ -388,6 +390,7 @@ async function ask(v: Viewer, ids: Ids) {
 		call("oversight_read", "oversight.getPlant", { plantId: w.P.id }),
 	];
 	const offered: string[] = [];
+	const prompts: string[] = [];
 	const actor = evryActor(w.who[v]);
 	const conversationId = (await createConversation(w.db, actor, { requestKey: randomUUID() })).id;
 	await submitTurn(w.db, actor, conversationId, {
@@ -400,7 +403,7 @@ async function ask(v: Viewer, ids: Ids) {
 	const outcome = await runTurn(
 		{
 			db: w.db,
-			model: probing(calls, offered),
+			model: probing(calls, offered, prompts),
 			freshActor: async (session) => {
 				const viewer = await readViewer(w.db, session as never);
 				return viewer?.authority ? evryActor(viewer.authority) : null;
@@ -417,10 +420,15 @@ async function ask(v: Viewer, ids: Ids) {
 		.sort((a, b) => a.operation.localeCompare(b.operation));
 	const said = events.flatMap((e) => (e.kind === "assistant_text" ? [e.body.text] : []));
 	assert.ok(said.length > 0 && offered.length > 0, v);
-	return { items: itemsIn([results, said]), reads: results.map((r) => r.operation), results };
+	return {
+		items: itemsIn([results, said]),
+		reads: results.map((r) => r.operation),
+		results,
+		prompts: prompts.join("\n"),
+	};
 }
 
-test("INV-privacy: asked through Evry with the model naming every private read, each role gets only what it may see and the answer is the same as for records that never existed", async () => {
+test("AC:ROLE43-012 INV-privacy: asked through Evry with the model naming every private read, each role gets only what it may see and the answer is the same as for records that never existed", async () => {
 	const draft = ["communication.list", "communication.get", "people.getPerson"];
 	const asked: [Viewer, Item[], string[]][] = [
 		[
@@ -476,4 +484,59 @@ test("INV-privacy: once the planter opens the assessment the sending church sees
 		assert.ok(itemsIn(await w.read(v, "direct")).includes("assessment"), v);
 	}
 	for (const v of ["member", "lead", "foreign"] as const) assert.deepEqual(await shown(v), SEEN[v], v);
+});
+
+test("AC:ROLE43-012 a check-in, its correction, week and hard answers reach no Evry prompt, model input, log, message, organization page or stored record outside the private tables", async () => {
+	const logged: string[] = [];
+	const original = { log: console.log, error: console.error, warn: console.warn, info: console.info };
+	for (const k of ["log", "error", "warn", "info"] as const)
+		console[k] = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
+	let asked;
+	try {
+		const fixed = await w.actions.correctCare("struggling", `${CARE_NOTE} corrected`);
+		assert.deepEqual(
+			fixed.week.revisions.map((r) => r.kind),
+			["save", "correction"],
+		);
+		w.modelCalls.splice(0);
+		await w.actions.assess();
+		asked = await ask("author", w.ids);
+		ok(await w.care.readHistory(w.db, w.who.author, { page: 1 }));
+	} finally {
+		Object.assign(console, original);
+	}
+	const leaks = (text: string) =>
+		[CARE_NOTE, w.ids.week, "struggling", "private_week", "privateCare.readCurrent"].filter((mark) =>
+			text.includes(mark),
+		);
+	assert.ok(w.modelCalls.length > 0);
+	assert.ok(asked.prompts.length > 0);
+	assert.deepEqual(
+		{
+			model: leaks(JSON.stringify(w.modelCalls)),
+			prompt: leaks(asked.prompts).filter((mark) => mark !== "privateCare.readCurrent"),
+			answers: leaks(JSON.stringify(asked.results)),
+			log: leaks(logged.join("\n")),
+		},
+		{ model: [], prompt: [], answers: [], log: [] },
+	);
+	const tables = (
+		await w.admin.execute<{ name: string }>(sql`SELECT table_name AS name FROM information_schema.tables
+			WHERE table_schema=${w.schema} AND table_type='BASE TABLE' AND table_name NOT LIKE 'private\\_%' ORDER BY table_name`)
+	).rows.map((r) => r.name);
+	for (const surface of ["mail", "notice", "assessment_run", "audit_event", "network_intelligence_run"])
+		assert.ok(tables.includes(surface), surface);
+	assert.ok(tables.length > 50);
+	const found: string[] = [];
+	for (const table of tables) {
+		const hit = await w.admin.execute<{ n: number }>(
+			sql`SELECT count(*)::int AS n FROM ${sql.identifier(table)} x WHERE x::text LIKE ${`%${CARE_NOTE}%`} OR x::text LIKE ${`%${w.ids.week}%`}`,
+		);
+		if (hit.rows[0]!.n) found.push(table);
+	}
+	assert.deepEqual(found, []);
+	for (const v of ["admin", "member", "lead", "director", "staff", "foreign"] as const)
+		for (const kind of KINDS) assert.ok(!itemsIn(await w.read(v, kind)).includes("care"), `${v} ${kind}`);
+	for (const kind of ["search", "notification", "digest", "export", "evry"] as const)
+		assert.ok(!itemsIn(await w.read("author", kind)).includes("care"), `author ${kind}`);
 });

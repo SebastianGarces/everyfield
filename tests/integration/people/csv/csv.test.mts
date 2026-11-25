@@ -1,4 +1,5 @@
 import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
+import { recorded, untouched } from "../../../support/recorded.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import {
 	authorityOf,
@@ -21,7 +22,9 @@ import { PeopleReadContext, type Context, type WriteContext } from "../../../../
 import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import {
+	commitments,
 	executeBulkImport,
+	interviews,
 	listDuplicatePairs,
 	peopleCsv as csv,
 	peopleMerge,
@@ -37,15 +40,27 @@ const database = await fixture({ prefix: "wp013" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
 
-const plants = [database.tenant.id, (await database.plant()).id] as const,
+const plants = [
+		database.tenant.id,
+		(await database.plant()).id,
+		(await database.plant()).id,
+		(await database.plant()).id,
+	] as const,
 	actors = [
 		database.actors.owner,
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+		await database.actor({ kind: "plant", id: plants[2] }, "admin"),
+		await database.actor({ kind: "plant", id: plants[3] }, "admin"),
+		await database.actor({ kind: "plant", id: plants[3] }, "member"),
+		await database.actor(await database.organization("sending_church"), "owner"),
 	] as const;
 type Filters = Omit<Parameters<typeof reads.listPeople>[2], "view">;
-type Who = 0 | 1 | 2;
-const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who === 2 ? 1 : 0]) });
+type Who = 0 | 1 | 2 | 3 | 4 | 5;
+const ctx = (who: Who = 0) => ({
+	session: actors[who].session,
+	selected: church(plants[([0, 0, 1, 2, 3, 3] as const)[who]]),
+});
 const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
 const count = async (table: string) =>
 	(await rows<{ n: number }>(sql.raw(`SELECT count(*)::int n FROM ${table}`)))[0]!.n;
@@ -56,6 +71,9 @@ const actor = (who: Who = 0) => gatedTransaction(db, (t) => authorityOf(t, actor
 const write = async <T,>(who: Who, body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>) =>
 	withPeopleWrite(db, await actor(who), body);
 const preview = (text: string, who: Who = 0) => read(who, (t, c) => csv.previewImport(t, c, { file: bytes(text) }));
+const EXPORT_COLUMNS =
+	"first_name,last_name,email,phone,street,city,state,postal_code,country,status,source,source_details,notes,tags,created_at";
+const organization = await database.organization("sending_church");
 const header = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
 type Preview = Extract<Awaited<ReturnType<typeof preview>>, { status: "ok" }>["value"];
 type Receipt = Extract<Awaited<ReturnType<typeof receiptOf>>, { status: "ok" }>["value"];
@@ -95,9 +113,9 @@ const importFile = async (
 	await drain();
 	return receiptOf(requestKey, who);
 };
-async function person(name: string, input = {}) {
+async function person(name: string, input = {}, who: Who = 0) {
 	return ok(
-		await write(0, (t, c) =>
+		await write(who, (t, c) =>
 			people.createPerson(t, c, { requestKey: randomUUID(), input: { displayName: name, ...input } }),
 		),
 	).person;
@@ -132,7 +150,9 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 	assert.deepEqual(p.columns, { used: [...header.trim().split(",")], ignored: [] });
 
 	const existing = await person("Mara Existing", { email: "Mara@Example.test" });
-	const dup = ok(await preview("first_name,email\r\nMara,mara@example.test\r\nMara,mara@example.test\r\n"));
+	const dup = ok(
+		await untouched(admin, () => preview("first_name,email\r\nMara,mara@example.test\r\nMara,mara@example.test\r\n")),
+	);
 	assert.deepEqual(
 		dup.rows.map(valid).map((r) => [r.row, r.existingDuplicates, r.withinFileDuplicateOf, r.suggested]),
 		[
@@ -157,18 +177,16 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 		],
 	);
 
+	const refusedPreview = async (file: Uint8Array, code: string) =>
+		refused(await untouched(admin, () => read(0, (t, c) => csv.previewImport(t, c, { file }))), code);
 	assert.deepEqual(
-		refused(await preview('first_name,notes\r\nMara,"unterminated\r\n'), "malformed_csv_quoting").details,
-		{
-			line: 2,
-		},
+		(await refusedPreview(bytes('first_name,notes\r\nMara,"unterminated\r\n'), "malformed_csv_quoting")).details,
+		{ line: 2 },
 	);
 	refused(await preview('first_name\r\nMa"ra\r\n'), "malformed_csv_quoting");
-	refused(
-		await read(0, (t, c) => csv.previewImport(t, c, { file: new Uint8Array(10485761).fill(120) })),
-		"file_too_large",
-	);
-	refused(await preview("first_name\r\n" + "Mara\r\n".repeat(10001)), "row_limit_exceeded");
+	await refusedPreview(new Uint8Array(10485761).fill(120), "file_too_large");
+	await refusedPreview(new Uint8Array(10485760).fill(120), "csv_header_invalid");
+	await refusedPreview(bytes("first_name\r\n" + "Mara\r\n".repeat(10001)), "row_limit_exceeded");
 	assert.equal(ok(await preview("first_name\r\n" + "Mara\r\n".repeat(10000))).rows.length, 10000);
 	refused(await preview("email\r\nmara@example.test\r\n"), "csv_header_invalid");
 	refused(
@@ -187,11 +205,10 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 
 test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
 	const file =
-		"\ufeff" +
-		header +
-		'Mara,,mara.case@example.test,,,,,,,other,,"First line\r\nSecond line"\r\n' +
+		"\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n" +
+		'Mara,,mara@example.test,,,,,,,other,,"First line\r\nSecond line"\r\n' +
 		'Noah,,noah@example.test,,,,,,,other,,"He said ""hello"""\r\n' +
-		"Lia,,lia.case@example.test,,,,,,,website,,=1+1\r\n";
+		"Lia,,lia@example.test,,,,,,,other,,=1+1\r\n";
 	const failNoah = async (on: boolean) =>
 		admin.execute(
 			sql.raw(
@@ -202,20 +219,67 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 					: `DROP TRIGGER fail_noah ON ${schema}.person; DROP FUNCTION ${schema}.fail_noah()`,
 			),
 		);
-	const p = ok(await preview(file));
+	const send = (choices: Choice[], requestKey: string) => submit(file, p, choices, requestKey, 3);
+	const named = async () =>
+		(await rows(sql`SELECT display_name FROM person WHERE plant_id=${sql.param(plants[2])} ORDER BY display_name`)).map(
+			(r) => r.display_name,
+		);
+	const p = ok(await preview(file, 3));
 	const choices = [1, 2, 3].map((row) => ({ row, choice: "create" })),
 		requestKey = randomUUID();
-	const peopleBefore = await count("person");
 	const outcome = (receipt: Receipt) =>
 		receipt.rows.map((r) => (r.status === "failed" ? [r.row, r.status, r.reason] : [r.row, r.status]));
-	await failNoah(true);
+	const makeDue = () =>
+		admin.execute(
+			sql`UPDATE job SET next_attempt_at=clock_timestamp() WHERE kind='people_import' AND state='retry_wait'`,
+		);
 	let first: Receipt;
+	await failNoah(true);
 	try {
-		const queued = ok(await submit(file, p, choices, requestKey));
-		assert.equal(queued.status, "in_progress");
-		assert.deepEqual(queued.remaining, [1, 2, 3]);
-		await drain();
-		first = ok(await receiptOf(requestKey));
+		const submitted = await recorded(admin, async () => {
+			ok(await send(choices, requestKey));
+			return ok(await send(choices, requestKey));
+		});
+		assert.deepEqual(submitted.added, {
+			audits: ["people.updated (receipt)"],
+			jobs: ["people_import"],
+			notices: 0,
+			mail: 0,
+		});
+		assert.equal(submitted.value.status, "in_progress");
+		assert.deepEqual(submitted.value.remaining, [1, 2, 3]);
+
+		let dropped = 0;
+		const losing = new Proxy(db, {
+			get(target, name) {
+				const own = Reflect.get(target, name, target);
+				if (name !== "execute") return typeof own === "function" ? own.bind(target) : own;
+				return async (...args: Parameters<typeof db.execute>) => {
+					const result = await target.execute(...args);
+					if (!dropped && (await named()).length === 1) {
+						dropped++;
+						throw Error("synthetic lost database response");
+					}
+					return result;
+				};
+			},
+		});
+		const lost = await recorded(admin, () => runDueImports(losing, 1));
+		assert.equal(dropped, 1);
+		assert.deepEqual(await named(), ["Mara"]);
+		assert.deepEqual(lost.added.audits, ["people.created"]);
+		const unfinished = ok(await receiptOf(requestKey, 3));
+		assert.deepEqual(unfinished.remaining, [2, 3]);
+		assert.deepEqual(outcome(unfinished), [
+			[1, "created"],
+			[2, "remaining"],
+			[3, "remaining"],
+		]);
+		await makeDue();
+		const resumed = await recorded(admin, drain);
+		assert.deepEqual(resumed.added.audits, ["people.created"]);
+		first = ok(await receiptOf(requestKey, 3));
+		assert.equal(createdId(first.rows[0]), createdId(unfinished.rows[0]));
 	} finally {
 		await failNoah(false);
 	}
@@ -227,49 +291,92 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 	assert.equal(first.status, "partial");
 	assert.deepEqual(first.remaining, [2]);
 	assert.deepEqual(first.counts, { created: 2, skipped: 0, failed: 1, remaining: 1 });
-	assert.equal(await count("person"), peopleBefore + 2);
+	assert.deepEqual(await named(), ["Lia", "Mara"]);
 
 	refused(
-		await submit(file, p, [{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey),
+		await untouched(admin, () => send([{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey)),
 		"review_digest_conflict",
 	);
-	assert.deepEqual(ok(await submit(file, p, choices, requestKey)), first);
-	const again = ok(await retryStoredImport(db, noStorage, await actor(), { requestKey }));
+	assert.deepEqual(ok(await untouched(admin, () => send(choices, requestKey))), first);
+	const again = ok(await retryStoredImport(db, noStorage, await actor(3), { requestKey }));
 	assert.equal(again.status, "in_progress");
 	assert.deepEqual(outcome(again), [
 		[1, "created"],
 		[2, "remaining"],
 		[3, "created"],
 	]);
-	await drain();
-	const retry = ok(await receiptOf(requestKey));
+	const retried = await recorded(admin, drain);
+	assert.deepEqual(retried.added, {
+		audits: ["people.created"],
+		jobs: ["people_import succeeded"],
+		notices: 0,
+		mail: 0,
+	});
+	const retry = ok(await receiptOf(requestKey, 3));
 	assert.equal(retry.status, "complete");
+	assert.deepEqual(outcome(retry), [
+		[1, "created"],
+		[2, "created"],
+		[3, "created"],
+	]);
+	assert.deepEqual(retry.remaining, []);
 	assert.deepEqual(retry.counts, { created: 3, skipped: 0, failed: 0, remaining: 0 });
 	assert.equal(retry.importId, first.importId);
 	assert.equal(createdId(retry.rows[0]), createdId(first.rows[0]));
-	assert.equal(await count("person"), peopleBefore + 3);
-	assert.deepEqual(ok(await submit(file, p, choices, requestKey)), retry);
-	await drain();
-	assert.equal(await count("person"), peopleBefore + 3);
+	assert.equal(createdId(retry.rows[2]), createdId(first.rows[2]));
+	assert.deepEqual(await named(), ["Lia", "Mara", "Noah"]);
+	await untouched(admin, async () => {
+		assert.deepEqual(ok(await send(choices, requestKey)), retry);
+		refused(await send([{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey), "review_digest_conflict");
+		assert.deepEqual(ok(await retryStoredImport(db, noStorage, await actor(3), { requestKey })), retry);
+		await drain();
+	});
+	assert.deepEqual(await named(), ["Lia", "Mara", "Noah"]);
 	assert.equal(await count("job WHERE kind='people_import' AND state='ready'"), 0);
 	assert.deepEqual(await rows(sql`SELECT upload FROM person_import WHERE id=${sql.param(retry.importId)}`), [
 		{ upload: null },
 	]);
 
-	const saved = await rows(
-		sql`SELECT display_name,notes,source,stage,adult_classification,commitment_state FROM person WHERE id=ANY(${sql.param(retry.rows.map(createdId))}::uuid[]) ORDER BY created_at`,
-	);
-	const plain = { stage: "prospect", adult_classification: "unknown", commitment_state: "unknown" };
-	assert.deepEqual(saved, [
-		{ display_name: "Mara", notes: "First line\r\nSecond line", source: "other", ...plain },
-		{ display_name: "Lia", notes: "=1+1", source: "website", ...plain },
-		{ display_name: "Noah", notes: 'He said "hello"', source: "other", ...plain },
-	]);
+	const plain = {
+		source: "other",
+		stage: "prospect",
+		adult_classification: "unknown",
+		commitment_state: "unknown",
+		state: "live",
+	};
 	assert.deepEqual(
 		await rows(
-			sql`SELECT after_value, metadata FROM audit_event WHERE command_id=${sql.param(retry.importId)} AND action='people.created' ORDER BY (metadata->'import'->>'row')::int`,
+			sql`SELECT id,display_name,email,notes,source,stage,adult_classification,commitment_state,state FROM person
+ WHERE plant_id=${sql.param(plants[2])} ORDER BY display_name`,
 		),
-		[1, 2, 3].map((row) => ({ after_value: { stage: "prospect" }, metadata: { import: { row } } })),
+		[
+			{ id: createdId(retry.rows[2]), display_name: "Lia", email: "lia@example.test", notes: "=1+1", ...plain },
+			{
+				id: createdId(retry.rows[0]),
+				display_name: "Mara",
+				email: "mara@example.test",
+				notes: "First line\r\nSecond line",
+				...plain,
+			},
+			{
+				id: createdId(retry.rows[1]),
+				display_name: "Noah",
+				email: "noah@example.test",
+				notes: 'He said "hello"',
+				...plain,
+			},
+		],
+	);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT subject_id,after_value,metadata FROM audit_event WHERE tenant_id=${sql.param(plants[2])}
+ AND action='people.created' ORDER BY (metadata->'import'->>'row')::int`,
+		),
+		[1, 2, 3].map((row) => ({
+			subject_id: createdId(retry.rows[row - 1]),
+			after_value: { stage: "prospect" },
+			metadata: { import: { row } },
+		})),
 	);
 
 	const filler = (i: number) => `Bulk${i},Import,bulk.import${i}@example.test,,,,,,,,,\r\n`;
@@ -453,9 +560,12 @@ test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the review
 	];
 	const peopleBefore = await count("person");
 
-	refused(await importFile(file + "Extra,,,\r\n", p, choices), "file_changed");
-	refused(await importFile(file, p, choices.slice(1)), "invalid_input");
-	refused(await importFile(file, p, choices, randomUUID(), 1));
+	await untouched(admin, async () => {
+		refused(await importFile(file + "Extra,,,\r\n", p, choices), "file_changed");
+		refused(await importFile(file, p, choices.slice(1)), "invalid_input");
+		refused(await importFile(file, p, choices, randomUUID(), 1));
+		refused(await importFile(file, { ...p, reviewDigest: "0".repeat(64) } as Preview, choices), "review_stale");
+	});
 	await person("Uma Existing", { email: "uma@example.test" });
 	refused(await importFile(file, p, choices), "review_stale");
 	assert.equal(await count("person"), peopleBefore + 1);
@@ -841,6 +951,176 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[0].id)}`);
 	}
+});
+
+test("AC:TARGET-PPL-019 each filter exports exactly its people, with tags joined by AND, formula text neutralized, private notes absent and only for this church", async () => {
+	const tagged = async (name: string, ...people: { id: string }[]) => {
+		const { tag } = ok(await write(4, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name } })));
+		for (const { id } of people)
+			ok(
+				await write(4, (t, c) =>
+					fields.assignTag(t, c, { requestKey: randomUUID(), input: { personId: id, tagId: tag.id } }),
+				),
+			);
+		return tag.id;
+	};
+	const alex = await person(
+		"Alex",
+		{
+			firstName: "Alex",
+			email: "alex@example.test",
+			phone: "=1+2",
+			source: "website",
+			stage: "leader",
+			summaryNotes: "=1+1",
+			adultClassification: "adult",
+		},
+		4,
+	);
+	const mara = await person(
+		"Mara",
+		{
+			firstName: "Mara",
+			phone: "-5550100",
+			street: "@home",
+			city: "+Austin",
+			source: "event",
+			stage: "core_group",
+			summaryNotes: 'Said "yes",\nthen left',
+			adultClassification: "child",
+		},
+		4,
+	);
+	const noor = await person("Noor", { firstName: "Noor", source: "event" }, 4);
+	await admin.execute(sql`UPDATE person SET phone=${"\t555"},city=${"\rAustin"} WHERE id=${sql.param(noor.id)}`);
+	const gone = await person("Gone", { firstName: "Gone" }, 4);
+	const choir = await tagged("Choir", alex, mara),
+		north = await tagged("Northside", alex, noor);
+	const review = ok(await read(4, (t, c) => reads.getStatusWarnings(t, c, { personId: gone.id }))).reviewRevision;
+	ok(
+		await write(4, (t, c) =>
+			people.retirePerson(
+				t,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: gone.revision,
+					input: { personId: gone.id, reason: "CARE-CANARY reason", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+	await person("Alex", { firstName: "Alex", stage: "leader" }, 2);
+	ok(
+		await write(4, (t, c) =>
+			commitments.createCommitment(t, c, {
+				requestKey: randomUUID(),
+				input: { personId: mara.id, kind: "core_group", occurredOn: "2026-10-01", notes: "CARE-CANARY card" },
+			}),
+		),
+	);
+	const [{ r: alexRevision }] = (await rows(sql`SELECT revision::text r FROM person WHERE id=${alex.id}`)) as [
+		{ r: string },
+	];
+	ok(
+		await write(4, (t, c) =>
+			people.addNote(t, c, {
+				requestKey: randomUUID(),
+				expectedRevision: alexRevision,
+				input: { personId: alex.id, body: "CARE-CANARY" },
+			}),
+		),
+	);
+	const rated = { rating: "pass", notes: "CARE-CANARY rating" };
+	ok(
+		await write(4, (t, c) =>
+			interviews.createInterview(t, c, {
+				requestKey: randomUUID(),
+				input: {
+					personId: alex.id,
+					occurredOn: "2026-10-02",
+					maturity: rated,
+					gifted: rated,
+					chemistry: rated,
+					rightReasons: rated,
+					season: rated,
+					result: "qualified",
+					nextSteps: "CARE-CANARY steps",
+				},
+			}),
+		),
+	);
+	const kept = JSON.stringify(
+		ok(await read(4, (t, c) => reads.getActivities(t, c, { personId: alex.id, limit: 100 }))),
+	);
+	assert.ok(kept.includes("CARE-CANARY"));
+
+	const exported = async (filters: Filters, who: Who = 4) =>
+		ok(await untouched(admin, () => read(who, (t, c) => csv.exportPeople(t, c, filters))));
+	const expected: [Filters, string[]][] = [
+		[{}, ["Alex", "Mara", "Noor"]],
+		[{ search: "mar" }, ["Mara"]],
+		[{ search: "alex@example" }, ["Alex"]],
+		[{ stages: ["leader"] }, ["Alex"]],
+		[{ stages: ["leader", "core_group"] }, ["Alex", "Mara"]],
+		[{ sources: ["event"] }, ["Mara", "Noor"]],
+		[{ tags: [choir] }, ["Alex", "Mara"]],
+		[{ tags: [north] }, ["Alex", "Noor"]],
+		[{ tags: [choir, north] }, ["Alex"]],
+		[{ adultClassification: "child" }, ["Mara"]],
+		[{ adultClassification: "adult" }, ["Alex"]],
+		[{ adultClassification: "unknown" }, ["Noor"]],
+		[{ commitment: "active" }, ["Mara"]],
+		[{ commitment: "withdrawn" }, []],
+		[{ commitment: "unknown" }, ["Alex", "Noor"]],
+		[{ archived: "include" }, ["Alex", "Mara", "Noor", "Gone"]],
+		[{ archived: "only" }, ["Gone"]],
+		[{ tags: [choir], sources: ["event"] }, ["Mara"]],
+		[{ tags: [choir], search: "noor" }, []],
+	];
+	for (const [filters, names] of expected) {
+		const { text, receipt } = await exported(filters);
+		const first = text
+			.split("\r\n")
+			.slice(1)
+			.flatMap((line) => /^(Alex|Mara|Noor|Gone),/.exec(line)?.slice(1, 2) ?? []);
+		assert.deepEqual(first, names, JSON.stringify(filters));
+		assert.deepEqual(
+			[receipt.matched, receipt.returned, receipt.completeness],
+			[names.length, names.length, "complete"],
+			JSON.stringify(filters),
+		);
+		for (const [name, value] of Object.entries(filters))
+			assert.deepEqual(receipt.filters[name as keyof typeof receipt.filters], value);
+		assert.ok(!text.includes("CARE-CANARY"), JSON.stringify(filters));
+		assert.equal(text.split("\r\n")[0], "\ufeff" + EXPORT_COLUMNS);
+	}
+	const created = async (id: string) =>
+		(
+			await rows<{ at: string }>(
+				sql`SELECT to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM person WHERE id=${id}`,
+			)
+		)[0]!.at;
+	assert.equal(
+		(await exported({ tags: [choir] })).text,
+		`\ufeff${EXPORT_COLUMNS}\r\n` +
+			`Alex,,alex@example.test,'=1+2,,,,,,leader,website,,'=1+1,Choir;Northside,${await created(alex.id)}\r\n` +
+			`Mara,,,'-5550100,'@home,'+Austin,,,,core_group,event,,"Said ""yes"",\nthen left",Choir,${await created(mara.id)}\r\n`,
+	);
+	assert.ok((await exported({ search: "noor" })).text.includes(`Noor,,,'\t555,,"'\rAustin",`));
+	assert.equal((await exported({}, 5)).text, (await exported({})).text);
+
+	const theirs = await exported({ stages: ["leader"] }, 2);
+	assert.equal(theirs.receipt.returned, 1);
+	assert.ok(!theirs.text.includes("alex@example.test"));
+	const orgOwner = await database.actor(organization, "owner");
+	const aimed = (session: Context["session"], selected: Context["selected"]) =>
+		untouched(admin, () => gatedTransaction(db, (t) => csv.exportPeople(t, { session, selected }, {})));
+	refused(await aimed(actors[2].session, church(plants[3])));
+	refused(await aimed(orgOwner.session, church(plants[3])));
+	refused(await aimed(orgOwner.session, owner.parse(organization)));
+	assert.equal(ok(await aimed(actors[4].session, church(plants[3]))).receipt.returned, 3);
 });
 
 test("AC:TARGET-PPL-019 BUG-1096833c2 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {

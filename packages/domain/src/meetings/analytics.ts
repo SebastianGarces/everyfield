@@ -6,6 +6,7 @@ import type { RequestActor } from "../access/session.ts";
 import { attendee, evaluationColumns, evaluationOf, guestRow, parseEvaluationFacts } from "./attendance.ts";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import { deny, one, parse, read, type Reader } from "./core.ts";
+import { eligibleOwner } from "../tasks/owner.ts";
 import { displayTitle } from "./rows.ts";
 
 const date = z.coerce.date();
@@ -63,7 +64,7 @@ const progressSql = sql`(SELECT json_build_object(
 	'closed', count(*) FILTER (WHERE b.kind = 'follow_up' AND (t.status = 'no_longer_needed' OR t.id IS NULL)),
 	'open', count(*) FILTER (WHERE b.kind = 'follow_up' AND t.status NOT IN ('complete', 'no_longer_needed')),
 	'needs_owner', count(*) FILTER (WHERE b.kind = 'follow_up' AND t.status NOT IN ('complete', 'no_longer_needed')
-		AND NOT EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = t.id)),
+		AND NOT EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = t.id AND ${eligibleOwner(sql`ta.account_id`, sql`t.plant_id`)})),
 	'evaluation', (SELECT json_build_object('task_id', et.id, 'status', coalesce(et.status, 'deleted'),
 		'needs_owner', NOT EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = et.id)) FROM obligation eb LEFT JOIN task et ON et.obligation_id = eb.id
 		AND et.deleted_at IS NULL WHERE eb.meeting_id = m.id AND eb.kind = 'evaluation' LIMIT 1))

@@ -528,7 +528,7 @@
 							},
 							{
 								"file": "tests/integration/tasks/templates.test.mts",
-								"name": "AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits and the other reads what it decided"
+								"name": "AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits, the other reads what it decided and a lost reply returns the same tasks"
 							}
 						],
 						"cases": ["TARGET-TSK-010", "PHASE-CASE-006"]

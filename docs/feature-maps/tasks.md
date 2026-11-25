@@ -272,4 +272,4 @@ After a real phase move, Tasks offers the new phase's checklists once; accept or
 - Catalog: TSK-010
 - Cases: TARGET-TSK-010, PHASE-CASE-006
 - Test: `tests/integration/tasks/templates.test.mts`: `AC:PHASE-CASE-006 AC:TARGET-TSK-010 the Owner accepts a subset dated from the move, and the offer is gone`
-- Test: `tests/integration/tasks/templates.test.mts`: `AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits and the other reads what it decided`
+- Test: `tests/integration/tasks/templates.test.mts`: `AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits, the other reads what it decided and a lost reply returns the same tasks`

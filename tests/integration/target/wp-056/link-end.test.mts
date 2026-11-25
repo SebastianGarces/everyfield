@@ -450,7 +450,7 @@ async function inTransit<T>(hold: (held: () => Promise<void>) => Promise<unknown
 
 for (const [kind, side] of SCENARIOS) {
 	const label = `${kind === "sending_church" ? "sending church" : "network"} link ended by the ${side}`;
-	test(`INV-link-end: ${label}: the director sees what came before and nothing after, by every route, while the planter keeps every record`, async () => {
+	test(`AC:AF-026 AC:ORG55-003 INV-link-end: ${label}: the director sees what came before and nothing after, by every route, while the planter keeps every record`, async () => {
 		const w = await world(kind);
 		const { org, watcher, leaving, staying } = w;
 		const director = await authority(org.director);

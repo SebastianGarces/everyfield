@@ -47,46 +47,7 @@ async function approve(i: ReturnType<typeof pending>, a: Awaited<ReturnType<type
 		),
 	);
 }
-test("AC:AF-001 AC:AF-002 AC:AF-003 AC:AF-004 AC:AF-005 AC:AF-006 AC:AF-007 exact subject history preserves independent affiliations and no seats", async () => {
-	const p = await S.tenant("plant"),
-		a = await S.identity(p),
-		o = [
-			await S.tenant("sending_church"),
-			await S.tenant("sending_church"),
-			await S.tenant("sending_network"),
-			await S.tenant("sending_network"),
-		];
-	for (const indexes of [[], [0], [2], [0, 2], [0, 1], [2, 3]]) {
-		await S.db.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE plant_id=${sql.param(p.id)}`);
-		for (const n of indexes) {
-			await S.db.execute(
-				sql`DELETE FROM affiliation WHERE plant_id=${sql.param(p.id)} AND organization_id=${sql.param(o[n]!.id)}`,
-			);
-			await S.affiliation(p, o[n]!);
-		}
-		const h = Q.relationshipHistoryResult.parse(await S.call("associations.getHistory", a, { plant: p }));
-		assert.equal(h.status, "available");
-		if (h.status !== "available") throw Error();
-		assert.deepEqual(
-			h.activeRelationships.map((r) => r.pair.organization.id).sort(),
-			indexes.map((n) => o[n]!.id).sort(),
-		);
-		assert.deepEqual(h.items, []);
-		assert.equal(
-			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(a.account)}`)).rows[0]!
-				.n,
-			1,
-		);
-	}
-	const p2 = await S.tenant("plant"),
-		a2 = await S.identity(p2),
-		oa = await S.identity(o[0]!);
-	await invite(a2, o[0]!, oa.email);
-	const h = Q.relationshipHistoryResult.parse(await S.call("associations.getHistory", a2, { plant: p2 }));
-	assert.equal(h.status, "available");
-	if (h.status === "available") assert.deepEqual(h.activeRelationships, []);
-});
-test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addressed, concurrent and replay-safe across all five subject types", async () => {
+test("AC:AF-027 approval is exact-addressed, concurrent and replay-safe across all five subject types", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p, "admin"),
 		church = await S.tenant("sending_church"),
@@ -141,7 +102,7 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 			shared_findings: true,
 		});
 });
-test("AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve", async () => {
+test("AC:ROLE43-016 wrong side, Member, proof, expiry and revoked initiator cannot approve", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
 		o = await S.tenant("sending_church"),
@@ -168,7 +129,7 @@ test("AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, 
 		0,
 	);
 });
-test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history", async () => {
+test("AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 ending one pair keeps other links, content and minimal history", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
 		o = await S.tenant("sending_church"),

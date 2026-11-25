@@ -245,19 +245,26 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 							writeVisibility(a.account.id, ctx.selected),
 						),
 					)
-					.returning({ id: t.identity_proof.id });
+					.returning({ email: t.identity_proof.proposed_email });
 				if (!consumed.length) {
 					const r = await budget.reserve("email_change", a.principal.email, a.ingress.trustedIp);
 					await budget.finish(r, false);
 					deny("proof_invalid");
 				}
-				const changed = await auth.api.verifyEmail({
-					headers: a.ingress.request.headers,
-					query: { token: v.proof },
-					asResponse: true,
-				});
-				if (!changed.ok)
-					return credentialOutcome.parse({ status: changed.status >= 500 ? "unknown" : "refused", correlationId });
+				const changed = await auth.api
+					.verifyEmail({ headers: a.ingress.request.headers, query: { token: v.proof }, asResponse: true })
+					.catch((error: unknown) => {
+						if (isRefused(error)) throw error;
+						return null;
+					});
+				if (!changed?.ok) {
+					if (changed && changed.status < 500) return credentialOutcome.parse({ status: "refused", correlationId });
+					const holders = await config.authDb
+						.select({ id: t.auth_user.id })
+						.from(t.auth_user)
+						.where(inArray(t.auth_user.email, [a.principal.email, ...consumed.flatMap((proof) => proof.email ?? [])]));
+					return credentialOutcome.parse({ status: holders.length > 1 ? "refused" : "unknown", correlationId });
+				}
 				committedAccount = a.account.id;
 				await config.responseCookies(ctx, changed.headers.getSetCookie());
 				return await recorded(a.account.id, a.principal.email, "email_changed", correlationId);

@@ -3,7 +3,7 @@ import { openedDeletion } from "../../support/deletion-cookie.mts";
 import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes, createHash } from "node:crypto";
+import { randomUUID, randomBytes, createHash, createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { testDatabase, type Database } from "../../support/test-database.mts";
 import { statementText } from "../identity/invitations-support.mts";
@@ -32,9 +32,9 @@ import {
 } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
-import { createMailService, type MailPayload } from "../../../packages/domain/src/jobs/mail.ts";
+import { createMailService, suppressionOf, type MailPayload } from "../../../packages/domain/src/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
-import { readViewer, type WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { readViewer, RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
@@ -42,6 +42,10 @@ import { PeopleReadContext, peopleReader, readPersonPhotos } from "../../../pack
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { insertTasks } from "../task-assignees.mts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { recorded } from "../../support/recorded.mts";
+import { frozenClock, instant, type Instant } from "../../../packages/contracts/src/common/index.ts";
+import { overdueAt } from "../../../packages/contracts/src/tasks/index.ts";
+import { taskReader } from "../../../packages/domain/src/tasks/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 const database = await testDatabase({
 	prefix: "wp010",
@@ -79,6 +83,8 @@ const ingress = new Map<string, Request>();
 const trustedIps = new Map<string, string>();
 const deliveries: Parameters<CredentialConfig["deliverVerification"]>[1][] = [];
 const diagnostics: Parameters<CredentialConfig["diagnostic"]>[0][] = [];
+const issued: string[] = [];
+const notices: { accountId: string; address: string; action: string }[] = [];
 const secret = randomBytes(40).toString("hex");
 const denied = refusedWith({ details: {} });
 const command = <const Input extends object>(
@@ -242,13 +248,14 @@ before(async () => {
 			};
 			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
-		responseCookies: async () => {},
+		responseCookies: async (_c, cookies) => void issued.push(...cookies),
 		diagnostic: (value) => diagnostics.push(value),
 		deliverVerification: async (_tx, i) => {
 			deliveries.push(i);
 		},
 		securityNotice: async (tx, i, writes) => {
 			if (faults) throw Error("security_intent_fault");
+			notices.push({ accountId: i.accountId, address: i.address, action: i.action });
 			return await mail.append(
 				tx,
 				{
@@ -1446,6 +1453,127 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	denied(await section(org.a, { section: "organization", organization: wrong }));
 });
 
+test("AC:ORG55-001 AC:TARGET-IDN-026 an organization's own Owner or Admin edits its name and contact; a Member, another organization or a kind, billing, transfer or deletion field changes nothing", async () => {
+	const f = await plant();
+	const footprint = async () =>
+		(
+			await admin.execute<
+				Record<string, unknown>
+			>(sql`SELECT (SELECT count(*)::int FROM audit_event) audits,(SELECT count(*)::int FROM job) jobs,
+				(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM notice) notices,(SELECT count(*)::int FROM lifecycle_witness) deletions,
+				(SELECT md5(string_agg(o::text,'' ORDER BY o.id)) FROM organization o) organizations,
+				(SELECT md5(string_agg(s::text,'' ORDER BY s.id)) FROM seat s) seats`)
+		).rows[0]!;
+	for (const organizationKind of ["sending_church", "sending_network"] as const)
+		for (const role of ["owner", "admin"] as const) {
+			const make = async () => {
+				const id = tenantId.parse(randomUUID());
+				await admin
+					.insert(t.organization)
+					.values({ id, kind: organizationKind, name: "Before", timezone: "UTC", material_revision: "1" });
+				const o = { kind: "organization" as const, id, organizationKind };
+				const seated = async (r: "owner" | "admin" | "member") => {
+					const a = await actor();
+					await admin
+						.insert(t.seat)
+						.values({ account_id: a.id, organization_id: id, role: r, accepted_at: new Date() });
+					return a;
+				};
+				return { o, owner: await seated("owner"), admin: await seated("admin"), member: await seated("member") };
+			};
+			const own = await make(),
+				foreign = await make();
+			const patch = { name: "Sending Church One", contactEmail: "office@example.test" };
+			const input = { section: "organization" as const, organization: own.o, patch };
+			const update = (a: Session, selected: Owner, v: object) =>
+				gatedTransaction(db, async (tx) => {
+					await RequestActor.claimWrite(tx, sessionId.parse(a.session), selected);
+					return producerDeps.organizations["organizations.updateProfile"](tx, sessionId.parse(a.session), selected, v);
+				});
+			const before = await footprint();
+			for (const [who, selected] of [
+				[own.member, own.o],
+				[foreign.admin, foreign.o],
+				[foreign.owner, foreign.o],
+				[foreign.admin, own.o],
+				[f.a, f.p],
+			] as const) {
+				denied(await save(who, command(input), selected));
+				await assert.rejects(update(who, selected, command({ organization: own.o, patch })), /^Error: unavailable$/);
+			}
+			for (const extra of [
+				{ kind: "sending_network" },
+				{ organizationKind: "sending_network" },
+				{ billing: { plan: "pro" } },
+				{ ownerId: foreign.owner.id },
+				{ transferTo: foreign.owner.id },
+				{ delete: true },
+			]) {
+				denied(
+					await save(own[role], command({ ...input, patch: { ...patch, ...extra } } as typeof input), own.o),
+					"invalid_input",
+				);
+				await assert.rejects(
+					update(own[role], own.o, command({ organization: own.o, patch: { ...patch, ...extra } })),
+					(e: Error) => e.name === "ZodError",
+				);
+			}
+			const other = organizationKind === "sending_church" ? "sending_network" : "sending_church";
+			const rekinded = { ...own.o, organizationKind: other } as const;
+			denied(await save(own[role], command({ ...input, organization: rekinded }), own.o));
+			denied(await save(own[role], command(input, "9"), own.o), "conflict");
+			await assert.rejects(
+				update(own[role], own.o, command({ organization: own.o, patch }, "9")),
+				/^Error: stale_revision$/,
+			);
+			for (const target of [own.o, f.p])
+				for (const selected of [own.o, f.p]) {
+					const reply = await call(
+						"requestWorkspaceDeletion",
+						own[role],
+						command({ plant: target, confirmed: true }),
+						selected,
+					);
+					assert.equal(reply.status, "refused", "an organization seat deletes no workspace");
+				}
+			assert.deepEqual(await footprint(), before);
+			const request = command(input);
+			const saved = ok(await save(own[role], request, own.o));
+			assert.equal(saved.current.values.profile.name, "Sending Church One");
+			assert.equal(saved.current.values.profile.contactEmail, "office@example.test");
+			assert.deepEqual(ok(await save(own[role], request, own.o)), saved, "the same request answers the same receipt");
+			const after = await footprint();
+			assert.deepEqual(
+				{ ...after, organizations: before.organizations },
+				{ ...before, audits: Number(before.audits) + 1 },
+				"one audit and no mail, notice, job or seat",
+			);
+			assert.deepEqual(
+				(
+					await admin.execute(
+						sql`SELECT action,actor_id FROM audit_event WHERE tenant_id=${own.o.id} AND subject_id=${own.o.id}`,
+					)
+				).rows,
+				[{ action: "organization.profile_changed", actor_id: own[role].id }],
+			);
+			assert.deepEqual(
+				(await admin.execute(sql`SELECT kind,name,contact_email,revision::text FROM organization WHERE id=${own.o.id}`))
+					.rows,
+				[{ kind: organizationKind, name: "Sending Church One", contact_email: "office@example.test", revision: "2" }],
+			);
+			await update(own[role], own.o, command({ organization: own.o, patch: { name: "Sending One" } }, "2"));
+			const read = async (who: Session) => {
+				const r = ok(await section(who, { section: "organization", organization: own.o }));
+				assert.ok(r.values.status === "available");
+				return [r.values.profile.name, r.values.profile.contactEmail, r.values.revision];
+			};
+			for (const who of [own.owner, own.admin, own.member])
+				assert.deepEqual(await read(who), ["Sending One", "office@example.test", "3"]);
+			denied(await section(foreign.admin, { section: "organization", organization: own.o }));
+			denied(await section(f.a, { section: "organization", organization: own.o }));
+		}
+});
+
 test("INV-lifecycle: an account root read serializes first-witness deletion even before any witness exists", async () => {
 	const { liveOwner } = await import("../../../packages/domain/src/access/session.ts");
 	const a = await actor();
@@ -1950,6 +2078,22 @@ test("AC:ORG55-006 AC:DEL58-004 deleting a login hides its check-ins, avatar and
 		{ weeks: 1, others: 0, da: 1, dp: 1, moved: 0, linked: undefined },
 	);
 
+	const early = createLifecycleCleanup(cleanupDb, {
+		authorize: async () => true,
+		removeOwnedResources: async () => {
+			throw Error("nothing is removed before the deadline");
+		},
+	});
+	const waiting = await early({ subject, requestId: pending.requestId, revision: pending.revision }).catch(
+		(e: Error) => e,
+	);
+	assert.deepEqual(waiting instanceof Error ? waiting.message : waiting.status, "deadline_passed");
+	assert.deepEqual(
+		{ ...(await rows()), linked: undefined },
+		{ weeks: 1, others: 0, da: 1, dp: 1, moved: 0, linked: undefined },
+		"the material is kept for the 30 days",
+	);
+
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`ALTER TABLE lifecycle_witness DISABLE TRIGGER USER`);
 		await tx.execute(sql`UPDATE lifecycle_witness SET requested_at=requested_at-interval '31 days',
@@ -1975,10 +2119,27 @@ test("AC:ORG55-006 AC:DEL58-004 deleting a login hides its check-ins, avatar and
 			return removed.status === "inaccessible";
 		},
 	});
+	const church = async () =>
+		(
+			await admin.execute(sql`SELECT (SELECT count(*)::int FROM audit_event WHERE tenant_id=${f.p.id}) audits,
+				(SELECT count(*)::int FROM notice) notices,(SELECT count(*)::int FROM mail) mail,
+				(SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM document d WHERE d.tenant_id=${f.p.id}) documents,
+				(SELECT jsonb_agg(to_jsonb(s) ORDER BY s.id) FROM seat s WHERE s.account_id=${f.a.id}) seats`)
+		).rows[0];
+	const unmoved = await church();
 	const done = await purge({ subject, requestId: pending.requestId, revision: pending.revision });
 	assert.equal(done.status, "purged");
 	assert.equal(deleted.length, 1);
 	assert.deepEqual(await rows(), { weeks: 0, others: 0, da: 0, dp: 1, moved: 0, linked: null });
+	assert.deepEqual(
+		await church(),
+		unmoved,
+		"the purge adds no church event, notice or mail and moves nothing to anyone",
+	);
+	assert.deepEqual(
+		(await admin.execute(sql`SELECT count(*)::int n FROM document_revision WHERE body='Private plan body'`)).rows,
+		[{ n: 0 }],
+	);
 	const after = await owner();
 	assert.deepEqual([after.listed, after.photo, after.bytes], [["Alex Admin"], 0, "refused"]);
 	assert.deepEqual(after.files, [DP.id], "DA is not visible and DP is retained");
@@ -2584,4 +2745,1136 @@ test("an organization's Owner offers its plants a gathering milestone in its pro
 	);
 	ok(await save(org.a, command(milestone({ offered: false, name: "a".repeat(120), description: null }), "3"), org.o));
 	assert.deepEqual(await stored(), { offered: false, name: "a".repeat(120), description: null, revision: "4" });
+});
+
+const ZONE_EDIT_AT = instant.parse("2026-10-13T16:00:00.000Z");
+const DUE = "2026-10-13";
+const FIXED = "2026-10-20T15:00:00.000Z";
+const CHICAGO_MIDNIGHT = instant.parse("2026-10-14T05:00:00Z");
+const AUCKLAND_MIDNIGHT = instant.parse("2026-10-13T11:00:00Z");
+const justBefore = (at: Instant) => instant.parse(new Date(Date.parse(at) - 1).toISOString());
+
+async function zoneChurch() {
+	const f = await plant(),
+		zoneAdmin = await seat(f.p),
+		member = await seat(f.p, "member"),
+		foreign = await plant();
+	const [past, later, meeting] = [randomUUID(), randomUUID(), randomUUID()];
+	await insertTasks(
+		admin,
+		[
+			{ id: past, title: "Due today", due_date: DUE },
+			{ id: later, title: "Due later", due_date: "2026-10-20" },
+		].map((task) => ({
+			...task,
+			plant_id: f.p.id,
+			category: "general" as const,
+			priority: "medium" as const,
+			status: "not_started" as const,
+			created_at: new Date(),
+			due_kind: "date_only" as const,
+		})),
+	);
+	await admin.insert(t.meeting).values({
+		id: meeting,
+		plant_id: f.p.id,
+		type: "vision_meeting",
+		title: "Fixed appointment",
+		local_date: "2026-10-20",
+		local_time: "10:00:00",
+		timezone: "America/Chicago",
+		starts_at: new Date(FIXED),
+		resolver_version: "1",
+		status: "planning",
+		attendance_revision: "1",
+	});
+	const frozen = settingsApi({ ...producerDeps, clock: frozenClock(ZONE_EDIT_AT) });
+	const preview = (who: Session, timeZone: string, selected: Plant = f.p) =>
+		gatedTransaction(db, (tx) => frozen.previewPlantTimezone(tx, ctx(who, selected), { plant: f.p, timeZone }));
+	const set = (who: Session, q: ReturnType<typeof command>, selected: Plant = f.p) =>
+		gatedTransaction(db, (tx) => frozen.setPlantTimezone(tx, ctx(who, selected), q));
+	const change = (zone: string, previewId: string, expectedRevision = "1", requestKey: string = randomUUID()) =>
+		command({ plant: f.p, timeZone: zone, previewId }, expectedRevision, requestKey);
+	const stored = async () => ({
+		plant: (
+			await admin.execute(
+				sql`SELECT timezone,revision::text,material_revision::text AS material FROM plant WHERE id=${f.p.id}`,
+			)
+		).rows[0],
+		tasks: (
+			await admin.execute(
+				sql`SELECT title,due_kind,due_date::text,due_time,due_at,timezone,revision::text FROM task WHERE plant_id=${f.p.id} ORDER BY title`,
+			)
+		).rows,
+		meeting: (
+			await admin.execute(
+				sql`SELECT local_date::text,local_time::text,timezone,starts_at=${FIXED}::timestamptz AS fixed,revision::text FROM meeting WHERE id=${meeting}`,
+			)
+		).rows[0],
+	});
+	const effects = async () =>
+		(
+			await admin.execute(sql`SELECT (SELECT count(*)::int FROM audit_event WHERE tenant_id=${f.p.id} AND action='plant.profile_changed' AND subject_type<>'command') AS events,
+				(SELECT count(*)::int FROM audit_event WHERE tenant_id=${f.p.id}) AS audits,
+				(SELECT count(*)::int FROM job WHERE tenant_id=${f.p.id} AND producer_key LIKE 'settings/plant_timezone/%') AS intents,
+				(SELECT count(*)::int FROM notice WHERE tenant_id=${f.p.id}) AS notices`)
+		).rows[0];
+	const reader = await RequestActor.resolve(db, zoneAdmin.session);
+	assert.ok(reader instanceof RequestActor);
+	const overdueTask = async (asOf: Instant) => {
+		const page = ok(await gatedTransaction(db, (tx) => taskReader.list(tx, reader, { asOf })));
+		const row = page.items.find((i: { id: string }) => i.id === past);
+		assert.ok(row);
+		return row.overdue;
+	};
+	return { ...f, zoneAdmin, member, foreign, past, later, preview, set, change, stored, effects, overdueTask };
+}
+
+test("AC:B03-013 AC:B03-015 AC:TARGET-IDN-011 a church zone preview shows every moved time and keeps due dates and fixed appointments, and the change moves only the boundaries it showed", async () => {
+	const c = await zoneChurch();
+	const start = await c.stored();
+	const quiet = await c.effects();
+	denied(await c.preview(c.member, "Pacific/Auckland"));
+	denied(await c.preview(c.foreign.a, "Pacific/Auckland", c.foreign.p));
+	const preview = ok(await c.preview(c.zoneAdmin, "Pacific/Auckland"));
+	assert.deepEqual(preview, {
+		previewId: preview.previewId,
+		plant: c.p,
+		expectedRevision: "1",
+		asOf: ZONE_EDIT_AT,
+		expiresAt: "2026-10-13T16:15:00.000Z",
+		oldZone: "America/Chicago",
+		newZone: "Pacific/Auckland",
+		meetings: [],
+		digests: [
+			{ id: c.p.id, before: "2026-10-18T21:00:00.000Z", after: "2026-10-18T03:00:00.000Z" },
+			{ id: c.p.id, before: "2026-10-25T21:00:00.000Z", after: "2026-10-25T03:00:00.000Z" },
+		],
+		reminders: [
+			{ id: c.past, before: "2026-10-14T14:00:00.000Z", after: "2026-10-13T20:00:00.000Z" },
+			{ id: c.later, before: "2026-10-20T14:00:00.000Z", after: "2026-10-19T20:00:00.000Z" },
+			{ id: c.later, before: "2026-10-21T14:00:00.000Z", after: "2026-10-20T20:00:00.000Z" },
+		].sort((a, b) => a.id.localeCompare(b.id)),
+		preservedTaskDates: [
+			{ id: c.past, date: DUE },
+			{ id: c.later, date: "2026-10-20" },
+		].sort((a, b) => a.id.localeCompare(b.id)),
+		completeness: "bounded",
+		warnings: ["more_results"],
+	});
+	const { date } = preview.preservedTaskDates.find((d) => d.id === c.past)!;
+	const boundary = (zone: typeof preview.newZone, at: Instant) =>
+		[justBefore(at), at].map((asOf) => overdueAt({ kind: "local_date", date }, zone, asOf));
+	assert.equal(date, DUE);
+	assert.deepEqual(boundary(preview.newZone, AUCKLAND_MIDNIGHT), [false, true]);
+	assert.deepEqual(boundary(preview.oldZone, CHICAGO_MIDNIGHT), [false, true]);
+	assert.deepEqual(await c.stored(), start, "a preview changes nothing");
+	assert.deepEqual(await c.effects(), quiet, "a preview records nothing");
+	assert.deepEqual(
+		[await c.overdueTask(justBefore(CHICAGO_MIDNIGHT)), await c.overdueTask(CHICAGO_MIDNIGHT)],
+		[false, true],
+	);
+
+	const q = c.change("Pacific/Auckland", preview.previewId);
+	denied(await c.set(c.member, q));
+	denied(await c.set(c.foreign.a, q, c.foreign.p));
+	denied(await c.set(c.a, q), "stale_preview");
+	assert.deepEqual([await c.stored(), await c.effects()], [start, quiet]);
+	const changed = ok(await c.set(c.zoneAdmin, q));
+	assert.equal(changed.status, "changed");
+	assert.equal(changed.timeZone, "Pacific/Auckland");
+	assert.deepEqual(ok(await c.set(c.zoneAdmin, q)), changed, "the same intent again answers the same change");
+	const after = await c.stored();
+	assert.deepEqual([after.tasks, after.meeting], [start.tasks, start.meeting]);
+	assert.deepEqual(after.meeting, {
+		local_date: "2026-10-20",
+		local_time: "10:00:00",
+		timezone: "America/Chicago",
+		fixed: true,
+		revision: "1",
+	});
+	assert.deepEqual(after.plant, {
+		timezone: "Pacific/Auckland",
+		revision: "2",
+		material: String(Number(start.plant!.material) + 1),
+	});
+	const counted = z.object({ events: z.int(), audits: z.int(), intents: z.int(), notices: z.int() });
+	const base = counted.parse(quiet);
+	assert.deepEqual(await c.effects(), {
+		events: base.events + 1,
+		audits: base.audits + 1,
+		intents: base.intents + 1,
+		notices: base.notices,
+	});
+	assert.deepEqual(
+		[await c.overdueTask(justBefore(AUCKLAND_MIDNIGHT)), await c.overdueTask(AUCKLAND_MIDNIGHT)],
+		[false, true],
+	);
+});
+
+test("AC:B03-017 of two zone edits reviewed on one church state one wins and one is refused, the same zone adds nothing and a failed replanning insert leaves the church as it was", async () => {
+	const c = await zoneChurch();
+	const quiet = z
+		.object({ events: z.int(), audits: z.int(), intents: z.int(), notices: z.int() })
+		.parse(await c.effects());
+	const previews = {
+		auckland: ok(await c.preview(c.zoneAdmin, "Pacific/Auckland")),
+		london: ok(await c.preview(c.zoneAdmin, "Europe/London")),
+	};
+	const start = await c.stored();
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION "${database.schema}".refuse_zone_intent() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+			IF NEW.tenant_id='${c.p.id}' AND NEW.producer_key LIKE 'settings/plant_timezone/%' THEN RAISE EXCEPTION 'replan_intent_insert'; END IF;
+			RETURN NEW; END $$`),
+	);
+	await admin.execute(
+		sql.raw(
+			`CREATE TRIGGER refuse_zone_intent BEFORE INSERT ON job FOR EACH ROW EXECUTE FUNCTION "${database.schema}".refuse_zone_intent()`,
+		),
+	);
+	const q = c.change("Pacific/Auckland", previews.auckland.previewId);
+	try {
+		await assert.rejects(c.set(c.zoneAdmin, q), (e) => {
+			assert.ok(e instanceof Error);
+			assert.match(String(e.cause ?? e), /replan_intent_insert/);
+			return true;
+		});
+	} finally {
+		await admin.execute(sql.raw("DROP TRIGGER refuse_zone_intent ON job"));
+	}
+	assert.deepEqual(await c.stored(), start);
+	assert.equal(start.plant!.timezone, "America/Chicago");
+	assert.equal(start.plant!.revision, "1");
+	assert.deepEqual(await c.effects(), quiet);
+
+	const replies = await Promise.all([
+		c.set(c.zoneAdmin, q),
+		c.set(c.zoneAdmin, c.change("Europe/London", previews.london.previewId)),
+	]);
+	const winners = replies.filter((r) => r.status === "ok");
+	assert.equal(winners.length, 1, JSON.stringify(replies));
+	denied(
+		replies.find((r) => r.status === "refused")!,
+		"conflict",
+	);
+	const won = ok(winners[0]!);
+	assert.equal(won.status, "changed");
+	const one = { ...quiet, events: quiet.events + 1, audits: quiet.audits + 1, intents: quiet.intents + 1 };
+	assert.deepEqual(await c.effects(), one);
+	assert.deepEqual([(await c.stored()).plant!.timezone, (await c.stored()).plant!.revision], [won.timeZone, "2"]);
+	denied(
+		await c.set(c.zoneAdmin, c.change("Pacific/Auckland", previews.auckland.previewId, "1", randomUUID())),
+		"conflict",
+	);
+	const same = ok(await c.preview(c.zoneAdmin, won.timeZone));
+	const noop = ok(await c.set(c.zoneAdmin, c.change(won.timeZone, same.previewId, "2")));
+	assert.equal(noop.status, "noop");
+	assert.equal(noop.revision, "2");
+	const settled = z
+		.object({ events: z.int(), audits: z.int(), intents: z.int(), notices: z.int() })
+		.parse(await c.effects());
+	assert.deepEqual([settled.events, settled.intents, settled.notices], [one.events, one.intents, one.notices]);
+});
+
+test("AC:ROLE43-002 only the Owner's confirmed request deletes the church workspace, and nobody's request reaches another login", async () => {
+	const f = await plant(),
+		other = await plant();
+	const roles = { Admin: await seat(f.p), Member: await seat(f.p, "member"), CRM_lead: await seat(f.p, "member") };
+	const team = randomUUID(),
+		person = randomUUID();
+	await admin.insert(t.person).values({
+		id: person,
+		tenant_id: f.p.id,
+		plant_id: f.p.id,
+		display_name: "Lead planter",
+		source: "other",
+		stage: "leader",
+		adult_classification: "adult",
+		commitment_state: "unknown",
+		pipeline_position: "1",
+		state: "live",
+		created_at: new Date(),
+		linked_account_id: roles.CRM_lead.id,
+	});
+	await admin.insert(t.team).values({
+		id: team,
+		plant_id: f.p.id,
+		name: "Plant leadership",
+		state: "active",
+		sort_order: 1,
+		leader_person_id: person,
+		leader_source: "explicit",
+	});
+	const revisionOf = async (p: Plant) =>
+		String((await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${p.id}`)).rows[0]!.r);
+	const footprint = async () =>
+		(
+			await admin.execute(sql`SELECT (SELECT count(*)::int FROM lifecycle_witness) AS witnesses,
+				(SELECT count(*)::int FROM audit_event) AS audits,(SELECT count(*)::int FROM job) AS jobs,
+				(SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM auth_session) AS sessions`)
+		).rows[0];
+	const revision = await revisionOf(f.p);
+	const q = command({ plant: f.p, confirmed: true }, revision);
+	const before = await footprint();
+	for (const who of Object.values(roles)) denied(await call("requestWorkspaceDeletion", who, q, f.p));
+	denied(await call("requestWorkspaceDeletion", other.a, q, other.p));
+	for (const input of [{ plant: f.p }, { plant: f.p, confirmed: false }, { plant: f.p, confirmed: "Delete" }])
+		denied(await call("requestWorkspaceDeletion", f.a, command(input, revision), f.p), "invalid_input");
+	denied(await call("requestWorkspaceDeletion", f.a, command({ plant: other.p, confirmed: true }, revision), f.p));
+	denied(
+		await call("requestWorkspaceDeletion", f.a, command({ plant: f.p, confirmed: true }, revision + "0"), f.p),
+		"conflict",
+	);
+	for (const who of [f.a, ...Object.values(roles)])
+		denied(
+			await call("requestAccountDeletion", who, command({ confirmed: true }), {
+				kind: "account",
+				id: other.a.id,
+			}),
+		);
+	denied(
+		await call("requestAccountDeletion", f.a, command({ confirmed: true, account: roles.Member.id })),
+		"invalid_input",
+	);
+	assert.deepEqual(await footprint(), before, "a refused request changes nothing");
+	const pending = ok(await call("requestWorkspaceDeletion", f.a, q, f.p));
+	assert.equal(pending.status, "pending_deletion");
+	assert.deepEqual(pending.subject, { kind: "plant", id: f.p.id });
+	denied(await call("requestWorkspaceDeletion", f.a, q, f.p));
+	const recorded = await admin.execute(
+		sql`SELECT tenant_id,actor_id,subject_id FROM audit_event WHERE action='plant.deletion_requested' AND subject_id=${f.p.id}`,
+	);
+	assert.deepEqual(recorded.rows, [{ tenant_id: f.p.id, actor_id: f.a.id, subject_id: f.p.id }]);
+	const witnesses = await admin.execute(
+		sql`SELECT kind,state FROM lifecycle_witness WHERE plant_id=${f.p.id} OR account_id IN (${f.a.id},${roles.Member.id})`,
+	);
+	assert.deepEqual(witnesses.rows, [{ kind: "plant", state: "pending_deletion" }]);
+	assert.equal(await viewerOf(roles.Admin), null);
+	assert.ok(await viewerOf(other.a), "another church keeps its access");
+});
+
+test("AC:ROLE43-018 a person deletes only their own login, loses access at once, can cancel for 30 days and their check-ins go to nobody", async (context) => {
+	const f = await plant(),
+		self = await seat(f.p),
+		second = await seat(f.p);
+	const care = createPrivateCare();
+	const resolved = async (who: Session) => {
+		const found = await RequestActor.resolve(db, sessionId.parse(who.session));
+		assert.ok(found instanceof RequestActor);
+		return found;
+	};
+	for (const who of [self, second])
+		await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${who.id}`);
+	const answers = { spiritual: "strained", family: "steady", financial: "steady", pace: "steady" };
+	const [mine, theirs] = [await resolved(self), await resolved(second)];
+	ok(
+		await care.save(db, mine, {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { answers, note: "CARE-CANARY" },
+		}),
+	);
+	const weeks = async () =>
+		(
+			await admin.execute(
+				sql`SELECT author_id,count(*)::int AS n FROM private_week WHERE plant_id=${f.p.id} GROUP BY author_id ORDER BY author_id`,
+			)
+		).rows;
+	const mineOnly = [{ author_id: self.id, n: 1 }];
+	const request = async (who: Session, subject: string) =>
+		call("requestAccountDeletion", who, command({ confirmed: true }), {
+			kind: "account",
+			id: accountId.parse(subject),
+		});
+	denied(await request(second, self.id));
+	denied(await request(f.a, self.id));
+	assert.deepEqual(await weeks(), mineOnly);
+	assert.equal(await admin.$count(t.lifecycle_witness, eq(t.lifecycle_witness.account_id, self.id)), 0);
+
+	context.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-13T16:00:00Z") });
+	let deleting;
+	try {
+		deleting = await recorded(admin, () => request(self, self.id));
+	} finally {
+		context.mock.timers.reset();
+	}
+	const pending = ok(deleting.value);
+	assert.deepEqual(
+		deleting.added,
+		{ audits: ["account.deletion_requested"], jobs: ["lifecycle_purge"], notices: 0, mail: 0 },
+		"one audit row and the purge the 30 days allow",
+	);
+	assert.equal(pending.status, "pending_deletion");
+	assert.deepEqual(
+		[pending.requestedAt, pending.cancelUntil],
+		["2026-10-13T16:00:00.000Z", "2026-11-12T16:00:00.000Z"],
+	);
+	const [purge] = await admin
+		.select({ at: t.job.eligible_at })
+		.from(t.job)
+		.where(eq(t.job.producer_key, "purge/" + pending.requestId));
+	assert.equal(purge!.at.toISOString(), pending.cancelUntil, "nothing is purged inside the 30 days");
+	assert.equal(await viewerOf(self), null);
+	assert.equal((await RequestActor.resolve(db, sessionId.parse(self.session))) instanceof RequestActor, false);
+	assert.equal((await care.readCurrent(db, mine, {})).status, "refused");
+	denied(await save(self, command({ section: "account", name: "Too late" }, "2")));
+	denied(await request(self, self.id));
+	const other = ok(await care.readCurrent(db, theirs, {}));
+	assert.deepEqual([other.week.answer, other.revision], [null, "0"]);
+	assert.deepEqual(await weeks(), mineOnly, "the held check-in keeps its author");
+	assert.ok(await viewerOf(second));
+
+	const undecided = await seat(f.p);
+	const requested = ok(await request(undecided, undecided.id));
+	assert.equal(await viewerOf(undecided), null);
+	const own = { subject: { kind: "account" as const, id: undecided.id }, requestId: requested.requestId };
+	const proof = await restricted(undecided, own.subject, requested);
+	const cancel = () =>
+		gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command(own, requested.revision)));
+	assert.equal(ok(await cancel()).status, "cancelled");
+	assert.ok(await viewerOf(await newSession(undecided)), "signing in again works after the cancel");
+
+	const late = await seat(f.p);
+	const expired = await overdue(late, { kind: "account", id: late.id });
+	const lateProof = await restricted(late, expired.subject, expired);
+	denied(
+		await gatedTransaction(db, (tx) =>
+			api.cancelAccountDeletion(
+				tx,
+				lateProof,
+				command({ subject: { kind: "account" as const, id: late.id }, requestId: expired.requestId }, expired.revision),
+			),
+		),
+		"deadline_passed",
+	);
+	assert.deepEqual(await weeks(), mineOnly);
+
+	const gone = await seat(f.p);
+	ok(
+		await care.save(
+			db,
+			await (async () => {
+				await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${gone.id}`);
+				return resolved(gone);
+			})(),
+			{ requestKey: randomUUID(), expectedRevision: "0", input: { answers, note: "" } },
+		),
+	);
+	const subject = { kind: "account" as const, id: gone.id };
+	const due = await overdue(gone, subject);
+	const cleanup = createLifecycleCleanup(cleanupDb, {
+		authorize: async () => true,
+		removeOwnedResources: async () => true,
+	});
+	const done = await cleanup({ subject, requestId: due.requestId, revision: due.revision });
+	assert.equal(done.status, "purged");
+	assert.equal(Date.parse(done.copyExpiresAt) - Date.parse(done.livePurgedAt), 7 * 86400_000);
+	assert.deepEqual(await weeks(), mineOnly, "a purge removes only its author's check-ins");
+});
+
+test("AC:ROLE43-018 a former lead who lost the seat keeps no access to the church", async () => {
+	const f = await plant(),
+		lead = await seat(f.p);
+	const before = await seen(lead);
+	assert.equal((await readSection(before, { section: "plant", plant: f.p })).status, "ok");
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, lead.id));
+	denied(await readSection(before, { section: "plant", plant: f.p }));
+	denied(
+		await save(
+			lead,
+			command({ section: "plant", plant: f.p, change: { kind: "profile", patch: { city: "Waco" } } }),
+			f.p,
+		),
+	);
+});
+
+const total = async (query: ReturnType<typeof sql>) => Number((await admin.execute<{ n: number }>(query)).rows[0]!.n);
+const written = async () =>
+	(
+		await admin.execute(
+			sql`SELECT (SELECT count(*)::int FROM audit_event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs,(SELECT count(*)::int FROM notice) notices`,
+		)
+	).rows[0];
+async function failingWrite(table: string, when: string, body: () => Promise<void>, condition = "true") {
+	await admin.execute(
+		sql.raw(
+			`CREATE SEQUENCE failed_writes;CREATE FUNCTION fail_write() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN IF ${condition} THEN PERFORM nextval('failed_writes');RAISE EXCEPTION 'synthetic_write_failure'; END IF; RETURN NEW; END $$;
+			 CREATE TRIGGER fail_write BEFORE ${when} ON ${table} FOR EACH ROW EXECUTE FUNCTION fail_write()`,
+		),
+	);
+	try {
+		await body();
+		return await total(sql`SELECT CASE WHEN is_called THEN last_value ELSE 0 END::int AS n FROM failed_writes`);
+	} finally {
+		await admin.execute(
+			sql.raw(`DROP TRIGGER fail_write ON ${table};DROP FUNCTION fail_write();DROP SEQUENCE failed_writes`),
+		);
+	}
+}
+const revisionOf = async (a: { id: string }) =>
+	(await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!.revision;
+const currentAvatar = async (a: { id: string }) =>
+	(await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!.avatar_object_id;
+
+test("AC:TARGET-IDN-006 a photo whose reference cannot be written keeps the old one; a failed old-byte deletion keeps the new one; foreign, empty, wrong-type and oversized uploads are refused", async () => {
+	const { runDueObjectCleanup } = await import("../../../packages/domain/src/jobs/object-cleanup.ts");
+	const a = await actor(),
+		b = await actor(),
+		storage = photoStorage();
+	const v1 = await setPhoto(storage, a);
+	for (const upload of [
+		{ mime: "image/png", byteLength: 0 },
+		{ mime: "image/png", byteLength: 3 * 1024 * 1024 + 1 },
+		{ mime: "image/gif", byteLength: PNG.length },
+		{ mime: "text/html", byteLength: PNG.length },
+		{ mime: "image/png", byteLength: PNG.length, key: "private/other/key" },
+	])
+		denied(await call("requestAvatarUpload", a, upload), "invalid_input");
+	const staged = ok(await call("requestAvatarUpload", a, { mime: "image/png", byteLength: PNG.length }));
+	for (const bytes of [Buffer.alloc(0), Buffer.from("GIF89a"), Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024)])])
+		await assert.rejects(uploadAvatar(db, storage, ctx(a), { uploadId: staged.uploadId, bytes }));
+	await uploadAvatar(db, storage, ctx(a), { uploadId: staged.uploadId, bytes: PNG });
+	const v2 = { accountId: a.id, versionId: staged.uploadId };
+	const before = await written();
+	denied(await call("finalizeAvatar", b, command({ uploadId: staged.uploadId }, await revisionOf(b))));
+	assert.equal(await currentAvatar(b), null);
+	const key = randomUUID();
+	const reviewed = await revisionOf(a);
+	const finalize = () => call("finalizeAvatar", a, command({ uploadId: staged.uploadId }, reviewed, key));
+	for (const [table, when, condition] of [
+		["account", "UPDATE", "NEW.avatar_object_id IS DISTINCT FROM OLD.avatar_object_id"],
+		["audit_event", "INSERT", "true"],
+	] as const) {
+		await failingWrite(table, when, async () => assert.rejects(finalize()), condition);
+		assert.equal(await currentAvatar(a), v1.versionId, table);
+		assert.equal(await photoRead(storage, a, v1), "bytes");
+		assert.equal(await photoRead(storage, a, v2), "refused");
+		for (const photo of [v1, v2]) {
+			assert.equal(await photoRead(storage, b, photo), "refused");
+			denied(await call("getAvatar", b, { versionId: photo.versionId }));
+		}
+	}
+	faults = true;
+	try {
+		await assert.rejects(finalize(), /cleanup_intent_fault/);
+	} finally {
+		faults = false;
+	}
+	assert.deepEqual(await written(), before);
+	const cleanups = (photo: Photo) =>
+		total(
+			sql`SELECT count(*)::int AS n FROM job WHERE kind='object_cleanup' AND subject_record_id=${photo.versionId} AND eligible_at<=clock_timestamp()`,
+		);
+	assert.deepEqual([await cleanups(v1), await cleanups(v2)], [0, 0]);
+	assert.equal(
+		await total(
+			sql`SELECT count(*)::int AS n FROM job WHERE kind='object_cleanup' AND subject_record_id=${v2.versionId}`,
+		),
+		1,
+		"the orphan's cleanup is already scheduled",
+	);
+	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, v1.versionId)))[0]!.state, "ready");
+
+	ok(await finalize());
+	const saved = await written();
+	assert.deepEqual(ok(await finalize()), { status: "available", avatar: v2 });
+	assert.deepEqual(await written(), saved, "a retry writes nothing more");
+	assert.equal(await currentAvatar(a), v2.versionId);
+	assert.equal(await photoRead(storage, a, v1), "refused", "the cached older version is no longer served");
+	assert.equal(await photoRead(storage, a, v2), "bytes");
+	await admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='object_cleanup' AND subject_record_id=${v1.versionId}`,
+	);
+	const refused: string[] = [];
+	const refusing = stubStorage((operation) => {
+		refused.push(operation);
+		throw Error("synthetic_delete_failure");
+	});
+	assert.equal(await runDueObjectCleanup(db, refusing, 50), 0);
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT state,error_code,attempt_count FROM job WHERE kind='object_cleanup' AND subject_record_id=${v1.versionId}`,
+			)
+		).rows,
+		[{ state: "retry_wait", error_code: "provider_unknown", attempt_count: 1 }],
+		"the failed deletion ran and waits for its retry",
+	);
+	assert.ok(refused.includes("DeleteObjectCommand"), refused.join());
+	assert.equal(await currentAvatar(a), v2.versionId);
+	assert.equal(await photoRead(storage, a, v2), "bytes");
+	assert.equal(await photoRead(storage, a, v1), "refused");
+});
+
+let ipBlock = 0;
+async function ownIpActor() {
+	const a = await credentialActor();
+	trustedIps.set(a.session, `198.51.100.${100 + ipBlock++}`);
+	return a;
+}
+const emailOf = async (a: { user: string }) =>
+	(await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user)))[0]!.email;
+const emailEvents = (a: { id: string }) =>
+	total(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${a.id} AND action='identity.email_changed'`);
+
+test("AC:TARGET-IDN-007 a confirmed email change notifies the old address once, and a failed recording is reported without undoing the change", async () => {
+	const zone = process.env.TZ;
+	process.env.TZ = "Pacific/Kiritimati";
+	try {
+		for (const recording of ["recorded", "pending_investigation"]) {
+			const a = await ownIpActor();
+			const church = await plant(a);
+			const person = church.result.ownerSeat.personId;
+			await admin.update(t.person).set({ email: "crm@example.test" }).where(eq(t.person.id, person));
+			const other = await login(a);
+			const target = randomUUID() + "@example.test";
+			ok(await credential("requestEmailChange", a, { newEmail: target }));
+			const { token } = deliveries.at(-1)!;
+			const mailed = notices.length;
+			let result: Awaited<ReturnType<Credentials["confirmEmailChange"]>> | undefined;
+			const confirm = async () => {
+				result = await credential("confirmEmailChange", a, { proof: token });
+			};
+			if (recording === "recorded") await confirm();
+			else await failingWrite("audit_event", "INSERT", confirm, "NEW.action='identity.email_changed'");
+			assert.ok(result?.status === "succeeded");
+			assert.deepEqual([result.accountId, result.action, result.reporting.status], [a.id, "email_changed", recording]);
+			assert.equal(await emailOf(a), target);
+			const [row] = await admin.select().from(t.person).where(eq(t.person.id, person));
+			assert.deepEqual([row!.linked_account_id, row!.email], [a.id, "crm@example.test"]);
+			const recorded = recording === "recorded" ? 1 : 0;
+			assert.equal(await emailEvents(a), recorded);
+			assert.equal(
+				await total(
+					sql`SELECT count(*)::int AS n FROM mail WHERE recipient_account_id=${a.id} AND logical_key LIKE 'security/%'`,
+				),
+				recorded,
+			);
+			assert.deepEqual(notices.slice(mailed).at(-1), { accountId: a.id, address: a.email, action: "email_changed" });
+			if (!recorded) assert.equal(diagnostics.splice(0).at(-1)?.outcome, "reporting_pending");
+			assert.equal((await credential("confirmEmailChange", other, { proof: token })).status, "refused");
+			assert.equal(await emailEvents(a), recorded);
+		}
+	} finally {
+		if (zone === undefined) delete process.env.TZ;
+		else process.env.TZ = zone;
+	}
+});
+
+test("AC:TARGET-IDN-007 a wrong owner, an expired, a superseded or an occupied email proof changes nothing and records nothing", async () => {
+	const b = await ownIpActor();
+	const rows: [string, (a: Login & Session, token: string) => Promise<Session>, string?][] = [
+		["wrong owner", async () => b],
+		[
+			"expired",
+			async (a) => {
+				await admin.execute(sql`UPDATE identity_proof SET expires_at=clock_timestamp() WHERE account_id=${a.id}`);
+				return a;
+			},
+		],
+		[
+			"superseded",
+			async (a) => {
+				ok(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+				return a;
+			},
+		],
+		["occupied", async (a) => a, "occupied"],
+	];
+	for (const [name, arrange, occupied] of rows) {
+		const a = await ownIpActor();
+		const church = await plant(a);
+		const person = church.result.ownerSeat.personId;
+		await admin.update(t.person).set({ email: "crm@example.test" }).where(eq(t.person.id, person));
+		const target = randomUUID() + "@example.test";
+		ok(await credential("requestEmailChange", a, { newEmail: target }));
+		const { token } = deliveries.at(-1)!;
+		if (occupied) await admin.update(t.auth_user).set({ email: target }).where(eq(t.auth_user.id, b.user));
+		const who = await arrange(a, token);
+		const before = await written(),
+			mailed = notices.length;
+		assert.equal((await credential("confirmEmailChange", who, { proof: token })).status, "refused", name);
+		assert.equal(await emailOf(a), a.email, name);
+		assert.equal((await admin.select().from(t.person).where(eq(t.person.id, person)))[0]!.email, "crm@example.test");
+		assert.deepEqual(await written(), before, name);
+		assert.equal(notices.length, mailed, name);
+		assert.equal(await emailEvents(a), 0);
+	}
+	const c = await ownIpActor();
+	const before = await written();
+	const answers: string[] = [];
+	for (const name of ["one", "two", "three", "four"]) {
+		const reply = await credential("requestEmailChange", c, { newEmail: `${name}-${c.id}@example.test` });
+		answers.push(reply.status === "refused" && "error" in reply ? reply.error.code : reply.status);
+	}
+	assert.deepEqual(answers, ["ok", "ok", "ok", "temporary"]);
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT identifier_hash,count(*)::int AS n FROM admission_attempt WHERE kind='email_change' AND identifier_hash=${createHmac("sha256", secret).update(c.email).digest("hex")} GROUP BY 1`,
+			)
+		).rows.map((row) => row.n),
+		[3],
+	);
+	assert.deepEqual(await written(), before);
+	const raced = await ownIpActor();
+	ok(await credential("requestEmailChange", raced, { newEmail: raced.id + "@example.test" }));
+	const { token } = deliveries.at(-1)!;
+	const [confirmed, changed] = await Promise.all([
+		credential("confirmEmailChange", raced, { proof: token }),
+		credential("changePassword", raced, {
+			currentPassword: raced.password,
+			newPassword: "Raced secret 13579!",
+			confirmPassword: "Raced secret 13579!",
+		}),
+	]);
+	const email = confirmed.status === "succeeded" ? raced.id + "@example.test" : raced.email;
+	assert.equal(await emailOf(raced), email);
+	const password = changed.status === "succeeded" ? "Raced secret 13579!" : raced.password;
+	assert.ok((await login({ ...raced, email, password })).session);
+	assert.equal(await emailEvents(raced), confirmed.status === "succeeded" ? 1 : 0);
+});
+
+test("AC:TARGET-IDN-008 a password change keeps only the browser that made it, and an unknown outcome is tried once with no success event", async () => {
+	const a = await credentialActor(),
+		[other, stale] = [await login(a), await login(a)];
+	const input = {
+		currentPassword: a.password,
+		newPassword: "Fixture-new-pass-2",
+		confirmPassword: "Fixture-new-pass-2",
+	};
+	const events = () =>
+		total(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${a.id} AND action='identity.credential_changed'`,
+		);
+	for (const forged of [
+		{ ...input, accountId: other.id },
+		{ ...input, sessionId: other.session },
+		{ ...input, currentPassword: "short", newPassword: "x", confirmPassword: "x" },
+	])
+		assert.equal((await credential("changePassword", a, forged)).status, "refused");
+	const stranger = await credentialActor();
+	assert.equal(
+		(await producerDeps.credentials.changePassword(ctx(a, { kind: "account", id: stranger.id }), input)).status,
+		"refused",
+	);
+	assert.equal(await events(), 0);
+	const attempts = await failingWrite("auth_account", "UPDATE", async () => {
+		assert.equal((await credential("changePassword", a, input)).status, "unknown");
+	});
+	assert.equal(attempts, 1);
+	assert.equal(await events(), 0);
+	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.user_id, a.user))).length, 3);
+
+	issued.length = 0;
+	await failingWrite(
+		"audit_event",
+		"INSERT",
+		async () => {
+			const changed = await credential("changePassword", a, input);
+			assert.ok(changed.status === "succeeded");
+			assert.deepEqual(changed.reporting, { status: "pending_investigation" });
+		},
+		"NEW.action='identity.credential_changed'",
+	);
+	assert.equal(await events(), 0);
+	const live = async (cookie: string) =>
+		(await signInAuth.api.getSession({ headers: new Headers({ cookie }) }))?.user.id ?? null;
+	const initiating = issued.map((v) => v.split(";")[0]).join("; ");
+	assert.equal(await live(initiating), a.user, "the initiating browser's session stays live");
+	for (const gone of [other, stale]) assert.equal(await live(ingress.get(gone.session)!.headers.get("cookie")!), null);
+	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.user_id, a.user))).length, 1);
+	const refusedLogin = await signInAuth.api.signInEmail({
+		body: { email: a.email, password: a.password },
+		asResponse: true,
+	});
+	assert.equal(refusedLogin.status, 401);
+	const fresh = await login({ ...a, password: input.newPassword });
+	assert.equal((await credential("changePassword", fresh, input)).status, "refused", "a stale password tab");
+	assert.equal(await events(), 0);
+
+	const next = { currentPassword: input.newPassword, newPassword: "Fixture-third-pass-3" };
+	const mailed = notices.length;
+	const { value: normal, added } = await recorded(admin, () =>
+		credential("changePassword", fresh, { ...next, confirmPassword: next.newPassword }),
+	);
+	assert.ok(normal.status === "succeeded");
+	assert.equal(normal.reporting.status, "recorded");
+	assert.deepEqual(
+		added,
+		{ audits: ["identity.credential_changed"], jobs: ["mail"], notices: 0, mail: 1 },
+		"one audit row and one security mail",
+	);
+	assert.deepEqual(notices.slice(mailed), [{ accountId: a.id, address: a.email, action: "password_changed" }]);
+	assert.equal(await events(), 1);
+	assert.ok((await login({ ...a, password: next.newPassword })).session);
+});
+
+test("AC:TARGET-IDN-010 an Owner or Admin sharing save changes only the named categories of one exact organization, once, and refuses every stale, foreign or malformed one", async () => {
+	for (const role of ["owner", "admin"] as const) {
+		const f = await plant(),
+			org = await organization(),
+			second = await organization(),
+			adminActor = await seat(f.p),
+			member = await seat(f.p, "member"),
+			foreign = await plant();
+		const who = role === "owner" ? f.a : adminActor;
+		const link = async (o: typeof org, choices: Partial<typeof t.affiliation.$inferInsert>) =>
+			(
+				await admin
+					.insert(t.affiliation)
+					.values({
+						plant_id: f.p.id,
+						organization_id: o.o.id,
+						accepted_at: new Date(),
+						share_people: false,
+						share_meetings: true,
+						share_tasks: false,
+						share_ministry_teams: false,
+						share_wiki: true,
+						share_activity: true,
+						shared_findings: false,
+						consent_revision: "7",
+						revision: "4",
+						...choices,
+					})
+					.returning()
+			)[0]!;
+		const first = await link(org, {}),
+			other = await link(second, { share_people: true, share_meetings: false, shared_findings: true });
+		const row = async (id: string) => (await admin.select().from(t.affiliation).where(eq(t.affiliation.id, id)))[0]!;
+		const base = {
+			section: "affiliations" as const,
+			plant: f.p,
+			organization: org.o,
+			relationshipId: first.id,
+			expectedConsentRevision: "7",
+			patch: { teams: true, activityPush: false } as object,
+		};
+		const start = await written();
+		for (const [bad, code] of [
+			[{ ...base, patch: {} }, "invalid_input"],
+			[{ ...base, patch: { teams: true, unknown: true } }, "invalid_input"],
+			[{ ...base, patch: { shared_findings: true, shareIntelligence: true } }, "invalid_input"],
+			[{ ...base, expectedConsentRevision: "6" }, "conflict"],
+			[{ ...base, relationshipId: other.id }, "unavailable"],
+			[{ ...base, organization: { ...org.o, organizationKind: "sending_church" as const } }, "unavailable"],
+			[{ ...base, relationshipId: randomUUID() }, "unavailable"],
+		] as const)
+			denied(await call("saveSection", who, command(bad, "4"), f.p), code);
+		denied(await call("saveSection", who, command(base, "3"), f.p), "conflict");
+		denied(await call("saveSection", member, command(base, "4"), f.p));
+		denied(await call("saveSection", org.a, command(base, "4"), org.o));
+		denied(await call("saveSection", foreign.a, command(base, "4"), foreign.p));
+		faults = true;
+		try {
+			await assert.rejects(call("saveSection", who, command(base, "4"), f.p), /grant_fault/);
+		} finally {
+			faults = false;
+		}
+		await failingWrite("audit_event", "INSERT", async () =>
+			assert.rejects(call("saveSection", who, command(base, "4"), f.p)),
+		);
+		assert.deepEqual([await row(first.id), await row(other.id)], [first, other]);
+		assert.deepEqual(await written(), start);
+
+		const outcomes = () =>
+			total(sql`SELECT count(*)::int AS n FROM audit_event WHERE action='sharing.changed' AND subject_id=${first.id}`);
+		const sharing = command(base, "4");
+		const saved = ok(await save(who, sharing, f.p));
+		assert.equal(saved.current.values.consentRevision, "8");
+		assert.deepEqual(saved.current.values.choices, {
+			people: false,
+			meetings: true,
+			tasks: false,
+			ministry_teams: true,
+			wiki: true,
+			activity: false,
+			shared_findings: false,
+		});
+		const once = { row: await row(first.id), writes: await written() };
+		assert.equal(await outcomes(), 1);
+		assert.deepEqual(ok(await save(who, sharing, f.p)), saved);
+		assert.deepEqual({ row: await row(first.id), writes: await written() }, once);
+		assert.deepEqual(await row(other.id), other);
+
+		const findings = ok(
+			await save(
+				who,
+				command({ ...base, expectedConsentRevision: "8", patch: { shared_findings: true } }, once.row.revision),
+				f.p,
+			),
+		);
+		assert.equal(findings.current.values.consentRevision, "9");
+		assert.deepEqual(findings.current.values.choices, { ...saved.current.values.choices, shared_findings: true });
+		assert.deepEqual(
+			Object.keys(findings.current.values.choices).filter((key) =>
+				/finding|intelligence|insight|health|ni\b/i.test(key),
+			),
+			["shared_findings"],
+		);
+		assert.equal(await outcomes(), 2);
+		const after = await row(first.id);
+		assert.deepEqual(await row(other.id), other);
+		const read = ok(await section(who, { section: "affiliations", plant: f.p, organization: org.o }));
+		assert.deepEqual(read.values, findings.current.values);
+		await admin.update(t.affiliation).set({ ended_at: new Date() }).where(eq(t.affiliation.id, first.id));
+		denied(await call("saveSection", who, command({ ...base, expectedConsentRevision: "9" }, after.revision), f.p));
+	}
+});
+
+test("AC:TARGET-IDN-011 equal warning and alert days refuse the whole church save, clears and partial localities stay independent, and oversight never holds the street", async () => {
+	const { getPlant, listPlants } = await import("../../../packages/domain/src/oversight/index.ts");
+	const f = await plant(),
+		org = await organization();
+	const street = "77 Hidden Street " + randomUUID();
+	await admin.insert(t.affiliation).values({
+		plant_id: f.p.id,
+		organization_id: org.o.id,
+		accepted_at: new Date(),
+		share_people: true,
+		share_meetings: true,
+		share_tasks: true,
+		share_ministry_teams: true,
+		share_wiki: true,
+		share_activity: true,
+		shared_findings: true,
+	});
+	const church = async (changes: object[], revision: string) =>
+		withSettingsWrite(db, (await seen(f.a)).authority, ctx(f.a, f.p), (tx) =>
+			api.saveChurch(tx, ctx(f.a, f.p), command({ plant: f.p, changes }, revision)),
+		);
+	const row = async () => (await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id)))[0]!;
+	const oversight = async () => {
+		const { authority } = await seen(org.a);
+		const shown = [await listPlants(db, authority), await getPlant(db, authority, f.p.id)];
+		assert.ok(shown[0] && shown[1], "the organization sees its plant");
+		const text = JSON.stringify(shown);
+		return { street: text.includes(street) || /"street"/.test(text), city: text.includes("Austin") };
+	};
+	const profile = (patch: object) => ({ kind: "profile", patch });
+	ok(await church([profile({ street, city: "Austin", stateProvince: null, country: null })], "1"));
+	assert.deepEqual(await oversight(), { street: false, city: true });
+	const before = { row: await row(), writes: await written() };
+	const inactivity = (warningDays: number, alertDays: number) => ({
+		kind: "inactivity",
+		value: { warningDays, alertDays },
+	});
+	for (const changes of [
+		[inactivity(7, 7), profile({ street: null })],
+		[inactivity(8, 7)],
+		[inactivity(0, 7)],
+		[inactivity(7, 366)],
+		[profile({ name: "   " })],
+		[profile({ street: "x".repeat(501) })],
+		[profile({})],
+		[{ kind: "digest", value: { cadence: "weekly", weekday: 7, hour: 16 } }],
+		[{ kind: "digest", value: { cadence: "daily", hour: 24 } }],
+	])
+		denied(await church(changes, "2"), "invalid_input");
+	denied(
+		await call("updatePlantProfile", f.a, command({ plant: f.p, patch: { street: null, warning_days: 7 } }, "2"), f.p),
+		"invalid_input",
+	);
+	denied(await call("previewPlantTimezone", f.a, { plant: f.p, timeZone: "Mars/Olympus" }, f.p), "invalid_input");
+	assert.deepEqual({ row: await row(), writes: await written() }, before);
+	assert.deepEqual([before.row.street, before.row.city, before.row.state_province], [street, "Austin", null]);
+
+	ok(await church([inactivity(7, 8), profile({ street: null })], "2"));
+	const cleared = await row();
+	assert.deepEqual(
+		[cleared.street, cleared.city, cleared.state_province, cleared.country, cleared.warning_days, cleared.alert_days],
+		[null, "Austin", null, null, 7, 8],
+	);
+	assert.deepEqual(await oversight(), { street: false, city: true });
+	assert.deepEqual([cleared.timezone, cleared.digest_weekday, cleared.digest_hour], ["America/Chicago", 0, 16]);
+});
+
+test("AC:TARGET-IDN-012 a person saves only their own allowed choices, and an organization's enabled push cannot override a plant that shares no activity", async () => {
+	const { createDigestWorker, planDigests } = await import("../../../packages/domain/src/jobs/digest.ts");
+	const f = await plant(),
+		b = await plant(),
+		org = await organization();
+	const a = f.a;
+	const choice = (enabled: boolean) => ({
+		section: "notifications" as const,
+		patch: { kind: "channel" as const, choice: { category: "task_due" as const, channel: "email" as const, enabled } },
+	});
+	const prefs = async (who: Session) =>
+		(
+			await admin.execute(
+				sql`SELECT category,channel,enabled,cadence FROM notification_preference WHERE account_id=${who.id} ORDER BY 1,2`,
+			)
+		).rows;
+	const state = async () => ({
+		a: await prefs(a),
+		b: await prefs(b.a),
+		revision: await revisionOf(b.a),
+		writes: await written(),
+	});
+	const before = await state();
+	denied(await call("saveSection", a, command(choice(false), await revisionOf(a)), { kind: "account", id: b.a.id }));
+	denied(await call("saveSection", a, command(choice(false), await revisionOf(a)), f.p));
+	for (const input of [
+		{ ...choice(false), accountId: b.a.id },
+		{
+			...choice(false),
+			patch: { kind: "channel", choice: { category: "private_care", channel: "email", enabled: true } },
+		},
+		{ ...choice(false), patch: { kind: "channel", choice: { category: "task_due", channel: "sms", enabled: true } } },
+		{ ...choice(false), patch: { kind: "planter_cadence", cadence: "hourly" } },
+	])
+		denied(await call("saveSection", a, command(input, await revisionOf(a))), "invalid_input");
+	await failingWrite("notification_preference", "INSERT", async () =>
+		assert.rejects(call("saveSection", a, command(choice(false), "2"))),
+	);
+	denied(await call("saveSection", a, command(choice(false), "99")), "conflict");
+	assert.deepEqual(await state(), before);
+	const shown = ok(await section(a, { section: "notifications" }));
+	assert.equal(shown.values.choices.find((c) => c.category === "task_due" && c.channel === "email")!.enabled, true);
+	ok(await save(a, command(choice(false), shown.revision)));
+	assert.deepEqual(await prefs(b.a), before.b);
+	assert.deepEqual(await prefs(a), [{ category: "task_due", channel: "email", enabled: false, cadence: null }]);
+
+	const link = randomUUID();
+	await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${link},${f.p.id},${org.o.id},clock_timestamp()-interval '9 days',true,true,true,true,true,false,true)`);
+	let revision = ok(await section(org.a, { section: "notifications" })).revision;
+	for (const channel of ["email", "in_app"] as const)
+		revision = ok(
+			await save(
+				org.a,
+				command(
+					{
+						section: "notifications",
+						patch: { kind: "channel", choice: { category: "oversight_digest", channel, enabled: true } },
+					},
+					revision,
+				),
+			),
+		).current.revision;
+	const sent: MailPayload[] = [];
+	const sender = createMailService({
+		db,
+		encryptionKey: randomBytes(32),
+		addressKey: randomBytes(32),
+		from: "test@example.test",
+		authorize: async (_tx, mail) => new Set(mail.map((m) => m.id)),
+		transport: {
+			send: async (input) => {
+				sent.push(input);
+				return { kind: "accepted", id: randomUUID() };
+			},
+			lookup: async () => ({ kind: "unknown" }),
+		},
+	});
+	const digests = createDigestWorker({ mail: sender, origin });
+	const day = async (at: string) => {
+		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at)
+			VALUES(${f.p.id},${a.id},'people.updated','edit','command',${f.p.id},${at}::timestamptz-interval '30 hours',${at}::timestamptz-interval '30 hours')`);
+		await planDigests(db, at);
+		await digests.run(db, at, 100);
+		return (
+			await admin.execute(sql`SELECT (SELECT count(*)::int FROM notice WHERE recipient_id=${org.a.id}) notices,
+				(SELECT count(*)::int FROM mail WHERE recipient_account_id=${org.a.id}) mail`)
+		).rows[0];
+	};
+	for (const at of ["2098-03-03T20:00:00.000Z", "2098-03-04T20:00:00.000Z", "2098-03-05T20:00:00.000Z"])
+		assert.deepEqual(await day(at), { notices: 0, mail: 0 }, "sharing off sends nothing");
+	await admin.execute(sql`UPDATE affiliation SET share_activity=true WHERE id=${link}`);
+	const shared = await day("2098-03-06T20:00:00.000Z");
+	assert.deepEqual(shared, { notices: 1, mail: 1 }, "the same push does send once the plant shares activity");
+});
+
+test("AC:WP010-IDN-012 the notifications section shows its own account's current mailbox suppression and nothing of its private check-in", async () => {
+	const { a } = await plant();
+	await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${a.id}`);
+	const care = createPrivateCare();
+	const { authority } = await seen(a);
+	const week = ok(await care.readCurrent(db, authority, {}));
+	ok(
+		await care.save(db, authority, {
+			requestKey: randomUUID(),
+			expectedRevision: week.revision,
+			input: {
+				answers: { spiritual: "strained", family: "steady", financial: "steady", pace: "steady" },
+				note: "CARE-CANARY-WP010",
+			},
+		}),
+	);
+	const key = randomBytes(32);
+	const hash = (email: string) => createHmac("sha256", key).update(email).digest("hex");
+	const own = settingsApi({ ...producerDeps, suppression: (on, email) => suppressionOf(on, hash(email)) });
+	const read = async (who: Session) => {
+		const value = ok(await own.getSection(db, await seen(who), { section: "notifications" }));
+		assert.ok(value.section === "notifications");
+		return value;
+	};
+	const suppress = async (email: string) => {
+		const event = randomUUID();
+		await admin.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+			VALUES(${event},${event},${event},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
+		await admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+			VALUES(${hash(email)},'hard_bounce',${event},clock_timestamp())`);
+	};
+	assert.equal((await read(a)).values.suppression, "clear");
+	const b = await plant();
+	await suppress(await emailOf(a));
+	const before = await written();
+	const section = await read(a);
+	assert.equal(section.accountId, a.id);
+	assert.equal(section.values.suppression, "suppressed");
+	assert.equal((await read(b.a)).values.suppression, "clear");
+	denied(await own.getSection(db, await seen(a), { section: "notifications", accountId: b.a.id }), "invalid_input");
+	const text = JSON.stringify(section);
+	assert.equal(/care|check.?in|strain|struggl|spiritual|pace|CANARY/i.test(text), false, text);
+	assert.deepEqual(await written(), before);
+	await admin
+		.update(t.auth_user)
+		.set({ email: "moved-" + (await emailOf(a)) })
+		.where(eq(t.auth_user.id, a.user));
+	assert.equal((await read(a)).values.suppression, "clear", "an old mailbox's suppression is not the current one's");
+});
+
+test("AC:TARGET-IDN-028 a revoked or expired session reads no private check-in, and the refusal is the same whether one exists", async () => {
+	const care = createPrivateCare();
+	const canary = "CARE-CANARY-TARGET-IDN-028";
+	const person = async (withNote: boolean) => {
+		const { a } = await plant();
+		await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${a.id}`);
+		const { authority } = await seen(a);
+		const week = ok(await care.readCurrent(db, authority, {}));
+		if (withNote)
+			ok(
+				await care.save(db, authority, {
+					requestKey: randomUUID(),
+					expectedRevision: week.revision,
+					input: {
+						answers: { spiritual: "strained", family: "steady", financial: "steady", pace: "steady" },
+						note: canary,
+					},
+				}),
+			);
+		return { a, authority };
+	};
+	const [author, empty] = [await person(true), await person(false)];
+	assert.ok(JSON.stringify(ok(await care.readCurrent(db, author.authority, {}))).includes(canary));
+	for (const end of [sql`expires_at=clock_timestamp()-interval '1 second'`, null]) {
+		const answers: string[] = [];
+		for (const person of [author, empty]) {
+			const a = await newSession(person.a);
+			const { authority } = await seen(a);
+			assert.equal((await care.readCurrent(db, authority, {})).status, "ok", "the session reads before it ends");
+			const before = await written();
+			if (end) await admin.execute(sql`UPDATE auth_session SET ${end} WHERE id=${a.session}`);
+			else await admin.execute(sql`DELETE FROM auth_session WHERE id=${a.session}`);
+			assert.equal(await viewerOf(a), null);
+			const read = await care.readCurrent(db, authority, {});
+			assert.equal(read.status, "refused");
+			answers.push(JSON.stringify(read, (key, value: unknown) => (key === "correlationId" ? null : value)));
+			assert.deepEqual(await written(), before);
+		}
+		assert.equal(answers[0], answers[1]);
+		assert.equal(answers[0]!.includes(canary), false);
+	}
 });
