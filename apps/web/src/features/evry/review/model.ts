@@ -850,11 +850,14 @@ export type DraftRow = {
 	changed: boolean;
 	already: boolean;
 };
+const HANDED_BACK = "openTasksNeedingOwner";
 export function draftRows(review: Review): DraftRow[] | null {
 	const { earlier, changes } = review.review;
 	if (!earlier) return null;
 	const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-	const fields = [...new Set([...earlier, ...changes].map((c) => c.field))];
+	const fields = [...new Set([...earlier, ...changes].map((c) => c.field))].filter(
+		(field) => field !== HANDED_BACK || changes.some((c) => c.field === HANDED_BACK),
+	);
 	return fields.map((field) => {
 		const was = earlier.find((c) => c.field === field);
 		const now = changes.find((c) => c.field === field);
@@ -976,13 +979,12 @@ export function emptyText(field: string, after: boolean) {
 
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
-const handedBack = (changes: readonly Change[]) =>
-	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
+const handedBack = (changes: readonly Change[]) => Number(changes.find((c) => c.field === HANDED_BACK)?.after ?? 0);
 
 export const shownChanges = (review: Review) =>
 	(delayedText(review) === null ? review.review.changes : review.review.changes.map(delayedChange)).filter(
 		(c) =>
-			c.field !== "openTasksNeedingOwner" &&
+			c.field !== HANDED_BACK &&
 			c.field !== "createTag" &&
 			!(c.field === "tag" && (review.operation === "people.assignTag" || review.operation === "people.removeTag")),
 	);

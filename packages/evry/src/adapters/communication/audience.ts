@@ -21,7 +21,7 @@ export const audiencePerson = z.strictObject({
 	),
 });
 
-const LEFT_OUT_CHILD = "marked as a child";
+export const LEFT_OUT_CHILD = "marked as a child";
 export const ROUTED_CHILD = "sent to a parent or guardian instead";
 const childReasons = sql`(${LEFT_OUT_CHILD}::text,${ROUTED_CHILD}::text)`;
 

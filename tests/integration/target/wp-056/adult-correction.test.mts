@@ -243,6 +243,12 @@ test("INV-corrections: correcting a child recorded as an adult moves every recip
 			after: [["Kay Kidd", "sent to a parent or guardian instead"]],
 		},
 		{
+			name: "Evry: the recipient search for a child the person was a guardian of",
+			read: () => w.shown("communication.searchRecipients", { query: "Tim" }, ["email"]),
+			before: [["Tim Tiny", "sent to a parent or guardian instead"]],
+			after: [["Tim Tiny", "marked as a child"]],
+		},
+		{
 			name: "the recipient picker",
 			read: async () => {
 				const r = ok(await w.read(communicationWriter.readRecipients as never, { query: "Kay" })) as {

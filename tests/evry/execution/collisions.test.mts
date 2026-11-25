@@ -218,6 +218,66 @@ test("INV-evry-collision: a human save before Evry's approved draft stands; the 
 		});
 });
 
+for (const [operation, opened, draft] of [
+	["people.recordAdultClassification", "unknown", "adult"],
+	["people.correctAdultClassification", "adult", "child"],
+] as const)
+	test(`INV-evry-collision: ${operation} asks again after a person saves first`, async () => {
+		const owner = await actor("owner");
+		const id = people.alexChen;
+		const classification = async () => {
+			const r = await admin.execute(sql`SELECT adult_classification AS value FROM person WHERE id=${id}`);
+			return (r.rows[0] as { value: string }).value;
+		};
+		assert.equal(await classification(), opened);
+		const first = await propose(owner, operation, {
+			personId: id,
+			classification: draft,
+			occurredOn: "2026-11-01",
+			reason: "They told me",
+		});
+		const city = `Aurora ${draft}`;
+		await save("person", id, { city });
+		const { outcome, review } = await approve(owner, first);
+		assert.deepEqual([outcome, review.status, review.outcome, review.revision], ["reviewing", "pending", null, 2]);
+		assert.deepEqual([await classification(), (await stored("person", id)).field], [opened, city]);
+		assert.deepEqual([review.review.changes, review.review.earlier], [first.review.changes, first.review.changes]);
+		assert.equal(await refusal(approveProposal(db, owner, first.id, witness(first), null)), "review_changed");
+
+		const second = await approve(owner, review);
+		assert.deepEqual([second.outcome, second.review.outcome], ["completed", "completed"]);
+		assert.deepEqual([await classification(), (await stored("person", id)).field], [draft, city]);
+	});
+
+test("INV-evry-collision: a status a person recorded first is shown, and Evry's record draft can't replace it", async () => {
+	const owner = await actor("owner");
+	const id = people.alexRivera;
+	const about = { personId: id, occurredOn: "2026-11-01" };
+	const first = await propose(owner, "people.recordAdultClassification", {
+		...about,
+		classification: "adult",
+		reason: "They told me",
+	});
+	const who = await freshActor(human.session);
+	assert.ok(who);
+	const request = { requestKey: key(), expectedRevision: (await stored("person", id)).revision };
+	ok(
+		await withPeopleWrite(db, who.authority, (tx, c) =>
+			peopleWriter.recordAdultClassification(tx, c, {
+				...request,
+				input: { ...about, classification: "child", reason: "Seen at check-in" },
+			}),
+		),
+	);
+	const { outcome, review } = await approve(owner, first);
+	assert.deepEqual([outcome, review.status], ["reviewing", "pending"]);
+	assert.deepEqual(review.review.changes[0], { field: "adultClassification", before: "child", after: "adult" });
+	assert.match(review.review.refusal ?? "", /already recorded as Child/);
+	assert.equal(await refusal(approveProposal(db, owner, first.id, witness(review), null)), "review_closed");
+	const r = await admin.execute(sql`SELECT adult_classification AS value FROM person WHERE id=${id}`);
+	assert.deepEqual(r.rows, [{ value: "child" }]);
+});
+
 test("BUG-101e8d9: a task draft due at a time saves that church time", async () => {
 	const owner = await actor("owner");
 	const draft = await propose(owner, "tasks.create", { title: "Open the doors", due: "2026-12-06T08:30" });
