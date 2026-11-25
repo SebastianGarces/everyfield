@@ -485,6 +485,26 @@ after(async () => {
 });
 
 describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
+	test("AC:CASE-WIKI-001 a Discovery account of any age reads the whole published global Wiki, not only the foundations", async () => {
+		const planter = await enroll("member", { kind: "account" });
+		await admin.execute(sql`INSERT INTO discovery(account_id) VALUES(${planter.id})`);
+		await admin.execute(sql`UPDATE auth_user SET created_at=clock_timestamp()-interval '3 years' WHERE id=${planter.user}`);
+		const reader = await actor(planter);
+		const seen = new Set<string>();
+		for (let page = 1; page < 50; page++) {
+			const listed = ok(await api.listArticles(db, reader, { page }));
+			for (const article of listed.articles) seen.add(article.articleId);
+			if (!listed.nextCursor) break;
+		}
+		const published = await admin.execute<{ article_id: string }>(
+			sql`SELECT DISTINCT article_id FROM article_revision WHERE tenant_id=${GLOBAL} AND published_at IS NOT NULL AND release_id=${release}`,
+		);
+		assert.deepEqual([...seen].sort(), published.rows.map((r) => r.article_id).sort());
+		assert.ok(seen.size > discovery.length, String(seen.size));
+		for (const articleId of [lead, ranked, guide])
+			assert.equal(ok(await api.getArticle(db, reader, { articleId })).article?.articleId, articleId);
+	});
+
 	test(
 		ac([
 			"CASE-WIKI-001",
