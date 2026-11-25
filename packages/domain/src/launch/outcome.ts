@@ -24,7 +24,7 @@ import {
 	type Operation,
 	type Scope,
 } from "./core.ts";
-import { planAfter } from "./reads.ts";
+import { planAfter, rosterOf } from "./reads.ts";
 
 const answersRow = c.debriefAnswers;
 const versionRow = z.object({ id: z.uuid(), revision: z.string(), version: z.int() });
@@ -97,24 +97,31 @@ export function auditCte<From extends string>(
 		kind: string;
 		subjectType: string;
 		subjectId: SQL;
-		before?: object | null;
+		before?: object | SQL | null;
 		after: object | SQL;
 		reason?: string | null;
 		metadata: object;
 		from: SqlLiteral<From>;
 	},
 ) {
-	const after =
-		row.after instanceof Object && "getSQL" in row.after ? row.after : sql`${JSON.stringify(row.after)}::jsonb`;
+	const json = (value: object | SQL | null) =>
+		value && "getSQL" in value ? (value as SQL) : sql`${value ? JSON.stringify(value) : null}::jsonb`;
 	return sql`aud AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,
 	before_value,after_value,reason,request_key,request_identity,result,command_id,metadata)
 	SELECT ${op}::uuid,${scope.plantId}::uuid,${scope.accountId}::uuid,${actorToken(scope)},${row.action},${row.kind},${row.subjectType},
-	${row.subjectId},${row.before ? JSON.stringify(row.before) : null}::jsonb,${after as SQL},${row.reason ?? null},
+	${row.subjectId},${json(row.before ?? null)},${json(row.after)},${row.reason ?? null},
 	${keyed(identity, { outcome: "changed" })},${op}::uuid,${JSON.stringify(row.metadata)}::jsonb FROM ${sql.raw(row.from)})`;
 }
 const actorToken = (scope: Scope) => hash([scope.plantId, scope.accountId]);
 const evidenceMoved = (scope: Scope) =>
 	sql`mat AS (UPDATE plant SET material_revision=material_revision+1 WHERE id=${scope.plantId}::uuid)`;
+
+const guestRow = z.object({
+	person_id: z.uuid(),
+	revision: z.string(),
+	live: z.boolean(),
+	saved: z.int(),
+});
 
 const sameAnswers = (a: c.DebriefAnswers, b: c.DebriefAnswers) =>
 	c.WRITTEN_AREAS.every((k) => a[k] === b[k]) && a.missingNames === b.missingNames && a.missingCount === b.missingCount;
@@ -381,6 +388,47 @@ export function outcomeCommands(clock: Clock) {
 					);
 					z.object({ found: z.int(), added: z.int() }).parse(rows[0]);
 					return "changed";
+				});
+			});
+		},
+		async correctGuestAttendance(db: Database, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const q = parse(c.correctGuestRequest, raw);
+				return command(db, authority, "launch.correctGuestAttendance", q, async (tx, scope, _l, identity) => {
+					const { guestId, personId } = q.input;
+					const p = sql`${scope.plantId}::uuid`;
+					const op = randomUUID();
+					const { rows } =
+						await tx.execute(sql`WITH g AS (SELECT g.id,g.person_id,g.revision::text AS revision,(pe.state='live') AS listed,
+	(SELECT count(*)::int FROM ${rosterOf(p)}) AS guests,
+	EXISTS(SELECT FROM launch_guest x WHERE x.plant_id=${p} AND x.person_id=${personId}::uuid AND x.id<>g.id) AS taken
+	FROM launch_guest g JOIN person pe ON pe.id=g.person_id AND pe.tenant_id=g.plant_id
+	WHERE g.id=${guestId}::uuid AND g.plant_id=${p} FOR UPDATE OF g),
+ t AS (SELECT id FROM person WHERE id=${personId}::uuid AND tenant_id=${p} AND plant_id=${p} AND state='live' FOR SHARE),
+ fit AS (SELECT * FROM g WHERE g.revision=${q.expectedRevision} AND g.person_id IS DISTINCT FROM ${personId}::uuid
+	AND (${personId}::uuid IS NULL OR (EXISTS(SELECT FROM t) AND NOT g.taken))),
+ w AS (${
+		personId
+			? sql`UPDATE launch_guest lg SET person_id=t.id,revision=lg.revision+1 FROM fit,t WHERE lg.id=fit.id AND lg.plant_id=${p} RETURNING lg.id`
+			: sql`DELETE FROM launch_guest lg USING fit WHERE lg.id=fit.id AND lg.plant_id=${p} RETURNING lg.id`
+ }),
+ ${auditCte(scope, identity, op, {
+		action: "launch.corrected",
+		kind: "correct",
+		subjectType: "launch_guest",
+		subjectId: sql`fit.id`,
+		before: sql`jsonb_build_object('personId',fit.person_id,'guests',fit.guests)`,
+		after: sql`jsonb_build_object('personId',${personId}::uuid,
+			'guests',fit.guests-(CASE WHEN fit.listed THEN 1 ELSE 0 END)+${personId ? 1 : 0}::int)`,
+		metadata: { event: personId ? "guest_relinked" : "guest_voided" },
+		from: "fit",
+ })}
+ SELECT g.person_id,g.revision,EXISTS(SELECT FROM t) AS live,(SELECT count(*)::int FROM w) AS saved FROM g`);
+					const g = guestRow.nullable().parse(rows[0] ?? null);
+					if (!g || g.revision !== q.expectedRevision) deny("conflict");
+					if (g.saved) return "changed";
+					if (personId === g.person_id) return "noop";
+					deny(g.live ? "already_guest" : "access_denied");
 				});
 			});
 		},

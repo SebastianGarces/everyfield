@@ -23,6 +23,10 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| "people.restorePerson"
+	| "people.recordAdultClassification"
+	| "people.correctAdultClassification"
+	| "people.reorderPipeline"
 	| "people.createInterview"
 	| "people.createAssessment"
 	| "people.createCommitment"
@@ -126,7 +130,10 @@ export type LaunchOperation =
 	| "launch.completeMilestone"
 	| "launch.reopenMilestone"
 	| "launch.addGuestAttendance"
-	| "launch.correctOutcome";
+	| "launch.correctOutcome"
+	| "launch.saveDebriefDraft"
+	| "launch.saveDebriefSummaryDraft"
+	| "launch.correctGuestAttendance";
 export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 export type PipelineOperation =
@@ -292,6 +299,7 @@ export type Review = {
 		target: {
 			kind:
 				| "person"
+				| "retired_person"
 				| "message"
 				| "task"
 				| "team"
@@ -421,6 +429,8 @@ const FIELD_LABEL: Record<string, string> = {
 	birthDate: "Birth date",
 	stage: "Stage",
 	adultClassification: "Age group",
+	columnPlace: "Place in column",
+	guestsNamed: "Guests named",
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
@@ -880,6 +890,9 @@ export function savedText(review: Review): string {
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
 	const own = OWN_SAVED[review.operation];
 	if (own) return `Saved. ${own(who ?? "This person")}`;
+	if (review.operation === "people.restorePerson") return `Saved. ${who ?? "This person"} is back in People.`;
+	if (review.operation === "launch.saveDebriefDraft" || review.operation === "launch.saveDebriefSummaryDraft")
+		return "Saved as a draft. Nothing is submitted, published or shared.";
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
 	const name = subjectName(review);
 	const status = review.review.changes.find((c) => c.field === "status")?.after;
@@ -962,7 +975,7 @@ export function openAfter(review: Review): { href: string; label: string } | nul
 	if (review.review.withheld || isMail(review.operation)) return null;
 	if (isWikiEditor(review.operation)) return who?.href ? { href: who.href, label: "Open the Wiki editor" } : null;
 	if (!isTasks(review.operation))
-		return who?.kind === "person" && review.operation !== "people.deletePerson"
+		return (who?.kind === "person" || who?.kind === "retired_person") && review.operation !== "people.deletePerson"
 			? { href: targetHref(who), label: `Open ${who.label}` }
 			: null;
 	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
@@ -1024,6 +1037,10 @@ const TITLE: Record<Operation, string> = {
 	"people.updatePerson": "Update a person",
 	"people.changeStatus": "Change a stage",
 	"people.deletePerson": "Remove a person",
+	"people.restorePerson": "Bring a person back",
+	"people.recordAdultClassification": "Record adult or child",
+	"people.correctAdultClassification": "Correct adult or child",
+	"people.reorderPipeline": "Change the order in a column",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
 	"tasks.create": "Create a task",
@@ -1102,6 +1119,9 @@ const TITLE: Record<Operation, string> = {
 	"launch.reopenMilestone": "Reopen a launch milestone",
 	"launch.addGuestAttendance": "Name a Launch Sunday guest",
 	"launch.correctOutcome": "Correct Launch Sunday",
+	"launch.saveDebriefDraft": "Save the Launch debrief draft",
+	"launch.saveDebriefSummaryDraft": "Save the Launch summary draft",
+	"launch.correctGuestAttendance": "Correct a Launch Sunday guest",
 	"intelligence.requestRefresh": "Refresh Plant Intelligence",
 	"intelligence.submitFeedback": "Rate a finding",
 	"development.draftNextVersion": "Draft the next version",
@@ -1197,8 +1217,12 @@ const MERGE_FACTS = new Set([
 	"attendanceGoesBack",
 	"staysWithKept",
 ]);
+const CLASSIFIES = new Set<Operation>(["people.recordAdultClassification", "people.correctAdultClassification"]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
-	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
+	field === "reason" ||
+	(field === "occurredOn" && CLASSIFIES.has(review.operation)) ||
+	MERGE_FACTS.has(field) ||
+	(ADDS.has(review.operation) && field !== "stage");
 export const isIntelligence = (operation: Operation) => /^(phases|signals)\./.test(operation);
 export const intelligencePage = (operation: Operation) =>
 	operation.startsWith("phases.")
@@ -1553,6 +1577,7 @@ export function consequence(review: Review): string | null {
 	if (review.operation === "meetings.delete") return "It leaves Meetings. Its history stays.";
 	if (review.operation === "meetings.finalizeAttendance")
 		return "Approving finalizes attendance and creates exactly the tasks listed.";
+	if (review.operation === "people.changeStatus") return null;
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
 	const direction = review.review.changes.find((c) => c.field === "direction")?.after;
@@ -1931,6 +1956,8 @@ export function launchRefusalText(code: string | undefined): string {
 			return "This milestone's prep tasks changed after Evry prepared this, so nothing was saved. This is how they are now. Ask Evry to prepare it again.";
 		case "revision_conflict":
 			return "The Launch plan changed after Evry prepared this, so nothing was saved. This is how it is now. Ask Evry to prepare it again.";
+		case "already_guest":
+			return "That Person is already named as a Launch Sunday guest, so nothing was saved. Ask Evry to prepare it again.";
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
 		case "access_denied":
@@ -1972,7 +1999,11 @@ export function refusalText(code: string | undefined, target: string | null, ope
 			default:
 				return "Meetings refused this change, so nothing was saved.";
 		}
+	if (operation === "people.reorderPipeline" && (code === "revision_conflict" || code === "conflict"))
+		return "This pipeline column changed after Evry prepared this, so nothing moved. Ask Evry to prepare it again.";
 	switch (code) {
+		case "use_reviewed_unmerge":
+			return `${who} was merged into another person, so nothing was restored. Use Unmerge on that person's page.`;
 		case "revision_conflict":
 		case "conflict":
 			return `${who}'s record changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;

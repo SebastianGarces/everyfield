@@ -1406,6 +1406,9 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 				read: async () => ({}),
 				select: async () => ({}),
 				propose: async () => ({}),
+				readNotes: async () => ({}),
+				updateNotes: async () => ({}),
+				readReview: async () => ({}),
 			}),
 		);
 	assert.deepEqual(tools("owner"), [
@@ -1413,6 +1416,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			.filter((d) => d !== "pipeline" && d !== "oversight")
 			.map((d) => `${d}_read`),
 		"select_returned_rows",
+		"compose_reads",
+		"read_planning_notes",
+		"update_planning_notes",
+		"read_review",
 		"propose_change",
 	]);
 	const churchTools = tools("owner").filter((t) => t !== "onboarding_read");
@@ -1449,6 +1456,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"pipeline_read",
 		"oversight_read",
 		"select_returned_rows",
+		"compose_reads",
+		"read_planning_notes",
+		"update_planning_notes",
+		"read_review",
 		"propose_change",
 	]);
 	assert.deepEqual(

@@ -99,8 +99,9 @@ export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
-			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility','household','tag')
+			OR ${alias}.review->'target'->>'kind' NOT IN ('person','retired_person','message','team','role','training','responsibility','household','tag')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
+			OR (${alias}.review->'target'->>'kind'='retired_person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
@@ -127,6 +128,7 @@ export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName
 
 const targetKind = z.enum([
 	"person",
+	"retired_person",
 	"message",
 	"task",
 	"team",

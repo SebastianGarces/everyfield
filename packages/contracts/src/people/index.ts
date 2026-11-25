@@ -8,3 +8,4 @@ export * from "./assessments/index.ts";
 export * from "./csv/index.ts";
 export * from "./merge/index.ts";
 export * from "./pipeline-metrics.ts";
+export * from "./stage-moves.ts";

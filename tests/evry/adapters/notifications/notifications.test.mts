@@ -348,7 +348,14 @@ test("INV-digest-preview the next church digest preview has its send time, date 
 
 test("INV-notification-tools an organization login is offered its oversight digest tools beside its profile change, and a plant seat is offered the church's", async () => {
 	const org = await actor("orgOwner");
-	const tools = modelTools(org, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
+	const tools = modelTools(org, {
+		read: async () => ({}),
+		select: async () => ({}),
+		propose: async () => ({}),
+		readNotes: async () => ({}),
+		updateNotes: async () => ({}),
+		readReview: async () => ({}),
+	});
 	assert.ok("notifications_read" in tools);
 	assert.deepEqual(
 		readCatalog(org).domains.flatMap((d) => d.operations.map((o) => o.operation)),
@@ -391,6 +398,13 @@ test("INV-notification-tools an organization login is offered its oversight dige
 			"organizationIntelligence.submitFeedback",
 		],
 	);
-	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
+	const plantTools = modelTools(owner, {
+		read: async () => ({}),
+		select: async () => ({}),
+		propose: async () => ({}),
+		readNotes: async () => ({}),
+		updateNotes: async () => ({}),
+		readReview: async () => ({}),
+	});
 	assert.ok("notifications_read" in plantTools);
 });

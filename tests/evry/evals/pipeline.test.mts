@@ -570,6 +570,9 @@ test("INV-evry-pipeline-read: the pipeline read takes no search text and answers
 			read: async () => ({}),
 			select: async () => ({}),
 			propose: async () => ({}),
+			readNotes: async () => ({}),
+			updateNotes: async () => ({}),
+			readReview: async () => ({}),
 		}).pipeline_read!;
 		const schema = (tool.inputSchema as { safeParse?: (v: unknown) => { success: boolean } }).safeParse
 			? (tool.inputSchema as unknown as { safeParse: (v: unknown) => { success: boolean } })
@@ -625,7 +628,14 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {
 		const tools = JSON.stringify(
 			Object.values(
-				modelTools(await actorOf(who), { read: async () => ({}), select: async () => ({}), propose: async () => ({}) }),
+				modelTools(await actorOf(who), {
+					read: async () => ({}),
+					select: async () => ({}),
+					propose: async () => ({}),
+					readNotes: async () => ({}),
+					updateNotes: async () => ({}),
+					readReview: async () => ({}),
+				}),
 			).map((t) => t.description),
 		);
 		for (const op of [

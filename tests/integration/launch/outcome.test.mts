@@ -793,6 +793,87 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 	assert.ok(merged.mergeId);
 });
 
+test("AC:LAUNCH46-022 AC:CASE-LCH-007 a wrong guest is relinked or voided once, history keeps both names and both counts, and nothing else moves", async () => {
+	const { w, owner, admin, member } = await launched();
+	const other = await launched();
+	const [sam, maria] = [await person(w, "Sam Ortiz"), await person(w, "Maria Lopez")];
+	ok(await guest(owner, { personId: sam }));
+	ok(await guest(owner, { displayName: "Mara" }));
+	const start = await plan(owner);
+	const before = await footprint(w);
+	const [samGuest, maraGuest] = start.guests.named!;
+	const fix = (who: Who, g: { guestId: string; revision: string }, personId: string | null, requestKey = key()) =>
+		writer.correctGuestAttendance(f.db, who.actor, {
+			requestKey,
+			expectedRevision: g.revision,
+			input: { guestId: g.guestId, personId },
+		});
+
+	const theirs = await person(other.w, "Other Church");
+	refused(await fix(member, samGuest!, maria), "access_denied");
+	refused(await fix(other.owner, samGuest!, null), "conflict");
+	refused(await fix(owner, samGuest!, theirs), "access_denied");
+	refused(await fix(owner, samGuest!, maraGuest!.personId), "already_guest");
+	refused(await fix(owner, { ...samGuest!, revision: "9" }, maria), "conflict");
+	assert.equal(ok(await fix(owner, samGuest!, sam)).outcome, "noop");
+	assert.deepEqual(await plan(owner), start, "no refusal or no-op changed anything");
+	assert.deepEqual(await footprint(w), before);
+
+	const relink = key();
+	const relinked = ok(await fix(admin, samGuest!, maria, relink));
+	assert.deepEqual(
+		[relinked.outcome, named(relinked.plan).sort(), relinked.plan.guests.count],
+		["changed", ["Mara", "Maria Lopez"], 2],
+	);
+	assert.equal(ok(await fix(admin, samGuest!, maria, relink)).outcome, "changed", "a retry answers as the first did");
+	refused(await fix(admin, samGuest!, null, relink), "idempotency_conflict");
+	refused(await fix(owner, samGuest!, null), "conflict");
+
+	const voided = ok(await fix(owner, maraGuest!, null));
+	assert.deepEqual([named(voided.plan), voided.plan.guests.count], [["Maria Lopez"], 1]);
+	assert.deepEqual(
+		[voided.plan.outcome, voided.plan.debrief, voided.plan.launch, voided.plan.evidence],
+		[start.outcome, start.debrief, start.launch, start.evidence],
+		"headcount, decisions and the debrief answer stay",
+	);
+	const after = await footprint(w);
+	assert.deepEqual(
+		{ ...after, audits: 0, guests: 0 },
+		{ ...before, audits: 0, guests: 0 },
+		"no person, task, mail or phase changed",
+	);
+	assert.equal(after.audits, before.audits + 2, "one entry per correction");
+	assert.deepEqual(
+		(await journal(owner))
+			.filter((e) => e.change.kind === "guest" || e.change.kind === "guest_correction")
+			.map((e) => [e.actor?.displayName, e.change]),
+		[
+			[
+				"Olivia Owner",
+				{ kind: "guest_correction", event: "voided", from: "Mara", to: null, countBefore: 2, countAfter: 1 },
+			],
+			[
+				"Adam Admin",
+				{
+					kind: "guest_correction",
+					event: "relinked",
+					from: "Sam Ortiz",
+					to: "Maria Lopez",
+					countBefore: 2,
+					countAfter: 2,
+				},
+			],
+			["Olivia Owner", { kind: "guest", name: "Mara", added: true }],
+			["Olivia Owner", { kind: "guest", name: "Sam Ortiz", added: false }],
+		],
+	);
+	assert.equal(
+		ok(await guest(owner, { personId: maraGuest!.personId })).plan.guests.count,
+		2,
+		"Mara can be named again",
+	);
+});
+
 test("AC:PERSONREF-LAUNCH-NAMED-GUEST-RETIRE a retired guest leaves the roster and keeps the link as history", async () => {
 	const c = await launched();
 	const mara = ok(await guest(c.owner, { displayName: "Mara" })).plan.guests.named![0]!.personId;

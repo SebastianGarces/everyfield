@@ -9,7 +9,14 @@ import type {
 	LanguageModelV4StreamPart,
 	LanguageModelV4Usage,
 } from "@ai-sdk/provider";
-import { readCatalog, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
+import {
+	COMPOSE_READS,
+	READ_DRAFT,
+	READ_REVIEW,
+	readCatalog,
+	SELECT_RETURNED_ROWS,
+	UPDATE_DRAFT,
+} from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { previewImport } from "../../../packages/evry/src/adapters/people-organization/reads/index.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
@@ -63,6 +70,7 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { PEOPLE_RECORD_COMMANDS } from "../../../packages/evry/src/adapters/people/commands/records.ts";
 import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
@@ -99,6 +107,13 @@ const LATER = new Set<string>([
 	"oversight.getSendingChurch",
 	...Object.keys(OVERSIGHT_COMMANDS),
 	...GEOGRAPHY_READS.map((a) => a.operation),
+	...Object.keys(PEOPLE_RECORD_COMMANDS),
+	"people.getStatusWarnings",
+	"communication.getDraft",
+	COMPOSE_READS,
+	READ_DRAFT,
+	UPDATE_DRAFT,
+	READ_REVIEW,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
@@ -330,6 +345,7 @@ export const MAIL: MailPort = {
 };
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
+const unrecorded = async () => ({ error: "source_unavailable" });
 
 let writing: Promise<unknown> = Promise.resolve();
 function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
@@ -587,6 +603,9 @@ export async function converse(
 					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
 				});
 			}),
+			readNotes: unrecorded,
+			updateNotes: unrecorded,
+			readReview: unrecorded,
 		},
 		offered,
 	);

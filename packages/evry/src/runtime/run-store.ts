@@ -55,7 +55,7 @@ export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | nu
 }
 
 export async function appendEvent(
-	db: Database,
+	db: Pick<Database, "execute">,
 	lease: RunLease,
 	conversationId: string,
 	kind: Exclude<ConversationEvent["kind"], "user_message">,

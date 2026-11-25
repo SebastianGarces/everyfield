@@ -90,7 +90,9 @@ const debriefJson = <DName extends string>(d: SqlLiteral<DName>) => {
 	'savedAt',${iso(sql`${r}.saved_at`)},'savedBy',${personJson(sql`${r}.saved_by`)},
 	'submittedAt',${iso(sql`${r}.submitted_at`)},'submittedBy',${personJson(sql`${r}.submitted_by`)})`;
 };
-const rosterOf = (plant: SQL) => sql`launch_guest g JOIN person pe ON pe.id=g.person_id AND pe.tenant_id=g.plant_id
+export const rosterOf = (
+	plant: SQL,
+) => sql`launch_guest g JOIN person pe ON pe.id=g.person_id AND pe.tenant_id=g.plant_id
 	AND pe.state='live' WHERE g.plant_id=${plant}`;
 const outcomeColumns = (plant: SQL, admin: SQL) => sql`${admin} AS admin,
 	(SELECT jsonb_build_object('actualDate',l.actual_date::text,'attendance',l.attendance,'decisions',l.decisions,
@@ -98,7 +100,7 @@ const outcomeColumns = (plant: SQL, admin: SQL) => sql`${admin} AS admin,
 		FROM launch l WHERE l.plant_id=${plant} AND l.actual_date IS NOT NULL) AS outcome,
 	(SELECT count(*)::int FROM ${rosterOf(plant)}) AS guest_count,
 	CASE WHEN ${admin} THEN (SELECT coalesce(jsonb_agg(jsonb_build_object('guestId',g.id,'personId',g.person_id,
-		'displayName',pe.display_name,'recordedAt',${iso(sql`g.recorded_at`)}) ORDER BY g.recorded_at,g.id),'[]')
+		'displayName',pe.display_name,'recordedAt',${iso(sql`g.recorded_at`)},'revision',g.revision::text) ORDER BY g.recorded_at,g.id),'[]')
 		FROM ${rosterOf(plant)}) END AS guests,
 	(SELECT ${debriefJson("d")} FROM launch_debrief d WHERE d.plant_id=${plant} AND d.submitted_at IS NOT NULL
 		ORDER BY d.version DESC LIMIT 1) AS submitted,
@@ -219,6 +221,10 @@ export async function planAfter(tx: Transaction, scope: Scope, clock: Clock) {
 	return planOf(rows[0], clock).plan;
 }
 
+const guestNamed = (value: SQL) => sql`CASE WHEN a.subject_type='launch_guest' THEN (SELECT coalesce(
+	(SELECT kept.display_name FROM person kept WHERE kept.id=pe.merged_into_person_id AND kept.tenant_id=pe.tenant_id),pe.display_name)
+	FROM person pe WHERE pe.id=(${value}->>'personId')::uuid AND pe.tenant_id=a.tenant_id) END`;
+
 export function createLaunchReader(clock: Clock = systemClock) {
 	return {
 		async readPlan(db: Pick<Database, "execute">, authority: RequestActor) {
@@ -241,8 +247,7 @@ export function createLaunchReader(clock: Clock = systemClock) {
 		'action',a.action,'kind',a.kind,'subjectType',a.subject_type,'before',a.before_value,'after',a.after_value,
 		'reason',a.reason,'metadata',a.metadata,
 		'title',(SELECT m.title FROM launch_milestone m WHERE a.subject_type='launch_milestone' AND m.id=a.subject_id),
-		'guestName',(SELECT pe.display_name FROM launch_guest lg JOIN person pe ON pe.id=lg.person_id
-			AND pe.tenant_id=lg.plant_id WHERE a.subject_type='launch_guest' AND lg.id=a.subject_id))
+		'guestBefore',${guestNamed(sql`a.before_value`)},'guestAfter',${guestNamed(sql`a.after_value`)})
 		ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM audit_event a WHERE a.tenant_id=${p}
 		AND a.action IN (${sql.join(
 			LAUNCH_ACTIONS.map((x) => sql`${x}`),
