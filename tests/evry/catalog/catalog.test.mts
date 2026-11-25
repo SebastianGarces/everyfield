@@ -34,6 +34,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.getPersonPhoto",
 		"people.checkForDuplicates",
 		"people.listDuplicatePairs",
+		"people.getStatusWarnings",
 		"people.exportPeople",
 		"people.generateCsvTemplate",
 		"people.getActivities",
@@ -66,6 +67,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"communication.listAudienceTeams",
 		"communication.searchRecipients",
 		"mail.suppression.listForSelf",
+		"communication.getDraft",
 		"tasks.list",
 		"tasks.count",
 		"tasks.get",
@@ -548,10 +550,17 @@ test("INV-row-liveness: no liveness rule names a table r or c, which the queries
 	assert.deepEqual(outerAliases("FROM person live_r WHERE live_r.kind='r'"), []);
 });
 
-const TOOL_SCHEMA_BUDGET = 205_000;
+const TOOL_SCHEMA_BUDGET = 210_000;
 
 test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within their byte budget", async () => {
-	const idle = { read: async () => ({}), select: async () => ({}), propose: async () => ({}) };
+	const idle = {
+		read: async () => ({}),
+		select: async () => ({}),
+		propose: async () => ({}),
+		readNotes: async () => ({}),
+		updateNotes: async () => ({}),
+		readReview: async () => ({}),
+	};
 	const bytes = new Map<string, number>();
 	for (const actor of [
 		as("plant", "owner"),
@@ -574,6 +583,10 @@ test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within
 		...Object.values(READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation as string)),
 		...Object.keys(REVIEWED_WRITES),
 		"select_returned_rows",
+		"compose_reads",
+		"read_planning_notes",
+		"update_planning_notes",
+		"read_review",
 	];
 	assert.deepEqual([...bytes.keys()].sort(), installed.sort(), "every installed tool is measured");
 	const total = [...bytes.values()].reduce((sum, size) => sum + size, 0);

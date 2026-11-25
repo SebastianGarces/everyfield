@@ -17,6 +17,7 @@ import { invitationStep } from "./scripted-invitation.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { wikiEditorStep } from "./scripted-wiki-editor.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { planterStep } from "./scripted-planter.ts";
 import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
@@ -975,6 +976,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (documents) return documents;
 	const connection = connectionStep(options, text);
 	if (connection) return connection;
+	const planter = planterStep(options, text);
+	if (planter) return planter;
 	const plan = planStep(options, text);
 	if (plan) return plan;
 	const intelligence = intelligenceStep(options, text);

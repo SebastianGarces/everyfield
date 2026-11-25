@@ -312,6 +312,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.meetingRecipientTracking",
 		"communication.deliveryTotals",
 		"mail.suppression.listForSelf",
+		"communication.getDraft",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
 	const orgWikiWrites = [
@@ -340,6 +341,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.restorePerson",
+						"people.recordAdultClassification",
+						"people.correctAdultClassification",
+						"people.reorderPipeline",
 						"people.createInterview",
 						"people.createAssessment",
 						"people.createCommitment",
@@ -436,6 +441,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"launch.reopenMilestone",
 						"launch.addGuestAttendance",
 						"launch.correctOutcome",
+						"launch.saveDebriefDraft",
+						"launch.saveDebriefSummaryDraft",
+						"launch.correctGuestAttendance",
 					]
 				: who === "member"
 					? [
@@ -521,7 +529,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 			"tasks.followUpCoverage",
 			"tasks.planHandoff",
 		];
-		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
+		const ownerReads = [...peopleReads, "people.listDuplicatePairs", "people.getStatusWarnings"];
 		const organizationReads = [
 			"people.exportPeople",
 			"people.generateCsvTemplate",
@@ -585,6 +593,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.listAudienceTeams",
 						"communication.searchRecipients",
 						"mail.suppression.listForSelf",
+						"communication.getDraft",
 						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
@@ -621,6 +630,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 				: who === "member"
 					? [
 							...peopleReads,
+							"people.getStatusWarnings",
 							...organizationReads,
 							...mailReads,
 							...memberTaskReads,
@@ -826,6 +836,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"calendar_read",
 			"communication_read",
+			"compose_reads",
 			"connections_read",
 			"dashboard_read",
 			"documents_read",
@@ -841,6 +852,8 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"people_read",
 			"phases_read",
 			"propose_change",
+			"read_planning_notes",
+			"read_review",
 			"seats_read",
 			"select_returned_rows",
 			"settings_read",
@@ -848,6 +861,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"signals_read",
 			"tasks_read",
 			"teams_read",
+			"update_planning_notes",
 			"wiki_read",
 			"workflows_read",
 		],

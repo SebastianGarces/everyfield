@@ -1,5 +1,6 @@
 import type { Transaction } from "@everyfield/db/client";
 import { meetingTitle } from "@everyfield/contracts/common";
+import { plainText } from "@everyfield/contracts/communication";
 import { meetingType } from "@everyfield/contracts/meetings";
 import { sql, type SQL } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
@@ -10,6 +11,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import { churchZone, localTime, ownerOrAdmin } from "../../tasks/reads/index.ts";
+import { id } from "../../tasks/values.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { audienceInput, classifiedPeople } from "../audience.ts";
 
@@ -294,6 +296,75 @@ const notFound = (operation: string, exclusions: string[]): SourceResult => ({
 	completeness: "complete",
 	exclusions,
 });
+
+const draftInput = z.strictObject({
+	communicationId: id,
+	page: z.int().min(1).max(100).optional().describe("The next part of a long body, from a previous result's next"),
+});
+const PART_CHARS = 12_000;
+const BREAK = "\u0000";
+const bodyText = (html: string) =>
+	html
+		.replace(/<\/(?:p|h[1-3]|blockquote|ul|ol)>/gi, `$&${BREAK}${BREAK}`)
+		.replace(/<\/li>|<br\s*\/?>/gi, `$&${BREAK}`)
+		.split(BREAK)
+		.map((piece) => plainText(piece))
+		.join("\n")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+function bodyParts(body: string) {
+	const parts: string[] = [];
+	let part = "";
+	let size = 0;
+	for (const char of body) {
+		const length = JSON.stringify(char).length - 2;
+		if (size + length > PART_CHARS) {
+			parts.push(part);
+			part = "";
+			size = 0;
+		}
+		part += char;
+		size += length;
+	}
+	return [...parts, part];
+}
+export const getDraft: ReadAdapter<z.infer<typeof draftInput>> = {
+	operation: "communication.getDraft",
+	description:
+		"Read back one email's subject and full body as Messages holds it, by its id from communication.list. A long body comes in parts: when next is not null, read that page too before saying you read it all, or say how many parts are left",
+	input: draftInput,
+	allowed: inPlant,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const reply = await communicationWriter.getDraft(tx, actor.authority, { id: input.communicationId });
+		if (reply.status !== "ok") {
+			if (reply.error.code === "not_found") return notFound("communication.getDraft", []);
+			throw new EvryRefusal("source_unavailable");
+		}
+		const draft = reply.value;
+		const parts = bodyParts(bodyText(draft.bodyHtml ?? ""));
+		const page = input.page ?? 1;
+		const body = parts[page - 1];
+		if (body === undefined) return notFound("communication.getDraft", []);
+		const next = page < parts.length ? page + 1 : null;
+		return {
+			operation: "communication.getDraft",
+			status: "available",
+			rows: [
+				{
+					kind: "message",
+					id: draft.communicationId,
+					label: draft.subject ?? "No subject",
+					fields: { state: draft.state, subject: draft.subject, body, part: page, parts: parts.length },
+				},
+			],
+			total: 1,
+			page,
+			next,
+			completeness: next === null ? "complete" : "partial",
+			exclusions: ["email addresses"],
+		};
+	},
+};
 
 const forPersonInput = z.strictObject({
 	personId: z
@@ -822,4 +893,5 @@ export const COMMUNICATION_READS = [
 	listAudienceTeams,
 	searchRecipients,
 	listForSelf,
+	getDraft,
 ] as const;

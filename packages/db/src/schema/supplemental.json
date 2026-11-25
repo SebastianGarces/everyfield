@@ -6894,6 +6894,13 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "launch_guest",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_guest",
 			"privilege_type": "INSERT"
 		},
 		{

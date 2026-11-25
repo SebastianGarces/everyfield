@@ -36,6 +36,7 @@ export type Operation =
 	| "launch.recordOutcome"
 	| "launch.correctOutcome"
 	| "launch.addGuestAttendance"
+	| "launch.correctGuestAttendance"
 	| "launch.saveDebriefDraft"
 	| "launch.submitDebrief"
 	| "launch.saveDebriefSummaryDraft"

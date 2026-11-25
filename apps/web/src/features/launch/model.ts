@@ -154,6 +154,14 @@ export function historyText(e: HistoryEntry, today: string): { title: string; li
 			};
 		case "guest":
 			return { title: "Guest named", lines: [`${c.name ?? "A guest"}${c.added ? " · added to People" : ""}`] };
+		case "guest_correction":
+			return {
+				title: c.event === "voided" ? "Guest removed from the list" : "Guest corrected",
+				lines: [
+					c.event === "voided" ? (c.from ?? "A guest") : `${c.from ?? "A guest"} → ${c.to ?? "A guest"}`,
+					`Guests named: ${c.countBefore} → ${c.countAfter}`,
+				],
+			};
 		case "debrief":
 			return {
 				title: c.event === "submitted" ? "Debrief submitted" : "Debrief corrected",
@@ -224,6 +232,8 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 			return SUMMARY_MESSAGE[error.details.problem];
 		case "not_ready":
 			return NOT_READY_MESSAGE[error.details.needs];
+		case "already_guest":
+			return "That Person is already named as a Launch Sunday guest.";
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
 		case "invalid_gathering":

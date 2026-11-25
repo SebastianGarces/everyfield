@@ -1,4 +1,5 @@
 import "server-only";
+export { columnStages } from "./pipeline.ts";
 export { accountPersonProducer, peopleWriter } from "./people.ts";
 export { getAccountLink, peopleReader, peopleViewer, readColumnOrders } from "./queries.ts";
 export { readPersonPage, type PersonPageParts } from "./page.ts";
