@@ -83,3 +83,31 @@ export class StubClient extends S3Client {
 		return this.answer(command.constructor.name, command.input);
 	}
 }
+
+export function memoryStorage() {
+	const objects = new Map<string, Buffer>();
+	const state = { failPuts: false };
+	const client = new StubClient(async (operation, input) => {
+		const key = input.Key!;
+		switch (operation) {
+			case "GetBucketAclCommand":
+				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+			case "PutObjectCommand":
+				if (state.failPuts) throw Error("synthetic_storage_failure");
+				assert.ok(input.Body instanceof Uint8Array);
+				objects.set(key, Buffer.from(input.Body));
+				return {};
+			case "GetObjectCommand": {
+				const body = objects.get(key);
+				if (!body) throw Error("no such object");
+				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+			}
+			case "DeleteObjectCommand":
+				objects.delete(key);
+				return {};
+			default:
+				throw Error("unexpected provider operation");
+		}
+	});
+	return { objects, state, bucket: "synthetic-only", client };
+}

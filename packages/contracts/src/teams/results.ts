@@ -43,7 +43,7 @@ export const teamMutationResult = z.strictObject({
 	team,
 	stableKey: z.string().nullable(),
 });
-export const listedTeam = team.extend({ leaderName: z.string().nullable() });
+export const listedTeam = team.extend({ leaderName: z.string().nullable(), people: z.int().min(0) });
 export const teamPage = z.strictObject({
 	items: z.array(listedTeam).max(200),
 	ordinaryIds: z.array(recordId).max(200),

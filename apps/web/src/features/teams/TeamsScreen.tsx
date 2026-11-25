@@ -308,6 +308,7 @@ function openedMinistry(form: TeamForm, nodes: TeamView["nodes"], admin: boolean
 			leaderSource: null,
 			leaderRoleId: null,
 			activeCount: 0,
+			people: 0,
 			leaderName: null,
 		},
 		nodes,

@@ -1,4 +1,5 @@
 import { fixture, ok, refused } from "../../../support/fixture.mts";
+import { recorded, untouched } from "../../../support/recorded.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import { authorityOf, church, type Row } from "../people-support.mts";
 import test, { after } from "node:test";
@@ -7,10 +8,16 @@ import { randomUUID } from "node:crypto";
 
 import { owner } from "../../../../packages/contracts/src/common/index.ts";
 import type { WriteTx } from "../../../../packages/domain/src/access/session.ts";
-import { peopleMerge, peopleUnmerge, peopleWriter as people } from "../../../../packages/domain/src/people/index.ts";
+import {
+	commitments,
+	peopleMerge,
+	peopleUnmerge,
+	peopleWriter as people,
+} from "../../../../packages/domain/src/people/index.ts";
 import { meetingsReader } from "../../../../packages/domain/src/meetings/index.ts";
+import { followUpReader } from "../../../../packages/domain/src/followups/index.ts";
 import { taskReader } from "../../../../packages/domain/src/tasks/index.ts";
-import { teamsReader } from "../../../../packages/domain/src/teams/index.ts";
+import { teamsReader, trainingReader, trainingWriter } from "../../../../packages/domain/src/teams/index.ts";
 import { pipelineWriter, readPipelineBoard } from "../../../../packages/domain/src/organizations/pipeline.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 import { mergeBlockedText, unmergeBlockedText } from "../../../../packages/contracts/src/people/merge/copy.ts";
@@ -390,6 +397,203 @@ test("AC:TARGET-PPL-025 same-meeting attendance combines, an answered RSVP repla
 		).map((x) => x.inviter_person_id),
 		[invitedByMorgan, invitedByBrooks].sort().map((id) => (id === invitedByMorgan ? morgan : brooks)),
 	);
+});
+
+test("AC:TARGET-PPL-017 two linked accounts refuse the merge both ways with nothing moved, the shared attendance, RSVP, follow-up, card and training are named first, and one account merges and unmerges exactly", async () => {
+	const p1 = await person("Jordan Rivera"),
+		p2 = await person("Jordan R.");
+	const accounts = {
+		a: await database.actor(database.tenant, "member"),
+		b: await database.actor(database.tenant, "member"),
+	};
+	const link = (id: string, account: string | null) =>
+		admin.execute(sql`UPDATE person SET linked_account_id=${account}::uuid WHERE id=${id}`);
+	await link(p1, accounts.a.id);
+	await link(p2, accounts.b.id);
+	const night = await meeting("Shared night", "2026-10-04");
+	await attend(night, p1, { rsvp: "pending", presence: "absent" });
+	await attend(night, p2, { rsvp: "confirmed" });
+	const followUp = async (id: string) => {
+		const obligation = randomUUID(),
+			duty = randomUUID();
+		await admin.execute(sql`INSERT INTO obligation(id,plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,
+ formula_version,due_date) VALUES(${obligation},${plant},${night},${id},'follow_up','2026-10-04T23:00:00Z','2026-10-04',
+ 'America/Chicago','1','2026-10-07')`);
+		await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+ person_id,obligation_id) VALUES(${duty},${plant},'Shared follow-up','follow_up','medium','not_started',clock_timestamp(),
+ 'date_only','2026-10-07',${id},${obligation})`);
+		return { obligation, duty };
+	};
+	const { obligation: kept } = await followUp(p1),
+		{ obligation: replaced, duty: closed } = await followUp(p2);
+	for (const [id, occurredOn] of [
+		[p1, "2026-10-06"],
+		[p2, "2026-10-02"],
+	] as const)
+		ok(
+			await tx((t) =>
+				commitments.createCommitment(t, ctx(), {
+					requestKey: key(),
+					input: { personId: id, kind: "core_group", occurredOn },
+				}),
+			),
+		);
+	const program = ok(
+		await tx((t) =>
+			trainingWriter.createProgram(t, ctx(), {
+				requestKey: key(),
+				input: { name: "Welcome training", required: true, teamId: null },
+			}),
+		),
+	).program;
+	const personIds = [p1, p2];
+	const seen = ok(
+		await trainingReader.readRequiredTrainingPreview(db, await authority(), { programId: program.id, personIds }),
+	);
+	ok(
+		await tx((t) =>
+			trainingWriter.setRequiredTrainingParticipants(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: seen.revision,
+				input: { programId: program.id, personIds, rosterDigest: seen.rosterDigest },
+			}),
+		),
+	);
+	const shared = async () => ({
+		...(await history(p1, p2)),
+		people: await rows(
+			sql`SELECT to_jsonb(p)-'revision'-'pipeline_position' AS row FROM person p WHERE id IN (${p1},${p2}) ORDER BY id`,
+		),
+		...Object.fromEntries(
+			await Promise.all(
+				["obligation", "commitment", "training_assignment"].map(async (table) => [
+					table,
+					await rows(sql`SELECT to_jsonb(x)-'revision' AS row FROM ${sql.identifier(table)} x
+ WHERE x.person_id IN (${p1},${p2}) ORDER BY x.id`),
+				]),
+			),
+		),
+	});
+	const before = await shared();
+	const held = async (id: string) =>
+		Object.fromEntries(
+			await Promise.all(
+				["participation", "obligation", "commitment", "training_assignment"].map(async (table) => [
+					table,
+					Number(
+						(await rows(sql`SELECT count(*)::int n FROM ${sql.identifier(table)} x WHERE x.person_id=${id}::uuid`))[0]!
+							.n,
+					),
+				]),
+			),
+		);
+	const one = { participation: 1, obligation: 1, commitment: 1, training_assignment: 1 };
+	assert.deepEqual([await held(p1), await held(p2)], [one, one]);
+
+	const collision = { causes: ["linked_account_collision"], leadership: [], invitations: [] };
+	for (const [source, survivor] of [
+		[p2, p1],
+		[p1, p2],
+	] as const) {
+		const r = ok(await untouched(admin, () => review(source, survivor)));
+		assert.deepEqual(r.blockers, collision);
+		assert.deepEqual([r.survivor.linkedAccount, r.source.linkedAccount], [true, true]);
+		const c = counts(r);
+		assert.deepEqual(
+			[c.participation, c.obligation, c.commitment, c.training_assignment].map((x) => x?.[0]),
+			[1, 1, 1, 1],
+		);
+		const requestKey = key();
+		for (let i = 0; i < 2; i++)
+			assert.deepEqual(
+				refused(await untouched(admin, () => mergeWith(source, survivor, r.reviewDigest, requestKey)), "merge_blocked")
+					.details,
+				collision,
+			);
+	}
+	assert.deepEqual(await shared(), before);
+	assert.equal(
+		Number((await rows(sql`SELECT count(*)::int n FROM person_merge WHERE source_id IN (${p1},${p2})`))[0]!.n),
+		0,
+	);
+
+	await link(p2, null);
+	const single = await shared();
+	const r = ok(await review(p2, p1));
+	assert.deepEqual(r.blockers, { causes: [], leadership: [], invitations: [] });
+	assert.deepEqual(
+		r.attendance
+			.map((x) => [
+				x.change,
+				x.meeting,
+				"state" in x ? x.state : "answer" in x ? x.answer : "presence" in x ? x.presence : null,
+			])
+			.sort(),
+		[
+			["combined", "Shared night", "attended"],
+			["follow_up_combined", "Shared night", "open"],
+			["rsvp_replaced", "Shared night", "confirmed"],
+		],
+	);
+	assert.deepEqual(r.commitment, { result: "active", effectiveOn: "2026-10-02" });
+	const requestKey = key();
+	const { value, added } = await recorded(admin, () => mergeWith(p2, p1, r.reviewDigest, requestKey));
+	const merged = ok(value);
+	assert.deepEqual(added, { audits: ["people.merged", "people.merged"], jobs: [], notices: 0, mail: 0 });
+	assert.deepEqual(ok(await untouched(admin, () => mergeWith(p2, p1, r.reviewDigest, requestKey))), merged);
+	assert.deepEqual(
+		await rows(sql`SELECT presence,rsvp FROM participation WHERE person_id=${p1}::uuid AND removed_at IS NULL`),
+		[{ presence: "attended", rsvp: "confirmed" }],
+	);
+	const viewer = await authority();
+	const duties = ok(await tx((t) => followUpReader.readObligations(t, viewer, { personId: p1, limit: 10 }))).items;
+	assert.deepEqual(
+		duties.map((o) => [o.id, o.state]),
+		[[kept, "open"]],
+	);
+	assert.deepEqual(
+		await rows(sql`SELECT superseded_at IS NOT NULL AS superseded FROM obligation WHERE id=${replaced}`),
+		[{ superseded: true }],
+	);
+	const cards = ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: p1 })));
+	assert.equal(cards.total, 2);
+	const roster = ok(await trainingReader.readRequiredTrainingParticipants(db, viewer, { programId: program.id }));
+	assert.deepEqual(
+		roster.people.map((x) => x.personId),
+		[p1],
+	);
+	assert.deepEqual(
+		await rows(sql`SELECT linked_account_id,state FROM person WHERE id IN (${p1},${p2}) ORDER BY state`),
+		[
+			{ linked_account_id: accounts.a.id, state: "live" },
+			{ linked_account_id: null, state: "merged" },
+		],
+	);
+	assert.equal(
+		Number((await rows(sql`SELECT count(*)::int n FROM person_merge WHERE source_id IN (${p1},${p2})`))[0]!.n),
+		1,
+	);
+
+	const p = ok(await preview(merged.mergeId));
+	assert.deepEqual(p.conflicts, []);
+	const trail = (action: string) =>
+		rows(sql`SELECT subject_type,subject_id,kind,actor_id FROM audit_event WHERE action=${action}
+ AND (subject_id=${p1}::uuid OR subject_id IN (SELECT id FROM task WHERE title='Shared follow-up')) ORDER BY subject_type`);
+	const entries = (kind: string) => [
+		{ subject_type: "person", subject_id: p1, kind, actor_id: actors.owner.id },
+		{ subject_type: "task", subject_id: closed, kind, actor_id: actors.owner.id },
+	];
+	assert.deepEqual(await trail("people.merged"), entries("merge"));
+	const undo = key();
+	const undone = await recorded(admin, () => unmerge(merged.mergeId, p.reviewRevision, "owner", undo));
+	assert.equal(ok(undone.value).outcome, "changed");
+	assert.deepEqual(undone.added, { audits: ["people.unmerged", "people.unmerged"], jobs: [], notices: 0, mail: 0 });
+	assert.deepEqual(
+		ok(await untouched(admin, () => unmerge(merged.mergeId, p.reviewRevision, "owner", undo))),
+		ok(undone.value),
+	);
+	assert.deepEqual(await trail("people.unmerged"), entries("unmerge"));
+	assert.deepEqual(await shared(), single);
 });
 
 test("AC:TARGET-PPL-025 Unmerge after a moved record changed names it and changes nothing", async () => {

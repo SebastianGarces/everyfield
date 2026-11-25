@@ -328,7 +328,7 @@ On a person marked as a child, Household actions marks or removes each adult mem
 - Operations: people.setGuardianContact, people.getHousehold
 - Catalog: PPL-009
 - Cases: CASE-PPL-009-GUARDIAN
-- Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN staff mark an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history`
+- Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN an admin marks an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history`
 - Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN a second adult can be added, and either contact can be removed, leaving the other`
 - Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN a contact who is not marked as an adult, outside the household, retired or in another church is refused and nothing is stored`
 - Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN when the adult or the child leaves the household, the contact is gone`
