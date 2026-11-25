@@ -1606,7 +1606,7 @@
       "invariants": [],
       "retention": "No additional database storage for routing, metric snapshots, feeds, legal-page versions, sitemap or robots is required.",
       "current_tables": [],
-      "notes": "Sources: ADM-004 through 007. Routing reads identity/onboarding facts; metrics and twenty-event feed read current owned records and actual dated source/correction history. Optional dismissal is CAP-A-047. Public policies are reviewed static copy describing selected vendors and actual lifecycle/recovery limits, without a consent/legal-version tracking product."
+      "notes": "Sources: ADM-004 through 007. Routing reads identity/onboarding facts; metrics and twenty-event feed read current owned records and actual dated source/correction history. Optional dismissal is CAP-A-047. Public policies are reviewed static copy describing provider categories and lifecycle limits in general terms, without a consent/legal-version tracking product."
     },
     {
       "id": "CAP-A-050",

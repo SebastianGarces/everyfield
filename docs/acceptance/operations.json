@@ -2795,7 +2795,7 @@
         "WP-049"
       ],
       "status": "future-not-run",
-      "description": "Review future privacy copy against hold 30 days/purge-completed+7 days, asynchronous cleanup/external copies/shared-provider outage.",
+      "description": "Review future privacy copy for the cancellation period, deletion reaching backups, shared attribution and asynchronous cleanup/external copies, in general terms with no vendor, outage or exact timeframe.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2870,8 +2870,12 @@
       "expected": {
         "state": {},
         "result": {
-          "policy_cancel_days": 30,
-          "policy_copy_days": 7,
+          "policy_states_cancellation_period": true,
+          "policy_states_deletion_reaches_backups": true,
+          "policy_states_shared_attribution": true,
+          "policy_states_external_copy_limits": true,
+          "policy_names_vendor_or_outage": false,
+          "policy_exact_timeframe": false,
           "physical_day37_claim": false,
           "robots_is_auth": false
         },
