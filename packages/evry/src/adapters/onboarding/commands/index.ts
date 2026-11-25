@@ -5,7 +5,7 @@ import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
 import { phaseText, SHARING_CATEGORIES, type SharingCategory } from "../../../catalog/labels.ts";
 import type { EvryActor } from "../../../context/actor.ts";
-import { accountContext, change, nativeWrite, notes, plantOwner, settled, target, idInput } from "../../native.ts";
+import { accountContext, change, nativeWrite, notes, plantOwner, settled, target } from "../../native.ts";
 import { JOURNEY_TEXT, LEAD_TEXT, linkKind, onboardingEntry } from "../reads/index.ts";
 
 const setup = (actor: EvryActor) =>
@@ -194,7 +194,7 @@ export const createDiscovery = nativeWrite({
 	},
 });
 
-const carryOver = z.strictObject({ organizationId: idInput, share: z.array(z.enum(SHARING_CATEGORIES)).max(7) });
+const carryOver = z.strictObject({ organizationId: z.uuid(), share: z.array(z.enum(SHARING_CATEGORIES)).max(7) });
 type Choices = Record<SharingCategory, boolean>;
 const sharedNow = (choices: Choices) => SHARING_CATEGORIES.filter((k) => choices[k]);
 

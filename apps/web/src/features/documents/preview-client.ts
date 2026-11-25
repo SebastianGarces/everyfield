@@ -29,12 +29,13 @@ async function postPreview(
 	templateId: string,
 	format: Format,
 	overrides: Record<string, string>,
+	meetingId: string | null = null,
 ): Promise<PreviewReply> {
 	try {
 		const response = await fetch("/documents/preview", {
 			method: "POST",
 			headers: { accept: "application/json", "content-type": "application/json" },
-			body: JSON.stringify({ templateId, format, overrides }),
+			body: JSON.stringify({ templateId, format, overrides, ...(meetingId && { meetingId }) }),
 		});
 		const body = (await response.json()) as PreviewReply | null;
 		return body?.status === "ok" || body?.status === "refused" ? body : { status: "lost" };
@@ -71,6 +72,7 @@ export function sharedPreview(
 	format: Format,
 	overrides: Record<string, string>,
 	alias: PreviewAlias | null = null,
+	meetingId: string | null = null,
 ): Promise<PreviewReply> {
 	const known = renders.get(key);
 	if (known) return known;
@@ -79,7 +81,7 @@ export function sharedPreview(
 		? earlier.then((settled) =>
 				alias && printed(settled, alias.church) ? settled : postPreview(templateId, format, overrides),
 			)
-		: postPreview(templateId, format, overrides);
+		: postPreview(templateId, format, overrides, meetingId);
 	remember(key, reply);
 	if (alias && !earlier) remember(alias.key, reply);
 	return reply;

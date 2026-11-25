@@ -14,7 +14,6 @@ import {
 	title,
 } from "@everyfield/contracts/tasks";
 import { z } from "zod";
-import { idInput } from "../../native.ts";
 import { id, localDue, dueOf as nativeDue } from "../values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
@@ -690,9 +689,9 @@ export const importTemplate = reviewed<z.infer<typeof importInput>>({
 });
 
 const prerequisitesInput = z.strictObject({
-	taskId: idInput.describe("A top-level task id from tasks.list"),
+	taskId: id.describe("A top-level task id from tasks.list"),
 	prerequisiteIds: z
-		.array(idInput)
+		.array(id)
 		.max(50)
 		.refine((ids) => new Set(ids).size === ids.length, "repeated task")
 		.describe("The whole new set of top-level tasks it waits on; [] clears them"),

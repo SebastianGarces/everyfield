@@ -372,6 +372,11 @@ test("INV-notification-tools an organization login is offered its oversight dige
 			"organizationIntelligence.readHistory",
 			"organizationIntelligence.readLocations",
 			"organizationIntelligence.readLocationHistory",
+			"associations.listInvitations",
+			"associations.getHistory",
+			"settings.getSection",
+			"organizations.getProfile",
+			"account.getAvatar",
 		],
 	);
 	assert.deepEqual(
@@ -379,6 +384,11 @@ test("INV-notification-tools an organization login is offered its oversight dige
 		[
 			"notifications.setPreferences",
 			"notifications.oversightDigestCadence.set",
+			"settings.saveSection",
+			"associations.resendInvitation",
+			"associations.revokeInvitation",
+			"associations.declineInvitation",
+			"account.removeAvatar",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
 			"pipeline.saveGoal",

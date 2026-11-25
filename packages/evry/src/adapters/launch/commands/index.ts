@@ -7,7 +7,8 @@ import { createLaunchReader, createLaunchWriter } from "@everyfield/domain/launc
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, NativePorts, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
-import { dayInput as day, idInput as id, plantAdmin } from "../../native.ts";
+import { plantAdmin } from "../../native.ts";
+import { day, id } from "../../tasks/values.ts";
 
 const reader = createLaunchReader();
 const writer = createLaunchWriter({ notices: async () => undefined });

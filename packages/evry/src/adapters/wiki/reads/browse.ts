@@ -13,14 +13,13 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { present } from "../../../runtime/captured.ts";
-import { idInput } from "../../native.ts";
 import { articleRow, inPlant, read, shown, value, wiki } from "../shared.ts";
 
 const PER_PAGE = 20;
 const HEADINGS = 40;
 const page = z.int().min(1).max(1000).optional().describe("The next page of an earlier result");
 const pageInput = z.strictObject({ page });
-const articleId = idInput.describe("An articleId from an earlier result or the article on the user's page");
+const articleId = z.uuid().describe("An articleId from an earlier result or the article on the user's page");
 
 type Bound = { total: number; page: number; next: number | null };
 function bounded(operation: string, rows: SourceRow[], bound: Bound, exclusions: string[]): SourceResult {

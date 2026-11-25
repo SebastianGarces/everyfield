@@ -7,6 +7,8 @@ import type {
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { addDays, counted, countWord, dayText, weekdayOf } from "@everyfield/contracts/common";
+import { connectionStep } from "./scripted-connections.ts";
+import { documentTurn } from "./scripted-documents.ts";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
 import { intelligenceStep } from "./scripted-intelligence.ts";
@@ -974,6 +976,10 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
 	const network = networkStep(options, text);
 	if (network) return network;
+	const documents = documentTurn(options, text);
+	if (documents) return documents;
+	const connection = connectionStep(options, text);
+	if (connection) return connection;
 	const planter = planterStep(options, text);
 	if (planter) return planter;
 	const plan = planStep(options, text);

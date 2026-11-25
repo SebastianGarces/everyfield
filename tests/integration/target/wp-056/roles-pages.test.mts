@@ -414,6 +414,8 @@ const EVERYONE_IN_CHURCH = [
 	"wiki",
 	"documents",
 	"launch",
+	"connections",
+	"settings",
 ];
 const LEADERS_ONLY = ["peopleAssessments", "phases", "signals", "intelligence", "geography"];
 test("INV-roles: each of the five roles opens Evry with its own conversations and its own reads", async () => {
@@ -425,7 +427,7 @@ test("INV-roles: each of the five roles opens Evry with its own conversations an
 		member: { context: "plant", domains: church() },
 		director: {
 			context: "sending_church",
-			domains: ["notifications", "oversight", "pipeline"],
+			domains: ["connections", "notifications", "oversight", "pipeline", "settings"],
 		},
 	};
 	const own = {} as Record<Role, string>;

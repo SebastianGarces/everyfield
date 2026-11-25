@@ -132,8 +132,15 @@ export function nativePorts(
 			setDigestSchedule: sections.setDigestSchedule,
 			previewPlantTimezone: timezones.previewPlantTimezone,
 			setPlantTimezone: timezones.setPlantTimezone,
+			saveSection: sections.saveSection,
+			getOwnSection: sections.getOwnSection,
 		},
-		account: { finalizeAvatar: avatar.finalizeAvatar, requestAccountDeletion: deletion.requestAccountDeletion },
+		account: {
+			finalizeAvatar: avatar.finalizeAvatar,
+			getAvatar: avatar.getAvatar,
+			removeAvatar: avatar.removeAvatar,
+			requestAccountDeletion: deletion.requestAccountDeletion,
+		},
 		onboarding: createOnboardingProducer({
 			relationships: async (_tx, inputs) => {
 				for (const i of inputs) mail.push({ to: i.relationshipId, purpose: i.kind });

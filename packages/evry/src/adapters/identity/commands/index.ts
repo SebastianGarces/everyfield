@@ -3,7 +3,7 @@ import { createSeatService } from "@everyfield/domain/identity";
 import { invitationRevokedResult, invitationSentResult, inviteSeatRequest } from "@everyfield/contracts/identity";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
-import { change, nativeWrite, notes, plantAdmin, target, idInput } from "../../native.ts";
+import { change, nativeWrite, notes, plantAdmin, target } from "../../native.ts";
 
 const ordinaryRole = z.enum(["admin", "member"]);
 const plant = (actor: EvryActor) => sql`FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`;
@@ -42,7 +42,7 @@ export const resendInvitation = nativeWrite({
 	operation: "seats.resendInvitation",
 	description:
 		"Propose emailing a pending seat invitation again with a new link; the old link stops working. Nothing is sent until the user approves the exact review.",
-	input: z.strictObject({ invitationId: idInput }),
+	input: z.strictObject({ invitationId: z.uuid() }),
 	allowed: plantAdmin,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${invitationOf},'changes',jsonb_build_array(${change("invitation", sql`'"pending"'::jsonb`, "sent_again")}),
@@ -60,7 +60,7 @@ export const revokeInvitation = nativeWrite({
 	operation: "seats.revokeInvitation",
 	description:
 		"Propose revoking a pending seat invitation so its link stops working. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ invitationId: idInput }),
+	input: z.strictObject({ invitationId: z.uuid() }),
 	allowed: plantAdmin,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${invitationOf},'changes',jsonb_build_array(${change("invitation", sql`'"pending"'::jsonb`, "revoked")}),
@@ -78,7 +78,7 @@ export const changeOrdinaryRole = nativeWrite({
 	operation: "seats.changeOrdinaryRole",
 	description:
 		"Propose changing one person's seat in this church to Admin or Member. The Owner's seat never changes here. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ seatId: idInput, role: ordinaryRole }),
+	input: z.strictObject({ seatId: z.uuid(), role: ordinaryRole }),
 	allowed: plantAdmin,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${seatOf},'changes',jsonb_build_array(${change("role", sql`to_jsonb(s.role)`, value.role)})) AS review,
@@ -98,7 +98,7 @@ export const remove = nativeWrite({
 	operation: "seats.remove",
 	description:
 		"Propose removing one person's seat so they lose access to this church; their open tasks then need a new owner. The Owner's seat is never removed here. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ seatId: idInput }),
+	input: z.strictObject({ seatId: z.uuid() }),
 	allowed: plantAdmin,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${seatOf},'changes',jsonb_build_array(${change("access", sql`to_jsonb(s.role)`, "removed")})

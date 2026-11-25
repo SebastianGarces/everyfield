@@ -1,6 +1,6 @@
 import { dateText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/documents";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import "server-only";
 import type { z } from "zod";
@@ -105,7 +105,12 @@ export const documentsReader = {
 	async resolveContext(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(() => contextOf(db, authority, raw, null));
 	},
-	async preview(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null = null) {
+	async preview(
+		db: Database | Transaction,
+		authority: RequestActor,
+		raw: unknown,
+		storage: PrivateStorage | null = null,
+	) {
 		return settle(() => contextOf(db, authority, raw, { db, storage }));
 	},
 	async printAgenda(db: Reader, authority: RequestActor, raw: unknown) {
@@ -116,7 +121,7 @@ export const documentsReader = {
 const agendaTemplateKind = (id: string) =>
 	(Object.entries(AGENDA_TEMPLATE) as [AgendaKind, string][]).find(([, template]) => template === id)?.[0];
 
-type Artifact = { db: Database; storage: PrivateStorage | null };
+type Artifact = { db: Database | Transaction; storage: PrivateStorage | null };
 async function contextOf(
 	db: Reader,
 	authority: RequestActor,
@@ -175,7 +180,7 @@ export function forSubject(
 	const done = resolved(loaded, template, format, overrides, plantId, row);
 	return {
 		...done,
-		render: async (db: Database, storage: PrivateStorage | null, authority: RequestActor) => {
+		render: async (db: Database | Transaction, storage: PrivateStorage | null, authority: RequestActor) => {
 			const theme = await templateTheme(
 				db,
 				storage,

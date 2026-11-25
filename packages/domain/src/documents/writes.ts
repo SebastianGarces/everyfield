@@ -114,7 +114,7 @@ function ownedFrom(row: OwnedRow, tenantId: string) {
 }
 
 const generatedWriter = {
-	async generate(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async generate(db: Database | Transaction, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const input = parse(c.generateRequest, raw);
 			const cleaned = cleanOverrides(input.overrides);
@@ -284,7 +284,7 @@ const generatedWriter = {
 		});
 	},
 
-	async "history.list"(db: Database, authority: RequestActor, raw: unknown) {
+	async "history.list"(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			parse(c.listHistoryRequest, raw);
 			const scope = generateScope(authority);
@@ -296,7 +296,7 @@ const generatedWriter = {
 		});
 	},
 
-	async "history.get"(db: Database, authority: RequestActor, raw: unknown) {
+	async "history.get"(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.generatedDocumentRequest, raw);
 			const scope = generateScope(authority);
@@ -393,7 +393,7 @@ const generatedWriter = {
 		});
 	},
 
-	async saveNative(db: Database, authority: RequestActor, raw: unknown) {
+	async saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.saveNativeRequest, raw);
 			if (!c.nativeText(input.body)) rejectInput("body", "Enter the document text.");
@@ -969,32 +969,36 @@ type GeneratedDocument = z.infer<typeof c.generatedDocument>;
 type GeneratedHistory = z.infer<typeof c.generatedHistory>;
 type OwnedDocument = z.infer<typeof c.ownedDocument>;
 
-function historyList(db: Database, authority: RequestActor, raw: { documentId: string }): Reply<c.ChurchRevisionList>;
-function historyList(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedHistory>;
-function historyList(db: Database, authority: RequestActor, raw: unknown) {
+function historyList(
+	db: Database | Transaction,
+	authority: RequestActor,
+	raw: { documentId: string },
+): Reply<c.ChurchRevisionList>;
+function historyList(db: Database | Transaction, authority: RequestActor, raw: unknown): Reply<GeneratedHistory>;
+function historyList(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && "documentId" in raw)
 		return churchWriter["history.list.church"](db, authority, raw);
 	return generatedWriter["history.list"](db, authority, raw);
 }
 function historyGet(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	raw: { documentId: string; revision: number },
 ): Reply<c.ChurchRevision>;
-function historyGet(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedDocument>;
-function historyGet(db: Database, authority: RequestActor, raw: unknown) {
+function historyGet(db: Database | Transaction, authority: RequestActor, raw: unknown): Reply<GeneratedDocument>;
+function historyGet(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && "revision" in raw)
 		return churchWriter["history.get.church"](db, authority, raw);
 	return generatedWriter["history.get"](db, authority, raw);
 }
 
 function saveNative(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	raw: z.input<typeof c.saveChurchRequest>,
 ): Reply<c.ChurchDocument>;
-function saveNative(db: Database, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
-function saveNative(db: Database, authority: RequestActor, raw: unknown) {
+function saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
+function saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && !("title" in raw))
 		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
 	return generatedWriter.saveNative(db, authority, raw);

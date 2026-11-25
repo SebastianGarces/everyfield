@@ -1,0 +1,254 @@
+{
+	"suite": "connections",
+	"model": "scripted",
+	"note": "T-632: reading and changing settings, the user's own name and photo, and link invitations, asked by Hope Fellowship and the organizations it asked to connect with (golden-church.mts) on the scripted model with the real adapters, approvals and native commands. Cases run in this order on one church; each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "CON-01",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "what are our inactivity days?",
+			"operation": "settings.getSection",
+			"calls": ["settings.getSection"],
+			"answer": [
+				"Hope Fellowship, Austin",
+				"A warning comes after 7 days and an alert after 14",
+				"Weekly on Sundays at 4:00 PM"
+			]
+		},
+		{
+			"id": "CON-02",
+			"criterion": 9,
+			"actor": "member",
+			"ask": "what is our church profile?",
+			"operation": "settings.getSection",
+			"calls": ["settings.getSection"],
+			"answer": ["Only an Owner or Admin can read the church's settings."]
+		},
+		{
+			"id": "CON-03",
+			"criterion": 9,
+			"actor": "member",
+			"ask": "what is my account name?",
+			"operation": "settings.getSection",
+			"calls": ["settings.getSection"],
+			"answer": ["Your account name is Priya Shah."]
+		},
+		{
+			"id": "CON-04",
+			"criterion": 9,
+			"actor": "network",
+			"ask": "what is our network's profile?",
+			"operation": "organizations.getProfile",
+			"calls": ["organizations.getProfile"],
+			"answer": ["Hill Country Network: Churches planting churches across the Texas Hill Country."]
+		},
+		{
+			"id": "CON-05",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "warn us after 20 days and alert us after 10 days",
+			"operation": "settings.saveSection",
+			"calls": [],
+			"answer": ["The warning has to come before the alert: choose fewer warning days than alert days."],
+			"proposal": {
+				"operation": "settings.saveSection",
+				"target": "Hope Fellowship",
+				"changes": [
+					["warningDays", 7, 20],
+					["alertDays", 14, 10]
+				],
+				"refusal": "The warning has to come before the alert: choose fewer warning days than alert days."
+			}
+		},
+		{
+			"id": "CON-06",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "warn us after 10 days and alert us after 21 days",
+			"operation": "settings.saveSection",
+			"calls": [],
+			"proposal": {
+				"operation": "settings.saveSection",
+				"target": "Hope Fellowship",
+				"changes": [
+					["warningDays", 7, 10],
+					["alertDays", 14, 21]
+				],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-07",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "warn us after 12 days",
+			"operation": "settings.saveSection",
+			"calls": [],
+			"answer": ["I couldn't prepare that (access_denied)."]
+		},
+		{
+			"id": "CON-08",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "change my account name to Priya S. Shah",
+			"operation": "settings.saveSection",
+			"calls": [],
+			"proposal": {
+				"operation": "settings.saveSection",
+				"target": "Priya Shah",
+				"changes": [["accountName", "Priya Shah", "Priya S. Shah"]],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-09",
+			"criterion": 10,
+			"actor": "network",
+			"ask": "change my account name to Ruth A. Calder",
+			"operation": "settings.saveSection",
+			"calls": [],
+			"proposal": {
+				"operation": "settings.saveSection",
+				"target": "Ruth Calder",
+				"changes": [["accountName", "Ruth Calder", "Ruth A. Calder"]],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-10",
+			"criterion": 11,
+			"actor": "member",
+			"ask": "which link invitations are pending?",
+			"operation": "associations.listInvitations",
+			"calls": ["associations.listInvitations"],
+			"answer": ["2 link invitations are pending: ", "Grace Austin (sent)", "Hill Country Church (sent)"]
+		},
+		{
+			"id": "CON-11",
+			"criterion": 11,
+			"actor": "org",
+			"ask": "which link invitations are pending?",
+			"operation": "associations.listInvitations",
+			"calls": ["associations.listInvitations"],
+			"answer": ["1 link invitation is pending: Hope Fellowship (received)."]
+		},
+		{
+			"id": "CON-12",
+			"criterion": 11,
+			"actor": "other",
+			"ask": "which link invitations are pending?",
+			"operation": "associations.listInvitations",
+			"calls": ["associations.listInvitations"],
+			"answer": ["No link invitation is pending."]
+		},
+		{
+			"id": "CON-13",
+			"criterion": 12,
+			"actor": "member",
+			"ask": "resend the link invitation to Grace Austin",
+			"operation": "associations.resendInvitation",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can do that."]
+		},
+		{
+			"id": "CON-14",
+			"criterion": 12,
+			"actor": "owner",
+			"ask": "resend the link invitation to Grace Austin",
+			"operation": "associations.resendInvitation",
+			"calls": ["associations.listInvitations"],
+			"proposal": {
+				"operation": "associations.resendInvitation",
+				"target": "Grace Austin",
+				"changes": [["invitation", "pending", "sent_again"]],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-15",
+			"criterion": 12,
+			"actor": "admin",
+			"ask": "withdraw the link invitation to Grace Austin",
+			"operation": "associations.revokeInvitation",
+			"calls": ["associations.listInvitations"],
+			"proposal": {
+				"operation": "associations.revokeInvitation",
+				"target": "Grace Austin",
+				"changes": [["invitation", "pending", "revoked"]],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-16",
+			"criterion": 13,
+			"actor": "org",
+			"ask": "decline the link invitation from Hope Fellowship",
+			"operation": "associations.declineInvitation",
+			"calls": ["associations.listInvitations"],
+			"proposal": {
+				"operation": "associations.declineInvitation",
+				"target": "Hope Fellowship",
+				"changes": [["invitation", "pending", "declined"]],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-17",
+			"criterion": 14,
+			"actor": "owner",
+			"ask": "show our past links",
+			"operation": "associations.getHistory",
+			"calls": ["associations.getHistory"],
+			"answer": ["Hill Country Network: current link 2026-09-01"]
+		},
+		{
+			"id": "CON-18",
+			"criterion": 14,
+			"actor": "other",
+			"ask": "show our past links",
+			"operation": "associations.getHistory",
+			"calls": ["associations.getHistory"],
+			"answer": ["No link is recorded."]
+		},
+		{
+			"id": "CON-19",
+			"criterion": 15,
+			"actor": "owner",
+			"ask": "show my account photo",
+			"operation": "account.getAvatar",
+			"calls": ["account.getAvatar"],
+			"answer": ["Here is your account photo."]
+		},
+		{
+			"id": "CON-20",
+			"criterion": 15,
+			"actor": "owner",
+			"ask": "remove my account photo",
+			"operation": "account.removeAvatar",
+			"calls": [],
+			"proposal": {
+				"operation": "account.removeAvatar",
+				"target": "Nate Ellis",
+				"changes": [["accountPhoto", "shown", "none"]],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "CON-21",
+			"criterion": 15,
+			"actor": "owner",
+			"ask": "show my account photo",
+			"operation": "account.getAvatar",
+			"calls": ["account.getAvatar"],
+			"answer": ["You have no account photo."]
+		}
+	]
+}

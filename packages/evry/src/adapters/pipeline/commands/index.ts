@@ -32,7 +32,7 @@ import {
 	reviewed,
 	target,
 	dayInput,
-	idInput,
+	rowId,
 	localTimeInput,
 } from "../../native.ts";
 import { STAGE_KIND } from "../reads/index.ts";
@@ -46,7 +46,7 @@ export const proposeStageMove = approvedNow({
 	operation: "pipeline.proposeStageMove",
 	description:
 		"Propose moving one person in this organization's pipeline to another stage: only the person (personId) and the destination stage (stageId), both from pipeline.listPeople. It takes no reason, note or other text: the user types the reason on the review card, and Evry never sees it. Nothing changes until the user approves",
-	input: z.strictObject({ personId: idInput, stageId: idInput }),
+	input: z.strictObject({ personId: z.uuid(), stageId: z.uuid() }),
 	review(actor, value) {
 		const refusal = sql`CASE WHEN fs.id=ds.id THEN jsonb_build_object('refusal',p.display_name||' is already in '||ds.label||'.')
 			ELSE '{}'::jsonb END`;
@@ -73,7 +73,7 @@ const months = z.int().min(0).max(120);
 const planInput = z.strictObject({
 	kind: programKind,
 	name: z.string().trim().min(1).max(120),
-	directorSeatId: idInput,
+	directorSeatId: z.uuid(),
 	expectedMonths: z.int().min(1).max(120),
 	rhythm: programRhythm,
 	stages: z
@@ -143,7 +143,7 @@ export const saveProgram = approvedNow({
 });
 
 const nextPlanInput = z.strictObject({
-	programId: idInput,
+	programId: z.uuid(),
 	plan: z.strictObject({
 		rhythm: programRhythm,
 		expectedMonths: z.int().min(1).max(120),
@@ -151,7 +151,7 @@ const nextPlanInput = z.strictObject({
 		milestones: z
 			.array(
 				z.strictObject({
-					lineage: idInput.optional(),
+					lineage: z.uuid().optional(),
 					title: z.string().trim().min(1).max(200),
 					description: z.string().trim().min(1).max(2000).nullable().optional(),
 					handsOn: z.boolean().optional(),
@@ -309,7 +309,7 @@ const found = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T 
 
 const goalInput = z
 	.strictObject({
-		goalId: idInput.optional(),
+		goalId: rowId.optional(),
 		leaderTarget: saveGoalRequest.shape.leaderTarget.optional(),
 		plantTarget: saveGoalRequest.shape.plantTarget.optional(),
 		targetYear: saveGoalRequest.shape.targetYear.optional(),
@@ -385,14 +385,14 @@ const stagesInput = z.strictObject({
 	stages: z
 		.array(
 			z.strictObject({
-				stageId: idInput.optional(),
+				stageId: rowId.optional(),
 				label: z.string().trim().min(1).max(80),
 				kind: pipelineStageKind.optional(),
 			}),
 		)
 		.min(1)
 		.max(30),
-	remove: z.array(idInput).max(30).optional(),
+	remove: z.array(rowId).max(30).optional(),
 });
 const heldRow = z.strictObject({ id: z.string(), held: z.coerce.number() });
 
@@ -488,12 +488,12 @@ export const saveStages = approvedNow({
 });
 
 const enrollInput = z.strictObject({
-	programId: idInput,
-	personId: idInput,
+	programId: rowId,
+	personId: rowId,
 	cohort: z.string().trim().min(1).max(80),
 	startedOn: dayInput,
 	expectedEndOn: dayInput,
-	stageId: idInput.optional(),
+	stageId: rowId.optional(),
 	nextMeetingAt: localTimeInput.nullable().optional(),
 });
 const meetingText = (at: string | null, zone: string) => (at ? `${localWhenText(at)} (${zone})` : null);
@@ -575,12 +575,12 @@ const closed = (e: EnrollmentDetail) =>
 	e.status === "active" ? null : `${e.person.name} has finished ${e.program.name}, so this enrollment can't change.`;
 
 const updateInput = z.strictObject({
-	enrollmentId: idInput,
+	enrollmentId: rowId,
 	changes: z
 		.strictObject({
 			cohort: z.string().trim().min(1).max(80).optional(),
 			expectedEndOn: dayInput.optional(),
-			stageId: idInput.optional(),
+			stageId: rowId.optional(),
 			nextMeetingAt: localTimeInput.nullable().optional(),
 		})
 		.refine((c) => Object.keys(c).length > 0, "empty changes"),
@@ -632,7 +632,7 @@ export const updateEnrollment = approvedNow({
 	run: async (db, authority, args) => settled(await programWriter.updateEnrollment(db, authority, args)),
 });
 
-const applyInput = z.strictObject({ enrollmentId: idInput, stageId: idInput.optional() });
+const applyInput = z.strictObject({ enrollmentId: rowId, stageId: rowId.optional() });
 
 export const applyVersion = approvedNow({
 	operation: "development.applyVersion",
@@ -695,7 +695,7 @@ export const confirmMilestone = approvedNow({
 	operation: "development.confirmMilestone",
 	description:
 		"Propose confirming one milestone the linked resident marked done and shares (its progress says Waiting for confirmation), by enrollmentId and milestoneId from development.readProgram. Only the program's current director. Nothing changes until the user approves",
-	input: z.strictObject({ enrollmentId: idInput, milestoneId: idInput }),
+	input: z.strictObject({ enrollmentId: rowId, milestoneId: rowId }),
 	allowed: organizationSeat,
 	async review(actor, value, { db }) {
 		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);
@@ -737,7 +737,7 @@ export const completeMilestone = approvedNow({
 	operation: "development.completeMilestone",
 	description:
 		"Propose recording one milestone as finished for someone with no linked account, by enrollmentId and milestoneId from development.readProgram, with the day they finished it (a local date, today or earlier; ask when the user gave none). A linked resident marks their own milestones on My residency. Only the program's current director. Nothing changes until the user approves",
-	input: z.strictObject({ enrollmentId: idInput, milestoneId: idInput, completedOn: dayInput }),
+	input: z.strictObject({ enrollmentId: rowId, milestoneId: rowId, completedOn: dayInput }),
 	allowed: organizationSeat,
 	async review(actor, value, { db }) {
 		const e = await directedEnrollment(db, actor.authority, value.enrollmentId);

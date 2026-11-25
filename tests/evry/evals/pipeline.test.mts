@@ -617,6 +617,8 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 		assert.deepEqual(
 			readCatalog(await actorOf(who)).reviewedWrites.map((w) => w.operation),
 			[
+				"settings.saveSection",
+				"account.removeAvatar",
 				"development.draftNextVersion",
 				"development.updateEnrollment",
 				"development.applyVersion",

@@ -1,11 +1,23 @@
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { withSettingsWrite } from "@everyfield/domain/settings";
 import { owner, timeZone as timeZoneValue } from "@everyfield/contracts/common";
-import { digestSchedule as digestScheduleValue, plantProfile } from "@everyfield/contracts/settings";
+import { digestSchedule as digestScheduleValue, plantProfile, settingsName } from "@everyfield/contracts/settings";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { regionLabel } from "@everyfield/contracts/oversight";
-import { change, committed, nativeWrite, patchChanges, plantAdmin, reviewed, settled, idInput } from "../../native.ts";
+import {
+	anySeat,
+	change,
+	committed,
+	nativeWrite,
+	ownContext,
+	patchChanges,
+	plantAdmin,
+	reviewed,
+	rowId,
+	scheduleText,
+	settled,
+} from "../../native.ts";
 import { placeText, regionCandidates, statedLocality } from "../reads/index.ts";
 import { ZONE_NAME } from "../../../catalog/labels.ts";
 
@@ -105,14 +117,6 @@ export const setTimezone = nativeWrite({
 });
 
 type DigestSchedule = z.infer<typeof digestScheduleValue>;
-const WEEKDAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
-const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
-const scheduleText = (s: DigestSchedule) =>
-	s.cadence === "off"
-		? "Off"
-		: s.cadence === "daily"
-			? `Daily at ${hourText(s.hour)}`
-			: `Weekly on ${WEEKDAYS[s.weekday]} at ${hourText(s.hour)}`;
 
 export const setDigestSchedule = nativeWrite({
 	operation: "church.digestSchedule.set",
@@ -165,7 +169,7 @@ export const correctReportingLocation = nativeWrite({
 	operation: "organizations.correctReportingLocation",
 	description:
 		"Propose correcting this church's reporting place and Region, as Settings > Church saves them: the Region (regionItemId, a candidate row of geography.listReportingRegionCandidates) and the same city, state or province and country it was listed for (leave them out for the saved place). The history keeps the earlier place. Owner or Admin. Nothing changes until the user approves the exact review.",
-	input: statedLocality.extend({ regionItemId: idInput }),
+	input: statedLocality.extend({ regionItemId: rowId }),
 	allowed: plantAdmin,
 	async review(actor, { regionItemId, ...stated }, { db }) {
 		const { saved, locality, candidates } = await regionCandidates(db, actor, stated);
@@ -210,7 +214,53 @@ export const correctReportingLocation = nativeWrite({
 	},
 });
 
+const days = z.int().min(1).max(365);
+const sectionInput = z.discriminatedUnion("section", [
+	z.strictObject({ section: z.literal("account"), name: settingsName.describe("The user's own new account name") }),
+	z.strictObject({
+		section: z.literal("church"),
+		warningDays: days.optional().describe("Days without activity before a warning; leave out to keep it"),
+		alertDays: days.optional().describe("Days without activity before an alert; leave out to keep it"),
+	}),
+]);
+export const saveSection = nativeWrite({
+	operation: "settings.saveSection",
+	description:
+		"Propose changing the user's own account name (section account, any user), or the church's inactivity days (section church, Owner or Admin): the warning days must be fewer than the alert days. The church's profile is plant.updateProfile, its digest church.digestSchedule.set, an organization's profile organizations.updateProfile: never prepare this one for those. Nothing changes until the user approves the exact review.",
+	input: sectionInput,
+	allowed: anySeat,
+	review(actor, value) {
+		if (value.section === "account")
+			return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','account','id',a.id,'label',n.display_name),
+					'changes',jsonb_build_array(${change("accountName", sql`to_jsonb(n.display_name)`, value.name)}))
+					||CASE WHEN n.display_name=${value.name}::text THEN jsonb_build_object('refusal','That is already your account name, so nothing would change.') ELSE '{}'::jsonb END AS review,
+				jsonb_build_object('expectedRevision',a.revision::text,'input',jsonb_build_object('section','account','name',${value.name}::text)) AS args
+				FROM account a CROSS JOIN LATERAL seat_identity(a.id) n WHERE a.id=${actor.accountId}::uuid`;
+		if (!plantAdmin(actor)) throw new EvryRefusal("access_denied");
+		const warning = sql`coalesce(${value.warningDays ?? null}::int,pl.warning_days)`;
+		const alert = sql`coalesce(${value.alertDays ?? null}::int,pl.alert_days)`;
+		const row = (field: string, before: SQL, after: SQL) =>
+			sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${after})`;
+		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','church','id',pl.id,'label',pl.name),
+				'changes',jsonb_build_array(${row("warningDays", sql`pl.warning_days`, warning)},${row("alertDays", sql`pl.alert_days`, alert)}))
+				||CASE WHEN ${warning}>=${alert} THEN jsonb_build_object('refusal','The warning has to come before the alert: choose fewer warning days than alert days.')
+					WHEN ${warning}=pl.warning_days AND ${alert}=pl.alert_days THEN jsonb_build_object('refusal','Those are already the inactivity days, so nothing would change.')
+					ELSE '{}'::jsonb END AS review,
+			jsonb_build_object('expectedRevision',pl.revision::text,'input',jsonb_build_object('section','plant','plant',jsonb_build_object('kind','plant','id',pl.id),
+				'change',jsonb_build_object('kind','inactivity','value',jsonb_build_object('warningDays',${warning},'alertDays',${alert})))) AS args
+			FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`;
+	},
+	async run(tx, context, request, { authority, ports }) {
+		const own = (request.input as { section?: unknown }).section === "account";
+		const saved = settled(
+			await ports.settings.saveSection(tx, own ? ownContext(context, authority.actor.accountId) : context, request),
+		);
+		return "revision" in saved.current ? { revision: saved.current.revision } : undefined;
+	},
+});
+
 export const CHURCH_COMMANDS = {
+	"settings.saveSection": saveSection,
 	"plant.updateProfile": updateProfile,
 	"plant.setTimezone": setTimezone,
 	"church.digestSchedule.set": setDigestSchedule,

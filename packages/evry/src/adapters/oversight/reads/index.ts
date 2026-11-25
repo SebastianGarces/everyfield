@@ -12,7 +12,7 @@ import {
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { networkSeat, organizationSeat, idInput } from "../../native.ts";
+import { networkSeat, organizationSeat, rowId } from "../../native.ts";
 
 const NOT_SHARED = "Not shared";
 const HEALTH: Record<C.Health, string> = {
@@ -296,7 +296,7 @@ function patternRow(level: C.Level, g: C.IntelligenceGroup, p: C.IntelligencePat
 const historyInput = z.strictObject({
 	level: C.level.optional(),
 	place: z.string().trim().min(1).max(120).optional(),
-	runId: idInput.optional(),
+	runId: z.uuid().optional(),
 	changes: z.boolean().optional(),
 });
 export const readIntelligenceHistory: ReadAdapter<z.infer<typeof historyInput>> = {
@@ -500,7 +500,7 @@ export const readOverseenChurch: ReadAdapter<{ churchId: string }> = {
 	operation: "oversight.getSendingChurch",
 	description:
 		"One linked sending church as its page in this network shows it, by its churchId from oversight.listSendingChurches: its name and its plants that are linked to this network, each with its health, its Launch Sunday date or milestone, place, Region, phase, how it is linked, the lead planter the page names and href. Health and progress are Not shared when the plant doesn't share Plant Intelligence findings. A church outside this network is not found",
-	input: z.strictObject({ churchId: idInput }),
+	input: z.strictObject({ churchId: rowId }),
 	allowed: networkSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const church = await getSendingChurch(tx, actor.authority, input.churchId);

@@ -7,7 +7,7 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { present } from "../../../runtime/captured.ts";
-import { idInput, plantAdmin } from "../../native.ts";
+import { rowId, plantAdmin } from "../../native.ts";
 
 const assessments = createAssessments();
 const facts = createFacts();
@@ -295,7 +295,7 @@ export const readAssessmentRun: ReadAdapter<{ runId: string }> = {
 	operation: "intelligence.readAssessmentRun",
 	description:
 		"One published assessment of this church, an earlier one or the latest, by its id from intelligence.readAssessmentHistory: its summary, date and phase in facts, its findings (item rows with a role, as intelligence.readAssessment gives them) and its scorecard (lens and criterion rows), all from that assessment's own snapshot. Say the date it measured. When newer says one is being prepared or waiting, say so and say which assessment this is. Owners and Admins",
-	input: z.strictObject({ runId: idInput }),
+	input: z.strictObject({ runId: rowId }),
 	allowed: plantAdmin,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const operation = "intelligence.readAssessmentRun";

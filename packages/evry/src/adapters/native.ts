@@ -1,8 +1,9 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import type { digestSchedule } from "@everyfield/contracts/settings";
+import { localDate, localDateTime, owner } from "@everyfield/contracts/common";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
-import { localDate, localDateTime } from "@everyfield/contracts/common";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
@@ -16,13 +17,29 @@ export const accountContext = (actor: EvryActor) => actor.owner.kind === "accoun
 export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 export const organizationAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
-export const idInput = z.string().refine((v) => z.uuid().safeParse(v).success, "not an id");
 export const dayInput = z.string().refine((v) => localDate.safeParse(v).success, "not a YYYY-MM-DD day");
 export const localTimeInput = z
 	.string()
 	.refine((v) => localDateTime.safeParse(v).success, "not a YYYY-MM-DDTHH:MM:SS local time");
 export const networkSeat = (actor: EvryActor) => actor.contextKind === "sending_network" && actor.role !== null;
 export const organizationSeat = (actor: EvryActor) => actor.owner.kind === "organization" && actor.role !== null;
+export const rowId = z.string().refine((value) => z.uuid().safeParse(value).success, "an id from an earlier result");
+
+export const anySeat = (actor: EvryActor) => plantSeat(actor) || organizationSeat(actor) || accountContext(actor);
+
+const WEEKDAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
+export const scheduleText = (s: z.infer<typeof digestSchedule>) =>
+	s.cadence === "off"
+		? "Off"
+		: s.cadence === "daily"
+			? `Daily at ${hourText(s.hour)}`
+			: `Weekly on ${WEEKDAYS[s.weekday]} at ${hourText(s.hour)}`;
+
+export const ownContext = (context: PeopleContext, accountId: string) => ({
+	session: context.session,
+	selected: owner.parse({ kind: "account", id: accountId }),
+});
 
 export const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
