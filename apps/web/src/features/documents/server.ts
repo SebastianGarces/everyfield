@@ -34,12 +34,14 @@ export async function readPreview(
 	templateId: string,
 	format: Format,
 	overrides: Record<string, string>,
+	meetingId?: unknown,
 ): Promise<PreviewOutcome> {
 	const actor = await viewerActor();
 	if (!actor) return { status: "refused", code: "access_denied" };
 	const reply = await transient(
 		{ component: "documents", outcome: "action_failed" },
-		() => documentsReader.preview(requestDatabase(), actor, { templateId, format, overrides }, privateStorage()),
+		() =>
+			documentsReader.preview(requestDatabase(), actor, { templateId, format, overrides, meetingId }, privateStorage()),
 		LOST,
 	);
 	if (reply.status === "lost") return reply;

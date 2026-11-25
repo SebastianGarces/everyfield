@@ -38,7 +38,9 @@ import { Avatar, StageChip, Tag } from "@everyfield/ui/display";
 import { useState } from "react";
 import { STAGE_KEY, STAGE_LABEL } from "../../people/model.ts";
 import type { SourceResult } from "./model.ts";
+import { OwnPhoto } from "./OwnPhoto.tsx";
 import { cardView, type Glyph, type RowView } from "./resultView.ts";
+import { TemplatePreview } from "./TemplatePreview.tsx";
 
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
@@ -202,6 +204,8 @@ export function ResultCard({
 								) : (
 									<div className={rowClass}>{body}</div>
 								)}
+								{view.ownPhoto ? <OwnPhoto name={view.name} /> : null}
+								{view.preview ? <TemplatePreview fill={view.preview} /> : null}
 								{full}
 								{view.quote ? (
 									<blockquote className="mx-2 mb-2 border-l-2 border-line-2 pl-3 text-sm whitespace-pre-line text-ink-2">

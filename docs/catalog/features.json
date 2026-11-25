@@ -712,6 +712,7 @@
       "associations.acceptInvitation",
       "associations.declineInvitation",
       "associations.invite",
+      "associations.listInvitations",
       "associations.resendInvitation",
       "associations.respondInvitation",
       "associations.revokeInvitation"

@@ -5,9 +5,9 @@ import type { Database } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
-import { liveRead } from "../access/session.ts";
+import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
 import { liveResidency } from "../access/pipeline.ts";
-import type { Reader } from "./core.ts";
+import { discoveryOpen, witnessHides, type Reader } from "./core.ts";
 import { z } from "zod";
 
 export type Kind = "plant" | "sending_church" | "sending_network" | "discovery" | "account";
@@ -19,9 +19,13 @@ export type Viewer = {
 	canManage: boolean;
 	access: Parameters<typeof liveRead>[0];
 };
-const live = (viewer: Viewer, admin = false) => liveRead(viewer.access, admin);
+const live = (viewer: Pick<Viewer, "access">, admin = false) => liveRead(viewer.access, admin);
 
-export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Promise<Record<string, string>> {
+export async function namesFor(
+	db: Reader,
+	viewer: Pick<Viewer, "accountId" | "selected" | "access">,
+	ids: string[],
+): Promise<Record<string, string>> {
 	const unique = [...new Set(ids)];
 	if (unique.length === 0) return {};
 	const workspace = viewer.selected.kind === "account" ? null : viewer.selected;
@@ -87,6 +91,52 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 			inviterDescription: r.inviter_description,
 		}),
 	);
+}
+
+const linkInvitationRow = z.object({
+	id: z.uuid(),
+	direction: z.enum(["sent", "received"]),
+	other: z.string(),
+	other_kind: z.enum(["plant", "sending_church", "sending_network", "discovery"]),
+	expires_at: z.coerce.date(),
+});
+const LINK_INVITATIONS = 50;
+
+export async function linkInvitations(db: Reader, authority: RequestActor) {
+	const owner = authority.actor.context.owner;
+	const sent =
+		owner.kind === "organization"
+			? sql`r.sending_church_id=${owner.id}::uuid`
+			: owner.kind === "plant"
+				? sql`r.plant_id=${owner.id}::uuid`
+				: sql`(r.account_id=${owner.id}::uuid AND ${discoveryOpen(sql`r.account_id`)})`;
+	const received =
+		owner.kind === "organization"
+			? sql`(r.organization_id=${owner.id}::uuid
+				AND (r.plant_id IS NULL OR NOT ${witnessHides("plant", sql`r.plant_id`)})
+				AND (r.account_id IS NULL OR (NOT ${witnessHides("account", sql`r.account_id`)} AND ${discoveryOpen(sql`r.account_id`)})))`
+			: sql`false`;
+	const found = await db.execute(
+		sql`SELECT i.id, CASE WHEN ${sent} THEN 'sent' ELSE 'received' END AS direction,
+			CASE WHEN ${sent} THEN o.name ELSE r.inviter_description END AS other,
+			CASE WHEN ${sent} THEN o.kind WHEN r.plant_id IS NOT NULL THEN 'plant' WHEN r.account_id IS NOT NULL THEN 'discovery' ELSE 'sending_church' END AS other_kind,
+			coalesce(i.resent_at,i.created_at)+interval '720 hours' AS expires_at
+		FROM relationship_invitation r JOIN invitation i ON i.id=r.invitation_id JOIN organization o ON o.id=r.organization_id
+		WHERE (${sent} OR ${received}) AND i.state='pending' AND coalesce(i.resent_at,i.created_at)>clock_timestamp()-interval '720 hours'
+			AND ${liveRead(liveAccess(authority))}
+		ORDER BY i.created_at DESC, i.id LIMIT ${LINK_INVITATIONS + 1}`,
+	);
+	const rows = found.rows.map((raw) => linkInvitationRow.parse(raw));
+	return {
+		items: rows.slice(0, LINK_INVITATIONS).map((r) => ({
+			invitationId: r.id,
+			direction: r.direction,
+			other: r.other,
+			otherKind: r.other_kind,
+			expiresAt: r.expires_at.toISOString(),
+		})),
+		completeness: rows.length > LINK_INVITATIONS ? ("partial" as const) : ("complete" as const),
+	};
 }
 
 export function pairOf(
