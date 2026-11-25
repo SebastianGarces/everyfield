@@ -534,16 +534,6 @@ test("AC:ADR1-012 the director records a milestone finished for someone with no 
 		{ field: "milestone", before: null, after: second!.title },
 		{ field: "milestoneProgress", before: "Not finished", after: "Finished Feb 2, 2026" },
 	]);
-	await markMilestone(admin, e.id, third!.title, who.ana.accountId, START);
-	const marked = await r.prepare(who.ana, op, { ...input, milestoneId: third!.id });
-	assert.deepEqual(marked.review.changes[1], {
-		field: "milestoneProgress",
-		before: "Marked done Feb 2, 2026",
-		after: "Finished Feb 2, 2026",
-	});
-	await admin.execute(
-		sql`DELETE FROM enrollment_milestone WHERE enrollment_id=${e.id} AND milestone_id=${third!.id} AND source='resident'`,
-	);
 	const late = await r.prepare(who.ana, op, { ...input, milestoneId: third!.id });
 	completed(await r.approve(who.ana, card));
 	const viaEvry = (await enrollment()).milestones[1]!.completion;

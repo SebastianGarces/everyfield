@@ -691,9 +691,6 @@ const milestoneOf = (e: EnrollmentDetail, milestoneId: string) => {
 	return m;
 };
 
-const markedText = ({ completion: c }: EnrollmentDetail["milestones"][number]) =>
-	c && c.confirmedOn === null ? `Marked done ${dayText(c.completedOn)}` : null;
-
 export const confirmMilestone = approvedNow({
 	operation: "development.confirmMilestone",
 	description:
@@ -722,7 +719,7 @@ export const confirmMilestone = approvedNow({
 					{ field: "milestone", before: null, after: m.title },
 					{
 						field: "milestoneProgress",
-						before: markedText(m),
+						before: c && c.confirmedOn === null ? `Marked done ${dayText(c.completedOn)}` : null,
 						after: "Confirmed by you",
 					},
 				],
@@ -761,7 +758,7 @@ export const completeMilestone = approvedNow({
 					{ field: "milestone", before: null, after: m.title },
 					{
 						field: "milestoneProgress",
-						before: markedText(m) ?? "Not finished",
+						before: "Not finished",
 						after: `Finished ${dayText(value.completedOn)}`,
 					},
 				],

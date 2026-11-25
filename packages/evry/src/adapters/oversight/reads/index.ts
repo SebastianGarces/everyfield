@@ -124,7 +124,7 @@ export const readOverseenPlant: ReadAdapter<{ plantId: string }> = {
 	operation: "oversight.getPlant",
 	description:
 		"One linked plant as its page in this organization shows it, by its plantId from oversight.listPlants: totals only for each category it shares (people by stage, open and overdue tasks, recent meetings, ministry teams), Not shared for the rest, its Launch status, readiness and latest published summary, and how many concerns its released assessment raised by lens. Never a person's name, note, interview, care record or an assessment's words: oversight shows totals only",
-	input: z.strictObject({ plantId: idInput }),
+	input: z.strictObject({ plantId: z.uuid() }),
 	allowed: organizationSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const view = await getPlant(tx, actor.authority, input.plantId);
@@ -428,7 +428,7 @@ export const readPlantLocationHistory: ReadAdapter<{ plantId: string }> = {
 	operation: "organizationIntelligence.readLocationHistory",
 	description:
 		"One linked plant's saved locations for Network Intelligence, newest first, by its plantId from organizationIntelligence.readLocations: each location's city, state or province, country and reporting Region, the date it took effect and the Network Intelligence runs that used it. An earlier run keeps the location it used then; only runs after a correction use the new one. Only the plant's Owner or Admin can change it. Never a street address or coordinates",
-	input: z.strictObject({ plantId: idInput }),
+	input: z.strictObject({ plantId: z.uuid() }),
 	allowed: organizationSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const history = await readLocationHistory(tx, actor.authority, input.plantId);
