@@ -29,6 +29,7 @@ import {
 import {
 	audiencePerson,
 	classifiedPeople,
+	heldCount,
 	leftOutIds,
 	leftOutPeople,
 	recipientNames,
@@ -195,7 +196,7 @@ async function review(
 		await context.db.execute(sql`WITH ${classifiedPeople(plant, resolved.value, mail.hashes)}
 			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',"displayName") ORDER BY lower("displayName") COLLATE "C",id) FROM people),'[]'::jsonb) AS guests,
 				${recipientNames} AS recipients, ${leftOutPeople} AS left_out, ${leftOutIds} AS left_out_ids,
-				(SELECT count(*)::int FROM classified WHERE reason IS NOT NULL AND reason NOT IN ('no_address','duplicate_address')) AS held,
+				${heldCount} AS held,
 				coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY lower(name) COLLATE "C",id LIMIT 1),'') AS first_name`)
 	).rows;
 	const r = classifiedRow.parse(raw);

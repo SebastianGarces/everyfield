@@ -38,6 +38,7 @@ import {
 	audiencePerson,
 	audienceRefusal,
 	classifiedPeople,
+	heldCount,
 	leftOutIds,
 	leftOutPeople,
 	recipientNames,
@@ -187,6 +188,7 @@ export async function audienceFacts(context: ReviewContext, plantId: string, aud
 		z
 			.array(audiencePerson)
 			.parse(raw)
+			.flatMap((p) => [p, ...p.guardians])
 			.flatMap((p) => {
 				const address = p.email?.trim().toLowerCase();
 				return address ? [[address, mailAddressHash(mail.keys.addressKey, address)]] : [];
@@ -813,7 +815,7 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 					${change("content", null, sql`to_jsonb(replace(${contentFor(draft.html)}::text,${SAMPLE_NAME}::text,${firstName}))`)}))`,
 			)} AS review,
 			jsonb_build_object('expectedRevision',${draft.revision}::text,'leftOut',${leftOutIds},'recipientsDigest',${facts.digest}::text,
-				'held',(SELECT count(*)::int FROM classified WHERE reason IS NOT NULL AND reason NOT IN ('no_address','duplicate_address')),
+				'held',${heldCount},
 				${draft.revision ? sql`'untouched',0,` : sql``}'input',${input}) AS args
 			FROM c`;
 	},

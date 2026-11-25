@@ -84,6 +84,7 @@ const ENTRY_ICON: Record<Activity["entries"][number]["change"]["kind"], { icon: 
 	task_completed: { icon: CheckmarkCircle02Icon, tone: "teal" },
 	launch_date: { icon: StartUp02Icon, tone: "violet" },
 	launch_recorded: { icon: StartUp02Icon, tone: "violet" },
+	launch_corrected: { icon: PencilEdit02Icon, tone: "amber" },
 	phase_changed: { icon: Route01Icon, tone: "ink" },
 };
 

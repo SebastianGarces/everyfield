@@ -489,7 +489,16 @@ async function settle(
 	for (const personId of removed) {
 		const g = byPerson.get(personId);
 		if (!g) throw Error(`Removed attendee ${personId} has no guest row`);
-		rows.push({ ...g, presence: "absent" });
+		rows.push({
+			...g,
+			presence: "absent",
+			classification: null,
+			classification_stage: null,
+			classification_person_revision: null,
+			classification_as_of: null,
+			prior_vision_id: null,
+			actual_occurrence_at: null,
+		});
 		const o = obligations.get(personId);
 		if (vision && o) closing.add(o.id);
 	}
