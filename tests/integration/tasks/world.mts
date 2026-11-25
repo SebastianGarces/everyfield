@@ -19,8 +19,8 @@ import { createMailService, type MailPayload } from "../../../packages/domain/sr
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { type Actor, fixture, ok, waitingOnLock, type Workspace } from "../../support/fixture.mts";
-import { pinSchemaClock, type Database } from "../../support/test-database.mts";
+import { type Actor, fixture, ok, type Workspace } from "../../support/fixture.mts";
+import { pinSchemaClock } from "../../support/test-database.mts";
 
 export type Who = { actor: RequestActor };
 type Row = Record<string, unknown>;
@@ -38,62 +38,6 @@ type Reads = {
 	[K in keyof Reader]: (tx: WriteTx, who: RequestActor, raw: unknown) => Promise<Answer<Reader[K]>>;
 };
 
-export async function raced<T>(
-	admin: Database,
-	runtime: Database,
-	lock: SQL,
-	contenders: readonly (() => Promise<T>)[],
-): Promise<T[]> {
-	const locked = Promise.withResolvers<void>(),
-		release = Promise.withResolvers<void>();
-	const holder = admin.transaction(async (tx) => {
-		await tx.execute(lock);
-		locked.resolve();
-		await release.promise;
-	});
-	holder.catch(locked.reject);
-	const running: Promise<T>[] = [];
-	const settled = new AbortController();
-	try {
-		await locked.promise;
-		for (const run of contenders) {
-			const started = run();
-			running.push(started);
-			started.finally(() => settled.abort()).catch(() => {});
-			assert.equal(await waitingOnLock(runtime, { count: running.length, signal: settled.signal }), true);
-		}
-	} finally {
-		release.resolve();
-		await holder;
-		await Promise.allSettled(running);
-	}
-	return Promise.all(running);
-}
-
-export async function failingWrite<T>(
-	admin: Database,
-	trigger: { on: string; event: "INSERT" | "UPDATE"; when: string; atCommit?: boolean },
-	body: () => Promise<T>,
-): Promise<T> {
-	const name = `injected_${randomBytes(6).toString("hex")}`;
-	await admin.execute(
-		sql.raw(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-			IF ${trigger.when} THEN RAISE EXCEPTION 'injected fault'; END IF; RETURN NEW; END $$`),
-	);
-	try {
-		await admin.execute(
-			sql.raw(
-				trigger.atCommit
-					? `CREATE CONSTRAINT TRIGGER ${name} AFTER ${trigger.event} ON ${trigger.on} DEFERRABLE INITIALLY DEFERRED
-						FOR EACH ROW EXECUTE FUNCTION ${name}()`
-					: `CREATE TRIGGER ${name} BEFORE ${trigger.event} ON ${trigger.on} FOR EACH ROW EXECUTE FUNCTION ${name}()`,
-			),
-		);
-		return await body();
-	} finally {
-		await admin.execute(sql.raw(`DROP TRIGGER IF EXISTS ${name} ON ${trigger.on}; DROP FUNCTION ${name}()`));
-	}
-}
 export const rejectsWithFault = (attempt: Promise<unknown>) =>
 	assert.rejects(attempt, (e: Error) => /injected fault/.test(String(e.cause ?? e)));
 

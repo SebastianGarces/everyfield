@@ -1,4 +1,4 @@
-import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
+import { fixture, ok, raced, refused } from "../../../support/fixture.mts";
 import { faulted, recorded, touched, untouched } from "../../../support/recorded.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import {
@@ -89,24 +89,8 @@ async function retirement(p: { id: string; revision: string }) {
 		);
 }
 const retire = async (p: { id: string; revision: string }) => ok(await (await retirement(p))());
-async function inTurn(...calls: (() => Promise<Reply<unknown>>)[]) {
-	const { promise: held, resolve: release } = Promise.withResolvers<void>();
-	const { promise: taken, resolve: locked } = Promise.withResolvers<void>();
-	const holder = admin.transaction(async (a) => {
-		await a.execute(sql`SELECT id FROM plant WHERE id=${plants[0]} FOR UPDATE`);
-		locked();
-		await held;
-	});
-	await taken;
-	const waiting: Promise<Reply<unknown>>[] = [];
-	for (const call of calls) {
-		waiting.push(call());
-		await waitingOnLock(db, { count: waiting.length });
-	}
-	release();
-	await holder;
-	return Promise.all(waiting);
-}
+const inTurn = (...calls: (() => Promise<Reply<unknown>>)[]) =>
+	raced(admin, db, sql`SELECT FROM plant WHERE id=${plants[0]} FOR UPDATE`, calls);
 const quiet = { jobs: [], notices: 0, mail: 0 };
 const updated = { audits: ["people.updated"], ...quiet };
 async function foreignRefused(call: (who: Who, id: string) => Promise<Reply<unknown>>, id: string) {

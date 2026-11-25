@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { inspect } from "node:util";
 import { sql } from "../../packages/db/src/query.ts";
 import type { Database } from "./test-database.mts";
@@ -69,22 +70,39 @@ export async function untouched<T>(admin: Database, body: () => Promise<T>): Pro
 	return value;
 }
 
-export async function faulted(admin: Database, table: string, body: () => Promise<unknown>): Promise<void> {
+export async function failingWrite<T>(
+	admin: Database,
+	trigger: { on: string; event: string; when?: string; atCommit?: boolean },
+	body: () => Promise<T>,
+): Promise<T> {
+	const name = `injected_${randomBytes(6).toString("hex")}`;
 	await admin.execute(
-		sql`CREATE FUNCTION required_source() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'required_source_unavailable'; END $$`,
-	);
-	await admin.execute(
-		sql`CREATE TRIGGER required_source AFTER INSERT OR UPDATE ON ${sql.identifier(table)} FOR EACH ROW EXECUTE FUNCTION required_source()`,
+		sql.raw(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+			IF ${trigger.when ?? "TRUE"} THEN RAISE EXCEPTION 'injected fault'; END IF; RETURN NEW; END $$`),
 	);
 	try {
-		const error = await untouched(admin, () =>
+		await admin.execute(
+			sql.raw(
+				trigger.atCommit
+					? `CREATE CONSTRAINT TRIGGER ${name} AFTER ${trigger.event} ON ${trigger.on} DEFERRABLE INITIALLY DEFERRED
+						FOR EACH ROW EXECUTE FUNCTION ${name}()`
+					: `CREATE TRIGGER ${name} AFTER ${trigger.event} ON ${trigger.on} FOR EACH ROW EXECUTE FUNCTION ${name}()`,
+			),
+		);
+		return await body();
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER IF EXISTS ${name} ON ${trigger.on}; DROP FUNCTION ${name}()`));
+	}
+}
+
+export async function faulted(admin: Database, table: string, body: () => Promise<unknown>): Promise<void> {
+	const error = await failingWrite(admin, { on: table, event: "INSERT OR UPDATE" }, () =>
+		untouched(admin, () =>
 			body().then(
 				(value) => assert.fail(`expected the required write to fail, got ${JSON.stringify(value)}`),
 				(thrown: unknown) => thrown,
 			),
-		);
-		assert.match(inspect(error), /required_source_unavailable/);
-	} finally {
-		await admin.execute(sql`DROP FUNCTION required_source() CASCADE`);
-	}
+		),
+	);
+	assert.match(inspect(error), /injected fault/);
 }

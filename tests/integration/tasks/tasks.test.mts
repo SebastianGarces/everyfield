@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
-import { type Workspace, ok, refused } from "../../support/fixture.mts";
+import { type Workspace, ok, raced, refused } from "../../support/fixture.mts";
 import { personId, requestIdentity, tenantId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	auditTransaction,
@@ -35,8 +35,8 @@ import {
 	followUpReader,
 	withFollowUpWrite,
 } from "../../../packages/domain/src/followups/index.ts";
-import { recorded, untouched } from "../../support/recorded.mts";
-import { failingWrite, raced, rejectsWithFault } from "./world.mts";
+import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
+import { rejectsWithFault } from "./world.mts";
 
 type Who = { actor: RequestActor };
 type Row = Record<string, unknown>;

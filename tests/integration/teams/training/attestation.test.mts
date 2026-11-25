@@ -24,7 +24,7 @@ import {
 import { scriptedAssessmentDrafter } from "../../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { sql } from "../../../../packages/db/src/query.ts";
 import { ok, refused, type Actor } from "../../../support/fixture.mts";
-import { recorded } from "../../../support/recorded.mts";
+import { failingWrite, recorded } from "../../../support/recorded.mts";
 import { CANARY, church, type Church, type ChurchPlant } from "../../intelligence/assessment-church.mts";
 
 const NOW = "2026-10-13T16:00:00.000Z";
@@ -675,17 +675,8 @@ test("AC:SME53-003 AC:SME53-004 one list and one set of credits answer every tra
 
 	const stale = await change([alex.id]);
 	const removeCasey = await change([alex.id]);
-	await c.admin.execute(sql`CREATE FUNCTION roster_fault() RETURNS trigger LANGUAGE plpgsql AS
-		$$BEGIN RAISE EXCEPTION 'injected roster fault'; END$$`);
-	for (const [table, event] of [
-		["training_assignment", "UPDATE"],
-		["plant", "UPDATE"],
-	] as const) {
-		await c.admin.execute(
-			sql.raw(`CREATE TRIGGER roster_fault BEFORE ${event} ON ${table} FOR EACH ROW EXECUTE FUNCTION roster_fault()`),
-		);
-		const failed = await unmoved(() => save(removeCasey));
-		await c.admin.execute(sql.raw(`DROP TRIGGER roster_fault ON ${table}`));
+	for (const on of ["training_assignment", "plant"]) {
+		const failed = await failingWrite(c.admin, { on, event: "UPDATE" }, () => unmoved(() => save(removeCasey)));
 		refused(failed.value, "required_write_failed");
 		assert.deepEqual([failed.added, await everywhere(), await past()], [NOTHING, half, []]);
 	}

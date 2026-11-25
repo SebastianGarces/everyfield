@@ -20,8 +20,7 @@ import {
 import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
 import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
-import { recorded, untouched } from "../../../support/recorded.mts";
-import { faulted } from "../fault.mts";
+import { failingWrite, recorded, untouched } from "../../../support/recorded.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
@@ -263,7 +262,11 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	const input = await offerInput(team.id, "accept", picked, team.revision);
 	for (const table of ["responsibility", "audit_event"])
 		refused(
-			await untouched(admin, () => faulted(admin, table, () => run(responsibilityWriter.offerResponsibilities, input))),
+			await untouched(admin, () =>
+				failingWrite(admin, { on: table, event: "INSERT" }, () =>
+					run(responsibilityWriter.offerResponsibilities, input),
+				),
+			),
 			"required_write_failed",
 		);
 	const saved = await recorded(admin, () => run(responsibilityWriter.offerResponsibilities, input));

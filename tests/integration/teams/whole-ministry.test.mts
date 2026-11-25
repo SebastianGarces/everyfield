@@ -18,8 +18,7 @@ import { scriptedModel, scriptedQualifiedModel } from "../../../packages/evry-sc
 import { runDueImports } from "../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { harness } from "../../evry/evals/intelligence-harness.mts";
 import { fixture, ok, refused, waitingOnLock, type Actor } from "../../support/fixture.mts";
-import { faulted } from "./fault.mts";
-import { recorded, untouched } from "../../support/recorded.mts";
+import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
 
 const NOW = new Date("2026-10-13T16:00:00Z");
 const TODAY = "2026-10-13";
@@ -516,7 +515,9 @@ test("AC:TARGET-TEAM-003 a chosen template import creates each chosen ministry a
 	assert.deepEqual(await structure(c.P.id), idle);
 	refused(
 		await nothingChanges(() =>
-			faulted(admin, "team_role", () => c.run(teamsWriter.initialize, c.importing(selections))),
+			failingWrite(admin, { on: "team_role", event: "INSERT" }, () =>
+				c.run(teamsWriter.initialize, c.importing(selections)),
+			),
 		),
 		"required_write_failed",
 	);
@@ -1292,7 +1293,7 @@ test("AC:GAP-TEAM-002 a live ministry's archive keeps its members' history, a re
 		assert.equal(JSON.stringify(error).includes("Hospitality"), false);
 	}
 	for (const broken of [
-		() => faulted(admin, "audit_event", () => c.run(teamsWriter.archive, request)),
+		() => failingWrite(admin, { on: "audit_event", event: "INSERT" }, () => c.run(teamsWriter.archive, request)),
 		() => hidden("team_tenure", () => c.run(teamsWriter.archive, request)),
 	]) {
 		refused(await nothingChanges(broken), "required_write_failed");
@@ -1311,7 +1312,9 @@ test("AC:GAP-TEAM-002 a live ministry's archive keeps its members' history, a re
 	] as const)
 		refused(await nothingChanges(async () => c.restore(T.id, {}, who, plant)), code);
 	refused(
-		await nothingChanges(() => faulted(admin, "audit_event", async () => c.restore(T.id))),
+		await nothingChanges(() =>
+			failingWrite(admin, { on: "audit_event", event: "INSERT" }, async () => c.restore(T.id)),
+		),
 		"required_write_failed",
 	);
 	const back = await recorded(admin, async () => c.restore(T.id));

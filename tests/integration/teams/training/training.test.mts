@@ -19,7 +19,7 @@ import {
 } from "../../../../packages/domain/src/teams/index.ts";
 import { meetingsReader, meetingsWriter } from "../../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
-import { recorded } from "../../../support/recorded.mts";
+import { failingWrite, recorded, untouched } from "../../../support/recorded.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
@@ -143,53 +143,6 @@ async function held(meetingId: string, personIds: string[], who = 0) {
 			input: { meetingId, to: "completed" },
 		}),
 	);
-}
-const TABLES = [
-	"audit_event",
-	"job",
-	"notice",
-	"mail",
-	"seat",
-	"plant",
-	"person",
-	"team",
-	"team_role",
-	"team_tenure",
-	"training_program",
-	"training_assignment",
-	"training_credit",
-	"meeting",
-	"participation",
-	"task",
-	"phase_transition",
-];
-const stored = async () =>
-	(
-		await admin.execute(
-			sql.raw(
-				`SELECT ${TABLES.map((t) => `(SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]') FROM ${t} x) AS ${t}`).join(",")}`,
-			),
-		)
-	).rows[0]!;
-async function untouched<V>(body: () => Promise<V>) {
-	const before = await stored();
-	const value = await body();
-	assert.deepEqual(await stored(), before);
-	return value;
-}
-async function faulty<V>(table: string, event: string, body: () => Promise<V>) {
-	await admin.execute(sql`CREATE FUNCTION training_fault() RETURNS trigger LANGUAGE plpgsql AS
-		$$BEGIN RAISE EXCEPTION 'injected fault'; END$$`);
-	await admin.execute(
-		sql.raw(`CREATE TRIGGER training_fault BEFORE ${event} ON ${table} FOR EACH ROW
-		EXECUTE FUNCTION training_fault()`),
-	);
-	try {
-		return await body();
-	} finally {
-		await admin.execute(sql.raw(`DROP TRIGGER training_fault ON ${table}`));
-		await admin.execute(sql`DROP FUNCTION training_fault()`);
-	}
 }
 const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 const audited = (...audits: string[]) => ({ ...NOTHING, audits });
@@ -606,7 +559,7 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 	assert.deepEqual((await guestIds(meeting.id)).sort(), [alex, casey].sort(), "a later member is not added");
 	assert.equal(
 		refused(
-			await untouched(() =>
+			await untouched(admin, () =>
 				teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1),
 			),
 		).code,
@@ -661,7 +614,7 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	const phases = await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action LIKE 'phase.%'`);
 	const jobs = await count(sql`SELECT count(*)::int AS n FROM job`);
 	const seen = await recorded(admin, async () =>
-		untouched(async () => trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id })),
+		untouched(admin, async () => trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id })),
 	);
 	assert.deepEqual(seen.added, NOTHING);
 	const facts = ok(seen.value);
@@ -1461,7 +1414,7 @@ test("AC:TARGET-TEAM-008 one person in two roles is one required person with one
 	};
 	assert.deepEqual(await counts(), [0, 0], "two roles require nobody by themselves");
 	const unassigned = await attestation(course.id, alex);
-	refused(await untouched(() => run(trainingWriter.attestCompletion, unassigned)), "invalid_subject");
+	refused(await untouched(admin, () => run(trainingWriter.attestCompletion, unassigned)), "invalid_subject");
 	const saved = await recorded(admin, () => saveRoster(course.id, [alex, alex]));
 	assert.deepEqual(saved.added, audited("training.assigned"));
 	assert.deepEqual(await counts(), [1, 0]);
@@ -1476,7 +1429,7 @@ test("AC:TARGET-TEAM-008 one person in two roles is one required person with one
 	assert.equal(ok(await run(trainingWriter.attestCompletion, await attestation(course.id, alex), 1)).outcome, "noop");
 	assert.deepEqual(await counts(), [1, 1], "the second role adds no second credit");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_credit WHERE program_id=${course.id}`), 1);
-	const seen = await recorded(admin, () => untouched(() => listed()));
+	const seen = await recorded(admin, () => untouched(admin, () => listed()));
 	assert.deepEqual(seen.added, NOTHING);
 
 	for (const [programId, personId] of [
@@ -1484,14 +1437,14 @@ test("AC:TARGET-TEAM-008 one person in two roles is one required person with one
 		[elsewhere.id, casey],
 	] as const) {
 		const request = await attestation(programId, personId);
-		refused(await untouched(() => run(trainingWriter.attestCompletion, request, 1)), "access_denied");
+		refused(await untouched(admin, () => run(trainingWriter.attestCompletion, request, 1)), "access_denied");
 		ok(await run(trainingWriter.attestCompletion, request, 2));
 	}
 	const foreign = await person("Foreign Credit", { plant: Q });
 	for (const who of [3, 4]) {
 		const request = await attestation(course.id, alex);
 		refused(
-			await untouched(() => run(trainingWriter.attestCompletion, request, who)),
+			await untouched(admin, () => run(trainingWriter.attestCompletion, request, who)),
 			who === 3 ? "unavailable" : "access_denied",
 		);
 		assert.deepEqual(
@@ -1503,7 +1456,7 @@ test("AC:TARGET-TEAM-008 one person in two roles is one required person with one
 	ok(await run(trainingWriter.attestCompletion, await attestation(theirs.id, foreign), 3));
 	assert.deepEqual(await counts(), [1, 1], "another church's completion counts only there");
 	const abroad = await attestation(course.id, foreign);
-	refused(await untouched(() => run(trainingWriter.attestCompletion, abroad)), "access_denied");
+	refused(await untouched(admin, () => run(trainingWriter.attestCompletion, abroad)), "access_denied");
 
 	await leave(team.id, alex);
 	assert.deepEqual(
@@ -1521,7 +1474,7 @@ test("AC:TARGET-TEAM-008 one person in two roles is one required person with one
 	assert.deepEqual([kept.teamId, kept.requiredPeople, kept.compatibleCredits], [team.id, 1, 1]);
 	assert.equal((await historyOf(alex, course.id)).length, 1);
 	const late = await attestation(course.id, alex);
-	refused(await untouched(() => run(trainingWriter.attestCompletion, late, 1)), "access_denied");
+	refused(await untouched(admin, () => run(trainingWriter.attestCompletion, late, 1)), "access_denied");
 });
 
 test("AC:TARGET-TEAM-009 complete, revoke and redo each record once and keep the first verifier and date", async () => {
@@ -1553,8 +1506,8 @@ test("AC:TARGET-TEAM-009 complete, revoke and redo each record once and keep the
 	for (const who of [3, 4]) {
 		const code = who === 3 ? "unavailable" : "access_denied";
 		const redo = { ...request, input: { ...request.input, earnedOn: "2026-10-13" } };
-		refused(await untouched(() => run(trainingWriter.revokeCompletion, request, who)), code);
-		refused(await untouched(() => run(trainingWriter.recompleteTraining, redo, who)), code);
+		refused(await untouched(admin, () => run(trainingWriter.revokeCompletion, request, who)), code);
+		refused(await untouched(admin, () => run(trainingWriter.recompleteTraining, redo, who)), code);
 	}
 	const revoke = await step(trainingWriter.revokeCompletion, request, 0);
 	assert.deepEqual([revoke.outcome.outcome, revoke.added, revoke.stale], ["changed", audited("training.revoked"), 1n]);
@@ -1576,7 +1529,7 @@ test("AC:TARGET-TEAM-009 complete, revoke and redo each record once and keep the
 	);
 	assert.deepEqual(await history(), two);
 	assert.deepEqual(
-		(await recorded(admin, () => untouched(() => run(trainingWriter.revokeCompletion, request)))).added,
+		(await recorded(admin, () => untouched(admin, () => run(trainingWriter.revokeCompletion, request)))).added,
 		NOTHING,
 	);
 	const redo = await step(trainingWriter.recompleteTraining, await namedCredit(course.id, alex, "2026-10-13"), 0);
@@ -1588,7 +1541,7 @@ test("AC:TARGET-TEAM-009 complete, revoke and redo each record once and keep the
 		expectedRevision: "1",
 		input: { programId: course.id, name: "Stale", required: false, reason: "Old screen" },
 	};
-	refused(await untouched(() => run(trainingWriter.correctProgram, stale)), "conflict");
+	refused(await untouched(admin, () => run(trainingWriter.correctProgram, stale)), "conflict");
 	const fresh = { ...stale, requestKey: key(), expectedRevision: await rev("training_program", course.id) };
 	const corrected = await recorded(admin, () =>
 		run(trainingWriter.correctProgram, {
@@ -1636,7 +1589,7 @@ test("AC:TARGET-TEAM-010 the person past the first hundred shows one current tea
 			input: { teamId: t2.id },
 		}),
 	);
-	const seen = await recorded(admin, () => untouched(facts));
+	const seen = await recorded(admin, () => untouched(admin, facts));
 	assert.deepEqual(seen.added, NOTHING);
 	assert.deepEqual(seen.value, {
 		personId: past,
@@ -1717,6 +1670,7 @@ test("AC:GAP-TEAM-010 two ministries are two assignments, each program's evidenc
 	const training = async (who = 0) => trainingReader.readPersonTraining(db, await viewer(who), { personId: alex });
 	const seen = await recorded(admin, () =>
 		untouched(
+			admin,
 			async () =>
 				[
 					ok(await teams())
@@ -1735,7 +1689,7 @@ test("AC:GAP-TEAM-010 two ministries are two assignments, each program's evidenc
 	);
 	const readers: ((who?: number) => Promise<{ status: string }>)[] = [teams, training];
 	for (const reader of readers) {
-		const error = refused(await untouched(() => reader(4)), "access_denied");
+		const error = refused(await untouched(admin, () => reader(4)), "access_denied");
 		assert.deepEqual(error.details, {});
 	}
 	await admin.execute(sql`ALTER TABLE team_tenure RENAME TO team_tenure_away`);
@@ -1781,17 +1735,20 @@ test("AC:GAP-TEAM-013 the ministry's own leader schedules training for its peopl
 	const later = await person("Later Host");
 	await assign(await makeRole(team.id, "Later"), team.id, later);
 	assert.deepEqual((await guestIds(meeting.id)).sort(), [casey, jamie].sort());
-	for (const who of [2, 0]) refused(await untouched(() => teamMeeting(foreignTeam.id, input, who)), "team_unavailable");
+	for (const who of [2, 0])
+		refused(await untouched(admin, () => teamMeeting(foreignTeam.id, input, who)), "team_unavailable");
 	for (const who of [4, 3]) {
 		const error = refused(
-			await untouched(() => teamMeeting(team.id, input, who)),
+			await untouched(admin, () => teamMeeting(team.id, input, who)),
 			who === 3 ? "team_unavailable" : "unavailable",
 		);
 		assert.equal(JSON.stringify(error).includes("Training hosts"), false);
 	}
 	for (const table of ["participation", "meeting", "job", "audit_event"])
 		refused(
-			await untouched(() => faulty(table, "INSERT", () => teamMeeting(team.id, input, 2))),
+			await untouched(admin, () =>
+				failingWrite(admin, { on: table, event: "INSERT" }, () => teamMeeting(team.id, input, 2)),
+			),
 			"required_write_failed",
 		);
 	assert.deepEqual((await guestIds(meeting.id)).sort(), [casey, jamie].sort());
@@ -1828,7 +1785,9 @@ test("AC:TARGET-TEAM-015 AC:GAP-TEAM-015 a placement moves one stage in the same
 			...(stage === "leader" ? [] : [["person", "UPDATE"]]),
 		] as [string, string][])
 			refused(
-				await untouched(() => faulty(table, event, () => run(teamsWriter.assignRole, request))),
+				await untouched(admin, () =>
+					failingWrite(admin, { on: table, event }, () => run(teamsWriter.assignRole, request)),
+				),
 				"required_write_failed",
 			);
 		const made = await recorded(admin, () => run(teamsWriter.assignRole, request));
@@ -1844,7 +1803,7 @@ test("AC:TARGET-TEAM-015 AC:GAP-TEAM-015 a placement moves one stage in the same
 				${moved ? sql`UNION ALL SELECT xmin::text FROM person WHERE id=${who}` : sql``}) x`)
 		).rows[0]!.n;
 		assert.equal(commit, 1, "the placement, the stage, its history and the freshness mark commit together");
-		const again = await recorded(admin, () => untouched(() => run(teamsWriter.assignRole, request)));
+		const again = await recorded(admin, () => untouched(admin, () => run(teamsWriter.assignRole, request)));
 		assert.deepEqual([again.added, ok(again.value)], [NOTHING, ok(made.value)]);
 		const anew = { ...request, requestKey: key(), expectedRevision: await rev("team_role", role.id) };
 		const noop = await recorded(admin, () => run(teamsWriter.assignRole, anew));
@@ -1906,14 +1865,14 @@ test("AC:TARGET-TEAM-015 AC:GAP-TEAM-015 a placement moves one stage in the same
 		[4, "access_denied"],
 		[3, "unavailable"],
 	] as const) {
-		const error = refused(await untouched(() => run(teamsWriter.assignRole, request, who)), code);
+		const error = refused(await untouched(admin, () => run(teamsWriter.assignRole, request, who)), code);
 		assert.deepEqual(error.details, {});
 		const leader = {
 			requestKey: key(),
 			expectedRevision: await rev("team", other.id),
 			input: { teamId: other.id, personId: casey },
 		};
-		refused(await untouched(() => run(teamsWriter.appointLeader, leader, who)), code);
+		refused(await untouched(admin, () => run(teamsWriter.appointLeader, leader, who)), code);
 	}
 	ok(await run(teamsWriter.assignRole, request));
 	assert.equal(ok(await teamsReader.listMembers(db, await viewer(), { teamId: other.id })).members.length, 1);
@@ -1956,7 +1915,7 @@ test("AC:TARGET-TEAM-016 AC:SME53-001 a reviewed list of two ministries and thei
 	};
 	const chosen = await selection(t.id, u.id);
 	assert.deepEqual(chosen.filter((id) => id === alex).length, 3, "one person, three places");
-	const seen = await recorded(admin, () => untouched(() => preview(course.id, chosen)));
+	const seen = await recorded(admin, () => untouched(admin, () => preview(course.id, chosen)));
 	assert.deepEqual(seen.added, NOTHING);
 	const expected = [alex, casey, jordan].sort();
 	assert.deepEqual([...seen.value.personIds].sort(), expected);
@@ -1994,20 +1953,20 @@ test("AC:TARGET-TEAM-016 AC:SME53-001 a reviewed list of two ministries and thei
 		expectedRevision: reviewed.revision,
 		input: { programId: course.id, personIds: chosen, rosterDigest: reviewed.rosterDigest },
 	};
-	refused(await untouched(() => run(trainingWriter.setRequiredTrainingParticipants, stale)), "conflict");
+	refused(await untouched(admin, () => run(trainingWriter.setRequiredTrainingParticipants, stale)), "conflict");
 	const fresh = await preview(course.id, now);
 	const swapped = {
 		requestKey: key(),
 		expectedRevision: fresh.revision,
 		input: { programId: course.id, personIds: [alex, mara], rosterDigest: fresh.rosterDigest },
 	};
-	refused(await untouched(() => run(trainingWriter.setRequiredTrainingParticipants, swapped)), "conflict");
+	refused(await untouched(admin, () => run(trainingWriter.setRequiredTrainingParticipants, swapped)), "conflict");
 	const dated = {
 		requestKey: key(),
 		expectedRevision: reviewed.revision,
 		input: { programId: course.id, personIds: now, rosterDigest: fresh.rosterDigest },
 	};
-	refused(await untouched(() => run(trainingWriter.setRequiredTrainingParticipants, dated)), "conflict");
+	refused(await untouched(admin, () => run(trainingWriter.setRequiredTrainingParticipants, dated)), "conflict");
 	const episodes = () => count(sql`SELECT count(*)::int AS n FROM training_assignment WHERE program_id=${course.id}`);
 	const before = await episodes();
 	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, alex)));
@@ -2061,7 +2020,7 @@ test("AC:SME53-002 coverage counts each assigned person and program once, and on
 	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, casey)));
 	assert.deepEqual(await rates(), [2, 2, 1]);
 	ok(await run(trainingWriter.revokeCompletion, await namedCredit(course.id, casey)));
-	const seen = await recorded(admin, () => untouched(rates));
+	const seen = await recorded(admin, () => untouched(admin, rates));
 	assert.deepEqual([seen.value, seen.added], [[1, 2, 0.5], NOTHING]);
 	await saveRoster(course.id, []);
 	assert.deepEqual(await rates(), [0, 0, null], "an emptied list is unknown, not complete");

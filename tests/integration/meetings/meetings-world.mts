@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { tenantId } from "../../../packages/contracts/src/common/index.ts";
 import type { MeetingsReply } from "../../../packages/contracts/src/meetings/index.ts";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
-import type { Transaction } from "../../../packages/db/src/client.ts";
 import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import {
 	createAttendanceWriter,
@@ -13,8 +12,8 @@ import {
 	withMeetingsWrite,
 	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
-import { fixture, ok, waitingOnLock, type Actor } from "../../support/fixture.mts";
-import { recorded } from "../../support/recorded.mts";
+import { fixture, ok, raced, type Actor } from "../../support/fixture.mts";
+import { failingWrite, recorded, touched } from "../../support/recorded.mts";
 
 export const NOW = new Date("2026-10-13T16:00:00Z");
 type Row = Record<string, unknown>;
@@ -102,56 +101,18 @@ export async function meetingsWorld(prefix: string, clock = NOW) {
 	};
 	const invite = async (meetingId: string, personId: string, inviterPersonId: string | null = null) =>
 		ok(await create(guestsWriter.inviteGuest, { meetingId, personId, inviterPersonId })).guest;
-	const tables = (
-		await rows<{ name: string }>(
-			sql`SELECT tablename AS name FROM pg_tables WHERE schemaname=${database.schema} ORDER BY 1`,
-		)
-	).map((t) => t.name);
-	async function contents() {
-		const parts = tables.map(
-			(name) => sql`SELECT ${name} AS name, md5(coalesce(string_agg(t::text, '|' ORDER BY t::text), '')) AS digest
-				FROM ${sql.identifier(name)} t`,
-		);
-		return rows<{ name: string; digest: string }>(sql.join(parts, sql` UNION ALL `));
-	}
 	async function changes<T>(body: () => Promise<T>) {
-		const before = new Map((await contents()).map((t) => [t.name, t.digest]));
-		const { value, added } = await recorded(admin, body);
-		const tables = (await contents()).filter((t) => before.get(t.name) !== t.digest).map((t) => t.name);
-		return { value, added, tables };
+		const { value, tables } = await touched(admin, () => recorded(admin, body));
+		return { ...value, tables };
 	}
 	async function unchanged<T>(body: () => Promise<T>) {
 		const { value, added, tables } = await changes(body);
 		assert.deepEqual([added, tables], [NO_EFFECTS, []], "nothing is written");
 		return value;
 	}
-	async function failing<T>(table: string, event: "INSERT" | "UPDATE", body: () => Promise<T>) {
-		const name = `${table}_outage`;
-		await admin.execute(
-			sql.raw(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS
-				$$ BEGIN RAISE EXCEPTION 'synthetic outage'; END $$`),
-		);
-		await admin.execute(
-			sql.raw(`CREATE TRIGGER a_${name} BEFORE ${event} ON "${table}" FOR EACH ROW EXECUTE FUNCTION ${name}()`),
-		);
-		try {
-			return await body();
-		} finally {
-			await admin.execute(sql.raw(`DROP TRIGGER a_${name} ON "${table}"; DROP FUNCTION ${name}()`));
-		}
-	}
-	async function queued(lock: SQL, starts: (() => Promise<unknown>)[]) {
-		const running = await admin.transaction(async (tx: Transaction) => {
-			await tx.execute(lock);
-			const started: Promise<unknown>[] = [];
-			for (const start of starts) {
-				started.push(start());
-				await waitingOnLock(db, { count: started.length });
-			}
-			return { started };
-		});
-		return Promise.all(running.started);
-	}
+	const failing = <T,>(table: string, event: "INSERT" | "UPDATE", body: () => Promise<T>) =>
+		failingWrite(admin, { on: table, event }, body);
+	const queued = <T,>(lock: SQL, starts: (() => Promise<T>)[]) => raced(admin, db, lock, starts);
 	return {
 		...database,
 		db,

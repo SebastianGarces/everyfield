@@ -19,11 +19,11 @@ import {
 import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { recommendForPhase } from "../../../packages/domain/src/wiki/reads.ts";
 import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
-import { type Workspace, ok, refused } from "../../support/fixture.mts";
+import { type Workspace, ok, raced, refused } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { DESCRIPTION_EXCERPT } from "../../../packages/contracts/src/tasks/index.ts";
-import { recorded, untouched } from "../../support/recorded.mts";
-import { failingWrite, raced, rejectsWithFault } from "./world.mts";
+import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
+import { rejectsWithFault } from "./world.mts";
 
 type Who = { actor: RequestActor };
 type Row = Record<string, unknown>;

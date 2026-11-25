@@ -10,7 +10,7 @@ import {
 	reads as read,
 	type Reply,
 } from "./people-support.mts";
-import { recorded, touched } from "../../support/recorded.mts";
+import { recorded, touched, untouched } from "../../support/recorded.mts";
 import { fixture as invitationFixture } from "../identity/invitations-support.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -2074,13 +2074,8 @@ const personTask = async (personId: string, title: string, due: object = { kind:
 		),
 	).task;
 const nothing = { audits: [], jobs: [], notices: 0, mail: 0 };
-async function untouched<T>(body: () => Promise<T>) {
-	const { value, tables } = await touched(cases.admin, body);
-	assert.deepEqual(tables, []);
-	return value;
-}
 const refusedUntouched = async (body: () => Promise<{ status: string }>, code = "unavailable") =>
-	refused(await untouched(body), code);
+	refused(await untouched(cases.admin, body), code);
 async function held<T>(
 	start: (t: WriteTx) => Promise<T>,
 	transact: (body: (t: WriteTx) => Promise<T>) => Promise<T> = caseTx,
@@ -2138,7 +2133,7 @@ test("AC:TARGET-PPL-001 the 25 tied people who hold both tags page once each, wi
 	const list = (extra: object, who = alexAccount) =>
 		caseTx((t) => read.listPeople(t, at(who), { ...request, ...extra } as never));
 	const { added } = await recorded(cases.admin, () =>
-		untouched(async () => {
+		untouched(cases.admin, async () => {
 			for (const view of ["list", "card", "pipeline"] as const) {
 				const seen: string[] = [];
 				let page: number | null = 1;
@@ -2417,7 +2412,7 @@ test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep histor
 		],
 	];
 	for (const [code, refer] of references) {
-		refused(await untouched(() => refer(p.id)), code);
+		refused(await untouched(cases.admin, () => refer(p.id)), code);
 		ok(await refer(other.id));
 	}
 	const guests = (people: string[]) =>
@@ -2451,12 +2446,12 @@ test("AC:TARGET-PPL-003 an ordinary retired person is restored once without seat
 	const foreign = await seedPerson("Foreign retired", { plant: Q, retired: true });
 	await refusedUntouched(() => restore(foreign));
 	refused(
-		await untouched(() =>
+		await untouched(cases.admin, () =>
 			caseTx((t) => write.restorePerson(t, at(alexAccount), envelope("1", { personId: randomUUID() }))),
 		),
 	);
 	refused(
-		await untouched(() =>
+		await untouched(cases.admin, () =>
 			caseWrite(alexAccount, (t, c) => write.restorePerson(t, c, envelope("1", { personId: p.id }))),
 		),
 		"conflict",
@@ -2563,7 +2558,7 @@ test("AC:TARGET-PPL-006 leader back to attendee with a declined duty changes the
 	assert.deepEqual(moved.value.tables, ["audit_event", "people_column", "person", "plant", "record", "task"]);
 	const first = ok(moved.value.value);
 	assert.deepEqual([first.outcome, first.person.stage, first.needsOwner], ["changed", "attendee", [duty.id]]);
-	const again = await recorded(cases.admin, () => untouched(() => change(down)));
+	const again = await recorded(cases.admin, () => untouched(cases.admin, () => change(down)));
 	assert.deepEqual(ok(again.value), first);
 	assert.deepEqual(again.added, nothing);
 	const same = await recorded(cases.admin, async () => change(await request("attendee")));
@@ -2681,7 +2676,7 @@ test("AC:TARGET-PPL-007 seven stages fill five columns, only open parent duties 
 	ok(await taskWrite(alexAccount, (t, c) => tasks.waive(t, c, one(task.waived.id, task.waived.revision))));
 	ok(await taskWrite(alexAccount, (t, c) => tasks.delete(t, c, one(task.deleted.id, task.deleted.revision))));
 	const { added } = await recorded(cases.admin, () =>
-		untouched(async () => {
+		untouched(cases.admin, async () => {
 			assert.deepEqual(await duties("prospect"), [
 				[
 					[task.undated.id, null, "missing_due_date"],
@@ -2760,7 +2755,7 @@ test("AC:TARGET-PPL-008 three entries at one instant page once each, and no othe
 	const page = async (n: number, who = alexAccount) =>
 		ok(await caseTx((t) => read.getActivities(t, at(who), { personId: p.id, limit: 2, page: n })));
 	const { added } = await recorded(cases.admin, () =>
-		untouched(async () => {
+		untouched(cases.admin, async () => {
 			for (const who of [alexAccount, coauthor, seatedMember]) {
 				const [first, second] = [await page(1, who), await page(2, who)];
 				const items = [...first.items, ...second.items];

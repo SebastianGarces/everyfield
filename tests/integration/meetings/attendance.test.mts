@@ -31,12 +31,12 @@ import { teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/
 import { activityRequest } from "../../../packages/contracts/src/people/index.ts";
 import { owner as ownerValue } from "../../../packages/contracts/src/common/index.ts";
 import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
-import { recorded, touched, untouched } from "../../support/recorded.mts";
+import { failingWrite, recorded, touched, untouched } from "../../support/recorded.mts";
 import { issueRsvpToken } from "./rsvp-token.mts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { ok, refused, waitingOnLock } from "../../support/fixture.mts";
+import { ok, raced, refused } from "../../support/fixture.mts";
 
 let f: Fixture;
 let writer: AttendanceWriter;
@@ -1570,37 +1570,12 @@ async function church() {
 		seated: (role: "owner" | "admin" | "member") => seated(w, role),
 	};
 }
-async function failing<T>(event: "INSERT" | "UPDATE", table: string, when: string, body: () => Promise<T>) {
-	await f.admin.execute(
-		sql.raw(`CREATE FUNCTION required_write() RETURNS trigger LANGUAGE plpgsql AS
-			$$BEGIN RAISE EXCEPTION 'required_write'; END$$;
-			CREATE TRIGGER required_write AFTER ${event} ON ${table} FOR EACH ROW WHEN (${when}) EXECUTE FUNCTION required_write()`),
-	);
-	try {
-		return await body();
-	} finally {
-		await f.admin.execute(sql.raw(`DROP FUNCTION required_write() CASCADE`));
-	}
-}
-async function queued<T extends readonly unknown[]>(
+const failing = <T,>(event: "INSERT" | "UPDATE", table: string, when: string, body: () => Promise<T>) =>
+	failingWrite(f.admin, { on: table, event, when }, body);
+const queued = <T extends readonly unknown[]>(
 	meetingId: string,
 	bodies: { [K in keyof T]: () => Promise<T[K]> },
-): Promise<T> {
-	const holder = await f.admin.$client.connect();
-	const running: Promise<unknown>[] = [];
-	try {
-		await holder.query("BEGIN");
-		await holder.query("SELECT 1 FROM meeting WHERE id = $1 FOR UPDATE", [meetingId]);
-		for (const body of bodies) {
-			running.push(body());
-			await waitingOnLock(f.db, { count: running.length });
-		}
-	} finally {
-		await holder.query("COMMIT");
-		holder.release();
-	}
-	return (await Promise.all(running)) as unknown as T;
-}
+): Promise<T> => raced<T>(f.admin, f.db, sql`SELECT FROM meeting WHERE id=${meetingId} FOR UPDATE`, bodies);
 const note = (who: Seated, input: Record<string, unknown>, k: string = key()) =>
 	write(who, writer.addAttendeeNote, { requestKey: k, input });
 const invited = (who: Seated, meetingId: string, personId: string) =>
