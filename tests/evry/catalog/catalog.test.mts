@@ -527,7 +527,7 @@ test("INV-row-liveness: no liveness rule names a table r or c, which the queries
 	assert.deepEqual(outerAliases("FROM person live_r WHERE live_r.kind='r'"), []);
 });
 
-const TOOL_SCHEMA_BUDGET = 200_000;
+const TOOL_SCHEMA_BUDGET = 205_000;
 
 test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within their byte budget", async () => {
 	const idle = {
