@@ -1,7 +1,7 @@
 import "../../../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createSecretKey, randomBytes } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -64,7 +64,10 @@ const keys = () =>
 		.map((e) => join(e.parentPath, e.name).slice(root.length + 1));
 const writes = () => keys().length;
 
-let dir: string, keyFile: string, otherKeyFile: string, kek: Buffer;
+const kek = randomBytes(32);
+const key = createSecretKey(kek);
+const otherKey = createSecretKey(randomBytes(32));
+let dir: string;
 let plant: Workspace, a: Actor, actor: RequestActor, documentId: string, subject: string;
 let plain: Awaited<ReturnType<typeof snapshot>>;
 
@@ -75,11 +78,6 @@ before(async () => {
 	root = join(dir, "backup");
 	await mkdir(root, { mode: 0o700 });
 	store = new BackupDirectory(root);
-	kek = randomBytes(32);
-	keyFile = join(dir, "backup.key");
-	otherKeyFile = join(dir, "app.key");
-	await writeFile(keyFile, kek, { mode: 0o600 });
-	await writeFile(otherKeyFile, randomBytes(32), { mode: 0o600 });
 
 	plant = await seed.plant({ name: "Harvest Point" });
 	a = await seed.actor(plant, "admin");
@@ -102,19 +100,20 @@ after(async () => {
 });
 
 const copyAt = (at: Date, input: Record<string, unknown>) =>
-	createEncryptedCopy({ store, clock: () => at }, { capability: backupOperator, keyFile, ...input } as never);
+	createEncryptedCopy({ store, clock: () => at }, { capability: backupOperator, key, ...input } as never);
 
 test("only the backup directory type-checks as the copy store; a plain get/put store such as the app's object store does not", async () => {
 	const copy = fileURLToPath(new URL("../../../../../ops/maintenance/copy.mts", import.meta.url));
 	const fixture = join(dir, "stores.mts");
 	const lines = [
+		'import { createSecretKey } from "node:crypto";',
 		`import { BackupDirectory, createEncryptedCopy, openEncryptedCopy } from ${JSON.stringify(copy)};`,
 		"const objects = new Map<string, Uint8Array>();",
 		"const app = { put: async (key: string, bytes: Uint8Array) => void objects.set(key, bytes), get: async (key: string) => objects.get(key) ?? null };",
 		'const backup = new BackupDirectory("/private/backup");',
-		'const input = { capability: null, keyFile: "/private/backup.key", source: { copy: "copy/x" } };',
-		'export const backupOpen = openEncryptedCopy(backup, "copy/x", input.keyFile);',
-		'export const appOpen = openEncryptedCopy(app, "copy/x", input.keyFile);',
+		'const input = { capability: null, key: createSecretKey(new Uint8Array(32)), source: { copy: "copy/x" } };',
+		'export const backupOpen = openEncryptedCopy(backup, "copy/x", input.key);',
+		'export const appOpen = openEncryptedCopy(app, "copy/x", input.key);',
 		"export const backupCopy = createEncryptedCopy({ store: backup, clock: () => new Date() }, input);",
 		"export const appCopy = createEncryptedCopy({ store: app, clock: () => new Date() }, input);",
 	];
@@ -153,7 +152,7 @@ test("only a verified restricted-backup capability for the copy operation gets p
 			const before = writes();
 			const result = await createEncryptedCopy(
 				{ store, clock: () => NOW },
-				{ capability, keyFile, source: { snapshot: plain } },
+				{ capability, key, source: { snapshot: plain } },
 			);
 			assert.deepEqual(result, { copy_encrypted: false, refusal: "operator_unavailable", location: null });
 			assert.equal(writes(), before);
@@ -210,7 +209,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 	await step.test(
 		"the restricted backup key recovers the image and bytes matching the recorded checksums",
 		async () => {
-			const opened = await openEncryptedCopy(store, location, keyFile);
+			const opened = await openEncryptedCopy(store, location, key);
 			assert.deepEqual(opened.image, plain.image);
 			assert.equal(sha256(opened.image), plain.manifest.database.sha256);
 			const id = plain.manifest.objects[0]!.id;
@@ -220,18 +219,18 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 	);
 
 	await step.test("another key, a changed ciphertext and a changed checksum are each refused", async () => {
-		await assert.rejects(openEncryptedCopy(store, location, otherKeyFile), { message: "copy_unreadable" });
-		const tamper = async (key: string, change: (bytes: Buffer) => Buffer) => {
-			const original = stored(key);
-			restore(key, change(Buffer.from(original)));
+		await assert.rejects(openEncryptedCopy(store, location, otherKey), { message: "copy_unreadable" });
+		const tamper = async (at: string, change: (bytes: Buffer) => Buffer) => {
+			const original = stored(at);
+			restore(at, change(Buffer.from(original)));
 			try {
-				await assert.rejects(openEncryptedCopy(store, location, keyFile), { message: "copy_unreadable" }, key);
+				await assert.rejects(openEncryptedCopy(store, location, key), { message: "copy_unreadable" }, at);
 				const before = writes();
 				const recopy = await copyAt(RECOPY, { source: { copy: location } });
 				assert.deepEqual(recopy, { copy_encrypted: false, refusal: "copy_unreadable", location: null });
 				assert.equal(writes(), before);
 			} finally {
-				restore(key, original);
+				restore(at, original);
 			}
 		};
 		const flip = (b: Buffer) => {
@@ -244,9 +243,6 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		await tamper(`${location}/manifest.json`, (b) =>
 			Buffer.from(b.toString("utf8").replace(plain.manifest.database.sha256, "a".repeat(64))),
 		);
-		const open = join(dir, "open.key");
-		await writeFile(open, kek, { mode: 0o644 });
-		await assert.rejects(openEncryptedCopy(store, location, open), { message: "key_unavailable" });
 	});
 
 	await step.test(
@@ -264,13 +260,13 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			const checked = validateCandidate(manifest, RECOPY);
 			assert.deepEqual(checked.manifest.subjects, [{ id: subject, expiresAt: SUBJECT_EXPIRY }]);
 			assert.equal(checked.effectiveExpiresAt, "2026-10-20T16:00:00.000Z");
-			const opened = await openEncryptedCopy(store, recopy.location, keyFile);
+			const opened = await openEncryptedCopy(store, recopy.location, key);
 			assert.deepEqual(opened.image, plain.image);
 		},
 	);
 
 	await step.test("a recopy that carries a later subject expiry is refused", async () => {
-		const opened = await openEncryptedCopy(store, location, keyFile);
+		const opened = await openEncryptedCopy(store, location, key);
 		const old = manifestSchema.parse(opened.manifest);
 		const later = new Date(RECOPY.getTime() + 7 * DAY).toISOString();
 		const redated = {
