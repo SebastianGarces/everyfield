@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
+import { UNSHOWN } from "../../../apps/web/src/features/evry/conversation/model.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
 import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
@@ -173,6 +174,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"communication.get": {},
 	"communication.forPerson": { personId: byName("Maria Santos").id },
 	"communication.templates.list": {},
+	"communication.getDraft": { communicationId: WELCOME },
+	"people.getStatusWarnings": { personId: JAMES, stage: "launch_team" },
 	"communication.resendCandidates": { communicationId: WELCOME, selection: "delivered_nonopeners" },
 	"communication.forMeeting": { meetingWords: "vision meeting" },
 	"communication.meetingRecipientTracking": { meetingWords: "vision meeting" },
@@ -370,7 +373,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	},
 };
 
-const catalogTools = Object.values(catalog).flatMap((v) => (typeof v === "string" && v.startsWith("evry.") ? [v] : []));
+const catalogTools = Object.values(catalog).flatMap((v) =>
+	typeof v === "string" && v.startsWith("evry.") && v !== catalog.COMPOSE_READS && !UNSHOWN.has(v) ? [v] : [],
+);
 const installed = [
 	...Object.values(catalog.READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
 	...catalogTools,
