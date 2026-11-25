@@ -158,6 +158,8 @@ async function capped<T>(call: () => PromiseLike<T>): Promise<T> {
 	}
 }
 
+const withoutReasoningBlob = (key: string, value: unknown) => (key === "reasoningEncryptedContent" ? undefined : value);
+
 export const callKey = ({
 	prompt,
 	tools,
@@ -168,7 +170,12 @@ export const callKey = ({
 	providerOptions,
 }: LanguageModelV4CallOptions) =>
 	createHash("sha256")
-		.update(JSON.stringify({ prompt, tools, toolChoice, reasoning, maxOutputTokens, responseFormat, providerOptions }))
+		.update(
+			JSON.stringify(
+				{ prompt, tools, toolChoice, reasoning, maxOutputTokens, responseFormat, providerOptions },
+				withoutReasoningBlob,
+			),
+		)
 		.digest("hex")
 		.slice(0, 16);
 
@@ -202,7 +209,7 @@ function merged(parts: LanguageModelV4StreamPart[]) {
 	return out;
 }
 
-export function recorder(name: string) {
+export function recorder(name: string, selectModel = selectQualifiedModel) {
 	const file = new URL(`${name}.recorded.json`, import.meta.url);
 	let loaded: Recorded | null = (() => {
 		try {
@@ -217,7 +224,7 @@ export function recorder(name: string) {
 	let real: LanguageModelV4 | null = null;
 	function realModel() {
 		if (real) return real;
-		const selected = selectQualifiedModel(process.env);
+		const selected = selectModel(process.env);
 		if (selected.status !== "qualified" || !selected.spend)
 			throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
 		if (loaded && loaded.model !== selected.id)
@@ -311,7 +318,7 @@ export function recorder(name: string) {
 			calls,
 		};
 		for (const call of Object.values(out.calls)) if (call.kind === "stream") call.parts = merged(call.parts);
-		writeFileSync(file, JSON.stringify(out, null, "\t") + "\n");
+		writeFileSync(file, JSON.stringify(out, withoutReasoningBlob, "\t") + "\n");
 		loaded = out;
 		return out.spend;
 	}
