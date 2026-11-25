@@ -81,7 +81,10 @@ test("INV-containers: the job PATH holds node, docker, git and evf, and a missin
 	const path = (found: Record<string, string>) =>
 		jobPath((tool) => found[tool] ?? null, "/n/node", ["docker", "git", "evf"], AGENT);
 	assert.equal(path(at), "/n:/d:/g:/e:/usr/bin:/bin:/usr/sbin:/sbin");
-	assert.throws(() => path(Object.fromEntries(Object.entries(at).filter(([tool]) => tool !== "evf"))), /evf is not on PATH/);
+	assert.throws(
+		() => path(Object.fromEntries(Object.entries(at).filter(([tool]) => tool !== "evf"))),
+		/evf is not on PATH/,
+	);
 });
 
 test("INV-containers: the job runs only landed code that has the command, and trims its log", (t) => {
