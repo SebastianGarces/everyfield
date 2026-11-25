@@ -32,7 +32,7 @@ import type { TaskReply } from "../../../packages/domain/src/tasks/core.ts";
 import { interviews, peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { activityRequest, listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { recorded, untouched } from "../../support/recorded.mts";
+import { NOTHING, recorded, untouched } from "../../support/recorded.mts";
 import { pinSchemaClock } from "../../support/test-database.mts";
 import { readAs } from "../communication/communication-support.mts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
@@ -187,7 +187,6 @@ const onTask = (task: { id: string; revision: string } | null) => ({
 	expectedRevision: present(task, "task").revision,
 });
 
-const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 const only = (...audits: string[]) => ({ ...NOTHING, audits: audits.sort() });
 const refusedUntouched = async (body: () => Promise<unknown>, code?: string) =>
 	refused(await untouched(f.admin, body), code);
@@ -2359,7 +2358,7 @@ test("AC:GAP-PPL-022 a Person with no follow-up shows none, stays uncovered and 
 	const stranger = await foreign.seated("member");
 	await committed(c, c.admin, "leader");
 	const alex = await person(c, "Alex");
-	const activity = (who: Seat, personId = alex) =>
+	const activity = (who: Seat, personId: string = alex) =>
 		gatedTransaction(f.db, (tx) =>
 			peopleReader.getActivities(
 				tx,

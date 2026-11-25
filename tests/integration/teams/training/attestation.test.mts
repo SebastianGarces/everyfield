@@ -24,7 +24,7 @@ import {
 import { scriptedAssessmentDrafter } from "../../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { sql } from "../../../../packages/db/src/query.ts";
 import { ok, refused, type Actor } from "../../../support/fixture.mts";
-import { failingWrite, recorded } from "../../../support/recorded.mts";
+import { failingWrite, NOTHING, recorded } from "../../../support/recorded.mts";
 import { CANARY, church, type Church, type ChurchPlant } from "../../intelligence/assessment-church.mts";
 
 const NOW = "2026-10-13T16:00:00.000Z";
@@ -32,7 +32,6 @@ const clock = { now: () => instant.parse(NOW) };
 const signals = createSignals({ clock });
 const factsOf = createFacts();
 const key = () => randomUUID();
-const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 const audited = (...audits: string[]) => ({ ...NOTHING, audits });
 
 let c: Church;

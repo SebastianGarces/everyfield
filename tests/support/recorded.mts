@@ -19,6 +19,8 @@ const read = async (admin: Database) => {
 	return rows[0]!;
 };
 
+export const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
+
 export async function recorded<T>(admin: Database, body: () => Promise<T>): Promise<{ value: T; added: Recorded }> {
 	const before = await read(admin);
 	const value = await body();

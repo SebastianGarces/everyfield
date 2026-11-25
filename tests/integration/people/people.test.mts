@@ -10,7 +10,7 @@ import {
 	reads as read,
 	type Reply,
 } from "./people-support.mts";
-import { recorded, touched, untouched } from "../../support/recorded.mts";
+import { faulted, recorded, touched, untouched } from "../../support/recorded.mts";
 import { fixture as invitationFixture } from "../identity/invitations-support.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -3083,21 +3083,7 @@ test("AC:TARGET-PPL-005 a person's photo moves to version 2 once, a failed save 
 	assert.deepEqual(rejectedSet.tables, []);
 	const two = await upload(alex.id, photo(1));
 	ok(two.stored);
-	await admin.execute(sql`CREATE FUNCTION refuse_photo_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-		RAISE EXCEPTION 'synthetic_audit_failure'; END $$`);
-	await admin.execute(
-		sql.raw(`CREATE TRIGGER refuse_photo_audit BEFORE INSERT ON audit_event FOR EACH ROW
-		WHEN (NEW.subject_id='${alex.id}') EXECUTE FUNCTION refuse_photo_audit()`),
-	);
-	try {
-		const rolledBack = await touched(admin, async () => {
-			await assert.rejects(set(alex.id, two.uploadId));
-		});
-		assert.deepEqual(rolledBack.tables, []);
-	} finally {
-		await admin.execute(sql`DROP TRIGGER refuse_photo_audit ON audit_event`);
-		await admin.execute(sql`DROP FUNCTION refuse_photo_audit()`);
-	}
+	await faulted(admin, "audit_event", () => set(alex.id, two.uploadId));
 	assert.deepEqual(ok(await shown(alex.id)), version1);
 	assert.deepEqual(Buffer.from(ok(await bytesOf(alex.id, one.uploadId)).bytes), photoBytes);
 

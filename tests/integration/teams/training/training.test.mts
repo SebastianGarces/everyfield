@@ -19,7 +19,7 @@ import {
 } from "../../../../packages/domain/src/teams/index.ts";
 import { meetingsReader, meetingsWriter } from "../../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
-import { failingWrite, recorded, untouched } from "../../../support/recorded.mts";
+import { failingWrite, NOTHING, recorded, untouched } from "../../../support/recorded.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
@@ -144,7 +144,6 @@ async function held(meetingId: string, personIds: string[], who = 0) {
 		}),
 	);
 }
-const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 const audited = (...audits: string[]) => ({ ...NOTHING, audits });
 async function leads(teamId: string, personId: string) {
 	return run(teamsWriter.appointLeader, {
@@ -611,8 +610,6 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health weighs staf
 			input: { teamId: team.id, personId: casey },
 		}),
 	);
-	const phases = await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action LIKE 'phase.%'`);
-	const jobs = await count(sql`SELECT count(*)::int AS n FROM job`);
 	const seen = await recorded(admin, async () =>
 		untouched(admin, async () => trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id })),
 	);
@@ -624,8 +621,6 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health weighs staf
 	assert.equal(facts.guestCount, 1);
 	assert.equal(facts.rosterDenominator, 2);
 	assert.equal(facts.trainingRate, null);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action LIKE 'phase.%'`), phases);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job`), jobs);
 	const course = await program("Coverage", { teamId: team.id });
 	await saveRoster(course.id, [alex, casey]);
 	assert.equal(
@@ -680,7 +675,7 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health weighs staf
 
 test("AC:SME53-004 each rate moves the composite by its own weight, and the bands turn at 40, 60 and 50 percent", async () => {
 	const team = await makeTeam("Weighted health");
-	const people = [];
+	const people: string[] = [];
 	for (let n = 0; n < 10; n++) people.push(await person(`Weighted ${n}`));
 	const roles = [];
 	for (let n = 0; n < 8; n++) roles.push(await makeRole(team.id, `Weighted ${n}`));

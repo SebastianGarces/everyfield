@@ -13,14 +13,13 @@ import {
 	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, raced, type Actor } from "../../support/fixture.mts";
-import { failingWrite, recorded, touched } from "../../support/recorded.mts";
+import { failingWrite, NOTHING, recorded, touched } from "../../support/recorded.mts";
 
 export const NOW = new Date("2026-10-13T16:00:00Z");
 type Row = Record<string, unknown>;
 type Write<R> = (tx: WriteTx, context: MeetingsContext, raw: unknown) => Promise<MeetingsReply<R>>;
 export const key = () => randomUUID();
-export const NO_EFFECTS = { audits: [], jobs: [], notices: 0, mail: 0 };
-export const effects = (...audits: string[]) => ({ ...NO_EFFECTS, audits });
+export const effects = (...audits: string[]) => ({ ...NOTHING, audits });
 
 export async function meetingsWorld(prefix: string, clock = NOW) {
 	const database = await fixture({ prefix, max: 8, clock });
@@ -107,7 +106,7 @@ export async function meetingsWorld(prefix: string, clock = NOW) {
 	}
 	async function unchanged<T>(body: () => Promise<T>) {
 		const { value, added, tables } = await changes(body);
-		assert.deepEqual([added, tables], [NO_EFFECTS, []], "nothing is written");
+		assert.deepEqual([added, tables], [NOTHING, []], "nothing is written");
 		return value;
 	}
 	const failing = <T,>(table: string, event: "INSERT" | "UPDATE", body: () => Promise<T>) =>

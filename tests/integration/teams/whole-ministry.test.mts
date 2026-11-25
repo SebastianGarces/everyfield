@@ -18,7 +18,7 @@ import { scriptedModel, scriptedQualifiedModel } from "../../../packages/evry-sc
 import { runDueImports } from "../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { harness } from "../../evry/evals/intelligence-harness.mts";
 import { fixture, ok, refused, waitingOnLock, type Actor } from "../../support/fixture.mts";
-import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
+import { failingWrite, NOTHING, recorded, untouched } from "../../support/recorded.mts";
 
 const NOW = new Date("2026-10-13T16:00:00Z");
 const TODAY = "2026-10-13";
@@ -44,7 +44,6 @@ async function hidden<T>(table: string, body: () => Promise<T>) {
 	}
 }
 const QUIET = { audits: ["teams.changed"], jobs: [], notices: 0, mail: 0 };
-const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 
 type Op<V> = (t: WriteTx, c: never, raw: never) => Promise<V>;
 async function church() {

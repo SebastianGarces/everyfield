@@ -31,7 +31,7 @@ import { teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/
 import { activityRequest } from "../../../packages/contracts/src/people/index.ts";
 import { owner as ownerValue } from "../../../packages/contracts/src/common/index.ts";
 import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
-import { failingWrite, recorded, touched, untouched } from "../../support/recorded.mts";
+import { failingWrite, NOTHING, recorded, touched, untouched } from "../../support/recorded.mts";
 import { issueRsvpToken } from "./rsvp-token.mts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
@@ -1540,7 +1540,6 @@ test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle at
 	refused(await finalize(leader, await meeting("orientation", "2026-09-06T23:00:00Z"), [guest]), "unavailable");
 });
 
-const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 const only = (...audits: string[]) => ({ ...NOTHING, audits: audits.sort() });
 const refusedUntouched = async (body: () => Promise<unknown>, code?: string) =>
 	refused(await untouched(f.admin, body), code);
