@@ -58,14 +58,7 @@ import { createRead, useRead } from "../../components/read.tsx";
 import { markAssessmentSeen, submitAssessmentFeedback } from "./assessment-actions.ts";
 import type { ActionOutcome } from "./assessment-model.ts";
 import { resolveAssessmentCitation } from "./fetch.ts";
-import {
-	CRITERION,
-	factText,
-	newestText,
-	QUALITY,
-	SEVERITY_LABEL,
-	STANDING,
-} from "./assessment-model.ts";
+import { CRITERION, factText, newestText, QUALITY, SEVERITY_LABEL, STANDING } from "./assessment-model.ts";
 import { OutOfDate } from "./OutOfDate.tsx";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 import { loadProblem, failedIcon } from "../../components/read-failed.ts";

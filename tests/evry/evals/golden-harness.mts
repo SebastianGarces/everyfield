@@ -48,7 +48,12 @@ import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { OVERSIGHT_COMMANDS } from "../../../packages/evry/src/adapters/oversight/commands/index.ts";
-import { GEOGRAPHY_READS, SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
+import {
+	GEOGRAPHY_READS,
+	SEAT_READS,
+	SETTINGS_COMMANDS,
+	SHARING_READS,
+} from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
 import { DASHBOARD_READS } from "../../../packages/evry/src/adapters/dashboard/reads/index.ts";

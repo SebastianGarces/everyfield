@@ -630,24 +630,20 @@ SELECT EXISTS(SELECT FROM pr WHERE current_version_id IS NOT NULL) AS published,
 }
 
 function updateEnrollment(db: Database, authority: RequestActor, raw: unknown) {
-	return write<{ revision: string; outcome: "changed" | "noop" }, C.ProgramRefusal>(
-		db,
-		authority,
-		false,
-		async (w) => {
-			const input = parse(C.updateEnrollmentRequest, raw);
-			const org = w.organization;
-			const c = input.changes;
-			const meets = c.nextMeetingAt !== undefined;
-			const row = await one(
-				w,
-				z.object({
-					current: z.string().nullable(),
-					staged: z.boolean(),
-					ends: z.boolean(),
-					revision: z.string().nullable(),
-				}),
-				sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.started_on,e.cohort_label,e.expected_end_on,e.current_stage_id,
+	return write<{ revision: string; outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.updateEnrollmentRequest, raw);
+		const org = w.organization;
+		const c = input.changes;
+		const meets = c.nextMeetingAt !== undefined;
+		const row = await one(
+			w,
+			z.object({
+				current: z.string().nullable(),
+				staged: z.boolean(),
+				ends: z.boolean(),
+				revision: z.string().nullable(),
+			}),
+			sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.started_on,e.cohort_label,e.expected_end_on,e.current_stage_id,
   e.next_meeting_at,e.meeting_timezone,o.timezone
  FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
@@ -667,29 +663,28 @@ u AS (UPDATE development_enrollment e SET cohort_label=n.cohort,expected_end_on=
   AND (x.cohort_label,x.expected_end_on,x.current_stage_id,x.next_meeting_at) IS DISTINCT FROM (n.cohort,n.ends,n.stage,n.meeting)
  RETURNING e.revision),
 a AS (${w.audit({
-					action: "development.enrollment_updated",
-					kind: "edit",
-					subjectType: "development_enrollment",
-					subject: sql`x.id`,
-					before: sql`x.revision`,
-					after: sql`u.revision`,
-					metadata: sql`jsonb_build_object('fields',to_jsonb(array_remove(ARRAY[
+				action: "development.enrollment_updated",
+				kind: "edit",
+				subjectType: "development_enrollment",
+				subject: sql`x.id`,
+				before: sql`x.revision`,
+				after: sql`u.revision`,
+				metadata: sql`jsonb_build_object('fields',to_jsonb(array_remove(ARRAY[
  CASE WHEN x.cohort_label<>n.cohort THEN 'cohort' END,CASE WHEN x.expected_end_on<>n.ends THEN 'expectedEndOn' END,
  CASE WHEN x.current_stage_id<>n.stage THEN 'stage' END,
  CASE WHEN x.next_meeting_at IS DISTINCT FROM n.meeting THEN 'nextMeeting' END],NULL)))`,
-				})}
+			})}
  FROM x,n,u RETURNING id)
 SELECT (SELECT revision::text FROM x) AS current,coalesce((SELECT staged FROM ok),false) AS staged,
  coalesce((SELECT ends FROM ok),false) AS ends,(SELECT revision::text FROM u) AS revision`,
-			);
-			if (row.revision) return { revision: row.revision, outcome: "changed" as const };
-			if (!row.current) refuse();
-			if (row.current !== input.expectedRevision) refuse({ code: "conflict" });
-			if (!row.staged) refuse({ code: "invalid_input", field: "stageId" });
-			if (!row.ends) refuse({ code: "invalid_input", field: "expectedEndOn" });
-			return { revision: row.current, outcome: "noop" as const };
-		},
-	);
+		);
+		if (row.revision) return { revision: row.revision, outcome: "changed" as const };
+		if (!row.current) refuse();
+		if (row.current !== input.expectedRevision) refuse({ code: "conflict" });
+		if (!row.staged) refuse({ code: "invalid_input", field: "stageId" });
+		if (!row.ends) refuse({ code: "invalid_input", field: "expectedEndOn" });
+		return { revision: row.current, outcome: "noop" as const };
+	});
 }
 
 const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string) => sql`x AS (SELECT e.id,e.version_id,
