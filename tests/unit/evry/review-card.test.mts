@@ -30,7 +30,7 @@ const reviewed = (operation: string, changes: Change[], over: Record<string, unk
 	outcome: null,
 	executing: false,
 	receipt: null,
-	stale: false,
+	stale: null,
 	now: NOW,
 	...over,
 });
@@ -166,7 +166,8 @@ test("INV-mail-wording: whatever the email service confirmed, an email card's re
 test("INV-mail-wording: before and around its result, an email card never says an email was delivered, and a send says accepted is not delivered", async () => {
 	const states: Record<string, unknown>[] = [
 		{},
-		{ stale: true },
+		{ stale: "message" },
+		{ stale: "merge" },
 		{ expiresAt: "2026-10-21T11:00:00Z" },
 		{ status: "cancelled" },
 		{ status: "expired" },
@@ -427,4 +428,40 @@ test("INV-review-footer: a view change gives the card a new footer element, so a
 	assert.ok(unknown.footer !== first.footer, "another view has a footer of its own");
 	assert.ok(unknown.footer?.contains(unknown.control));
 	assert.ok(!at.all().includes(first.control), "no control of the old view stays");
+});
+
+const MERGED = "Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed.";
+const ASK = `${MERGED} Ask Evry to prepare it again.`;
+const AGAIN = `${MERGED} Review it again to see it as it is now.`;
+
+test("a draft that a merge made stale says so and offers the one way forward it has", async () => {
+	const named = [change("subject", "Hi"), change("body", "Hi"), change("audience", audience)];
+	const grouped = [change("subject", "Hi"), change("body", "Hi"), change("audience", { ...audience, personIds: [] })];
+	const message = { kind: "message", id: ID, label: "Hi" };
+	const person = { kind: "person", id: ID, label: "Ana Lee" };
+	const cases: [string, Change[], unknown, boolean][] = [
+		["evry.prepareMeetingInvitation", mailChanges, null, false],
+		["evry.reuseRecipe", mailChanges, null, false],
+		["communication.sendReviewed", mailChanges, null, false],
+		["communication.saveDraft", named, null, false],
+		["communication.replaceScheduledReviewed", named, message, false],
+		["communication.saveDraft", grouped, null, true],
+		["communication.scheduleReviewed", [change("sendAt", SEND_AT)], message, true],
+		["people.updatePerson", [change("city", "Elgin")], person, true],
+		["people.addNote", [change("note", "Hi")], person, false],
+	];
+	for (const [operation, changes, target, again] of cases) {
+		const { text } = await shown(reviewed(operation, changes, { stale: "merge", review: { target, changes } }));
+		assert.ok(text.includes(again ? AGAIN : ASK), `${operation}: ${text}`);
+		assert.equal(text.includes("Review again"), again, operation);
+		for (const wrong of ["Message changed", "This message changed", "Review every step", "Approving does every step"])
+			assert.equal(text.includes(wrong), false, `${operation}: ${wrong}`);
+	}
+	for (const operation of ["evry.prepareMeetingInvitation", "communication.deleteDraft", "people.addNote"]) {
+		const review = { target: null, changes: [], withheld: true };
+		assert.ok((await shown(reviewed(operation, [], { stale: "merge", review }))).text.includes(ASK), operation);
+	}
+	const changed = { stale: "message", review: { target: message, changes: [change("sendAt", SEND_AT)] } };
+	const { text } = await shown(reviewed("communication.scheduleReviewed", [], changed));
+	assert.ok(text.includes("Message changed") && text.includes("This message changed since the review."), text);
 });

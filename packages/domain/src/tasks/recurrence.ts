@@ -44,6 +44,7 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 		deleted_at: null,
 		obligation_id: null,
 		obligation_kind: null,
+		superseded: false,
 		prerequisite_ids: [],
 		open_prerequisites: 0,
 		child_total: 0,

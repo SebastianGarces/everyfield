@@ -1473,7 +1473,12 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: fields.from ? `${label(TASK_STATUS, fields.from)} → ${label(TASK_STATUS, fields.to)}` : "Created",
-				line: joined(day(fields.occurredAt), text(fields.by) ? `By ${fields.by}` : null),
+				line: joined(
+					day(fields.occurredAt),
+					text(fields.by) ? `By ${fields.by}` : null,
+					text(fields.mergedBy) ? `Merge by ${fields.mergedBy}` : null,
+					text(fields.unmergedBy) ? `Unmerge by ${fields.unmergedBy}` : null,
+				),
 				avatar: "history",
 			};
 		case "follow_up":

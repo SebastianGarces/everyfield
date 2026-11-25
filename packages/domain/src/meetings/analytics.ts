@@ -67,7 +67,8 @@ const progressSql = sql`(SELECT json_build_object(
 	'evaluation', (SELECT json_build_object('task_id', et.id, 'status', coalesce(et.status, 'deleted'),
 		'needs_owner', NOT EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = et.id)) FROM obligation eb LEFT JOIN task et ON et.obligation_id = eb.id
 		AND et.deleted_at IS NULL WHERE eb.meeting_id = m.id AND eb.kind = 'evaluation' LIMIT 1))
-	FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL WHERE b.meeting_id = m.id)`;
+	FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL
+	WHERE b.meeting_id = m.id AND b.superseded_at IS NULL)`;
 const progressRow = z.object({
 	total: z.number().int(),
 	complete: z.number().int(),

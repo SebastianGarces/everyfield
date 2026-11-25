@@ -52,7 +52,30 @@ export const blockers = {
 	leadership: z.array(leadershipConflict).max(100),
 	invitations: z.array(z.strictObject({ recipientEmail: z.string().max(320) })).max(100),
 };
-export const inverseConflict = z.enum(["survivor_changed", "source_changed", "references_changed", "mail_sent"]);
+export const inverseConflict = z.enum([
+	"chained_merge",
+	"survivor_retired",
+	"survivor_changed",
+	"source_changed",
+	"references_changed",
+	"household_deleted",
+	"mail_sent",
+]);
+export const mergeField = z.enum([
+	"displayName",
+	"firstName",
+	"lastName",
+	"email",
+	"phone",
+	"address",
+	"source",
+	"summaryNotes",
+	"birthDate",
+	"adultClassification",
+	"household",
+	"photo",
+]);
+export const unmergeField = z.enum([...mergeField.options, "stage"]);
 export const mergeErrors = [
 	defineSafeError("merge_blocked", { ...blockers, causes: blockers.causes.min(1) }, "never"),
 	defineSafeError(
@@ -60,6 +83,7 @@ export const mergeErrors = [
 		{
 			causes: z.array(inverseConflict).min(1).max(inverseConflict.options.length),
 			changed: z.array(referenceKind).max(referenceKind.options.length),
+			changedFields: z.array(unmergeField).max(unmergeField.options.length),
 		},
 		"refresh",
 	),

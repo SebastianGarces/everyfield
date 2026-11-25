@@ -13,6 +13,7 @@ export {
 } from "./duplicates.ts";
 export { personSearchMatch, searchPeople, type PersonHit } from "./search.ts";
 export { readPipelineMetrics } from "./pipeline-metrics.ts";
+export { currentPersonJoin, lineageOf } from "./lineage.ts";
 export { peopleMerge } from "./merge/index.ts";
 export { peopleUnmerge } from "./unmerge/index.ts";
 export { recordCorrections } from "./corrections/index.ts";

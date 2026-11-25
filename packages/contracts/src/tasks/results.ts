@@ -83,7 +83,16 @@ export const historyActor = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("former_account") }),
 	z.strictObject({ kind: z.literal("system"), cause: z.string() }),
 ]);
-export const historySource = z.enum(["person", "evry", "bulk", "generated", "recurrence", "correction"]);
+export const historySource = z.enum([
+	"person",
+	"evry",
+	"bulk",
+	"generated",
+	"recurrence",
+	"correction",
+	"merge",
+	"unmerge",
+]);
 export const statusHistory = z.strictObject({
 	taskId: recordId,
 	items: z
@@ -192,6 +201,7 @@ export const bulkResult = z.strictObject({
 export const taskError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("protected_source", {}, "never"),
+	defineSafeError("combined_follow_up", {}, "never"),
 	defineSafeError("nonexistent_local_time", { local: localDateTime }, "never"),
 	defineSafeError(
 		"ambiguous_local_time",

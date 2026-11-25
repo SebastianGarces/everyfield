@@ -213,6 +213,12 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const tasks = !!review && isTasks(review.operation);
 	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
+	if (review?.stale === "merge" && (view === "pending" || view === "withheld"))
+		return `Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. ${
+			view === "withheld" || reviseInput(review) === null
+				? "Ask Evry to prepare it again."
+				: "Review it again to see it as it is now."
+		}`;
 	if (mail) {
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
@@ -428,7 +434,7 @@ export function ReviewCard({
 								<InvitationChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
 								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
-								{view === "pending" && !review.review.refusal ? (
+								{view === "pending" && !review.review.refusal && !review.stale ? (
 									<p className="text-sm text-text-2">{INVITATION_CONSEQUENCE}</p>
 								) : null}
 							</>
@@ -548,13 +554,13 @@ function Footer({
 						variant="primary"
 						icon={Tick02Icon}
 						loading={r.busy === "approve"}
-						disabled={other("approve") || !canApprove || review.stale || reason === ""}
+						disabled={other("approve") || !canApprove || review.stale !== null || reason === ""}
 						onClick={() => void r.approve(reason ?? undefined)}
 					>
 						Approve
 					</Button>
 				)}
-				{review.stale ? (
+				{review.stale && reviseInput(review) !== null ? (
 					<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
 						Review again
 					</Button>

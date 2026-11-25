@@ -1,4 +1,5 @@
 import * as c from "@everyfield/contracts/teams";
+import { lineageOf } from "../../people/lineage.ts";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -104,7 +105,7 @@ async function lockCredit(tx: Tx, w: Writer, programId: string, personId: string
 				LEFT JOIN LATERAL (
 					SELECT c.kind, c.version, c.earned_on, c.verifier_account_id
 					FROM training_credit c
-					WHERE c.plant_id = program.plant_id AND c.person_id = p.id AND c.program_id = program.id
+					WHERE c.plant_id = program.plant_id AND c.person_id IN ${lineageOf(sql`p.id`, sql`p.tenant_id`)} AND c.program_id = program.id
 					ORDER BY c.recorded_at DESC, c.id DESC
 					LIMIT 1
 				) latest ON true

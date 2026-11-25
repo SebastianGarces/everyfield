@@ -11,7 +11,7 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
-import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
+import { REVIEWED_WRITES, stale } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
 import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
@@ -89,7 +89,7 @@ export async function executeProposal(
 			const r = await tx.execute(sql`
 				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
 					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced,
-					${sql.raw(staleMessage("p"))} AS stale,coalesce((p.receipt->>'reached')::boolean,false) AS reached
+					${sql.raw(stale("p"))} AS stale,coalesce((p.receipt->>'reached')::boolean,false) AS reached
 				FROM proposal p JOIN conversation c ON c.id=p.conversation_id JOIN job j ON j.id=p.job_id AND j.tenant_id=p.tenant_id
 				WHERE p.job_id=${lease.jobId}::uuid AND p.tenant_id=${lease.tenantId}::uuid FOR UPDATE OF p FOR SHARE OF j`);
 			if (!r.rows.length) return "lost";

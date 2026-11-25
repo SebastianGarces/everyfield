@@ -19,6 +19,7 @@ import {
 	listText,
 	mergeBlockedText,
 	unmergeBlockedText,
+	unmergeStaysText,
 	type PeopleReply,
 } from "@everyfield/contracts/people";
 import { z } from "zod";
@@ -254,7 +255,7 @@ export async function unmergePreviewOf(tx: WriteTx, actor: EvryActor, mergeId: s
 		v.state === "unmerged"
 			? "This merge was already undone."
 			: v.conflicts.length
-				? unmergeBlockedText(v.conflicts, who, v.changed)
+				? unmergeBlockedText(v.conflicts, who, v.changed, v.changedFields)
 				: null;
 	const attendanceBack = v.attendance
 		.map((a) =>
@@ -264,7 +265,7 @@ export async function unmergePreviewOf(tx: WriteTx, actor: EvryActor, mergeId: s
 			}),
 		)
 		.join(" ");
-	return { ...v, names: who, blocked, attendanceBack };
+	return { ...v, names: who, blocked, attendanceBack, staysWithKept: unmergeStaysText(v, who) };
 }
 const unmergeInput = z.union([
 	z.strictObject({ mergeId: id }),
@@ -300,6 +301,7 @@ export const previewUnmerge: ReadAdapter<z.infer<typeof unmergeInput>> = {
 				comesBack: v.names.source,
 				movesBack: listText(v.restores.map((r) => counted(r.kind, r.count))) || null,
 				detailsGoBack: v.fields.join(", ") || null,
+				...(v.staysWithKept ? { staysWithKept: v.staysWithKept } : {}),
 				blocked: v.blocked,
 			},
 		};

@@ -320,7 +320,7 @@ export const statusHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 				from: e.from,
 				to: e.to,
 				occurredAt: localTime(e.occurredAt, zone),
-				by:
+				[e.source === "merge" ? "mergedBy" : e.source === "unmerge" ? "unmergedBy" : "by"]:
 					e.actor.kind === "account"
 						? e.actor.accountId === actor.accountId
 							? "you"

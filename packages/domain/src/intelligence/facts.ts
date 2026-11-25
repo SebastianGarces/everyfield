@@ -12,6 +12,7 @@ import { plantViewer } from "../documents/access.ts";
 import { effectiveAdult } from "../people/adult.ts";
 import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
+import { outcomeEvidence } from "../tasks/origin.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
 import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
@@ -376,7 +377,7 @@ function inputsSql() {
 	const attended = (m: SQL) =>
 		sql`(SELECT count(*)::int FROM participation pa WHERE pa.meeting_id=${m}.id AND pa.plant_id=${m}.plant_id
  AND pa.removed_at IS NULL AND pa.presence='attended')`;
-	const evidence = sql`(e.obligation_id=o.id OR (e.person_id=o.person_id AND t.id=ANY(e.also_task_ids)))`;
+	const evidence = outcomeEvidence(sql`e`, sql`o`);
 	return sql`jsonb_build_object(
  'zone',x.zone,
  'people',${peopleJson(sql`x.plant`)},
@@ -406,7 +407,7 @@ function inputsSql() {
     AND ${eligibleOwner(sql`ta.account_id`, sql`t.plant_id`)})) ORDER BY o.origin_at,o.id)
   FROM obligation o LEFT JOIN LATERAL (SELECT k.* FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
    ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1) t ON true
-  WHERE o.plant_id=x.plant AND o.kind='follow_up'),'[]'::jsonb),
+  WHERE o.plant_id=x.plant AND o.kind='follow_up' AND o.superseded_at IS NULL),'[]'::jsonb),
  'roles',coalesce((SELECT jsonb_agg(jsonb_build_object('key',r.responsibility_key,'id',p.id,'name',p.display_name)
    ORDER BY r.responsibility_key,p.id,r.id)
   FROM team_role r JOIN team tm ON tm.id=r.team_id AND tm.plant_id=r.plant_id AND tm.archived_at IS NULL

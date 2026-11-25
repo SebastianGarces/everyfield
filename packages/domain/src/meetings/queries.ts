@@ -8,6 +8,7 @@ import { attendanceColumns, attendanceValue } from "./analytics.ts";
 import { card, guest, guestColumns, guestRow } from "./guests.ts";
 import { kitColumns, kitItem, kitRow } from "./meetings.ts";
 import { personAliasPhoto } from "../people/photos.ts";
+import { currentPersonJoin } from "../people/lineage.ts";
 import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } from "./rows.ts";
 
 const current = (plantId: string, meetingId: string) =>
@@ -24,12 +25,13 @@ const guestPhotos = sql`(SELECT coalesce(json_agg(json_build_object('personId', 
 const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
 		'personId', o.person_id, 'openedAt', to_char(o.opened_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 	) ORDER BY o.person_id), '[]') FROM (
-		SELECT ml.recipient_person_id AS person_id, min(ml.opened_at) AS opened_at
+		SELECT p.id AS person_id, min(ml.opened_at) AS opened_at
 		FROM communication cm
 		JOIN mail ml ON ml.tenant_id = cm.plant_id AND ml.communication_id = cm.id
+		${currentPersonJoin(sql`ml.recipient_person_id`, sql`ml.tenant_id`)}
 		WHERE cm.plant_id = m.plant_id AND cm.meeting_id = m.id
-			AND ml.opened_at IS NOT NULL AND ml.recipient_person_id IS NOT NULL
-		GROUP BY ml.recipient_person_id
+			AND ml.opened_at IS NOT NULL
+		GROUP BY p.id
 	) o)`;
 
 export const meetingsReader = {

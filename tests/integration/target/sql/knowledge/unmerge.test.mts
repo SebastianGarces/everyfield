@@ -211,7 +211,7 @@ test("AC:SCHEMA-010 clean-poststate-can-inverse: an unchanged post-merge state i
 	assert.equal((await one(sql`SELECT person_id FROM commitment WHERE id=${moved.id}`)).person_id, p2);
 	assert.deepEqual(await assignments(p1, p2), [
 		{ owner: "P1", state: "active" },
-		{ owner: "P2", state: "removed" },
+		{ owner: "P2", state: "active" },
 	]);
 	assert.equal(await inverseReceipts(p1), 1);
 	assert.deepEqual(await provider(mail), effects);
