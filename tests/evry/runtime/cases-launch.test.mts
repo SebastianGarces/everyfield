@@ -1,7 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { runDueFeedbackPublication } from "../../../packages/domain/src/jobs/feedback-publication.ts";
 import { createLaunchReader } from "../../../packages/domain/src/launch/reads.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.ts";
@@ -9,7 +8,6 @@ import { createPrivateCare } from "../../../packages/domain/src/intelligence/ind
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { approveProposal } from "../../../packages/evry/src/index.ts";
-import { GLOBAL } from "../adapters/wiki/corpus.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { ok, type Actor } from "../../support/fixture.mts";
 import {
@@ -23,6 +21,7 @@ import {
 	type Play,
 	type Reply,
 } from "./case-world.mts";
+import { seedFoundations } from "./foundations.mts";
 
 let w: CaseWorld;
 before(async () => {
@@ -367,27 +366,8 @@ test("AC:INH-LAUNCH-05 the form's headcount and 12 unnamed guests are saved as c
 });
 
 test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 80 percent: readers never pool, exactly 80 does not count, Evry's reads earn nothing, and the church starts in Phase 1 either way", async () => {
-	const ids = { release: randomUUID() };
-	await w.admin
-		.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
-		VALUES(${ids.release},'foundations','memory://f',md5('f'),'validated',clock_timestamp(),clock_timestamp(),'memory://a',md5('f'),'v','profile',1,${GLOBAL},0)`);
-	const section = randomUUID();
-	await w.admin.execute(
-		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${section},'section','discovery/start',${GLOBAL})`,
-	);
-	for (const [n, a] of foundations.articles.entries()) {
-		await w.admin.execute(
-			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${a.id},'article',${a.slug},${GLOBAL})`,
-		);
-		await w.admin
-			.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
-			VALUES(${randomUUID()},${a.id},${GLOBAL},${ids.release},1,${a.title},${a.slug},${a.title},${"Words of " + a.title},'safe_mdx',0,${n + 1},md5(${a.id}),clock_timestamp(),true,1,${section},ARRAY[]::text[])`);
-	}
-	await w.admin
-		.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
-		VALUES(gen_random_uuid(),${ids.release},1,clock_timestamp(),'synthetic','foundations',0)`);
+	const articles = await seedFoundations(w.admin);
 	const wiki = createWikiProducer();
-	const articles = foundations.articles.map((a) => a.id);
 	const readAs = async (who: Actor, some: string[], fraction: string) => {
 		for (const articleId of some)
 			ok(

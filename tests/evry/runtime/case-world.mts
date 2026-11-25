@@ -35,9 +35,10 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/index.ts";
 import type { Reference } from "../../../packages/evry/src/conversations/store.ts";
+import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { bucket } from "./bucket.mts";
-import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
-import { recorded, touched, untouched } from "../../support/recorded.mts";
+import { fixture, ok, type Actor, type Workspace } from "../../support/fixture.mts";
+import { failingWrite, NOTHING, recorded, touched, untouched } from "../../support/recorded.mts";
 import { pinSchemaClock } from "../../support/test-database.mts";
 
 export { sql };
@@ -98,6 +99,24 @@ const MAIL: MailPort = {
 	transport: { paused: false, send: refuse, cancel: refuse, reschedule: refuse },
 };
 
+export function provider(answer: "ids" | "unknown") {
+	const sent: string[][] = [];
+	const port: MailPort = {
+		keys: MAIL.keys,
+		transport: {
+			paused: false,
+			async send(batch) {
+				sent.push(batch.messages.map((m) => m.to));
+				return answer === "unknown"
+					? { outcome: "unknown" }
+					: { outcome: "ids", ids: batch.messages.map(() => "re_" + randomUUID()) };
+			},
+			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" as const })),
+			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" as const })),
+		},
+	};
+	return { port, sent };
+}
 export type Turn = {
 	conversation: string;
 	outcome: string | null;
@@ -373,6 +392,51 @@ export async function caseWorld(
 		return { outcome, review: await readReview(db, who, p.id) };
 	}
 
+	async function prepare(a: Actor, operation: string, input: unknown, options: Options = {}) {
+		const asked = await ask(a, operation, [proposes(operation, input)], options);
+		const [card] = asked.proposals;
+		assert.ok(card, `${operation} ${JSON.stringify(asked.replies)}`);
+		return card;
+	}
+	async function apply(a: Actor, operation: string, input: unknown, options: Options & { mail?: MailPort } = {}) {
+		const card = await prepare(a, operation, input, options);
+		assert.equal(card.review.refusal ?? null, null, `${operation} is refused`);
+		const { outcome, review } = await approve(a, card, options.mail);
+		assert.deepEqual(
+			[outcome ?? "completed", review.outcome],
+			["completed", "completed"],
+			`${operation} ${JSON.stringify(review)}`,
+		);
+		const again = await approveProposal(db, await actorOf(a), card.id, witness(card), null);
+		assert.deepEqual([again.replayed, await effect(options.mail)], [true, null], `${operation} runs once`);
+		return review;
+	}
+	async function look(a: Actor, operation: string, input: unknown = {}, options: Options = {}): Promise<Reply> {
+		const asked = await ask(a, operation, [reads(operation, input)], options);
+		assert.equal(asked.cards.length, 1, `${operation} ${JSON.stringify(asked.replies)}`);
+		return asked.replies[0];
+	}
+
+	async function care(who: Actor) {
+		await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${who.id}`);
+		const writer = createPrivateCare();
+		const authority = await authorityOf(who);
+		const week = ok(await writer.readCurrent(db, authority, {}));
+		const answers = {
+			spiritual: "struggling",
+			family: "struggling",
+			financial: "struggling",
+			pace: "struggling",
+		} as const;
+		ok(
+			await writer.save(db, authority, {
+				requestKey: randomUUID(),
+				expectedRevision: week.revision,
+				input: { answers, note: "CARE-CANARY" },
+			}),
+		);
+	}
+
 	const OWN = new Set(["audit_event", "conversation", "conversation_event", "job", "record"]);
 	async function quiet<T>(body: () => Promise<T>, changes: string[] = []) {
 		const kinds = () =>
@@ -488,6 +552,53 @@ export async function caseWorld(
 			);
 			return after;
 		}
+		async function failedWrite(
+			p: Proposal,
+			on: string,
+			{ as = A, mail = null, atApproval = false }: { as?: Actor; mail?: MailPort | null; atApproval?: boolean } = {},
+		) {
+			const who = await actorOf(as);
+			const before = await held();
+			const settled = () => rows(sql`SELECT * FROM proposal WHERE outcome='completed' ORDER BY id`);
+			const kept = await settled();
+			if (!atApproval) await approveProposal(db, who, p.id, witness(p), null);
+			const { value, tables } = await touched(admin, () =>
+				recorded(admin, () =>
+					failingWrite(admin, { on, event: "INSERT OR UPDATE OR DELETE" }, async () => {
+						if (atApproval) return void (await assert.rejects(approveProposal(db, who, p.id, witness(p), null)));
+						assert.equal(await effect(mail), "failed", `${p.operation} needs its write to ${on}`);
+					}),
+				),
+			);
+			assert.deepEqual(
+				tables.filter((t) => !OWN.has(t) && t !== "proposal"),
+				[],
+				"no domain write",
+			);
+			const { audits, jobs, ...sent } = value.added;
+			assert.deepEqual(
+				{
+					audits: audits.filter((a) => !a.startsWith("evry.")),
+					jobs: jobs.filter((j) => !/^evry_effect/.test(j)),
+					...sent,
+				},
+				NOTHING,
+				"no domain audit, job, notice or mail",
+			);
+			const after = await readReview(db, who, p.id);
+			assert.deepEqual(
+				[after.outcome, after.receipt],
+				[atApproval ? null : "unknown", null],
+				"no receipt claims it was saved",
+			);
+			assert.deepEqual([await settled(), await held()], [kept, before], "earlier committed outcomes are kept");
+			if (atApproval) return after;
+			assert.equal((await retryUnresolvedEffects(db, who, p.id)).retried, true);
+			assert.equal(await effect(mail), "completed", "only the failed write stood in the way");
+			const done = await readReview(db, who, p.id);
+			assert.equal(done.outcome, "completed", JSON.stringify(done.receipt));
+			return done;
+		}
 		async function modelOutage(a: Actor, text: string) {
 			const before = await held();
 			const down = async (): Promise<never> => {
@@ -515,7 +626,7 @@ export async function caseWorld(
 				secrets?: string[];
 				found?: string[];
 				shared?: string[];
-				on?: Pick<Options, "storage" | "references" | "attachments">;
+				on?: Pick<Options, "storage" | "references" | "attachments" | "onError">;
 			} = {},
 		) {
 			const stranger = await actorOf(F);
@@ -542,7 +653,7 @@ export async function caseWorld(
 					return guesses.get(id)!;
 				});
 			const asked = await quiet(() => ask(F, text, play, on));
-			const guessed = await ask(F, guess(text), play, { map: guess });
+			const guessed = await ask(F, guess(text), play, { map: guess, ...(on.onError && { onError: on.onError }) });
 			const back = new Map([...guesses].map(([id, g]) => [g, id]));
 			const plain = (t: Turn) =>
 				JSON.stringify(t.replies)
@@ -613,6 +724,7 @@ export async function caseWorld(
 			modelOutage,
 			foreignReview,
 			effectOutage,
+			failedWrite,
 		};
 	}
 	async function at(instant: string) {
@@ -637,6 +749,10 @@ export async function caseWorld(
 		ask,
 		effect,
 		approve,
+		prepare,
+		apply,
+		look,
+		care,
 		witness,
 		quiet,
 		church,

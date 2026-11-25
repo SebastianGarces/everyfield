@@ -25,6 +25,7 @@ import {
 	teardown,
 } from "../../evry/runtime/support.mts";
 import { setServerEnv } from "../../support/server-env.mts";
+import { PRODUCTION, withEnv } from "../../evry/runtime/provider.mts";
 import { capturedLines, withSwitchOff } from "../../support/flags.mts";
 
 setServerEnv();
@@ -185,4 +186,38 @@ test("with evry-model-calls off, a cron run reads the switch once, leaves assess
 		const flagReads = queries.slice(start).filter((q) => /FROM feature_flag/.test(q)).length;
 		assert.equal(flagReads, 1, "one switch read per cron run");
 	});
+});
+
+test("while production Evry is off, the worker ends a queued turn with no model call and no partial answer, paused or not, and new turns are refused before anything is saved", async () => {
+	for (const paused of [false, true]) {
+		const c = await createConversation(db, owner, { requestKey: randomUUID() });
+		await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "How many people are in our church?" });
+		await withEnv(PRODUCTION, async () => {
+			const switches = { ...(await readSwitches(db)), "evry-model-calls": !paused };
+			assert.equal(await runTurns(db, switches, 4), 1);
+			const end = await lastStatus(c.id);
+			assert.deepEqual([end?.state, end?.error?.code, end?.text], ["failed", "evry_unavailable", ""]);
+			assert.deepEqual(
+				(await readConversation(db, owner, c.id)).events.map((e) => e.kind),
+				["user_message", "status"],
+			);
+			const before = await counts();
+			const seen = [
+				await statementsOf(() => createConversation(db, owner, { requestKey: randomUUID() })),
+				await statementsOf(() =>
+					submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "Who joined this month?" }),
+				),
+				await statementsOf(() => retryTurn(db, owner, c.id, { requestKey: randomUUID() })),
+			];
+			assert.deepEqual(
+				seen.map((s) => [s.outcome, s.statements]),
+				[
+					["evry_unavailable", 0],
+					["evry_unavailable", 0],
+					["evry_unavailable", 1],
+				],
+			);
+			assert.deepEqual(await counts(), before);
+		});
+	}
 });

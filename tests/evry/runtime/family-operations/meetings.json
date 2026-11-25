@@ -1,0 +1,100 @@
+{
+	"family": "EVRY-FAMILY-MEETINGS",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-gather.test.mts",
+			"test": "AC:EVRY-FAMILY-MEETINGS ",
+			"operations": [
+				"meetings.addAttendeeNote",
+				"meetings.attendanceSummary",
+				"meetings.attendanceTrend",
+				"meetings.captureAttendanceBatch",
+				"meetings.cardBreakdown",
+				"meetings.changeStatus",
+				"meetings.checkIn",
+				"meetings.clearAttendance",
+				"meetings.clearCard",
+				"meetings.communicationContext",
+				"meetings.compareEvaluation",
+				"meetings.completePractice",
+				"meetings.copyTeamRoster",
+				"meetings.correctEvaluation",
+				"meetings.correctOccurrence",
+				"meetings.correctPracticeOccurrence",
+				"meetings.correctRsvp",
+				"meetings.createGuestContact",
+				"meetings.createWalkInContact",
+				"meetings.delete",
+				"meetings.edit",
+				"meetings.evaluationHistory",
+				"meetings.evaluationTrend",
+				"meetings.finalizeAttendance",
+				"meetings.get",
+				"meetings.getEvaluation",
+				"meetings.getOwnRsvp",
+				"meetings.hasHistory",
+				"meetings.invitationAttribution",
+				"meetings.inviteGuest",
+				"meetings.linkedTaskProgress",
+				"meetings.list",
+				"meetings.listAttendance",
+				"meetings.listCards",
+				"meetings.listCompletedPreLaunchPractices",
+				"meetings.listGuests",
+				"meetings.listKit",
+				"meetings.populateKit",
+				"meetings.previewRosterImport",
+				"meetings.readAgenda",
+				"meetings.readAnalytics",
+				"meetings.reconcileAttendance",
+				"meetings.recordCard",
+				"meetings.recordEvaluation",
+				"meetings.removeGuest",
+				"meetings.replaceAgenda",
+				"meetings.saveOwnRsvp",
+				"meetings.schedule",
+				"meetings.setAttendance",
+				"meetings.setInviter",
+				"meetings.summaryStats",
+				"meetings.updateKitItem",
+				"venues.archive",
+				"venues.correct",
+				"venues.create",
+				"venues.edit",
+				"venues.get",
+				"venues.history",
+				"venues.list",
+				"venues.restore"
+			]
+		}
+	],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["sealed_unexpired_rsvp_proof"],
+			"operations": [
+				"meeting.answerRsvpToken",
+				"meeting.describeRsvpToken",
+				"meeting.rsvpStatus",
+				"meetings.readTokenRsvp",
+				"meetings.resolveTokenRsvp"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_delivery_or_guest_transaction_caller"],
+			"operations": ["meeting.createRsvpToken"]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_system_job_or_exact_operator_grant"],
+			"operations": ["meetings.planNotifications", "meetings.syncNotifications"]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_internal_producer_or_exact_operator"],
+			"operations": ["meetings.reconcileInvitationResponse"]
+		}
+	],
+	"withheld": []
+}

@@ -17,13 +17,13 @@ import {
 	retryUnresolvedEffects,
 	reviseProposal,
 	submitTurn,
-	type MailPort,
 } from "../../../packages/evry/src/index.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/index.ts";
 import type { Actor } from "../../support/fixture.mts";
 import {
 	caseWorld,
+	provider,
 	proposes,
 	reads,
 	refusal,
@@ -204,29 +204,6 @@ test("AC:EVRY-RETRY-CANCEL budgets stop exactly, one read and two model retries 
 	await c.outage(said, [list], "person");
 });
 
-function provider(answer: "ids" | "unknown") {
-	const sent: string[][] = [];
-	const port: MailPort = {
-		keys: {
-			encryptionKey: Buffer.alloc(32, 7),
-			addressKey: Buffer.alloc(32, 9),
-			from: "church@example.test",
-			origin: "https://app.example.test",
-		},
-		transport: {
-			paused: false,
-			async send(batch) {
-				sent.push(batch.messages.map((m) => m.to));
-				return answer === "unknown"
-					? { outcome: "unknown" }
-					: { outcome: "ids", ids: batch.messages.map(() => "re_" + randomUUID()) };
-			},
-			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" as const })),
-			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" as const })),
-		},
-	};
-	return { port, sent };
-}
 async function invite(c: Church) {
 	await w.admin.execute(
 		sql`UPDATE plant SET street='12 Mill Road',city='Austin',country='United States' WHERE id=${c.P.id}`,

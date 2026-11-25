@@ -674,6 +674,7 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 				"development.applyVersion",
 				"development.confirmMilestone",
 				"development.completeMilestone",
+				"organizationIntelligence.submitFeedback",
 			],
 			who,
 		);

@@ -2,6 +2,7 @@ import * as C from "@everyfield/contracts/oversight";
 import {
 	listPlants,
 	readIntelligence,
+	readPattern,
 	requestIntelligenceRefresh,
 	submitIntelligenceFeedback,
 } from "@everyfield/domain/oversight";
@@ -10,7 +11,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReviewContext } from "../../../proposals/types.ts";
-import { approvedNow, reviewed, rowId } from "../../native.ts";
+import { approvedNow, organizationSeat, reviewed, rowId } from "../../native.ts";
 import { LEVEL_NAME, RATING, runText } from "../reads/index.ts";
 
 type Reply = { status: "ok"; value: object } | { status: "refused"; refusal: { code: string } };
@@ -54,25 +55,24 @@ export const requestRefresh = approvedNow({
 	run: async (db, authority, args) => settled(await requestIntelligenceRefresh(db, authority, args)),
 });
 
-const patternLevel = (patternKey: string) => C.LEVELS.find((level) => patternKey.includes(`:${level}:`));
 async function patternOf(
 	db: ReviewContext["db"],
 	authority: EvryActor["authority"],
 	input: { runId: string; patternKey: string },
 ) {
-	const level = patternLevel(input.patternKey);
-	const view = level ? await readIntelligence(db, authority, { level, runId: input.runId }) : null;
-	const group = view?.groups.find((g) => g.patterns.some((p) => p.key === input.patternKey));
-	const pattern = group?.patterns.find((p) => p.key === input.patternKey);
-	if (!view?.run || !group || !pattern) return null;
-	const place = view.level === "portfolio" ? LEVEL_NAME.portfolio : `${LEVEL_NAME[view.level]}, ${group.label}`;
-	return { pattern, place, ranAt: view.run.ranAt, timeZone: view.timeZone };
+	const found = await readPattern(db, authority, input);
+	if (!found) return null;
+	const place = found.level === "portfolio" ? LEVEL_NAME.portfolio : `${LEVEL_NAME[found.level]}, ${found.group}`;
+	return { pattern: found.pattern, place, ranAt: found.ranAt, timeZone: found.timeZone };
 }
 
+const RATE =
+	"Propose the user's own rating, useful or not useful, of one Network Intelligence pattern they can read now: its patternKey and the runId, both from organizationIntelligence.readHistory. Only their own rating changes, never the pattern.";
 export const submitFeedback = approvedNow({
 	operation: "organizationIntelligence.submitFeedback",
-	description:
-		"Propose the user's own rating, useful or not useful, of one Network Intelligence pattern they can read now: its patternKey and the runId, both from organizationIntelligence.readHistory. Only their own rating changes, never the pattern. Owner or Admin. Nothing is saved until the user approves",
+	description: `${RATE} Owner or Admin. Nothing is saved until the user approves`,
+	memberDescription: `${RATE} Nothing is saved until the user approves`,
+	allowed: organizationSeat,
 	input: z.strictObject({
 		runId: rowId,
 		patternKey: C.feedbackRequest.shape.patternKey,
@@ -103,11 +103,7 @@ export const submitFeedback = approvedNow({
 		);
 	},
 	reason: false,
-	async run(db, authority, args) {
-		const input = C.feedbackRequest.parse(args);
-		if (!(await patternOf(db, authority, input))) return { refused: "access_denied" };
-		return settled(await submitIntelligenceFeedback(db, authority, input));
-	},
+	run: async (db, authority, args) => settled(await submitIntelligenceFeedback(db, authority, args)),
 });
 
 export const OVERSIGHT_COMMANDS = {

@@ -2321,8 +2321,8 @@
 		"retry": 3
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {
-		"limit": 4,
-		"retry": 3
+		"limit": 5,
+		"retry": 4
 	},
 	"residency.markMilestone": {
 		"limit": 5,

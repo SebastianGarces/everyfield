@@ -1,0 +1,84 @@
+{
+	"family": "EVRY-FAMILY-COMMUNICATION",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-mail.test.mts",
+			"test": "AC:EVRY-FAMILY-COMMUNICATION",
+			"operations": [
+				"communication.cancelScheduledReviewed",
+				"communication.correctContactLog",
+				"communication.deleteDraft",
+				"communication.deliveryTotals",
+				"communication.executeResend",
+				"communication.forMeeting",
+				"communication.forPerson",
+				"communication.get",
+				"communication.getDraft",
+				"communication.getExecutionResult",
+				"communication.list",
+				"communication.listAudienceTeams",
+				"communication.listDrafts",
+				"communication.listRecipients",
+				"communication.meetingRecipientTracking",
+				"communication.preview",
+				"communication.replaceScheduledReviewed",
+				"communication.rescheduleReviewed",
+				"communication.resendCandidates",
+				"communication.resolveAudience",
+				"communication.resolveMergeFields",
+				"communication.retryProvenFailed",
+				"communication.saveDraft",
+				"communication.scheduleReviewed",
+				"communication.searchRecipients",
+				"communication.sendReviewed",
+				"communication.templates.archiveOrDelete",
+				"communication.templates.create",
+				"communication.templates.forMeeting",
+				"communication.templates.fork",
+				"communication.templates.list",
+				"communication.templates.update",
+				"mail.suppression.listForSelf"
+			],
+			"through": {
+				"communication.getExecutionResult": "communication.get",
+				"communication.listDrafts": "communication.list",
+				"communication.listRecipients": "communication.get",
+				"communication.resolveAudience": "communication.preview",
+				"communication.resolveMergeFields": "communication.scheduleReviewed",
+				"communication.templates.forMeeting": "communication.templates.list"
+			}
+		}
+	],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_scoped_internal_caller"],
+			"operations": [
+				"communication.dispatchAttempt",
+				"communication.reconcileProviderOutcome",
+				"mail.acceptWebhook",
+				"mail.processDeliveryEvent",
+				"mail.reconcileDeliveryState",
+				"mail.renderTransactional",
+				"mail.sendTransactional",
+				"mail.suppression.recordProviderFact"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_internal_producer_or_exact_operator"],
+			"operations": ["communication.recordContactFromTask"]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["authenticated_self"],
+			"operations": ["mail.suppression.restoreReviewed"]
+		}
+	],
+	"withheld": [
+		{
+			"decision": "D-2691",
+			"operations": ["communication.templates.get"]
+		}
+	]
+}

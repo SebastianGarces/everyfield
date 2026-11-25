@@ -28,3 +28,8 @@ export function bucket() {
 	}) as never;
 	return { storage: { bucket: "synthetic-only", client } as PrivateStorage, objects, deleted };
 }
+
+export const png = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);

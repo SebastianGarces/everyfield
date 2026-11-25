@@ -233,7 +233,7 @@ Refresh runs the network rubric on what the plants share now and keeps the run, 
 
 - Operations: organizationIntelligence.requestRefresh, organizationIntelligence.read
 - Catalog: PI-043
-- Test: `tests/integration/oversight/health.test.mts`: `Refresh keeps history, a Member cannot refresh or rate, and turning sharing off leaves every run`
+- Test: `tests/integration/oversight/health.test.mts`: `Refresh keeps history, a Member cannot refresh, and turning sharing off leaves every run`
 - Test: `tests/integration/oversight/intelligence-rules.test.mts`: `each rule, theme and group counts on its own at every level, and the metro groups show only rows`
 - Browser, behavior proof (acts and checks the result), from state network:
 
