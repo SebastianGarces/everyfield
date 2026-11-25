@@ -478,7 +478,13 @@ type Row = {
 	repetitions: Repetition[];
 	keys: string[];
 };
-type Repetition = { n: number; status: "passed" | "failed" | "not recorded"; detail: string; keys: string[] };
+type Repetition = {
+	n: number;
+	status: "passed" | "failed" | "not recorded";
+	detail: string;
+	keys: string[];
+	gates?: string[];
+};
 
 async function pool<T, R>(items: T[], size: number, run: (item: T) => Promise<R>) {
 	const out: R[] = new Array(items.length);
@@ -751,10 +757,29 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 
 function repetitionOf(n: number, checks: Check[], keys: string[]): Repetition {
 	const failed = checks.filter((x) => !x.ok);
+	const gates = failed.flatMap((x) => (x.gate ? [`${x.gate}: ${x.name}`] : []));
 	return failed.length
-		? { n, status: "failed", detail: failed.map((x) => `check "${x.name}" failed (${x.detail})`).join("; "), keys }
-		: { n, status: "passed", detail: `${checks.length} checks pass`, keys };
+		? {
+				n,
+				status: "failed",
+				detail: failed.map((x) => `check "${x.name}" failed (${x.detail})`).join("; "),
+				keys,
+				gates,
+			}
+		: { n, status: "passed", detail: `${checks.length} checks pass`, keys, gates };
 }
+
+type Repeated = Repetition & { id: string; journey: Journey };
+const repeatedOf = (rows: Row[]): Repeated[] =>
+	rows.flatMap((r) => (r.journey ? r.repetitions.map((x) => ({ ...x, id: r.id, journey: r.journey! })) : []));
+const gateFailures = (repeated: Repeated[]) =>
+	repeated.flatMap((x) =>
+		x.status === "not recorded" || !x.gates
+			? [`${x.id} repetition ${x.n} has no checked run`]
+			: x.gates.map((gate) => `${x.id} repetition ${x.n} ${gate}`),
+	);
+const gateRate = (repeated: Repeated[]) =>
+	(100 * repeated.filter((x) => !gateFailures([x]).length).length) / repeated.length;
 
 const failedChecks = (r: Row) => r.checks.filter((x) => !x.ok);
 const hardPass = (r: Row) => !r.error && failedChecks(r).length === 0;
@@ -1098,7 +1123,7 @@ const fakeRow = (id: string, over: Partial<Row> = {}): Row => ({
 });
 const blockers = (ready: Readiness) => ready.release.map((x) => `${x.id ?? "run"} ${x.gate}`);
 
-test("INV-evry-golden-release: a failed gate check blocks release whatever the judge grade, and a finding marker does not excuse it", () => {
+test("AC:EVRY-FAMILY-RUNTIME-FILES-EVALUATION INV-evry-golden-release: a failed gate check blocks release whatever the judge grade, and a finding marker does not excuse it", () => {
 	const clean = readiness([fakeRow("OK-1")], { expected: ["OK-1"], baseline: [] });
 	assert.deepEqual([clean.release, clean.alpha], [[], []]);
 	for (const gate of GATES) {
@@ -1191,7 +1216,7 @@ test("INV-evry-golden-release: a score one case under its evry.md bar blocks rel
 	assert.ok(parity.release.some((x) => x.gate === "score" && x.reason.startsWith("native/Evry parity 0.0%")));
 });
 
-test("INV-evry-golden-release: a critical journey blocks release on one failed or unrecorded repetition", () => {
+test("AC:EVRY-EVALUATION-RELEASE INV-evry-golden-release: a critical journey blocks release on one failed or unrecorded repetition", () => {
 	const journey = (statuses: Repetition["status"][]) =>
 		readiness(
 			[
@@ -1210,6 +1235,16 @@ test("INV-evry-golden-release: a critical journey blocks release on one failed o
 		journey(["passed", "not recorded", "passed"]).release[0]!.reason,
 		/^import journey repetition 2 of 3 not recorded/,
 	);
+	const gate = { name: "never shows the private check-in", ok: false, detail: "shown", gate: "private-care" as const };
+	const wording = { name: "says ten", ok: false, detail: "said nine" };
+	const ran = (checks: Check[]): Repeated => ({ ...repetitionOf(1, checks, []), id: "J-1", journey: "import" });
+	const unrun: Repeated = { ...ran([]), n: 2, status: "not recorded", gates: undefined };
+	assert.deepEqual([gateRate([ran([]), ran([wording])]), gateFailures([ran([wording])])], [100, []]);
+	assert.deepEqual([gateRate([ran([]), ran([gate])]), gateRate([ran([]), unrun])], [50, 50]);
+	assert.deepEqual(gateFailures([ran([gate]), unrun]), [
+		"J-1 repetition 1 private-care: never shows the private check-in",
+		"J-1 repetition 2 has no checked run",
+	]);
 });
 
 test("INV-evry-golden-release: a case that passed in the baseline and fails now is a release-blocking regression with its reproduce command", () => {
@@ -1549,7 +1584,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	);
 });
 
-test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
+test("AC:EVRY-EVALUATION-RELEASE INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
 	const recordable = (c: ExtraCase) =>
 		c.model === "scripted" || RECORDED(c.operation) || c.eval.offer?.includes(c.operation);
@@ -1619,6 +1654,26 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	);
 	assert.deepEqual(untouched, [{ archived: null, outcome: "contacted", voided: null, entries: 1 }], "no case writes");
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
+	if (!only) {
+		const repeated = repeatedOf(rows);
+		for (const r of rows.filter((x) => x.journey))
+			assert.deepEqual(
+				r.repetitions.map((x) => x.n),
+				[1, 2, 3],
+				r.id,
+			);
+		assert.deepEqual([...new Set(repeated.map((x) => x.journey))].sort(), [...JOURNEYS].sort());
+		assert.deepEqual(
+			[gateFailures(repeated), gateRate(repeated)],
+			[[], 100],
+			"every repetition passes every hard gate",
+		);
+		assert.deepEqual(
+			ready.release.filter((x) => x.gate === "repetition").map((x) => x.id),
+			repeated.filter((x) => x.status !== "passed").map((x) => x.id),
+			"a repetition that fails another check still blocks release",
+		);
+	}
 	assert.ok(graded > 0 || !rows.some((r) => hardPass(r) && !r.scripted), "the judge grades the answers that pass");
 	t.diagnostic(
 		`release: ${ready.release.length ? `blocked (${ready.release.length} reasons)` : "ready"}; alpha: ${ready.release.length || ready.alpha.length ? "blocked" : "ready"}`,

@@ -1,0 +1,110 @@
+{
+	"family": "EVRY-FAMILY-INTELLIGENCE-PHASE",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-phase.test.mts",
+			"test": "AC:EVRY-FAMILY-INTELLIGENCE-PHASE",
+			"operations": [
+				"intelligence.readAssessment",
+				"intelligence.readAssessmentRun",
+				"intelligence.readColdStartGuidance",
+				"intelligence.readCommittedAdultCohort",
+				"intelligence.readExitCriteria",
+				"intelligence.readJourney",
+				"intelligence.readOwnFeedback",
+				"intelligence.readScorecard",
+				"intelligence.requestRefresh",
+				"intelligence.submitFeedback",
+				"phases.declare",
+				"phases.readCatalog",
+				"phases.readHistory",
+				"phases.readReadiness",
+				"phases.transition",
+				"signals.attest",
+				"signals.correct",
+				"signals.getHistory",
+				"signals.listDefinitions",
+				"signals.reaffirm",
+				"intelligence.readCriterionEvidence",
+				"intelligence.readFacts"
+			],
+			"through": {
+				"intelligence.readCriterionEvidence": "intelligence.readExitCriteria",
+				"intelligence.readFacts": "intelligence.readScorecard"
+			}
+		},
+		{
+			"file": "tests/evry/evals/intelligence.test.mts",
+			"test": "AC:CA024",
+			"operations": ["intelligence.readAssessmentDelta", "intelligence.readFocus", "intelligence.resolveCitation"],
+			"through": {
+				"intelligence.readFocus": "intelligence.readAssessment",
+				"intelligence.resolveCitation": "intelligence.readAssessment"
+			}
+		},
+		{
+			"file": "tests/evry/adapters/intelligence/reads/history.test.mts",
+			"test": "AC:PI-CASE-020",
+			"operations": ["intelligence.readAssessmentHistory"],
+			"through": {
+				"intelligence.readAssessmentHistory": "intelligence.readAssessmentHistory readAssessmentHistory"
+			}
+		}
+	],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_owning_domain_producer"],
+			"operations": [
+				"intelligence.appendAssessmentConsequences",
+				"intelligence.computeSnapshotDelta",
+				"intelligence.deriveLensEvidence",
+				"intelligence.describeRunFailure",
+				"phases.appendConsequences",
+				"phases.classifyChange",
+				"reference.readRubricManifest"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_assessment_job_current_claim"],
+			"operations": [
+				"intelligence.buildFactSnapshot",
+				"intelligence.callProvider",
+				"intelligence.evaluateAssessment",
+				"intelligence.executeDemand",
+				"intelligence.publishAssessment",
+				"intelligence.recordAttemptTelemetry",
+				"intelligence.releaseAssessmentToOversight",
+				"intelligence.retrieveMethodology",
+				"intelligence.runAssessmentBatch",
+				"intelligence.scheduleAssessment",
+				"intelligence.selectAssessmentCandidates",
+				"intelligence.settleRun",
+				"intelligence.validateDraft",
+				"reference.embedQuery"
+			]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["internal_assessment_worker"],
+			"operations": ["intelligence.formatCitedFact", "intelligence.validateConcernPairing"]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["exact_assessment_operator_grant"],
+			"operations": ["intelligence.requestOperatorRefresh", "intelligence.runEvaluation"]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["authorized_global_reference_publisher"],
+			"operations": ["reference.activateGeneration", "reference.auditLanguage", "reference.rollbackActivation"]
+		}
+	],
+	"withheld": [
+		{
+			"decision": "D-2691",
+			"operations": ["intelligence.markAssessmentSeen", "intelligence.readRubric"]
+		}
+	]
+}

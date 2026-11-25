@@ -857,12 +857,17 @@ export async function readReceipt(db: Database, authority: RequestActor, keys: {
 	return z.uuid().nullable().optional().parse(r.rows[0]?.id) ?? null;
 }
 
+async function personsDigest(db: Pick<Database, "execute">, plantId: string, personIds: string[]) {
+	const r = await db.execute(sql`SELECT ${audiencePeople(plantId, { groups: [], teamIds: [], personIds })} AS people`);
+	return recipientsDigest(r.rows[0]?.people);
+}
 const resendInput = z.strictObject({ communicationId: messageId.describe("A sent message id from communication.get") });
 const savedResend = z.strictObject({
 	expectedRevision: z.string(),
 	untouched: z.int(),
 	eligible: z.array(z.uuid()),
 	excluded: z.array(z.uuid()),
+	recipientsDigest: z.string(),
 	input: z.strictObject({ communicationId: z.uuid(), selection: z.string() }),
 });
 type Selection = "delivered_nonopeners" | "proven_failed";
@@ -895,6 +900,8 @@ function resendWrite({
 			const html =
 				z.strictObject({ body_html: z.string().nullable() }).optional().parse(found.rows[0])?.body_html ?? "";
 			const content = contentFor(html).replaceAll(SAMPLE_NAME, present(eligible[0]).label);
+			const eligibleIds = eligible.map((r) => r.id).sort();
+			const digest = await personsDigest(context.db, actor.owner.id, eligibleIds);
 			const names = (rows: typeof people, reason: boolean) =>
 				sql`${JSON.stringify(rows.map((r) => (reason ? { name: r.label, reason: r.fields.leftOut } : { name: r.label })))}::jsonb`;
 			return sql`SELECT jsonb_build_object('target',${message},'changes',jsonb_build_array(
@@ -910,10 +917,15 @@ function resendWrite({
 					)},
 					${change("content", null, sql`to_jsonb(${content}::text)`)})) AS review,
 				jsonb_build_object('expectedRevision',c.revision::text,'untouched',${untouched},
-					'eligible',${JSON.stringify(eligible.map((r) => r.id).sort())}::jsonb,
+					'eligible',${JSON.stringify(eligibleIds)}::jsonb,'recipientsDigest',${digest}::text,
 					'excluded',${JSON.stringify(people.filter((r) => r.fields.leftOut !== null).map((r) => r.id))}::jsonb,
 					'input',jsonb_build_object('communicationId',c.id,'selection',${selection}::text)) AS args
 				FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid`;
+		},
+		async recheck(tx, context, args) {
+			const saved = savedResend.parse(args);
+			const digest = await personsDigest(tx, context.selected.id, saved.eligible);
+			return digest === saved.recipientsDigest ? null : "stale_review";
 		},
 		async execute(tx, context, args, effectKey): Promise<EffectResult> {
 			const saved = savedResend.parse(args);

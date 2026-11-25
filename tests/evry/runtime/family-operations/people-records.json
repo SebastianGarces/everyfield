@@ -1,0 +1,25 @@
+{
+	"family": "EVRY-FAMILY-PEOPLE-RECORDS",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-people.test.mts",
+			"test": "AC:EVRY-FAMILY-PEOPLE-RECORDS ",
+			"operations": [
+				"people.correctCommitmentLifecycle",
+				"people.correctPersonRecord",
+				"people.createAssessment",
+				"people.createCommitment",
+				"people.createInterview",
+				"people.getAssessments",
+				"people.getCommitmentDownload",
+				"people.getCommitments",
+				"people.getInterviews",
+				"people.listRecordCorrections",
+				"people.reactivateCommitment",
+				"people.withdrawCommitment"
+			]
+		}
+	],
+	"excluded": [],
+	"withheld": []
+}
