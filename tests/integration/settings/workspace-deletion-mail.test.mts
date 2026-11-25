@@ -207,7 +207,7 @@ test("a deletion request emails every open seat its own copy; the church's other
 	const copy = (a: Person) => sent.find((m) => m.to === a.email)!;
 	for (const m of sent) {
 		assert.match(m.subject, new RegExp(`^Harvest Point .* is scheduled for deletion$`));
-		assert.match(m.text, /Olivia Owner asked to delete the Harvest Point .*'s account on Everyfield/);
+		assert.match(m.text, /Olivia Owner asked to delete Harvest Point .*'s account on Everyfield/);
 		assert.match(m.text, /Church access is paused for everyone until /);
 		assert.match(m.text, /Only Olivia Owner, the Owner who asked, can cancel the deletion before then\./);
 		assert.doesNotMatch(m.text, /token|\?|\/settings|\/home|erase|will be deleted on/i);
