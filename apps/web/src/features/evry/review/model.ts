@@ -306,6 +306,7 @@ export type Review = {
 		rows?: ReviewedRow[];
 		notes?: string[];
 		refusal?: string;
+		earlier?: Change[];
 		withheld?: true;
 	};
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
@@ -830,6 +831,35 @@ const delayedChange = (c: Change): Change => ({
 	field: c.field === "recipientEmail" ? "email" : c.field,
 	after: c.field === "invitation" || c.field === "connection" ? (DELAYED_VALUE[String(c.after)] ?? c.after) : c.after,
 });
+
+export type DraftRow = {
+	field: string;
+	prepared: unknown;
+	saved: unknown;
+	draft: unknown;
+	changed: boolean;
+	already: boolean;
+};
+export function draftRows(review: Review): DraftRow[] | null {
+	const { earlier, changes } = review.review;
+	if (!earlier) return null;
+	const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+	const fields = [...new Set([...earlier, ...changes].map((c) => c.field))];
+	return fields.map((field) => {
+		const was = earlier.find((c) => c.field === field);
+		const now = changes.find((c) => c.field === field);
+		const saved = now ? now.before : was?.after;
+		const draft = now ? now.after : was?.after;
+		return {
+			field,
+			prepared: was ? was.before : undefined,
+			saved,
+			draft,
+			changed: was ? !same(was.before, saved) : true,
+			already: same(saved, draft),
+		};
+	});
+}
 
 export const shownNotes = (review: Review): string[] =>
 	delayedText(review) !== null && review.operation.startsWith("seats.") ? [] : (review.review.notes ?? []);
