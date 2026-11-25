@@ -143,7 +143,7 @@ before(async () => {
 	const notices = phaseNotices((eligible) => createNotificationService({ mail: phaseMail, eligible }));
 	phases = createPhaseWriter({
 		async notices(tx, advance) {
-			await midMove(tx);
+			await midMove(tx as WriteTx);
 			await notices(tx, advance);
 		},
 	});
