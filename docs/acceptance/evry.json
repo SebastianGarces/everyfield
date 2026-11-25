@@ -1776,7 +1776,11 @@
         "WP-055",
         "WP-094"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/evals/golden.test.mts",
+        "tests/evry/runtime/cases-release.test.mts"
+      ],
       "description": "All 158 inherited plus 52 suite gaps and current UI/org/unmerge/runtime cases; synthetic tenants and fake providers; critical invitation/import/task/team/intelligence/notification/commitment flows",
       "given": {
         "P": {
@@ -2114,7 +2118,10 @@
         "mail.suppression.recordProviderFact",
         "mail.suppression.restoreReviewed"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-mail.test.mts"
+      ],
       "description": "Two eligible prospects share one deduplicated email, one missing address and one suppressed recipient; visible template fork has exact subject/body/placeholders. Prior delivery is accepted-unknown, proven provider-failed, bounce or delivered-nonopener. Draft D exists; future schedule at 29 days valid and 31 days outside window.",
       "given": {
         "P": {
@@ -2570,7 +2577,10 @@
         "storage.putPrivateObject",
         "storage.readAuthorizedObject"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/adapters/documents/cases-family.test.mts"
+      ],
       "description": "Approved templates expose PDF/XLSX formats and exact merge placeholders. Agenda PDF A and PDF B have actual different text; native self-owned text and church-owned document distinct. Unbound private upload digest H; core-values designation points to one current authorized document.",
       "given": {
         "P": {
@@ -3001,7 +3011,10 @@
         "settings.getSection",
         "settings.saveSection"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-identity.test.mts"
+      ],
       "description": "Owner/Admin routine grants equal in one active exact seat; Member, foreign org, preplant Discovery and resumable unprivileged registration present. Two addressed invite claimants race. Profile/timezone preview, pending affiliation A plus independent affiliation B and safe private feedback exist; personal deletion holds 30 days while normal session revoked.",
       "given": {
         "P": {
@@ -3578,7 +3591,10 @@
         "signals.listDefinitions",
         "signals.reaffirm"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-phase.test.mts"
+      ],
       "description": "Fixed-`asOf` snapshot has genuine D0 acquisition retained after withdrawal, current adult eligibility distinct, zero-applicable training Unknown, explicit 60 day attendance AND volunteering evidence, three actual prelaunch practices and unmeasured phase 6 contact criterion. Six foundation articles are split 4/2 between readers; one actual eligible reader later qualifies all 6 above 80. Assessment cited source later revoked; phase 3 currently declared.",
       "given": {
         "P": {
@@ -4006,7 +4022,10 @@
         "launch.schedule",
         "launch.submitDebrief"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-gather.test.mts"
+      ],
       "description": "Launch date planned Oct 25; milestone M linked to overdue task T, similarly named U unlinked. Actual launch has 150 headcount, twelve unnamed guests and one named actual guest. Submitted six-area debrief independent of missing-name answer; editable summary draft unshared until publication.",
       "given": {
         "P": {
@@ -4467,7 +4486,10 @@
         "venues.list",
         "venues.restore"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-gather.test.mts"
+      ],
       "description": "Vision V is scheduled with Alex RSVP-only, Casey previously attended another actual Vision, Jamie first actual attendee; response cards differ from attendance. Hall active and Annex archived; V has a stored location snapshot, structured agenda/kit and approved eight-factor evaluation. Team leader L owns only training meeting T; token bound to V/Alex is pending.",
       "given": {
         "P": {
@@ -4987,7 +5009,10 @@
         "notifications.undoEmailOptOut",
         "notifications.unreadCount"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-mail.test.mts"
+      ],
       "description": "A has N1/N2/N3/N4 unread and one read; B has separate feed. Defaults and explicit choice flags for existing categories recorded. Organization cadence and one missed dated digest interval exist. Association receipt accepted-unknown; opt-out token disable-only.",
       "given": {
         "P": {
@@ -5376,7 +5401,10 @@
         "oversight.listSendingChurches",
         "oversight.readLaunchReadiness"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-insight.test.mts"
+      ],
       "description": "Org A directly recognizes plants P/Q/R; P/Q share health and different per-category permissions, R health OFF. Org B and parent network have separate links. Region is versioned, one ambiguous city unresolved; one authorized ordinary directory lead-name artifact is in older conversation. A Member can read and give own feedback, Admin can request refresh/profile location correction.",
       "given": {
         "P": {
@@ -5755,7 +5783,10 @@
         "people.unmergePeople",
         "people.updatePerson"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-people.test.mts"
+      ],
       "description": "Alex/Casey/Jamie are three own-plant Persons with distinct source/stage/adult classification; foreign Alex shares a name. Alex is linked to an account and has a photo; Casey is unlinked; two linked profiles cannot merge. Pipeline order and two exact duplicates are recorded. CSV includes formula-looking text, duplicate row and invalid email.",
       "given": {
         "P": {
@@ -6182,7 +6213,10 @@
         "people.updateSkill",
         "people.updateTag"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-people.test.mts"
+      ],
       "description": "Alex is head of household H with Casey; Jamie outside. H address differs from each Person. Tags northside/family and skills hospitality-basic/music-advanced exist. Note N authored by A has exact Unicode text; B is another Admin.",
       "given": {
         "P": {
@@ -6527,7 +6561,10 @@
         "people.reactivateCommitment",
         "people.withdrawCommitment"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-people.test.mts"
+      ],
       "description": "Alex has two dated human four-Cs assessments, one approved five-criterion interview with next steps and actual first adult commitment at D0 with authorized private PDF. Casey is already Leader. Alex later withdraws and rejoins; latest current eligibility differs from historical acquisition.",
       "given": {
         "P": {
@@ -6820,7 +6857,10 @@
         "evry.readCatalog",
         "evry.readWorkflowHint"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Plant Admin A has a live seat, organization Member B has a separate exact context, Member C owns one task, and removed actor D has no active seat. The static operation manifest includes People/Tasks/NI and excludes care/coach/background and every executor/approval tool. Two same-name Alex records require one safe choice. Workflow hint text contains a forged authority claim.",
       "given": {
         "P": {
@@ -7140,7 +7180,10 @@
         "evry.submitTurn",
         "evry.updateDraft"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Conversation C belongs to A in plant P with saved messages and a saved draft. Two paged note records include Unicode continuation. Returned Person rows Alex/Casey are separate from a Team row. Server clock and timezone are fixed; one retained source is revoked and 25 messages exceed the recent-message budget. A second conversation belongs to B.",
       "given": {
         "P": {
@@ -7448,7 +7491,11 @@
         "evry.selectQualifiedModel",
         "evry.stageAttachment"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/evals/golden.test.mts",
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Own explicit CSV upload has digest H, one valid row, duplicate Alex and invalid email; another actor attachment and expired handle exist. A cleanup job races an authorized file bind. Synthetic model manifest has one qualified and one unqualified model; fake providers and source-independent exact facts/effects are registered.",
       "given": {
         "P": {
@@ -7740,7 +7787,10 @@
         "evry.reuseRecipe",
         "evry.reviseProposal"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Saved review R has exact meeting/create-guests/send steps, two eligible recipients and expiry T0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. One executor stalls and another resumes the action.",
       "given": {
         "P": {
@@ -8155,7 +8205,10 @@
         "tasks.statusHistory",
         "tasks.waive"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-work.test.mts"
+      ],
       "description": "A owns one high-priority pending task due today; overdue/tomorrow/complete/undated and Jordan-assigned tasks are distractors. T has real one-level child tasks with optional assignees and own history, prerequisite P, recurrence successor S and managed meeting obligation O. A Person has no eligible linked account; a template offer has two selected tasks and one omitted task.",
       "given": {
         "P": {
@@ -8699,7 +8752,10 @@
         "teams.trainingHistory",
         "teams.trainingMatrix"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-work.test.mts"
+      ],
       "description": "Alex has Worship and Hospitality memberships; one role occupied, two open. Team leader L has own-team floor. Eight rubric areas are independent of three chosen teams. Program Q has explicitly saved Alex/Casey applicability with Alex complete; Jamie joins later; program Z has zero applicability. Ten optional ministry templates exist.",
       "given": {
         "P": {
@@ -9153,7 +9209,10 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-library.test.mts"
+      ],
       "description": "Global and own-org published editions share one canonical ID; draft/foreign editions inaccessible. Source order selects one winner; reader has 81% on five approved foundation articles and 80% on sixth; another reader completes only sixth. Bookmarks/own rating exist; chosen source later departs.",
       "given": {
         "P": {

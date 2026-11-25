@@ -203,8 +203,5 @@ export function bucket() {
 		},
 	};
 }
-export const png = Buffer.from(
-	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
-	"base64",
-);
+export { png } from "./bucket.mts";
 export { sql };

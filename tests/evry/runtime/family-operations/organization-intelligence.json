@@ -1,6 +1,33 @@
 {
 	"family": "EVRY-FAMILY-ORGANIZATION-INTELLIGENCE",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-insight.test.mts",
+			"test": "AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE",
+			"operations": [
+				"geography.listReportingRegionCandidates",
+				"organizationIntelligence.read",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readLocationHistory",
+				"organizationIntelligence.readLocations",
+				"organizationIntelligence.requestRefresh",
+				"organizationIntelligence.submitFeedback",
+				"organizations.correctReportingLocation",
+				"oversight.getPlant",
+				"oversight.getSendingChurch",
+				"oversight.listPlants",
+				"oversight.listSendingChurches",
+				"organizationLaunchSummary.readPublished",
+				"oversight.getHealth",
+				"oversight.readLaunchReadiness"
+			],
+			"through": {
+				"organizationLaunchSummary.readPublished": "oversight.getPlant",
+				"oversight.getHealth": "oversight.listPlants",
+				"oversight.readLaunchReadiness": "oversight.getPlant"
+			}
+		}
+	],
 	"excluded": [],
 	"withheld": []
 }

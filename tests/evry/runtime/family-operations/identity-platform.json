@@ -1,32 +1,108 @@
 {
 	"family": "EVRY-FAMILY-IDENTITY-PLATFORM",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-identity.test.mts",
+			"test": "AC:EVRY-FAMILY-IDENTITY-PLATFORM",
+			"operations": [
+				"account.requestDeletion",
+				"associations.end",
+				"associations.getHistory",
+				"feedback.getOwnStatus",
+				"feedback.submit",
+				"plant.setTimezone",
+				"plant.updateProfile",
+				"privacy.getSharing",
+				"seats.changeOrdinaryRole",
+				"seats.invite",
+				"seats.list",
+				"seats.listInvitations",
+				"plant.previewTimezoneChange",
+				"plant.setDigestSchedule",
+				"seats.appointAdmin",
+				"seats.demote",
+				"seats.readCurrentMembership"
+			],
+			"through": {
+				"plant.previewTimezoneChange": "plant.setTimezone",
+				"plant.setDigestSchedule": "church.digestSchedule.set",
+				"seats.appointAdmin": "seats.changeOrdinaryRole",
+				"seats.demote": "seats.changeOrdinaryRole",
+				"seats.readCurrentMembership": "seats.list"
+			}
+		},
+		{
+			"file": "tests/evry/evals/connections.test.mts",
+			"test": "INV-evry-connections: every settings",
+			"operations": [
+				"account.getAvatar",
+				"account.removeAvatar",
+				"associations.declineInvitation",
+				"associations.listInvitations",
+				"associations.resendInvitation",
+				"associations.revokeInvitation",
+				"organizations.getProfile",
+				"settings.getSection",
+				"settings.saveSection"
+			]
+		},
+		{
+			"file": "tests/evry/evals/settings.test.mts",
+			"test": "INV-evry-settings",
+			"operations": [
+				"account.finalizeAvatar",
+				"account.requestAvatarUpload",
+				"associations.invite",
+				"organizations.updateProfile",
+				"privacy.setSharing",
+				"seats.remove",
+				"seats.resendInvitation",
+				"seats.revokeInvitation"
+			],
+			"through": {
+				"account.requestAvatarUpload": "account.finalizeAvatar"
+			}
+		},
+		{
+			"file": "tests/evry/evals/onboarding.test.mts",
+			"test": "INV-evry-onboarding",
+			"operations": [
+				"discovery.convertToPlant",
+				"discovery.create",
+				"discovery.getProfile",
+				"identity.answerLeadOnboarding",
+				"onboarding.complete",
+				"onboarding.createPlant",
+				"onboarding.declareJourney",
+				"onboarding.getResume"
+			]
+		},
+		{
+			"file": "tests/evry/evals/overview.test.mts",
+			"test": "AC:MON-01",
+			"operations": [
+				"dashboard.activity",
+				"dashboard.availableActions",
+				"dashboard.metrics",
+				"dashboard.readSetupGaps",
+				"feedback.listOwn"
+			]
+		}
+	],
 	"excluded": [
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"trusted_internal_application_caller"
-			],
-			"operations": [
-				"access.checkOperation",
-				"access.projectRead"
-			]
+			"authority": ["trusted_internal_application_caller"],
+			"operations": ["access.checkOperation", "access.projectRead"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"trusted_interactive_domain_caller"
-			],
-			"operations": [
-				"access.currentActor",
-				"security.safeReturn"
-			]
+			"authority": ["trusted_interactive_domain_caller"],
+			"operations": ["access.currentActor", "security.safeReturn"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"verified_restricted_deletion_subject"
-			],
+			"authority": ["verified_restricted_deletion_subject"],
 			"operations": [
 				"account.cancelDeletion",
 				"account.getDeletionStatus",
@@ -36,9 +112,7 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"authenticated_self"
-			],
+			"authority": ["authenticated_self"],
 			"operations": [
 				"account.changePassword",
 				"account.confirmEmailChange",
@@ -52,27 +126,17 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"public_or_verified_invitation_context"
-			],
-			"operations": [
-				"accounts.getRegistrationOptions"
-			]
+			"authority": ["public_or_verified_invitation_context"],
+			"operations": ["accounts.getRegistrationOptions"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"verified_own_pending_or_active_account"
-			],
-			"operations": [
-				"accounts.getRegistrationStatus"
-			]
+			"authority": ["verified_own_pending_or_active_account"],
+			"operations": ["accounts.getRegistrationStatus"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"public_or_sealed_expiring_proof"
-			],
+			"authority": ["public_or_sealed_expiring_proof"],
 			"operations": [
 				"accounts.register",
 				"auth.classifyPublicPreview",
@@ -83,12 +147,8 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"verified_own_pending_domain_account"
-			],
-			"operations": [
-				"accounts.resumeRegistration"
-			]
+			"authority": ["verified_own_pending_domain_account"],
+			"operations": ["accounts.resumeRegistration"]
 		},
 		{
 			"rule": "REQ-EVR-020",
@@ -99,35 +159,21 @@
 				"organization_admin",
 				"authenticated_discovery_subject_owner"
 			],
-			"operations": [
-				"associations.acceptInvitation",
-				"associations.respondInvitation"
-			]
+			"operations": ["associations.acceptInvitation", "associations.respondInvitation"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"ambient_self_session_or_absent_invalid_cookie"
-			],
-			"operations": [
-				"auth.recoverInvalidSession",
-				"auth.signOut"
-			]
+			"authority": ["ambient_self_session_or_absent_invalid_cookie"],
+			"operations": ["auth.recoverInvalidSession", "auth.signOut"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"plant_owner"
-			],
-			"operations": [
-				"churches.requestWorkspaceDeletion"
-			]
+			"authority": ["plant_owner"],
+			"operations": ["churches.requestWorkspaceDeletion"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_scoped_internal_caller"
-			],
+			"authority": ["registered_scoped_internal_caller"],
 			"operations": [
 				"feedback.createConfiguredIssue",
 				"feedback.notifyOperator",
@@ -138,18 +184,12 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_identity_provisioning_caller"
-			],
-			"operations": [
-				"identity.ensureOwnerPerson"
-			]
+			"authority": ["registered_identity_provisioning_caller"],
+			"operations": ["identity.ensureOwnerPerson"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"anonymous_public"
-			],
+			"authority": ["anonymous_public"],
 			"operations": [
 				"marketing.privacyPolicy",
 				"marketing.readProductExamples",
@@ -160,22 +200,27 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"verified_addressed_invitee_without_active_seat"
-			],
-			"operations": [
-				"seats.acceptInvitation"
-			]
+			"authority": ["verified_addressed_invitee_without_active_seat"],
+			"operations": ["seats.acceptInvitation"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_system_job_or_exact_operator_grant"
-			],
-			"operations": [
-				"security.checkRequestOrigin"
-			]
+			"authority": ["registered_system_job_or_exact_operator_grant"],
+			"operations": ["security.checkRequestOrigin"]
 		}
 	],
-	"withheld": []
+	"withheld": [
+		{
+			"decision": "D-1435",
+			"operations": ["dashboard.promptState", "dashboard.resolveHome"]
+		},
+		{
+			"decision": "T-381",
+			"operations": ["feedback.admin.changeStatus", "feedback.admin.list"]
+		},
+		{
+			"decision": "T-655 spec: runs before sign-in",
+			"operations": ["invitations.describeRegistrationContext"]
+		}
+	]
 }

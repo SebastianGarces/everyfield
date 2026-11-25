@@ -1,12 +1,61 @@
 {
 	"family": "EVRY-FAMILY-TASKS",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-work.test.mts",
+			"test": "AC:EVRY-FAMILY-TASKS ",
+			"operations": [
+				"followups.correctOutcome",
+				"followups.listContactHistory",
+				"followups.readObligations",
+				"followups.recordOutcome",
+				"tasks.acceptPhaseOffer",
+				"tasks.answerPhaseOffer",
+				"tasks.assignFollowUp",
+				"tasks.bulkComplete",
+				"tasks.bulkReschedule",
+				"tasks.changeStatus",
+				"tasks.complete",
+				"tasks.completeOccurrence",
+				"tasks.configureRecurrence",
+				"tasks.count",
+				"tasks.create",
+				"tasks.createFollowUp",
+				"tasks.createSubtask",
+				"tasks.declinePhaseOffer",
+				"tasks.delete",
+				"tasks.edit",
+				"tasks.eligibleAssignees",
+				"tasks.executeHandoff",
+				"tasks.findOpenOccurrence",
+				"tasks.followUpCoverage",
+				"tasks.get",
+				"tasks.importReceipt",
+				"tasks.importTemplate",
+				"tasks.list",
+				"tasks.listFollowUpOwners",
+				"tasks.listPrerequisites",
+				"tasks.listSubtasks",
+				"tasks.listTemplates",
+				"tasks.planHandoff",
+				"tasks.prerequisiteCandidates",
+				"tasks.previewTemplate",
+				"tasks.readPhaseOffer",
+				"tasks.relationOptions",
+				"tasks.removeSubtask",
+				"tasks.reopen",
+				"tasks.reopenObligation",
+				"tasks.replacePrerequisites",
+				"tasks.setSubtaskCompletion",
+				"tasks.statusHistory",
+				"tasks.waive"
+			]
+		}
+	],
 	"excluded": [
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_internal_producer_or_exact_operator"
-			],
+			"authority": ["registered_internal_producer_or_exact_operator"],
 			"operations": [
 				"tasks.applyManagedStatus",
 				"tasks.ensureManagedTask",
@@ -17,13 +66,8 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"trusted_interactive_domain_caller"
-			],
-			"operations": [
-				"tasks.normalizeDescription",
-				"tasks.previewDescription"
-			]
+			"authority": ["trusted_interactive_domain_caller"],
+			"operations": ["tasks.normalizeDescription", "tasks.previewDescription"]
 		}
 	],
 	"withheld": []

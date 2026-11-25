@@ -1,42 +1,76 @@
 {
 	"family": "EVRY-FAMILY-PEOPLE-CORE",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-people.test.mts",
+			"test": "AC:EVRY-FAMILY-PEOPLE-CORE ",
+			"operations": [
+				"people.changeStatus",
+				"people.checkForDuplicates",
+				"people.correctAdultClassification",
+				"people.createPerson",
+				"people.deletePerson",
+				"people.executeBulkImport",
+				"people.exportPeople",
+				"people.generateCsvTemplate",
+				"people.getImportReceipt",
+				"people.getMergeReview",
+				"people.getOwnAccountPerson",
+				"people.getPerson",
+				"people.getPersonPhoto",
+				"people.getPersonTeams",
+				"people.getPersonTraining",
+				"people.getPipelineData",
+				"people.getStatusWarnings",
+				"people.listDuplicatePairs",
+				"people.listPeople",
+				"people.mergePeople",
+				"people.mergedPersonDestination",
+				"people.previewImport",
+				"people.previewUnmerge",
+				"people.recordAdultClassification",
+				"people.removePersonPhoto",
+				"people.reorderPipeline",
+				"people.restorePerson",
+				"people.setPersonPhoto",
+				"people.unmergePeople",
+				"people.updatePerson"
+			],
+			"through": {
+				"people.getOwnAccountPerson": "people.getPerson",
+				"people.getPersonTeams": "teams.personAssignments",
+				"people.getPersonTraining": "teams.trainingHistory"
+			}
+		},
+		{
+			"file": "tests/evry/runtime/cases-family-mail.test.mts",
+			"test": "AC:EVRY-FAMILY-COMMUNICATION ",
+			"operations": ["people.getPersonCommunications"],
+			"through": {
+				"people.getPersonCommunications": "communication.forPerson"
+			}
+		}
+	],
 	"excluded": [
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_internal_producer_or_exact_operator"
-			],
-			"operations": [
-				"people.applyRecordedRecruitmentEvent"
-			]
+			"authority": ["registered_internal_producer_or_exact_operator"],
+			"operations": ["people.applyRecordedRecruitmentEvent"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_identity_provisioning_caller"
-			],
-			"operations": [
-				"people.ensureAccountPerson"
-			]
+			"authority": ["registered_identity_provisioning_caller"],
+			"operations": ["people.ensureAccountPerson"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"trusted_identity_or_assignment_caller"
-			],
-			"operations": [
-				"people.getAccountLink"
-			]
+			"authority": ["trusted_identity_or_assignment_caller"],
+			"operations": ["people.getAccountLink"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"authenticated_internal_native_caller"
-			],
-			"operations": [
-				"people.readPipelineMetrics"
-			]
+			"authority": ["authenticated_internal_native_caller"],
+			"operations": ["people.readPipelineMetrics"]
 		}
 	],
 	"withheld": []

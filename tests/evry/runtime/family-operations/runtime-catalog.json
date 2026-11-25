@@ -1,6 +1,25 @@
 {
 	"family": "EVRY-FAMILY-RUNTIME-CATALOG",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-runtime.test.mts",
+			"test": "AC:EVRY-FAMILY-RUNTIME-CATALOG",
+			"operations": ["evry.askClarification", "evry.invokeRead", "evry.readCatalog", "evry.readWorkflowHint"],
+			"through": {
+				"evry.askClarification": "people.listPeople",
+				"evry.invokeRead": "invokeRead",
+				"evry.readCatalog": "readCatalog"
+			}
+		},
+		{
+			"file": "tests/evry/evals/classify.test.mts",
+			"test": "AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES evry.classifyRequest",
+			"operations": ["evry.classifyRequest"],
+			"through": {
+				"evry.classifyRequest": "classifyRequest"
+			}
+		}
+	],
 	"excluded": [],
 	"withheld": []
 }

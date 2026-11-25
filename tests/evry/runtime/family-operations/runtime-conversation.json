@@ -1,6 +1,58 @@
 {
 	"family": "EVRY-FAMILY-RUNTIME-CONVERSATION",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-runtime.test.mts",
+			"test": "AC:EVRY-FAMILY-RUNTIME-CONVERSATION",
+			"operations": [
+				"calendar.getContext",
+				"calendar.resolve",
+				"evry.selectReturnedRows",
+				"evry.collectHistory",
+				"evry.composeReads",
+				"evry.createConversation",
+				"evry.listConversations",
+				"evry.openConversation",
+				"evry.projectError",
+				"evry.readConversation",
+				"evry.readDraft",
+				"evry.readUsage",
+				"evry.resolveReferences",
+				"evry.submitTurn",
+				"evry.updateDraft"
+			],
+			"through": {
+				"evry.collectHistory": "people.getActivities",
+				"evry.composeReads": "evry.composeReads compose_reads",
+				"evry.createConversation": "createConversation",
+				"evry.listConversations": "listConversations",
+				"evry.openConversation": "openLatestConversation",
+				"evry.projectError": "projectError",
+				"evry.readConversation": "readConversation",
+				"evry.readDraft": "evry.readDraft readNotes",
+				"evry.readUsage": "usage",
+				"evry.resolveReferences": "resolveReferences",
+				"evry.submitTurn": "submitTurn",
+				"evry.updateDraft": "evry.updateDraft update_planning_notes"
+			}
+		},
+		{
+			"file": "tests/evry/runtime/cases-bounds.test.mts",
+			"test": "AC:EVRY-CONTEXT-BOUNDS",
+			"operations": ["evry.compileContext"],
+			"through": {
+				"evry.compileContext": "compileContext"
+			}
+		},
+		{
+			"file": "tests/evry/runtime/rows.test.mts",
+			"test": "AC:EVRY-CONTEXT-BOUNDS a listHouseholds turn keeps its household row",
+			"operations": ["evry.projectArtifact"],
+			"through": {
+				"evry.projectArtifact": "events"
+			}
+		}
+	],
 	"excluded": [],
 	"withheld": []
 }

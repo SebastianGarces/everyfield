@@ -1,31 +1,45 @@
 {
 	"family": "EVRY-FAMILY-NOTIFICATIONS",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-mail.test.mts",
+			"test": "AC:EVRY-FAMILY-NOTIFICATIONS",
+			"operations": [
+				"church.digestSchedule.set",
+				"notifications.digestCadence.set",
+				"notifications.feed",
+				"notifications.markAllVisibleRead",
+				"notifications.markRead",
+				"notifications.markSelectedRead",
+				"notifications.oversightDigestCadence.set",
+				"notifications.preferences.get",
+				"notifications.preferences.set",
+				"notifications.previewOversightDigest",
+				"notifications.previewPlanterDigest",
+				"notifications.setPreferences",
+				"notifications.unreadCount"
+			],
+			"through": {
+				"notifications.markRead": "notifications.markSelectedRead",
+				"notifications.preferences.set": "notifications.setPreferences",
+				"notifications.unreadCount": "notifications.feed"
+			}
+		}
+	],
 	"excluded": [
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_system_job_or_exact_operator_grant"
-			],
-			"operations": [
-				"meetings.planNotifications"
-			]
+			"authority": ["registered_system_job_or_exact_operator_grant"],
+			"operations": ["meetings.planNotifications"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"verified_disable_only_proof"
-			],
-			"operations": [
-				"notifications.applyEmailOptOut",
-				"notifications.describeEmailOptOut"
-			]
+			"authority": ["verified_disable_only_proof"],
+			"operations": ["notifications.applyEmailOptOut", "notifications.describeEmailOptOut"]
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_scoped_internal_caller"
-			],
+			"authority": ["registered_scoped_internal_caller"],
 			"operations": [
 				"notifications.cancelTaskReminders",
 				"notifications.claimDue",
@@ -49,12 +63,8 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"verified_one_hour_undo_proof"
-			],
-			"operations": [
-				"notifications.undoEmailOptOut"
-			]
+			"authority": ["verified_one_hour_undo_proof"],
+			"operations": ["notifications.undoEmailOptOut"]
 		}
 	],
 	"withheld": []

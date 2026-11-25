@@ -1,12 +1,45 @@
 {
 	"family": "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
-	"tested": [],
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-runtime.test.mts",
+			"test": "AC:EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
+			"operations": [
+				"evry.prepareMeetingInvitation",
+				"evry.reuseRecipe",
+				"evry.observeRun",
+				"evry.readReview",
+				"evry.retryTurn",
+				"evry.reviseProposal"
+			],
+			"through": {
+				"evry.observeRun": "observeRun",
+				"evry.readReview": "evry.readReview read_review",
+				"evry.retryTurn": "retryTurn",
+				"evry.reviseProposal": "reviseProposal"
+			}
+		},
+		{
+			"file": "tests/evry/execution/proposals.test.mts",
+			"test": "AC:UI45-004 AC:UI45-003",
+			"operations": ["evry.prepareProposal"],
+			"through": {
+				"evry.prepareProposal": "prepareProposal"
+			}
+		},
+		{
+			"file": "tests/evry/runtime/runs.test.mts",
+			"test": "INV-run-recovery",
+			"operations": ["evry.resumeRun"],
+			"through": {
+				"evry.resumeRun": "observeConversation"
+			}
+		}
+	],
 	"excluded": [
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"authenticated_conversation_owner"
-			],
+			"authority": ["authenticated_conversation_owner"],
 			"operations": [
 				"evry.approveProposal",
 				"evry.cancelProposal",
@@ -17,12 +50,8 @@
 		},
 		{
 			"rule": "REQ-EVR-020",
-			"authority": [
-				"registered_internal_producer_or_exact_operator"
-			],
-			"operations": [
-				"evry.expireProposal"
-			]
+			"authority": ["registered_internal_producer_or_exact_operator"],
+			"operations": ["evry.expireProposal"]
 		}
 	],
 	"withheld": []

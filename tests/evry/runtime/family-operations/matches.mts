@@ -1,5 +1,11 @@
 import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
-import { COMPOSE_READS, READ_DRAFT, READ_REVIEW, SELECT_RETURNED_ROWS, UPDATE_DRAFT } from "../../../../packages/evry/src/catalog/catalog.ts";
+import {
+	COMPOSE_READS,
+	READ_DRAFT,
+	READ_REVIEW,
+	SELECT_RETURNED_ROWS,
+	UPDATE_DRAFT,
+} from "../../../../packages/evry/src/catalog/catalog.ts";
 import { READ_DOMAINS } from "../../../../packages/evry/src/index.ts";
 import { REVIEWED_WRITES } from "../../../../packages/evry/src/proposals/review.ts";
 
@@ -64,12 +70,14 @@ function source(file: string) {
 }
 function reached(parts: string[], from: number) {
 	const declared = parts.map((p) => /^(?:export )?(?:async )?(?:const|let|function) \{? ?([\w, :]+)/.exec(p)?.[1]);
-	const seen = new Set([from]);
+	const seen = new Set([from, ...parts.flatMap((p, i) => (/^before\(/.test(p) ? [i] : []))]);
 	for (const at of seen)
 		declared.forEach((names, i) => {
 			if (!seen.has(i) && names?.split(/\W+/).some((n) => n && new RegExp(`\\b${n}\\b`).test(parts[at]!))) seen.add(i);
 		});
-	return [...seen].map((i) => parts[i]!).join("\n");
+	const body = [...seen].map((i) => parts[i]!).join("\n");
+	const data = new Set([...body.matchAll(/"(?:\.\/)?([\w-]+\.cases\.json)"/g)].map((m) => `tests/evry/evals/${m[1]!}`));
+	return [body, ...[...data].map(text)].join("\n");
 }
 const SUITES = [
 	...[...text("packages/evry/package.json").matchAll(/\.\.\/\.\.\/(tests\/[^\s"]+)/g)].map((m) => m[1]!),
@@ -127,8 +135,7 @@ export function problems(
 		}
 		for (const { decision, operations } of withheld) {
 			if (!/^(D-\d+|T-\d+)\b/.test(decision)) out.push(`${family} "${decision}" cites no decision`);
-			for (const id of operations)
-				if (shipped.has(id)) out.push(`${family} ${id} is shipped and cannot be withheld`);
+			for (const id of operations) if (shipped.has(id)) out.push(`${family} ${id} is shipped and cannot be withheld`);
 		}
 	}
 	return out;

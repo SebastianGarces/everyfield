@@ -1,6 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { READ_DOMAINS, type ReadAdapter } from "../../../packages/evry/src/index.ts";
+import type { ReadAdapter } from "../../../packages/evry/src/catalog/types.ts";
+import { READ_DOMAINS } from "../../../packages/evry/src/index.ts";
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/review.ts";
 import type { Actor } from "../../support/fixture.mts";
 import { caseWorld, propose, type Call, type CaseWorld } from "./case-world.mts";
@@ -50,7 +51,10 @@ test("INV-family-operations: an unmatched, extra, unproved, wrongly excluded or 
 		[(f) => f.tested[0]!.operations.push("people.getPerson"), "people.getPerson is not in the matrix"],
 		[(f) => f.excluded[0]!.operations.push("people.addNote"), "people.addNote is matched twice"],
 		[(f) => (f.tested[0]!.test = "AC:NO-SUCH-CASE"), `${file} "AC:NO-SUCH-CASE" names 0 tests`],
-		[(f) => (f.tested[0]!.file = "tests/evry/gone.test.mts"), `tests/evry/gone.test.mts "AC:INH-NOTES-05" names 0 tests`],
+		[
+			(f) => (f.tested[0]!.file = "tests/evry/gone.test.mts"),
+			`tests/evry/gone.test.mts "AC:INH-NOTES-05" names 0 tests`,
+		],
 		[(f) => (f.tested[0]!.test = "AC:INH-EDGES-01"), `people.addNote: "AC:INH-EDGES-01" never names people.addNote`],
 		[
 			(f) => (f.tested[0]!.through!["people.addNote"] = "people.notShipped"),
@@ -90,9 +94,7 @@ async function available(owner: Actor, operations: string[]) {
 			{ tool: "compose_reads", input: { reads: [{ operation, input: {} }] } },
 			propose(operation, {}),
 		]);
-		const asked = await w.quiet(() =>
-			w.ask(owner, "Do it", [() => calls], { onError: "go_on" }),
-		);
+		const asked = await w.quiet(() => w.ask(owner, "Do it", [() => calls], { onError: "go_on" }));
 		const names = [...asked.offered, ...asked.tools];
 		for (const operation of some) if (names.includes(operation)) out.push(`${operation} is offered`);
 		assert.equal(asked.replies.length, calls.length, JSON.stringify(asked.replies).slice(0, 600));

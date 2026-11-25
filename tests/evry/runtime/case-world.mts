@@ -98,6 +98,24 @@ const MAIL: MailPort = {
 	transport: { paused: false, send: refuse, cancel: refuse, reschedule: refuse },
 };
 
+export function provider(answer: "ids" | "unknown") {
+	const sent: string[][] = [];
+	const port: MailPort = {
+		keys: MAIL.keys,
+		transport: {
+			paused: false,
+			async send(batch) {
+				sent.push(batch.messages.map((m) => m.to));
+				return answer === "unknown"
+					? { outcome: "unknown" }
+					: { outcome: "ids", ids: batch.messages.map(() => "re_" + randomUUID()) };
+			},
+			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" as const })),
+			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" as const })),
+		},
+	};
+	return { port, sent };
+}
 export type Turn = {
 	conversation: string;
 	outcome: string | null;
@@ -381,8 +399,13 @@ export async function caseWorld(
 	}
 	async function apply(a: Actor, operation: string, input: unknown, options: Options & { mail?: MailPort } = {}) {
 		const card = await prepare(a, operation, input, options);
+		assert.equal(card.review.refusal ?? null, null, `${operation} is refused`);
 		const { outcome, review } = await approve(a, card, options.mail);
-		assert.deepEqual([outcome, review.outcome], ["completed", "completed"], `${operation} ${JSON.stringify(review)}`);
+		assert.deepEqual(
+			[outcome ?? "completed", review.outcome],
+			["completed", "completed"],
+			`${operation} ${JSON.stringify(review)}`,
+		);
 		const again = await approveProposal(db, await actorOf(a), card.id, witness(card), null);
 		assert.deepEqual([again.replayed, await effect(options.mail)], [true, null], `${operation} runs once`);
 		return review;
@@ -508,15 +531,20 @@ export async function caseWorld(
 			);
 			return after;
 		}
-		async function failedWrite(p: Proposal, on: string, { as = A, mail = null }: { as?: Actor; mail?: MailPort | null } = {}) {
+		async function failedWrite(
+			p: Proposal,
+			on: string,
+			{ as = A, mail = null, atApproval = false }: { as?: Actor; mail?: MailPort | null; atApproval?: boolean } = {},
+		) {
 			const who = await actorOf(as);
 			const before = await held();
 			const settled = () => rows(sql`SELECT * FROM proposal WHERE outcome='completed' ORDER BY id`);
 			const kept = await settled();
-			await approveProposal(db, who, p.id, witness(p), null);
+			if (!atApproval) await approveProposal(db, who, p.id, witness(p), null);
 			const { value, tables } = await touched(admin, () =>
 				recorded(admin, () =>
 					failingWrite(admin, { on, event: "INSERT OR UPDATE OR DELETE" }, async () => {
+						if (atApproval) return void (await assert.rejects(approveProposal(db, who, p.id, witness(p), null)));
 						assert.equal(await effect(mail), "failed", `${p.operation} needs its write to ${on}`);
 					}),
 				),
@@ -528,13 +556,22 @@ export async function caseWorld(
 			);
 			const { audits, jobs, ...sent } = value.added;
 			assert.deepEqual(
-				{ audits: audits.filter((a) => !a.startsWith("evry.")), jobs: jobs.filter((j) => !/^evry_effect/.test(j)), ...sent },
+				{
+					audits: audits.filter((a) => !a.startsWith("evry.")),
+					jobs: jobs.filter((j) => !/^evry_effect/.test(j)),
+					...sent,
+				},
 				NOTHING,
 				"no domain audit, job, notice or mail",
 			);
 			const after = await readReview(db, who, p.id);
-			assert.deepEqual([after.outcome, after.receipt], ["unknown", null], "no receipt claims it was saved");
+			assert.deepEqual(
+				[after.outcome, after.receipt],
+				[atApproval ? null : "unknown", null],
+				"no receipt claims it was saved",
+			);
 			assert.deepEqual([await settled(), await held()], [kept, before], "earlier committed outcomes are kept");
+			if (atApproval) return after;
 			assert.equal((await retryUnresolvedEffects(db, who, p.id)).retried, true);
 			assert.equal(await effect(mail), "completed", "only the failed write stood in the way");
 			const done = await readReview(db, who, p.id);
