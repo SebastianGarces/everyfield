@@ -228,4 +228,4 @@ Asked on 2026-11-25 (evf D-2608) "AF-020: should the organization get a notice w
 
 ## D104, 2026-11-25: a venue's capacity is at least 1; TARGET-MTG-003's capacity 0 conflicts with that (D-2656, T-637)
 
-Asked on 2026-11-25 (evf D-2656) "TARGET-MTG-003: may a venue have capacity 0, or must it be at least 1?", the owner chose "Keep the clause: 0 is refused": REQ-MTG-003 (capacity 1 or more when supplied) wins over the case, as in D103. The case's `capacity: 0` with `venue_accepted: true` stays as written in docs/acceptance/meetings-follow-up.json, and its test asserts that 0 is refused with nothing stored, that 1 and an empty capacity are accepted, and every other expected result.
+Asked on 2026-11-25 (evf D-2656) "TARGET-MTG-003: may a venue have capacity 0, or must it be at least 1?", the owner chose "Keep the clause: 0 is refused": REQ-MTG-003 (capacity 1 or more when supplied) wins over the case, as in D103. The case's capacity 0 with the venue accepted stays as written in docs/acceptance/meetings-follow-up.json, and its test asserts that 0 is refused with nothing stored, that 1 and an empty capacity are accepted, and every other expected result.
