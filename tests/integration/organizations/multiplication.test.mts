@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { seeds, waitingOnLock, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
+import { raced, seeds, waitingOnLock, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
 import { authorityOf } from "../people/people-support.mts";
 import { readViewer, RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { accountId } from "../../../packages/contracts/src/common/index.ts";
@@ -834,10 +834,15 @@ test("AC:ADR1-012 a resident's acceptance that commits first refuses the directo
 	const e = ok(await enrollment(ana, enrollmentId));
 	assert.deepEqual(e.resident, { status: "not_linked" }, "the director read her as unlinked");
 	const completion = { enrollmentId, milestoneId: e.milestones[0]!.id, completedOn: "2026-10-16" };
-	const [accepted, refused] = await atOnce(sql`SELECT 1 FROM person WHERE id=${r.personId}::uuid FOR UPDATE`, [
-		() => settle(f.invitations.respondResident(r.who.session, accept(r.invitation))),
-		async () => programWriter.recordMilestone(f.db, await authority(ana), completion),
-	]);
+	const [accepted, refused] = await raced(
+		f.admin,
+		f.db,
+		sql`SELECT 1 FROM person WHERE id=${r.personId}::uuid FOR UPDATE`,
+		[
+			() => settle(f.invitations.respondResident(r.who.session, accept(r.invitation))),
+			async () => programWriter.recordMilestone(f.db, await authority(ana), completion),
+		],
+	);
 	assert.equal((accepted as { status: string }).status, "accepted");
 	assert.deepEqual(refused, { status: "refused", refusal: { code: "linked_resident" } });
 	assert.equal(await links(r.personId), 1);
