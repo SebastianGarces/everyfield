@@ -14,7 +14,8 @@ import "server-only";
 import type { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
-import { churchWriter } from "./church-writes.ts";
+import { churchWriter, stableId } from "./church-writes.ts";
+import { discoveryTemplate, ownTemplateBody } from "./own-templates.ts";
 import { library } from "./catalog.ts";
 import { cleanOverrides } from "./merge.ts";
 import { forSubject } from "./reads.ts";
@@ -84,6 +85,14 @@ function editScope(authority: RequestActor) {
 	return plantScope(viewer);
 }
 
+function ownScope(authority: RequestActor): Scope | null {
+	const account = accountScope(authority);
+	if (account) return account;
+	const viewer = plantViewer(authority);
+	if (!viewer) return null;
+	return { kind: "account", tenantId: viewer.accountId, accountId: viewer.accountId, access: viewer.access };
+}
+
 function generateScope(authority: RequestActor) {
 	const viewer = plantViewer(authority);
 	return viewer ? plantScope(viewer) : null;
@@ -113,7 +122,145 @@ function ownedFrom(row: OwnedRow, tenantId: string) {
 	});
 }
 
+type ScopeOf = (authority: RequestActor) => Scope | null;
+
+function ownedOperations(view: ScopeOf, edit: ScopeOf) {
+	return {
+		async listOwned(db: Database, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				parse(c.listOwnedRequest, raw);
+				const scope = view(authority);
+				if (!scope) deny("unavailable");
+				const found = await rowsOf<Omit<OwnedRow, "body"> & { ok: boolean }>(
+					db,
+					sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
+						d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.content_hash,
+						r.id AS revision_id
+					FROM (SELECT ${gateSql(scope, false)} AS ok) g
+					LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
+						AND d.kind NOT IN ('church_document', 'church_template') AND d.archived_at IS NULL
+					LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
+					ORDER BY r.recorded_at DESC NULLS LAST
+					LIMIT ${PAGE}`,
+				);
+				if (found[0]?.ok !== true && found.length > 0) deny("unavailable");
+				if (found.length === 0) deny("unavailable");
+				return c.ownedDocumentPage.parse({
+					documents: found
+						.filter((row) => row.id)
+						.map((row) => ({
+							id: row.id,
+							tenantId: row.tenant_id ?? scope.tenantId,
+							kind: row.kind,
+							title: row.title,
+							revision: row.revision,
+							revisionId: row.revision_id,
+							contentHash: row.content_hash,
+							archived: row.archived,
+							copiedFromRevisionId: row.copied_from_revision_id,
+							copiedFromHash: row.copied_from_hash,
+						})),
+				});
+			});
+		},
+
+		read: (db: Database, authority: RequestActor, raw: unknown) => settle(() => readOwned(db, authority, raw, view)),
+		getAuthorized: (db: Database, authority: RequestActor, raw: unknown) =>
+			settle(() => readOwned(db, authority, raw, view)),
+		async saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const input = parse(c.saveNativeRequest, raw);
+				if (!c.nativeText(input.body)) rejectInput("body", "Enter the document text.");
+				const scope = edit(authority);
+				if (!scope) deny("unavailable");
+				const body = JSON.stringify(input.body);
+				const hash = hashOf(body);
+				if (input.expectedRevision === "0") {
+					if (input.documentId) rejectInput("documentId", "A new document has no id.");
+					return createNative(db, scope, input.title, body, hash);
+				}
+				if (!input.documentId) rejectInput("documentId", "Name the document to replace.");
+				return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, body, hash, null);
+			});
+		},
+
+		async archive(db: Database | Transaction, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const input = parse(c.documentRevisionRequest, raw);
+				const scope = edit(authority);
+				if (!scope) deny("unavailable");
+				const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
+				if (row === "conflict") deny("conflict");
+				if (row === "deny" || !row) deny("unavailable");
+				return row;
+			});
+		},
+
+		async designateCoreValues(db: Database | Transaction, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const input = parse(c.documentRevisionRequest, raw);
+				const scope = edit(authority);
+				if (!scope) deny("unavailable");
+				const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");
+				if (row === "conflict") deny("conflict");
+				if (row === "deny" || !row) deny("unavailable");
+				return row;
+			});
+		},
+
+		async importTextOrWord(
+			db: Database | Transaction,
+			authority: RequestActor,
+			raw: unknown,
+			storage: PrivateStorage | null,
+		) {
+			return settle(async () => {
+				const input = parse(c.importDocumentRequest, raw);
+				const scope = edit(authority);
+				if (!scope) deny("unavailable");
+				const read = parseImport(input.bytes, input.format);
+				if ("problem" in read) rejectInput("bytes", read.problem);
+				const body = JSON.stringify(read.body);
+				const hash = hashOf(body);
+				const replay = await rowsOf<OwnedRow & { ok: boolean; stored_hash: string | null }>(
+					db,
+					sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
+						d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash,
+						r.body, r.content_hash, r.id AS revision_id, a.after_value->>'hash' AS stored_hash
+					FROM (SELECT ${gateSql(scope, true)} AS ok) g
+					LEFT JOIN audit_event a ON g.ok AND a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${input.requestKey}
+						AND a.action = 'documents.imported'
+					LEFT JOIN document d ON d.id = a.subject_id AND d.tenant_id = a.tenant_id
+					LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
+				);
+				if (replay[0]?.ok !== true) deny("unavailable");
+				if (replay[0]?.stored_hash) {
+					if (replay[0].content_hash === hash && replay[0].id) return ownedFrom(replay[0], scope.tenantId);
+					deny("conflict");
+				}
+				const file = await storeBytes(
+					db,
+					storage,
+					scope,
+					"native_import",
+					input.format === "text" ? "text/plain" : MEDIA.docx,
+					input.bytes,
+					`import:${scope.tenantId}:${input.requestKey}`,
+				);
+				const imported = { objectId: file.id, format: input.format, hash, requestKey: input.requestKey };
+				if (input.expectedRevision === "0") {
+					if (input.documentId) rejectInput("documentId", "A new document has no id.");
+					return createNative(db, scope, input.title, body, hash, imported);
+				}
+				if (!input.documentId) rejectInput("documentId", "Name the document to replace.");
+				return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, body, hash, imported);
+			});
+		},
+	};
+}
+
 const generatedWriter = {
+	...ownedOperations(viewScope, editScope),
 	async generate(db: Database | Transaction, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const input = parse(c.generateRequest, raw);
@@ -307,47 +454,6 @@ const generatedWriter = {
 		});
 	},
 
-	async listOwned(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(async () => {
-			parse(c.listOwnedRequest, raw);
-			const scope = viewScope(authority);
-			if (!scope) deny("unavailable");
-			const found = await rowsOf<Omit<OwnedRow, "body"> & { ok: boolean }>(
-				db,
-				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
-					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.content_hash,
-					r.id AS revision_id
-				FROM (SELECT ${gateSql(scope, false)} AS ok) g
-				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
-					AND d.kind NOT IN ('church_document', 'church_template') AND d.archived_at IS NULL
-				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
-				ORDER BY r.recorded_at DESC NULLS LAST
-				LIMIT ${PAGE}`,
-			);
-			if (found[0]?.ok !== true && found.length > 0) deny("unavailable");
-			if (found.length === 0) deny("unavailable");
-			return c.ownedDocumentPage.parse({
-				documents: found
-					.filter((row) => row.id)
-					.map((row) => ({
-						id: row.id,
-						tenantId: row.tenant_id ?? scope.tenantId,
-						kind: row.kind,
-						title: row.title,
-						revision: row.revision,
-						revisionId: row.revision_id,
-						contentHash: row.content_hash,
-						archived: row.archived,
-						copiedFromRevisionId: row.copied_from_revision_id,
-						copiedFromHash: row.copied_from_hash,
-					})),
-			});
-		});
-	},
-
-	read: readOwnedDocument,
-	getAuthorized: readOwnedDocument,
-
 	createFromTemplate: churchWriter.createFromTemplate,
 	setBranding: churchWriter.setBranding,
 	exportNative: churchWriter.exportNative,
@@ -390,96 +496,6 @@ const generatedWriter = {
 			if (!found[0].id || !text)
 				return { documentId: null, text: null } satisfies z.output<typeof c.coreValuesEvidence>;
 			return c.coreValuesEvidence.parse({ documentId: found[0].id, text });
-		});
-	},
-
-	async saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown) {
-		return settle(async () => {
-			const input = parse(c.saveNativeRequest, raw);
-			if (!c.nativeText(input.body)) rejectInput("body", "Enter the document text.");
-			const scope = editScope(authority);
-			if (!scope) deny("unavailable");
-			const body = JSON.stringify(input.body);
-			const hash = hashOf(body);
-			if (input.expectedRevision === "0") {
-				if (input.documentId) rejectInput("documentId", "A new document has no id.");
-				return createNative(db, scope, input.title, body, hash);
-			}
-			if (!input.documentId) rejectInput("documentId", "Name the document to replace.");
-			return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, body, hash, null);
-		});
-	},
-
-	async archive(db: Database | Transaction, authority: RequestActor, raw: unknown) {
-		return settle(async () => {
-			const input = parse(c.documentRevisionRequest, raw);
-			const scope = editScope(authority);
-			if (!scope) deny("unavailable");
-			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
-			if (row === "conflict") deny("conflict");
-			if (row === "deny" || !row) deny("unavailable");
-			return row;
-		});
-	},
-
-	async designateCoreValues(db: Database | Transaction, authority: RequestActor, raw: unknown) {
-		return settle(async () => {
-			const input = parse(c.documentRevisionRequest, raw);
-			const scope = editScope(authority);
-			if (!scope) deny("unavailable");
-			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");
-			if (row === "conflict") deny("conflict");
-			if (row === "deny" || !row) deny("unavailable");
-			return row;
-		});
-	},
-
-	async importTextOrWord(
-		db: Database | Transaction,
-		authority: RequestActor,
-		raw: unknown,
-		storage: PrivateStorage | null,
-	) {
-		return settle(async () => {
-			const input = parse(c.importDocumentRequest, raw);
-			const scope = editScope(authority);
-			if (!scope) deny("unavailable");
-			const read = parseImport(input.bytes, input.format);
-			if ("problem" in read) rejectInput("bytes", read.problem);
-			const body = JSON.stringify(read.body);
-			const hash = hashOf(body);
-			const replay = await rowsOf<OwnedRow & { ok: boolean; stored_hash: string | null }>(
-				db,
-				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
-					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash,
-					r.body, r.content_hash, r.id AS revision_id, a.after_value->>'hash' AS stored_hash
-				FROM (SELECT ${gateSql(scope, true)} AS ok) g
-				LEFT JOIN audit_event a ON g.ok AND a.tenant_id = ${scope.tenantId}::uuid AND a.request_key = ${input.requestKey}
-					AND a.action = 'documents.imported'
-				LEFT JOIN document d ON d.id = a.subject_id AND d.tenant_id = a.tenant_id
-				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
-			);
-			if (replay[0]?.ok !== true) deny("unavailable");
-			if (replay[0]?.stored_hash) {
-				if (replay[0].content_hash === hash && replay[0].id) return ownedFrom(replay[0], scope.tenantId);
-				deny("conflict");
-			}
-			const file = await storeBytes(
-				db,
-				storage,
-				scope,
-				"native_import",
-				input.format === "text" ? "text/plain" : MEDIA.docx,
-				input.bytes,
-				`import:${scope.tenantId}:${input.requestKey}`,
-			);
-			const imported = { objectId: file.id, format: input.format, hash, requestKey: input.requestKey };
-			if (input.expectedRevision === "0") {
-				if (input.documentId) rejectInput("documentId", "A new document has no id.");
-				return createNative(db, scope, input.title, body, hash, imported);
-			}
-			if (!input.documentId) rejectInput("documentId", "Name the document to replace.");
-			return appendNative(db, scope, input.documentId, input.expectedRevision, input.title, body, hash, imported);
 		});
 	},
 
@@ -597,13 +613,9 @@ const generatedWriter = {
 	},
 };
 
-async function readOwnedDocument(db: Database, authority: RequestActor, raw: unknown) {
-	return settle(() => readOwned(db, authority, raw));
-}
-
-async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
+async function readOwned(db: Database | Transaction, authority: RequestActor, raw: unknown, view: ScopeOf) {
 	const input = parse(c.ownedDocumentRequest, raw);
-	const scope = viewScope(authority);
+	const scope = view(authority);
 	if (!scope) deny("unavailable");
 	const found = await rowsOf<OwnedRow & { ok: boolean }>(
 		db,
@@ -699,6 +711,89 @@ async function copyForChurch(db: Database, scope: Scope, input: z.output<typeof 
 		LEFT JOIN earlier e ON true`,
 	);
 	return found[0];
+}
+
+async function createOwnFromTemplate(db: Database | Transaction, authority: RequestActor, raw: unknown) {
+	return settle(async () => {
+		const input = parse(c.createOwnFromTemplateRequest, raw);
+		const scope = accountScope(authority);
+		if (!scope) deny("unavailable");
+		const template = discoveryTemplate(input.templateId) ?? deny("unavailable");
+		const docId = stableId(scope.tenantId, "own-template", input.requestKey);
+		const open = sql`${gateSql(scope, true)} AND EXISTS(SELECT FROM discovery x
+			WHERE x.account_id = ${scope.accountId}::uuid AND x.converted_at IS NULL)`;
+		const [facts] = await rowsOf<{ ok: boolean; name: string | null; prior: string | null }>(
+			db,
+			sql`SELECT ${open} AS ok, (SELECT i.display_name FROM seat_identity(${scope.accountId}::uuid) i) AS name,
+				(SELECT a.after_value->>'template' FROM audit_event a WHERE a.tenant_id = ${scope.tenantId}::uuid
+					AND a.request_key = ${input.requestKey} AND a.action = 'documents.created_from_template') AS prior`,
+		);
+		if (!facts?.ok) deny("unavailable");
+		const again = async () => {
+			const [prior] = await rowsOf<{ template: string | null }>(
+				db,
+				sql`SELECT a.after_value->>'template' AS template FROM audit_event a WHERE a.tenant_id = ${scope.tenantId}::uuid
+					AND a.request_key = ${input.requestKey} AND a.action = 'documents.created_from_template'`,
+			);
+			if (prior?.template !== template.id) deny("conflict");
+			return readOwned(db, authority, { documentId: docId }, ownScope);
+		};
+		if (facts.prior !== null) return facts.prior === template.id ? again() : deny("conflict");
+		const body = JSON.stringify(ownTemplateBody(template, facts.name));
+		const hash = hashOf(body);
+		const revId = stableId(scope.tenantId, "own-template-revision", input.requestKey);
+		let found: { ok: boolean; id: string | null; revision: string | null }[];
+		try {
+			found = await rowsOf(
+				db,
+				sql`WITH gate AS (SELECT ${open} AS ok),
+				inserted AS (
+					INSERT INTO document (id, tenant_id, kind, title, current_revision_id, revision)
+					SELECT ${docId}::uuid, ${scope.tenantId}::uuid, 'native', ${template.title}, ${revId}::uuid, 1
+					FROM gate WHERE ok
+					RETURNING id, tenant_id, revision::text AS revision
+				),
+				added AS (
+					INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, published_at, recorded_at)
+					SELECT ${revId}::uuid, inserted.tenant_id, inserted.id, 1, ${body}, ${hash}, clock_timestamp(), clock_timestamp()
+					FROM inserted
+					RETURNING id
+				),
+				aud AS (
+					INSERT INTO audit_event (
+						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, request_key, after_value, metadata
+					)
+					SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.created_from_template', 'create', inserted.id,
+						clock_timestamp(), clock_timestamp(), 'document:' || inserted.id::text || ':1', ${input.requestKey},
+						jsonb_build_object('template', ${template.id}::text), '{}'::jsonb
+					FROM inserted
+					RETURNING id
+				)
+				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM inserted) AS id, (SELECT revision FROM inserted) AS revision,
+					(SELECT count(*) FROM added) AS written, (SELECT count(*) FROM aud) AS audited`,
+			);
+		} catch (error) {
+			if (postgresCode(error) !== "23505") throw error;
+			return again();
+		}
+		const row = found[0];
+		if (!row?.ok || !row.id || !row.revision) deny("unavailable");
+		return ownedFrom(
+			{
+				id: row.id,
+				kind: "native",
+				title: template.title,
+				body,
+				revision: row.revision,
+				content_hash: hash,
+				archived: false,
+				copied_from_revision_id: null,
+				copied_from_hash: null,
+				revision_id: revId,
+			},
+			scope.tenantId,
+		);
+	});
 }
 
 type ImportLink = { objectId: string; format: "text" | "docx"; hash: string; requestKey: string };
@@ -1008,8 +1103,21 @@ function saveNative(db: Database | Transaction, authority: RequestActor, raw: un
 	return generatedWriter.saveNative(db, authority, raw);
 }
 
+function mine(own: ReturnType<typeof ownedOperations>) {
+	return {
+		listMine: own.listOwned,
+		readMine: own.read,
+		saveMine: own.saveNative,
+		archiveMine: own.archive,
+		designateMine: own.designateCoreValues,
+		importMine: own.importTextOrWord,
+	};
+}
+
 export const documentsWriter = {
 	...generatedWriter,
+	...mine(ownedOperations(ownScope, ownScope)),
+	createMineFromTemplate: createOwnFromTemplate,
 	saveNative,
 	"history.list": historyList,
 	"history.get": historyGet,

@@ -13,6 +13,7 @@
 	"tests/integration/documents/church-template-compare.test.mts",
 	"tests/integration/documents/church-templates.test.mts",
 	"tests/integration/documents/church.test.mts",
+	"tests/integration/documents/discovery.test.mts",
 	"tests/integration/documents/documents.test.mts",
 	"tests/integration/documents/library-cases.test.mts",
 	"tests/integration/documents/network-statement.test.mts",
