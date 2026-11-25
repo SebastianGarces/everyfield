@@ -475,7 +475,8 @@
 		"limit": 1
 	},
 	"documents.download": {
-		"limit": 9
+		"limit": 9,
+		"retry": 9
 	},
 	"documents.editChurchTemplate": {
 		"limit": 1
