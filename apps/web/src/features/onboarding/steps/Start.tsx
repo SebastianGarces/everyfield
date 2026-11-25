@@ -104,7 +104,7 @@ export function ConvertDiscovery({ state, actions, names }: Props & { names: Rec
 	return (
 		<section data-onboarding-step="church">
 			<StepHeading title="Start your church">
-				It starts in Phase 1, Core group development. Your documents, reading and Evry chats stay yours.
+				It starts in Phase 1, Core group development. Your documents and reading stay yours.
 			</StepHeading>
 			<Notice notice={state.notice} op="convertDiscovery" />
 			<BasicsForm

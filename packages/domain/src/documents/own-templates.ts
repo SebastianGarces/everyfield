@@ -107,7 +107,8 @@ function blocks(nodes: readonly BlockNode[] | undefined, values: Record<string, 
 
 export function ownTemplateBody(template: DocTemplate, ownName: string | null): DocNode {
 	const values = ownFieldValues(template, ownName);
-	const content = blocks(template.body.content, values);
+	const all = blocks(template.body.content, values);
+	const content = all.slice(Math.max(0, all.findIndex((node) => node.type !== "divider")));
 	const notice: BlockNode[] =
 		template.class === "formal/legal"
 			? [paragraph([{ type: "text", text: LEGAL_NOTICE, marks: [{ type: "bold" }] }])]

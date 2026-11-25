@@ -1200,7 +1200,7 @@ const DISCOVERY_DOCUMENTS = [
 ] as const;
 const FOUNDATIONS = (
 	JSON.parse(readFileSync(new URL("../../docs/reference/discovery-foundations.json", import.meta.url), "utf8")) as {
-		articles: { id: string; sort_order: number }[];
+		articles: { id: string; slug: string; sort_order: number }[];
 	}
 ).articles.sort((a, b) => a.sort_order - b.sort_order);
 
@@ -1266,6 +1266,29 @@ async function discoveryPlanter(
 			),
 		);
 		done.push(`connection ${DISCOVERY_PLANTER.name} to ${DISCOVERY_CHURCH}`);
+	}
+	const corpus = JSON.parse(
+		readFileSync(new URL("../../docs/reference/bootstrap/global-seed-payload.json", import.meta.url), "utf8"),
+	) as { articles: { slug: string; title: string; content: string }[] };
+	const [active] = await rows(
+		admin,
+		sql`SELECT a.release_id, (SELECT id FROM reference_item WHERE kind='section' AND canonical_key='framework/start'
+			AND tenant_id=${GLOBAL} LIMIT 1) AS section FROM reference_activation a ORDER BY a.activation_number DESC LIMIT 1`,
+	);
+	for (const [position, article] of FOUNDATIONS.entries()) {
+		if (!active?.section || (await rows(admin, sql`SELECT 1 FROM reference_item WHERE id=${article.id}`)).length) continue;
+		const body = corpus.articles.find((a) => a.slug === article.slug);
+		if (!body) continue;
+		await admin.transaction(async (tx) => {
+			await tx.execute(
+				sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${article.id},'article',${article.slug},${GLOBAL})`,
+			);
+			await tx.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+				VALUES(${randomUUID()},${article.id},${GLOBAL},${active.release_id as string},1,${body.title},${article.slug},${body.title},${body.content},'safe_mdx',0,${position + 20},${digest()},clock_timestamp(),true,1,${active.section as string},NULL,ARRAY[]::text[])`);
+			await tx.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+				VALUES(${randomUUID()},${article.id},${active.release_id as string},1,${"wiki/" + article.slug},${digest()},'QA seed')`);
+		});
+		done.push(`foundation article ${article.slug}`);
 	}
 	for (const article of FOUNDATIONS.slice(0, 2)) {
 		const [published] = await rows(
