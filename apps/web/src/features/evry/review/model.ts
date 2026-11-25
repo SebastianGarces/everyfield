@@ -1807,11 +1807,10 @@ export function carryOver(c: Change): CarryOver | null {
 	};
 }
 export function carryOverText(link: Pick<CarryOver, "carries" | "share">) {
-	if (!link.carries) return "Doesn't carry over. The link ends.";
+	if (!link.carries) return "The connection ends.";
 	const shares = SHARING_CATEGORIES.filter((k) => link.share.includes(k)).map((k) => SHARING_CATEGORY_LABEL[k]);
-	return shares.length ? `Carries over, sharing ${shares.join(", ")}` : "Carries over, sharing nothing yet";
+	return shares.length ? `Stays connected, sharing ${shares.join(", ")}` : "Stays connected. It sees nothing new.";
 }
-export const SHARE_CHOICES = SHARING_CATEGORIES.map((k) => ({ value: k, label: SHARING_CATEGORY_LABEL[k] }));
 
 const REVISABLE = new Set<Operation>([
 	"people.createPerson",
@@ -1861,12 +1860,12 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 			if (!link) return [];
 			const raw = edits[c.field];
 			const edited = raw !== undefined ? (JSON.parse(raw) as Pick<CarryOver, "carries" | "share">) : link;
-			return edited.carries ? [{ organizationId: link.organizationId, share: edited.share }] : [];
+			return edited.carries ? [] : [link.organizationId];
 		});
 		const place = Object.fromEntries(
 			(["city", "stateProvince", "country"] as const).flatMap((f) => (after(f) ? [[f, after(f)]] : [])),
 		);
-		return { name: after("church"), ...place, carryOver: picks };
+		return { name: after("church"), ...place, end: picks };
 	}
 	if (review.operation === "communication.saveDraft") {
 		const audience = audienceArgs(after("audience"));

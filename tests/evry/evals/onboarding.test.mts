@@ -300,7 +300,7 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 				await rows(sql`SELECT o.name, a.share_people AS people, a.share_meetings AS meetings FROM affiliation a
 					JOIN organization o ON o.id=a.organization_id JOIN plant p ON p.id=a.plant_id
 					WHERE p.name='Grace Point' AND a.ended_at IS NULL`),
-				[{ name: "Grace Austin", people: true, meetings: true }],
+				[{ name: "Grace Austin", people: false, meetings: false }],
 			);
 			assert.deepEqual(
 				await rows(

@@ -303,7 +303,8 @@
 				],
 				"notes": [
 					"Your Discovery space becomes Harvest Point",
-					"Only the links marked to carry over stay with the church"
+					"Each sending church or network stays connected to the church and sees nothing new.",
+					"Your sending church or network can cover your church's seat."
 				]
 			},
 			"approve": true
@@ -407,6 +408,53 @@
 			]
 		},
 		{
+			"id": "ONB-33",
+			"criterion": 15,
+			"actor": "sender",
+			"ask": "turn my Discovery space into a church called Grace Point and end my link to Hill Country Network",
+			"calls": ["discovery.getProfile"],
+			"proposal": {
+				"operation": "discovery.convertToPlant",
+				"target": "Morgan Hale",
+				"changes": [
+					{
+						"field": "church",
+						"before": null,
+						"after": "Grace Point"
+					},
+					{
+						"field": "link:{GRACE_AUSTIN}",
+						"before": {
+							"organization": "Grace Austin",
+							"kind": "Sending church",
+							"share": []
+						},
+						"after": {
+							"carries": true,
+							"share": []
+						}
+					},
+					{
+						"field": "link:{NETWORK}",
+						"before": {
+							"organization": "Hill Country Network",
+							"kind": "Network",
+							"share": []
+						},
+						"after": {
+							"carries": false,
+							"share": []
+						}
+					}
+				],
+				"notes": [
+					"A link ends only where this review says it ends.",
+					"If you plant on your own, you can pay for your seat yourself."
+				],
+				"refusal": null
+			}
+		},
+		{
 			"id": "ONB-28",
 			"criterion": 15,
 			"actor": "sender",
@@ -446,18 +494,13 @@
 						}
 					}
 				],
-				"notes": ["Revise this review to pick which links carry over and what each one shares."],
+				"notes": ["A link ends only where this review says it ends."],
 				"refusal": null
 			},
 			"revise": {
 				"input": {
 					"name": "Grace Point",
-					"carryOver": [
-						{
-							"organizationId": "{GRACE_AUSTIN}",
-							"share": ["people", "meetings"]
-						}
-					]
+					"end": ["{NETWORK}"]
 				},
 				"changes": [
 					{
@@ -474,7 +517,7 @@
 						},
 						"after": {
 							"carries": true,
-							"share": ["people", "meetings"]
+							"share": []
 						}
 					},
 					{

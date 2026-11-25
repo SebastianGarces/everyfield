@@ -22,18 +22,25 @@ export const selectedRelationship = z.strictObject({
 	expectedConsentRevision: revision,
 	choices: sharingChoices,
 });
+export const endedRelationship = z.strictObject({
+	relationshipId: recordId,
+	organization: organizationOwner,
+	expectedRelationshipRevision: revision,
+});
 export const convertDiscoveryRequest = commandEnvelope(
-	plantBasics.extend({
-		discoveryId: recordId,
-		relationships: z
-			.array(selectedRelationship)
-			.max(100)
-			.refine(
-				(rows) =>
-					new Set(rows.map((r) => r.relationshipId)).size === rows.length &&
-					new Set(rows.map((r) => r.organization.id)).size === rows.length,
-			),
-	}),
+	plantBasics
+		.extend({
+			discoveryId: recordId,
+			relationships: z.array(selectedRelationship).max(100),
+			ended: z.array(endedRelationship).max(100),
+		})
+		.refine((input) => {
+			const rows = [...input.relationships, ...input.ended];
+			return (
+				new Set(rows.map((r) => r.relationshipId)).size === rows.length &&
+				new Set(rows.map((r) => r.organization.id)).size === rows.length
+			);
+		}),
 );
 export const documentCarryForwardProposal = z.strictObject({
 	documentId: recordId,

@@ -26,6 +26,7 @@ export async function ProductFrameLayout({
 			settings={settings}
 			settingsDialog={settingsDialog}
 			residency={residency}
+			discovery={v.discovery}
 		>
 			{children}
 		</ProductFrame>

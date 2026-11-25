@@ -36,13 +36,21 @@ const ownedDraft = z
 	.object({ title: z.unknown(), body: z.unknown(), documentId: z.unknown(), expectedRevision: z.unknown() })
 	.partial();
 
-export async function saveOwnedDocument(
-	raw: unknown,
-): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
+type Saved = DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>;
+
+export async function saveOwnedDocument(raw: unknown): Promise<Saved> {
+	return saveWritten(raw, false);
+}
+
+export async function saveMyDocument(raw: unknown): Promise<Saved> {
+	return saveWritten(raw, true);
+}
+
+async function saveWritten(raw: unknown, mine: boolean): Promise<Saved> {
 	const parsed = ownedDraft.safeParse(raw);
 	const input = parsed.success ? parsed.data : {};
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.saveNative(db, actor, {
+		const reply = await (mine ? documentsWriter.saveMine : documentsWriter.saveNative)(db, actor, {
 			title: input.title,
 			body: input.body,
 			expectedRevision: input.expectedRevision,
@@ -56,20 +64,30 @@ export async function saveOwnedDocument(
 export async function archiveOwnedDocument(
 	documentId: string,
 	expectedRevision: string,
+	mine = false,
 ): Promise<DocumentOutcome<OwnedView>> {
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.archive(db, actor, { documentId, expectedRevision });
+		const archive = mine ? documentsWriter.archiveMine : documentsWriter.archive;
+		const reply = await archive(db, actor, { documentId, expectedRevision });
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: presentOwned(reply.value) };
 	});
 }
 
-export async function designateOwnedDocument(
-	documentId: string,
-	expectedRevision: string,
-): Promise<DocumentOutcome<{ revision: string; kind: WrittenView["kind"] }>> {
+type Designated = DocumentOutcome<{ revision: string; kind: WrittenView["kind"] }>;
+
+export async function designateOwnedDocument(documentId: string, expectedRevision: string): Promise<Designated> {
+	return designateWritten(documentId, expectedRevision, false);
+}
+
+export async function designateMyDocument(documentId: string, expectedRevision: string): Promise<Designated> {
+	return designateWritten(documentId, expectedRevision, true);
+}
+
+async function designateWritten(documentId: string, expectedRevision: string, mine: boolean): Promise<Designated> {
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.designateCoreValues(db, actor, { documentId, expectedRevision });
+		const designate = mine ? documentsWriter.designateMine : documentsWriter.designateCoreValues;
+		const reply = await designate(db, actor, { documentId, expectedRevision });
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: { revision: reply.value.revision, kind: reply.value.kind } };
 	});
@@ -78,6 +96,14 @@ export async function designateOwnedDocument(
 export async function copyToChurch(input: unknown): Promise<DocumentOutcome<{ id: string }>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.useForChurch(db, actor, input);
+		if (reply.status === "refused") return refused(reply.error);
+		return { status: "ok", value: { id: reply.value.id } };
+	});
+}
+
+export async function startFromTemplate(templateId: string, requestKey: string): Promise<DocumentOutcome<{ id: string }>> {
+	return run(async (db, actor) => {
+		const reply = await documentsWriter.createMineFromTemplate(db, actor, { templateId, requestKey });
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: { id: reply.value.id } };
 	});

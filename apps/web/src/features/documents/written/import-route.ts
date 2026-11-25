@@ -32,9 +32,10 @@ export const importRoute = mutatingRoute(async function importRoute(request: Req
 	const storage = privateStorage();
 	if (!storage)
 		return answer({ status: "refused", code: "unavailable", problem: "Saving is not available right now." });
+	const importFile = query.get("scope") === "account" ? documentsWriter.importMine : documentsWriter.importTextOrWord;
 	const reply = await transient(
 		{ component: "documents", outcome: "import_failed" },
-		() => documentsWriter.importTextOrWord(requestDatabase(), actor, input, storage),
+		() => importFile(requestDatabase(), actor, input, storage),
 		LOST,
 	);
 	if (reply.status === "lost") return answer(reply);

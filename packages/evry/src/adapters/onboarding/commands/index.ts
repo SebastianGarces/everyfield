@@ -194,14 +194,16 @@ export const createDiscovery = nativeWrite({
 	},
 });
 
-const carryOver = z.strictObject({ organizationId: z.uuid(), share: z.array(z.enum(SHARING_CATEGORIES)).max(7) });
 type Choices = Record<SharingCategory, boolean>;
 const sharedNow = (choices: Choices) => SHARING_CATEGORIES.filter((k) => choices[k]);
+const SEAT =
+	"Your sending church or network can cover your church's seat. If you plant on your own, you can pay for your seat yourself.";
 
 export const convertToPlant = nativeWrite({
 	operation: "discovery.convertToPlant",
-	description: `Propose turning the user's Discovery space into a church with the user as its Owner: its name and, if given, its city, state or province and country. Without carryOver, every sending church or network the space is linked to (discovery.getProfile) stays linked, sharing what it shares today. With carryOver, only the listed links stay, each sharing exactly the listed categories from the church (${SHARING_CATEGORIES.join(", ")}); the other links end. The user can also pick on the review card. Nothing changes until the user approves the exact review.`,
-	input: z.strictObject({ ...basics, carryOver: z.array(carryOver).max(100).optional() }),
+	description:
+		"Propose turning the user's Discovery space into a church with the user as its Owner: its name and, if given, its city, state or province and country. Every sending church or network the space is linked to (discovery.getProfile) stays linked to the church and shares nothing new. List a link's organizationId in end only when the user clearly asked to end that link. The user can also choose on the review card. Nothing changes until the user approves the exact review.",
+	input: z.strictObject({ ...basics, end: z.array(z.uuid()).max(100).optional() }),
 	allowed: accountContext,
 	async review(actor, value, { db, native }) {
 		if (!native) return null;
@@ -212,30 +214,30 @@ export const convertToPlant = nativeWrite({
 			revision: string;
 			relationships: {
 				relationshipId: string;
-				organization: { id: string; organizationKind: string };
+				organization: { kind: "organization"; id: string; organizationKind: string };
 				revision: string;
 				consentRevision: string;
 				choices: Choices;
 			}[];
 		};
-		const links = profile.relationships.map((r) => {
-			const pick = value.carryOver ? value.carryOver.find((c) => c.organizationId === r.organization.id) : null;
-			const choices = Object.fromEntries(
-				SHARING_CATEGORIES.map((k) => [k, pick ? pick.share.includes(k) : pick === null && r.choices[k]]),
-			) as Choices;
-			return { r, carries: pick !== undefined, choices };
-		});
-		const unknown = (value.carryOver ?? []).some(
-			(c) => !profile.relationships.some((r) => r.organization.id === c.organizationId),
-		);
+		const end = new Set(value.end ?? []);
+		const links = profile.relationships.map((r) => ({ r, carries: !end.has(r.organization.id) }));
+		const unknown = [...end].some((id) => !profile.relationships.some((r) => r.organization.id === id));
 		const relationships = links
 			.filter((l) => l.carries)
-			.map(({ r, choices }) => ({
+			.map(({ r }) => ({
 				relationshipId: r.relationshipId,
 				organization: r.organization,
 				expectedRelationshipRevision: r.revision,
 				expectedConsentRevision: r.consentRevision,
-				choices,
+				choices: r.choices,
+			}));
+		const ended = links
+			.filter((l) => !l.carries)
+			.map(({ r }) => ({
+				relationshipId: r.relationshipId,
+				organization: r.organization,
+				expectedRelationshipRevision: r.revision,
 			}));
 		const b = plantBasics(value);
 		const rows = JSON.stringify(
@@ -244,7 +246,7 @@ export const convertToPlant = nativeWrite({
 				kind: linkKind(l.r.organization.organizationKind),
 				now: sharedNow(l.r.choices),
 				carries: l.carries,
-				share: l.carries ? sharedNow(l.choices) : [],
+				share: l.carries ? sharedNow(l.r.choices) : [],
 			})),
 		);
 		const linkChanges = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('field','link:'||x.id,
@@ -252,20 +254,20 @@ export const convertToPlant = nativeWrite({
 				'after',jsonb_build_object('carries',x.carries,'share',x.share)) ORDER BY o.name,o.id),'[]'::jsonb)
 			FROM jsonb_to_recordset(${rows}::jsonb) x(id uuid,kind text,now jsonb,carries boolean,share jsonb) JOIN organization o ON o.id=x.id)`;
 		const refusal = unknown
-			? sql`jsonb_build_object('refusal','That organization is not linked to your Discovery space, so it can''t carry over. Nothing changes.'::text)`
+			? sql`jsonb_build_object('refusal','That organization is not linked to your Discovery space, so its link can''t end. Nothing changes.'::text)`
 			: sql`'{}'::jsonb`;
 		return sql`SELECT jsonb_build_object('target',${you},'changes',${b.changes}||${linkChanges},
 				'notes',${notes([
-					`Your Discovery space becomes ${value.name}, in ${phaseText(1)}. You become its Owner, and your reading stays with you.`,
+					`Your Discovery space becomes ${value.name}, in ${phaseText(1)}. You become its Owner, and your documents and reading stay yours.`,
 					...(links.length
 						? [
-								"Only the links marked to carry over stay with the church, sharing only what is listed. Every other link ends, and your Discovery space closes.",
-								"Revise this review to pick which links carry over and what each one shares.",
+								"Each sending church or network stays connected to the church and sees nothing new. A link ends only where this review says it ends.",
 							]
 						: []),
+					SEAT,
 					NEXT_STEPS,
 				])})||${refusal} AS review,
-			jsonb_build_object('expectedRevision',d.revision::text,'input',${JSON.stringify({ ...b.input, discoveryId: profile.discoveryId, relationships })}::jsonb) AS args
+			jsonb_build_object('expectedRevision',d.revision::text,'input',${JSON.stringify({ ...b.input, discoveryId: profile.discoveryId, relationships, ended })}::jsonb) AS args
 			FROM discovery d JOIN account a ON a.id=d.account_id CROSS JOIN LATERAL seat_identity(a.id) n
 			WHERE d.id=${profile.discoveryId}::uuid AND a.id=${actor.accountId}::uuid AND d.converted_at IS NULL
 				AND d.revision=${profile.revision}::bigint AND NOT EXISTS(SELECT FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL)`;

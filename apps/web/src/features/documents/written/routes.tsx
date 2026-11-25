@@ -22,7 +22,15 @@ export async function WrittenDocumentPage({ params }: { params: Promise<{ docume
 	const loaded = await loadWritten(authority, raw);
 	if (loaded.status === "failed") return <Failed />;
 	if (loaded.status === "missing") return <Missing />;
-	return <WrittenScreen doc={loaded.value} scope={scope} canEdit={canEdit} canStore={canStoreDocuments()} />;
+	const mine = loaded.mine;
+	return (
+		<WrittenScreen
+			doc={loaded.value}
+			scope={mine ? "account" : scope}
+			canEdit={mine || canEdit}
+			canStore={canStoreDocuments()}
+		/>
+	);
 }
 
 function Missing() {

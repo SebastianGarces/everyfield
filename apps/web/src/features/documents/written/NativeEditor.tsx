@@ -38,7 +38,13 @@ import {
 	shortcutMark,
 } from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
-import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument } from "../actions.ts";
+import {
+	archiveOwnedDocument,
+	designateMyDocument,
+	designateOwnedDocument,
+	saveMyDocument,
+	saveOwnedDocument,
+} from "../actions.ts";
 import type { DocumentOutcome } from "../outcome.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
@@ -72,10 +78,13 @@ async function importWritten(file: File, params: Record<string, string>): Promis
 	}
 }
 
-const port = {
-	save: saveOwnedDocument,
-	importFile: importWritten,
-	designate: designateOwnedDocument,
+const PORTS = {
+	church: { save: saveOwnedDocument, importFile: importWritten, designate: designateOwnedDocument },
+	account: {
+		save: saveMyDocument,
+		importFile: (file: File, params: Record<string, string>) => importWritten(file, { ...params, scope: "account" }),
+		designate: designateMyDocument,
+	},
 };
 
 export default function NativeEditor({
@@ -95,7 +104,7 @@ export default function NativeEditor({
 			createNativeEditorStore({
 				doc,
 				port: {
-					...port,
+					...PORTS[scope],
 					created: (id, editor, kept) => {
 						const href = `/documents/written/${id}`;
 						if (leaveRequestNow()) return writeAddress(href, { replace: true });
@@ -170,7 +179,7 @@ export default function NativeEditor({
 	async function archive() {
 		const base = store.getState().saved;
 		if (!base.id) return;
-		const result = await archiveOwnedDocument(base.id, base.revision);
+		const result = await archiveOwnedDocument(base.id, base.revision, scope === "account");
 		if (result.status !== "ok")
 			return {
 				refused: documentProblem(

@@ -330,7 +330,7 @@ test("AC:HH-05 INV-partial: a saved change that left anyone out counts who chang
 	assert.equal(peopleResult(review({ status: "approved", outcome: "completed", receipt: {} })), null);
 });
 
-test("INV-carry-over: a conversion revision carries over only the ticked links with only the ticked sharing", () => {
+test("INV-carry-over: a conversion revision keeps every link and ends only the ones ticked to end", () => {
 	const grace = "66666666-6666-4666-8666-666666666666";
 	const network = "44444444-4444-4444-8444-444444444444";
 	const link = (id, organization, kind) => ({
@@ -354,26 +354,16 @@ test("INV-carry-over: a conversion revision carries over only the ticked links w
 		editableChanges(convert).map((c) => c.field),
 		[`link:${grace}`, `link:${network}`],
 	);
-	assert.deepEqual(reviseInput(convert), {
-		name: "Grace Point",
-		city: "Austin",
-		carryOver: [
-			{ organizationId: grace, share: [] },
-			{ organizationId: network, share: [] },
-		],
-	});
+	assert.deepEqual(reviseInput(convert), { name: "Grace Point", city: "Austin", end: [] });
 	assert.deepEqual(
 		reviseInput(convert, {
-			[`link:${grace}`]: JSON.stringify({ carries: true, share: ["people", "meetings"] }),
+			[`link:${grace}`]: JSON.stringify({ carries: true, share: [] }),
 			[`link:${network}`]: JSON.stringify({ carries: false, share: [] }),
 		}),
-		{ name: "Grace Point", city: "Austin", carryOver: [{ organizationId: grace, share: ["people", "meetings"] }] },
+		{ name: "Grace Point", city: "Austin", end: [network] },
 	);
-	assert.equal(
-		carryOverText({ carries: true, share: ["meetings", "people"] }),
-		"Carries over, sharing People totals, Meetings",
-	);
-	assert.equal(carryOverText({ carries: false, share: [] }), "Doesn't carry over. The link ends.");
+	assert.equal(carryOverText({ carries: true, share: [] }), "Stays connected. It sees nothing new.");
+	assert.equal(carryOverText({ carries: false, share: [] }), "The connection ends.");
 });
 
 test("INV-meetings-review: a Meetings review is revised by asking Evry, and its lists read one entry per line", async () => {

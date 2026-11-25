@@ -48,6 +48,8 @@ test("AC:TARGET-IDN-028 AC:CASE-ADM-004 landingFor sends a finished seat to a sa
 		assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo }), "/onboarding", returnTo);
 	}
 	assert.equal(landingFor({ status: "active", plant: "organization" }), "/network");
+	assert.equal(landingFor({ status: "active", plant: "discovery" }), "/my-discovery");
+	assert.equal(landingFor({ status: "active", plant: "discovery", returnTo: "/wiki" }), "/wiki");
 	assert.equal(landingFor({ status: "active", plant: "organization", returnTo: "/notifications" }), "/notifications");
 	assert.equal(landingFor({ ...done, returnTo: null }), "/overview");
 	for (const returnTo of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"]) {
