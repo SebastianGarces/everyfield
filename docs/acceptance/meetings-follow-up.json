@@ -21,7 +21,11 @@
         "WP-020",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/reminders.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Chicago meeting March 10 at 09:00; 7/3/1 civil-day offsets cross DST; timezone edit preserves its fixed Instant.",
       "given": {
         "P": {
@@ -113,7 +117,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Active Hall capacity 80 in plant-A; foreign Hall; scheduled meeting snapshot Old Hall",
       "given": {
         "P": {
@@ -417,7 +425,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Hall archived after existing meeting selected it; archived list off by default",
       "given": {
         "P": {
@@ -700,7 +712,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/guest-answers.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Invited Alex has Pending RSVP, no attendance; live invitation token",
       "given": {
         "P": {
@@ -1390,7 +1406,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Completed Vision meeting with approved eight-factor evaluation rev1",
       "given": {
         "P": {
@@ -1606,7 +1625,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Alex attended meeting-M; no note; Admin is author",
       "given": {
         "P": {
@@ -4529,7 +4551,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Person linked administrative task, contacted/attempt/waiver, email delivery/open and corrected latest contact.",
       "given": {
         "P": {
@@ -4656,7 +4681,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Past/upcoming/cancelled records, unknown/repeated type, equal starts At paging, filtered empty with history and foreign detail.",
       "given": {
         "P": {
@@ -4803,7 +4832,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Concurrent Vision numbers, failed venue/kit/roster create; practice 3 distinct+duplicate+future+cancelled; archive genuine versus void invalid; DST fold entry.",
       "given": {
         "P": {
@@ -4941,7 +4974,10 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts"
+      ],
       "description": "Active/foreign/archived selection, capacity 0, historical meeting then venue address edit, failed picker create.",
       "given": {
         "P": {
@@ -5066,7 +5102,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Archive venue used by old meeting, unchanged edit versus new selection, restore/retry, two correction tabs.",
       "given": {
         "P": {
@@ -5186,7 +5226,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Six default sections/90 total, empty, reorder/retime, 41 sections/title 121/negative/fractional minutes and edited agenda after reference update.",
       "given": {
         "P": {
@@ -5903,7 +5947,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/scheduling.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Vision create+retry kit, foreign/retired assignee, checked→unchecked summary, orientation/practice request.",
       "given": {
         "P": {
@@ -6022,7 +6070,13 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/guest-answers.test.mts",
+        "tests/integration/meetings/add-guests.test.mts",
+        "tests/integration/meetings/meetings.test.mts",
+        "tests/integration/teams/ministry.test.mts"
+      ],
       "description": "P has 2 team roles, later Q joins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up.",
       "given": {
         "P": {
@@ -6154,7 +6208,12 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/guest-answers.test.mts",
+        "tests/integration/communication/rsvp.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Pending token race with admin confirmed/reset, answered token, foreign guest, then reviewed new invite.",
       "given": {
         "P": {
@@ -6279,7 +6338,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/guest-answers.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Wrong account/tenant/not on guest list, malformed body, expired/used token, GET page and own/admin/token concurrent replies.",
       "given": {
         "P": {
@@ -6400,7 +6463,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Prior attended team versus Vision, chronological backdated Vision, committed stage versus first, invalid mid batch ID, own team leader clear with RSVP/card.",
       "given": {
         "P": {
@@ -6523,7 +6589,12 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/guest-answers.test.mts",
+        "tests/integration/meetings/add-guests.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Single-name guest, repeated new intent, existing duplicate selection, foreign meeting and failed attendance attach.",
       "given": {
         "P": {
@@ -6647,7 +6718,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Zero attendee, duplicate/concurrent finalize, same count replacement/removal to 0, no lead and fault after obligation insert.",
       "given": {
         "P": {
@@ -6931,7 +7005,10 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "No-cardvsnot_interested, absent guest card versus attended denominator, correction/clear, malformed value and public/org request for prayer notes.",
       "given": {
         "P": {
@@ -7067,7 +7144,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "All 8 scores 1 and 5/forged average, two concurrent evaluations, non Vision, failed managed-task settlement.",
       "given": {
         "P": {
@@ -7203,7 +7283,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Twocorrection tabs; changes core after managed task complete; wrong tenant/version; previous assessment.",
       "given": {
         "P": {
@@ -7322,7 +7405,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Absent guests, prior attendance 0, current early meeting with>50 later evaluations, same instant/self, corrected quality score.",
       "given": {
         "P": {
@@ -7428,7 +7514,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Known Person but unrelated meeting, forged type/foreign ID, whitespace/5001 chars and valid authored attendee note.",
       "given": {
         "P": {
@@ -7546,7 +7635,13 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/reminders.test.mts",
+        "tests/integration/meetings/notification-worker.test.mts",
+        "tests/integration/communication/rsvp.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "DST civil offset, creator also guest, add/remove/reschedule before queued dispatch, completed meeting, provider unknown and email open.",
       "given": {
         "P": {
@@ -7658,7 +7753,11 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/guest-answers.test.mts",
+        "tests/integration/meetings/meetings.test.mts"
+      ],
       "description": "Legacy inviter artifact, current guest RSVP, self referral, merge with matching tokens, and request old invitation tree.",
       "given": {
         "P": {
@@ -8112,7 +8211,10 @@
         "WP-023",
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Two distinct Vision meetings on same LocalDate; origin across DST; completion at 48 h and 48 h+1 ms; due day end differs; manual task, waived soft-deleted generated task, absent post launch source. Frozen `asOf` with pending 23h, pending 48h, success 2h, success 48h, future actual origin/completion, pre-origin completion, late recorded historical valid completion, waived origin and retired genuine originating meeting. Two Persons: one originating typed administrative completion at 2h with no contacted outcome, another open obligation 24h; plain completed checkbox/provider acceptance without typed human outcome.",
       "given": {
         "P": {
@@ -8289,7 +8391,10 @@
         "WP-023",
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "P has contacted September 1 entered October 9, attempt October 10, administrative completion October 11 and wrongly contacted October 12 later voided; email open October 13.",
       "given": {
         "P": {

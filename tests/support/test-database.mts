@@ -54,7 +54,7 @@ export async function pinSchemaClock(admin: Database, schema: string, at: Date) 
 		["now", "STABLE"],
 	])
 		await admin.execute(
-			sql.raw(`CREATE FUNCTION ${name}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
+			sql.raw(`CREATE OR REPLACE FUNCTION ${name}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
 				AS $$ SELECT pg_catalog.${fn}() + '${shift}'::interval $$`),
 		);
 }

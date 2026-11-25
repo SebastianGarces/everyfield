@@ -1,6 +1,7 @@
 import { fixture, ok, refused } from "../../../support/fixture.mts";
+import { untouched } from "../../../support/recorded.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
-import { authorityOf, church, type Row } from "../people-support.mts";
+import { authorityOf, church, noReminders, reads, type Row } from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -10,6 +11,12 @@ import type { WriteTx } from "../../../../packages/domain/src/access/session.ts"
 import { peopleMerge, peopleUnmerge, peopleWriter as people } from "../../../../packages/domain/src/people/index.ts";
 import { followUpReader } from "../../../../packages/domain/src/followups/index.ts";
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
+import {
+	teamsReader,
+	teamsWriter,
+	trainingReader,
+	trainingWriter,
+} from "../../../../packages/domain/src/teams/index.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "t336" });
@@ -251,7 +258,7 @@ test("AC:TARGET-PPL-025 Unmerge returns moved follow-ups and outcomes exactly, a
 	assert.equal(ok(await preview(merged.mergeId)).state, "unmerged");
 });
 
-test("AC:TARGET-PPL-025 a merge whose source had been emailed unmerges with every email byte-equal, and a merge recorded with moved email gives it back to its recipient", async () => {
+test("AC:TARGET-PPL-025 AC:TARGET-PPL-017 a merge whose source had been emailed unmerges with every email byte-equal, and a merge recorded with moved email gives it back to its recipient", async () => {
 	for (const legacy of [false, true]) {
 		const s = await person("Avery Fox"),
 			k = await person("Avery Fox Keep");
@@ -311,4 +318,193 @@ test("AC:TARGET-PPL-025 a Member, another church and an organization seat cannot
 	const moved = await historyOf(s, k);
 	assert.ok(moved.obligation.every((x) => x.row.plant_id === plant));
 	assert.ok(moved.mail.every((x) => x.row.tenant_id === plant));
+});
+
+test("AC:TARGET-PPL-021 a person's tabs count them once across two roles, date their former team, keep a revoked credit incomplete, never call delivered email a contact, and refuse a foreign person", async () => {
+	const alex = await person("Alex"),
+		twin = await person("Alex Twin"),
+		leaving = await person("Leaving Lee");
+	const team = async (name: string) =>
+		ok(await tx((t) => teamsWriter.create(t, ctx(), { requestKey: key(), input: { name } }))).team.id;
+	const revisionOf = async (table: string, id: string) =>
+		(await rows<{ r: string }>(sql`SELECT revision::text AS r FROM ${sql.identifier(table)} WHERE id=${id}`))[0]!.r;
+	const join = async (teamId: string, name: string, personId: string) => {
+		const { role } = ok(
+			await tx((t) => teamsWriter.createRole(t, ctx(), { requestKey: key(), input: { teamId, name } })),
+		);
+		const expectedRevision = await revisionOf("team_role", role.id);
+		ok(
+			await tx((t) =>
+				teamsWriter.assignRole(t, ctx(), {
+					requestKey: key(),
+					expectedRevision,
+					input: { roleId: role.id, teamId, personId },
+				}),
+			),
+		);
+	};
+	const t1 = await team("T1"),
+		t2 = await team("T2");
+	await join(t1, "R1", alex);
+	await join(t1, "R2", alex);
+	await join(t2, "Greeter", alex);
+	await admin.execute(sql`UPDATE team_tenure SET started_on='2026-09-01' WHERE person_id=${alex}`);
+	const training = async (personId: string, who: Who = "owner") =>
+		untouched(admin, async () => trainingReader.readPersonTraining(db, await authority(who), { personId }));
+	const assigned = async (personId: string, who: Who = "owner") =>
+		untouched(admin, async () => teamsReader.listPersonAssignments(db, await authority(who), { personId }));
+	const messages = async (personId: string, who: Who = "owner") =>
+		untouched(admin, async () => {
+			const viewer = await authority(who);
+			return tx((t) => communicationWriter.listForPerson(t, viewer, { personId }));
+		});
+	const facts = async (personId: string, who: Who = "owner") => {
+		const f = ok(await training(personId, who));
+		return [f.distinctPeople, f.concurrentAssignments, f.currentTeams, f.formerTeams];
+	};
+	assert.deepEqual(await facts(alex), [1, 3, ["T1", "T2"], []]);
+	ok(
+		await tx(async (t) =>
+			teamsWriter.endMembership(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: await revisionOf("team", t2),
+				input: { teamId: t2, personId: alex },
+			}),
+		),
+	);
+	const today = (
+		await rows<{ d: string }>(
+			sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d FROM plant WHERE id=${plant}`,
+		)
+	)[0]!.d;
+	assert.deepEqual(await facts(alex), [1, 2, ["T1"], ["T2"]]);
+	assert.deepEqual(await facts(alex, "member"), [1, 2, ["T1"], ["T2"]]);
+	const tenures = async (personId: string) =>
+		ok(await assigned(personId))
+			.assignments.map((x) => [x.teamName, x.roleName, x.startedOn, x.endedOn, x.active])
+			.sort();
+	const dated = [
+		["T1", "R1", "2026-09-01", null, true],
+		["T1", "R2", "2026-09-01", null, true],
+		["T2", "Greeter", "2026-09-01", today, false],
+	];
+	assert.deepEqual(await tenures(alex), dated);
+
+	const { program } = ok(
+		await tx((t) =>
+			trainingWriter.createProgram(t, ctx(), {
+				requestKey: key(),
+				input: { name: "Earned credit", required: true, teamId: t1 },
+			}),
+		),
+	);
+	const seen = ok(
+		await trainingReader.readRequiredTrainingPreview(db, await authority(), {
+			programId: program.id,
+			personIds: [alex],
+		}),
+	);
+	ok(
+		await tx((t) =>
+			trainingWriter.setRequiredTrainingParticipants(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: seen.revision,
+				input: { programId: program.id, personIds: [alex], rosterDigest: seen.rosterDigest },
+			}),
+		),
+	);
+	const credit = async (personId: string) => {
+		const f = ok(await training(personId));
+		const { credits } = ok(await trainingReader.readTrainingHistory(db, await authority(), { personId }));
+		return [f.currentTrainingComplete, f.earnedHistoryRetained, credits.map((x) => x.kind)];
+	};
+	assert.deepEqual(await credit(alex), [false, false, []]);
+	ok(
+		await tx(async (t) =>
+			trainingWriter.attestCompletion(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: await revisionOf("training_program", program.id),
+				input: { kind: "program", personId: alex, programId: program.id, earnedOn: "2026-10-04" },
+			}),
+		),
+	);
+	assert.deepEqual(await credit(alex), [true, true, ["earned"]]);
+	ok(
+		await tx(async (t) =>
+			trainingWriter.revokeCompletion(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: await revisionOf("training_program", program.id),
+				input: { personId: alex, programId: program.id },
+			}),
+		),
+	);
+	assert.deepEqual(await credit(alex), [false, true, ["earned", "revoked"]]);
+
+	const mailId = await sentEmail(alex, "Welcome Alex");
+	await admin.execute(
+		sql`UPDATE mail SET accepted_at=sent_at,delivered_at=sent_at,opened_at=sent_at,clicked_at=sent_at WHERE id=${mailId}`,
+	);
+	const contact = async (personId: string, who: Who = "owner") => {
+		const page = ok(await messages(personId, who));
+		return [
+			page.items.map((x) => [x.subject, x.state, x.delivered]),
+			page.lastConfirmedContactAt,
+			page.contacts.length,
+		];
+	};
+	const delivered = [["Welcome Alex", "sent", 1]];
+	for (const who of ["owner", "member"] as const) assert.deepEqual(await contact(alex, who), [delivered, null, 0]);
+	const spoke = await outcome(alex);
+	const [at] = await rows<{ at: string }>(
+		sql`SELECT to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM contact_outcome WHERE id=${spoke}`,
+	);
+	assert.deepEqual(await contact(alex), [delivered, at!.at, 1]);
+	await admin.execute(sql`UPDATE contact_outcome SET voided_at=clock_timestamp() WHERE id=${spoke}`);
+	assert.deepEqual(await contact(alex), [delivered, null, 1]);
+
+	const foreign = ok(
+		await tx((t) => people.createPerson(t, ctx("stranger"), { requestKey: key(), input: { displayName: "Foreign" } })),
+	).person.id;
+	assert.deepEqual(await facts(foreign, "stranger"), [1, 0, [], []]);
+	for (const [id, who] of [
+		[foreign, "owner"],
+		[alex, "stranger"],
+		[alex, "orgAdmin"],
+	] as const) {
+		for (const read of [training, assigned, messages]) {
+			const answer = await read(id, who);
+			assert.equal(answer.status, "refused", `${read.name} ${who}`);
+			assert.doesNotMatch(JSON.stringify(answer), /T1|T2|Greeter|Earned credit|Welcome Alex/);
+		}
+	}
+
+	await join(t2, "Usher", leaving);
+	const reviewRevision = ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: leaving }))).reviewRevision;
+	const retired = await tx(async (t) =>
+		people.retirePerson(
+			t,
+			ctx(),
+			{
+				requestKey: key(),
+				expectedRevision: await revisionOf("person", leaving),
+				input: { personId: leaving, reason: "Moved away", reviewRevision, handoffs: [] },
+			},
+			noReminders,
+		),
+	);
+	ok(retired);
+	assert.deepEqual(await facts(leaving), [1, 0, [], ["T2"]]);
+	const merged = ok(await mergeWith(alex, twin, ok(await review(alex, twin)).reviewDigest));
+	assert.deepEqual(await facts(twin), [1, 2, ["T1"], ["T2"]]);
+	assert.deepEqual(await tenures(twin), dated);
+	assert.deepEqual(await credit(twin), [false, true, ["earned", "revoked"]]);
+	assert.deepEqual(await contact(twin), [delivered, null, 1]);
+	assert.deepEqual(await facts(alex), [1, 0, [], []]);
+	assert.deepEqual(await tenures(alex), []);
+	assert.deepEqual(ok(await tx((t) => peopleMerge.mergedPersonDestination(t, ctx("member"), { personId: alex }))), {
+		personId: alex,
+		status: "merged",
+		destinationId: twin,
+		mergeId: merged.mergeId,
+	});
 });

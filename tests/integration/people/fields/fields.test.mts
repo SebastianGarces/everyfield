@@ -1,4 +1,5 @@
-import { fixture, ok, refused } from "../../../support/fixture.mts";
+import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
+import { faulted, recorded, touched, untouched } from "../../../support/recorded.mts";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
 import {
 	actionOf,
@@ -21,6 +22,7 @@ import { runDueObjectCleanup } from "../../../../packages/domain/src/jobs/object
 import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext, type WriteContext } from "../../../../packages/domain/src/people/core.ts";
 import {
+	interviews,
 	peopleWriter as people,
 	personFields as fields,
 	readPersonPhoto,
@@ -28,6 +30,7 @@ import {
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
+import { recordId } from "../../../../packages/contracts/src/common/values.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "wp012" });
@@ -36,14 +39,15 @@ const db = database.pools.runtime;
 
 const plants = [database.tenant.id, (await database.plant()).id] as const,
 	actors = [
-		database.actors.owner,
+		database.actors.admin,
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+		await database.actor({ kind: "plant", id: plants[1] }, "member"),
 	] as const;
 type Household = Extract<Awaited<ReturnType<typeof fields.getHousehold>>, { status: "ok" }>["value"];
 const inHousehold = (result: Household) => withStatus(result, "available");
-type Who = 0 | 1 | 2;
-const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who === 2 ? 1 : 0]) });
+type Who = 0 | 1 | 2 | 3;
+const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who >= 2 ? 1 : 0]) });
 const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 const write = async <T,>(who: Who, body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>) =>
 	withPeopleWrite(db, await tx((t) => authorityOf(t, actors[who])), body);
@@ -68,10 +72,10 @@ async function person(name: string, fields = {}, who: Who = 0) {
 		),
 	).person;
 }
-async function retire(p: { id: string; revision: string }) {
+async function retirement(p: { id: string; revision: string }) {
 	const review = ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: p.id }))).reviewRevision;
-	ok(
-		await write(0, async (t, c) =>
+	return () =>
+		write(0, async (t, c) =>
 			people.retirePerson(
 				t,
 				c,
@@ -82,8 +86,35 @@ async function retire(p: { id: string; revision: string }) {
 				},
 				noReminders,
 			),
-		),
-	);
+		);
+}
+const retire = async (p: { id: string; revision: string }) => ok(await (await retirement(p))());
+async function inTurn(...calls: (() => Promise<Reply<unknown>>)[]) {
+	const { promise: held, resolve: release } = Promise.withResolvers<void>();
+	const { promise: taken, resolve: locked } = Promise.withResolvers<void>();
+	const holder = admin.transaction(async (a) => {
+		await a.execute(sql`SELECT id FROM plant WHERE id=${plants[0]} FOR UPDATE`);
+		locked();
+		await held;
+	});
+	await taken;
+	const waiting: Promise<Reply<unknown>>[] = [];
+	for (const call of calls) {
+		waiting.push(call());
+		await waitingOnLock(db, { count: waiting.length });
+	}
+	release();
+	await holder;
+	return Promise.all(waiting);
+}
+const quiet = { jobs: [], notices: 0, mail: 0 };
+const updated = { audits: ["people.updated"], ...quiet };
+async function foreignRefused(call: (who: Who, id: string) => Promise<Reply<unknown>>, id: string) {
+	for (const who of [2, 3] as const) {
+		const { correlationId: _, ...known } = refused(await untouched(admin, () => call(who, id)));
+		const { correlationId: __, ...unknown } = refused(await call(who, key()));
+		assert.deepEqual(known, unknown, "a real id answers as an unknown one");
+	}
 }
 const revisionOf = async (id: string) =>
 	(await rows<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0]!.r;
@@ -115,11 +146,21 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	assert.notEqual(foreign.id, north.tag.id);
 	refused(await create("Northside", null, 1));
 	const racers = ["Welcome", " welcome "];
-	const raced = (await Promise.all(racers.map((name) => create(name, null)))).map((r) => ok(r));
-	assert.deepEqual(raced.map((r) => r.outcome).sort(), ["changed", "noop"]);
-	assert.equal(new Set(raced.map((r) => r.tag.id)).size, 1);
-	const welcome = racers[raced.findIndex((r) => r.outcome === "changed")]!.trim();
-	assert.equal(raced.find((r) => r.outcome === "changed")!.tag.name, welcome);
+	const raced = (await inTurn(...racers.map((name) => () => create(name, null)))).map(
+		(r) => ok(r) as { outcome: string; tag: { id: string; name: string; color: string | null } },
+	);
+	assert.deepEqual(
+		raced.map((r) => [r.outcome, r.tag.name, r.tag.color, r.tag.id]),
+		[
+			["changed", "Welcome", null, raced[0]!.tag.id],
+			["noop", "Welcome", null, raced[0]!.tag.id],
+		],
+	);
+	assert.deepEqual(
+		await rows(sql`SELECT normalized_name,color FROM tag WHERE plant_id=${plants[0]} AND name ILIKE '%welcome%'`),
+		[{ normalized_name: "welcome", color: null }],
+	);
+	const welcome = "Welcome";
 	const renamed = ok(
 		await write(0, async (t, c) =>
 			fields.updateTag(t, c, {
@@ -167,16 +208,32 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 			fields.assignTag(t, c, { requestKey: key(), input: { personId: alex.id, tagId: family.id } }),
 		),
 	);
-	const first = ok(await write(0, async (t, c) => fields.assignTag(t, c, assign)));
-	assert.deepEqual(ok(await write(0, async (t, c) => fields.assignTag(t, c, assign))), first);
-	const repeat = ok(await write(0, async (t, c) => fields.assignTag(t, c, { requestKey: key(), input: assign.input })));
+	const attach = (input = assign) => write(0, async (t, c) => fields.assignTag(t, c, input));
+	const links = async () =>
+		(
+			await rows<{ name: string }>(sql`SELECT t.name FROM person_tag pt JOIN tag t ON t.id=pt.tag_id
+			WHERE pt.person_id=${alex.id}`)
+		)
+			.map((t) => t.name)
+			.sort();
+	const feed = async () =>
+		ok(await tx((t) => reads.getActivities(t, ctx(), { personId: alex.id }))).items.map(actionOf);
+	await faulted(admin, "audit_event", () => attach());
+	assert.deepEqual(await links(), ["family"], "the earlier tag stays");
+	assert.deepEqual(await feed(), ["updated", "created"]);
+	const { value: assigned, added: assignment } = await recorded(admin, () => touched(admin, () => attach()));
+	const first = ok(assigned.value);
+	assert.deepEqual([assignment, assigned.tables], [updated, ["audit_event", "person_tag", "plant", "record"]]);
+	assert.deepEqual(ok(await untouched(admin, () => attach())), first);
+	const again = await touched(admin, () => attach({ ...assign, requestKey: key() }));
+	const repeat = ok(again.value);
 	assert.deepEqual(
 		first.tags.map((t) => t.name),
 		["family", "North  side"],
 	);
-	assert.deepEqual([repeat.outcome, repeat.tags], ["noop", first.tags]);
-	const links = await rows(sql`SELECT count(*)::int n FROM person_tag WHERE person_id=${sql.param(alex.id)}`);
-	assert.equal(links[0]!.n, 2);
+	assert.deepEqual([repeat.outcome, repeat.tags, again.tables], ["noop", first.tags, ["audit_event", "record"]]);
+	assert.deepEqual(await links(), ["North  side", "family"]);
+	assert.deepEqual(await feed(), ["updated", "updated", "created"], "a repeat adds no activity");
 	assert.deepEqual(
 		(await audit(alex.id)).filter((a) => a.kind !== "create").map((a) => [a.kind, a.after_value]),
 		[
@@ -185,17 +242,43 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 			["noop", null],
 		],
 	);
-	refused(
-		await write(0, async (t, c) =>
-			fields.assignTag(t, c, { requestKey: key(), input: { personId: alex.id, tagId: foreign.id } }),
-		),
+	const stranger = await person("Foreign Alex", {}, 2);
+	for (const input of [
+		{ personId: alex.id, tagId: foreign.id },
+		{ personId: stranger.id, tagId: north.tag.id },
+		{ personId: stranger.id, tagId: foreign.id },
+	])
+		refused(await untouched(admin, () => attach({ requestKey: key(), input })));
+	const linkAs = (who: Who, personId: string, tagId: string, link: "assignTag" | "removeTag" = "assignTag") =>
+		write(who, async (t, c) => fields[link](t, c, { requestKey: key(), input: { personId, tagId } }));
+	refused(await untouched(admin, () => linkAs(1, alex.id, north.tag.id)));
+	await foreignRefused((who, id) => linkAs(who, id, north.tag.id), alex.id);
+	await foreignRefused((who, id) => linkAs(who, id, foreign.id), alex.id);
+	await foreignRefused((who, id) => linkAs(who, alex.id, id, "removeTag"), north.tag.id);
+	await foreignRefused((who, id) => tx((t) => fields.getPersonTags(t, ctx(who), { personId: id })), alex.id);
+	await foreignRefused(
+		(who, tagId) =>
+			write(who, async (t, c) =>
+				fields.updateTag(t, c, {
+					requestKey: key(),
+					expectedRevision: cleared.revision,
+					input: { tagId, name: "Taken" },
+				}),
+			),
+		north.tag.id,
 	);
-	refused(
-		await write(2, async (t, c) =>
-			fields.assignTag(t, c, { requestKey: key(), input: { personId: alex.id, tagId: foreign.id } }),
-		),
+	await foreignRefused(
+		(who, tagId) =>
+			write(who, async (t, c) =>
+				fields.deleteTag(t, c, { requestKey: key(), expectedRevision: cleared.revision, input: { tagId } }),
+			),
+		north.tag.id,
 	);
-	refused(await tx((t) => fields.getPersonTags(t, ctx(2), { personId: alex.id })));
+	assert.deepEqual(
+		ok(await tx((t) => fields.listTags(t, ctx(3), {}))).items.map((t) => t.name),
+		["Family"],
+	);
+	ok(await linkAs(2, stranger.id, foreign.id));
 
 	ok(
 		await write(0, async (t, c) =>
@@ -220,8 +303,21 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	const items = ok(await tx((t) => reads.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(items.map(actionOf), ["retired", "updated", "created"]);
 
-	const deleted = ok(
-		await write(0, async (t, c) =>
+	const unlinked = await recorded(admin, () => touched(admin, () => linkAs(0, alex.id, north.tag.id, "removeTag")));
+	assert.deepEqual(
+		[unlinked.added, unlinked.value.tables],
+		[updated, ["audit_event", "person_tag", "plant", "record"]],
+	);
+	assert.deepEqual(
+		ok(unlinked.value.value).tags.map((t) => t.name),
+		["family"],
+	);
+	assert.deepEqual(await links(), ["family"]);
+	assert.equal(ok(await linkAs(0, alex.id, north.tag.id, "removeTag")).outcome, "noop");
+	ok(await linkAs(0, alex.id, north.tag.id));
+	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM person_tag WHERE tag_id=${foreign.id}`), [{ n: 1 }]);
+	const { value: removedTag, added: deletion } = await recorded(admin, () =>
+		write(0, async (t, c) =>
 			fields.deleteTag(t, c, {
 				requestKey: key(),
 				expectedRevision: cleared.revision,
@@ -229,7 +325,14 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 			}),
 		),
 	);
+	const deleted = ok(removedTag);
 	assert.equal(deleted.removedLinks, 2);
+	assert.deepEqual(deletion, { audits: ["people.retired"], ...quiet });
+	assert.deepEqual(
+		await rows(sql`SELECT count(*)::int n FROM person_tag WHERE tag_id=${foreign.id}`),
+		[{ n: 1 }],
+		"the other church's tag keeps its link",
+	);
 	assert.deepEqual(
 		ok(await tx((t) => fields.getPersonTags(t, ctx(), { personId: alex.id }))).tags.map((t) => t.name),
 		["family"],
@@ -242,7 +345,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	assert.deepEqual([ok(await remove()).tags, ok(await remove()).outcome], [[], "noop"]);
 	assert.equal(
 		(await audit(alex.id)).filter((a) => JSON.stringify(a.after_value ?? "").includes("North  side")).length,
-		1,
+		2,
 	);
 });
 
@@ -257,34 +360,94 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 				}),
 			),
 		);
-	await add("Music", "worship", "advanced");
-	const added = await add(" Hospitality ", "hospitality", "beginner");
+	await add("Music", "other", "advanced");
+	const added = await add(" Hospitality ", "other", "beginner");
 	const hospitality = added.skills.find((s) => s.name === "Hospitality")!;
 	assert.deepEqual(
 		added.skills.map((s) => [s.category, s.name, s.proficiency]),
 		[
-			["worship", "Music", "advanced"],
-			["hospitality", "Hospitality", "beginner"],
+			["other", "Hospitality", "beginner"],
+			["other", "Music", "advanced"],
 		],
 	);
-	const update = (rev: string, patch: object, who: Who = 0) =>
+	const update = (rev: string, patch: object, who: Who = 0, skillId = hospitality.id) =>
 		write(who, async (t, c) =>
-			fields.updateSkill(t, c, {
-				requestKey: key(),
-				expectedRevision: rev,
-				input: { skillId: hospitality.id, patch },
-			}),
+			fields.updateSkill(t, c, { requestKey: key(), expectedRevision: rev, input: { skillId, patch } }),
 		);
-	const advanced = ok(await update(hospitality.revision, { proficiency: "advanced" }));
+	const remove = (rev: string, who: Who = 0, skillId = hospitality.id) =>
+		write(who, async (t, c) =>
+			fields.removeSkill(t, c, { requestKey: key(), expectedRevision: rev, input: { skillId } }),
+		);
+	ok(
+		await write(0, async (t, c) =>
+			interviews.createInterview(t, c, {
+				requestKey: key(),
+				input: {
+					personId: alex.id,
+					occurredOn: "2026-10-10",
+					...Object.fromEntries(
+						["maturity", "chemistry", "rightReasons", "season"].map((name) => [name, { rating: "pass" }]),
+					),
+					gifted: { rating: "pass", notes: "Hospitality, beginner" },
+					result: "qualified",
+				},
+			}),
+		),
+	);
+	const recordedInterviews = async () =>
+		ok(await tx((t) => interviews.getInterviews(t, ctx(), { personId: alex.id }))).items;
+	const interviewed = await recordedInterviews();
+	const team = key(),
+		role = key();
+	await admin.execute(
+		sql`INSERT INTO record(id,kind,tenant_id) VALUES(${team},'team',${plants[0]}),(${role},'team_role',${plants[0]}) ON CONFLICT DO NOTHING`,
+	);
+	await admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${plants[0]},'Welcome','active',1)`,
+	);
+	await admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order,desired_skills)
+		VALUES(${role},${plants[0]},${team},'Greeter',false,1,'Hospitality, beginner')`);
+	const wanted = () => rows(sql`SELECT desired_skills,revision::text r FROM team_role WHERE id=${role}`);
+	const asked = await wanted();
+	assert.equal(asked[0]!.desired_skills, "Hospitality, beginner");
+	assert.deepEqual(interviewed[0]!.gifted, { rating: "pass", notes: "Hospitality, beginner" });
+	const raise = () => update(hospitality.revision, { proficiency: "advanced" });
+	await faulted(admin, "audit_event", raise);
+	assert.deepEqual(
+		ok(await tx((t) => fields.getPersonSkills(t, ctx(), { personId: alex.id }))).skills,
+		added.skills,
+		"the skills saved before stay as they were",
+	);
+	const change = await recorded(admin, () => touched(admin, raise));
+	const advanced = ok(change.value.value);
 	assert.deepEqual(Object.fromEntries(advanced.skills.map((s) => [s.name, s.proficiency])), {
 		Music: "advanced",
 		Hospitality: "advanced",
 	});
-	const before = await rows(sql`SELECT count(*)::int n FROM audit_event`);
-	refused(await update(hospitality.revision, { proficiency: null }), "conflict");
-	refused(await update(hospitality.revision, { proficiency: null }, 2));
-	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM audit_event`), before);
+	assert.deepEqual(
+		advanced.skills.map((skill) => Object.keys(skill).sort()),
+		Array(2).fill(["category", "id", "name", "notes", "personId", "proficiency", "revision"]),
+		"a skill holds no background check, certification or model judgment",
+	);
+	assert.deepEqual([change.added, change.value.tables], [updated, ["audit_event", "person_skill", "plant", "record"]]);
+	refused(await untouched(admin, () => update(hospitality.revision, { proficiency: null })), "conflict");
+	refused(await untouched(admin, () => remove(hospitality.revision)), "conflict");
 	const current = advanced.skills.find((s) => s.id === hospitality.id)!;
+	refused(await untouched(admin, () => update(current.revision, { proficiency: null }, 1)));
+	refused(await untouched(admin, () => remove(current.revision, 1)));
+	await foreignRefused(
+		(who, id) => update(current.revision, { proficiency: null }, who, recordId.parse(id)),
+		hospitality.id,
+	);
+	await foreignRefused((who, id) => remove(current.revision, who, recordId.parse(id)), hospitality.id);
+	await foreignRefused((who, id) => tx((t) => fields.getPersonSkills(t, ctx(who), { personId: id })), alex.id);
+	await foreignRefused(
+		(who, personId) =>
+			write(who, async (t, c) =>
+				fields.addSkill(t, c, { requestKey: key(), input: { personId, name: "Sound", category: "tech" } }),
+			),
+		alex.id,
+	);
 	const cleared = ok(await update(current.revision, { proficiency: null, notes: null }));
 	assert.deepEqual(
 		ok(await tx((t) => fields.getPersonSkills(t, ctx(1), { personId: alex.id }))).skills.find(
@@ -293,25 +456,68 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 		{ ...cleared.skills.find((s) => s.id === hospitality.id), proficiency: null, notes: null },
 	);
 	const latest = cleared.skills.find((s) => s.id === hospitality.id)!;
-	const removed = ok(
-		await write(0, async (t, c) =>
-			fields.removeSkill(t, c, {
-				requestKey: key(),
-				expectedRevision: latest.revision,
-				input: { skillId: hospitality.id },
-			}),
-		),
+	const { value: removal, added: removing } = await recorded(admin, () =>
+		touched(admin, () => remove(latest.revision)),
 	);
+	const removed = ok(removal.value);
+	assert.deepEqual([removing, removal.tables], [updated, ["audit_event", "person_skill", "plant", "record"]]);
+	assert.deepEqual(
+		removed.skills.map((s) => [s.name, s.proficiency]),
+		[["Music", "advanced"]],
+	);
+	refused(await untouched(admin, () => update(latest.revision, { proficiency: "expert" })));
+	assert.deepEqual(await wanted(), asked, "the role that asks for the skill is not rewritten");
+	assert.deepEqual(await recordedInterviews(), interviewed, "the interview that names the skill is not rewritten");
 	assert.deepEqual(
 		removed.skills.map((s) => s.name),
 		["Music"],
 	);
 	assert.deepEqual(
 		(await audit(alex.id))
-			.filter((a) => a.kind === "edit")
+			.filter((a) => a.kind === "edit" && a.after_value?.skill !== undefined)
 			.map((a) => (a.after_value?.skill === null ? "removed" : a.after_value?.skill?.proficiency)),
 		["advanced", "beginner", "advanced", null, "removed"],
 	);
+	assert.deepEqual(
+		(await audit(alex.id)).filter((a) => a.after_value?.skill === null).map((a) => a.before_value),
+		[{ skill: { id: hospitality.id, name: "Hospitality", category: "other", proficiency: null, notes: null } }],
+	);
+});
+
+test("AC:TARGET-PPL-011 every category and proficiency saves, reads back and clears to no level", async () => {
+	const sam = await person("Sam Skilled");
+	const categories = ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"];
+	const levels = ["beginner", "intermediate", "advanced", "expert", null];
+	const skillsOf = async () => ok(await tx((t) => fields.getPersonSkills(t, ctx(), { personId: sam.id }))).skills;
+	const patch = async (patch: object) => {
+		const [skill] = await skillsOf();
+		ok(
+			await write(0, async (t, c) =>
+				fields.updateSkill(t, c, {
+					requestKey: key(),
+					expectedRevision: skill!.revision,
+					input: { skillId: skill!.id, patch },
+				}),
+			),
+		);
+		const [after] = await skillsOf();
+		return [after!.category, after!.proficiency, after!.notes];
+	};
+	ok(
+		await write(0, async (t, c) =>
+			fields.addSkill(t, c, { requestKey: key(), input: { personId: sam.id, name: "Anything", category: "other" } }),
+		),
+	);
+	assert.deepEqual([(await skillsOf())[0]!.proficiency, (await skillsOf())[0]!.notes], [null, null]);
+	for (const category of categories)
+		for (const level of levels) {
+			assert.deepEqual(await patch({ category, proficiency: level, notes: `${category} ${level}` }), [
+				category,
+				level,
+				`${category} ${level}`,
+			]);
+			assert.deepEqual(await patch({ proficiency: null, notes: null }), [category, null, null]);
+		}
 });
 
 test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE households: coherent head, address copy only when blank, deliberate propagation and safe deletion", async () => {
@@ -328,9 +534,40 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 				input: { name: "Rivera household", street: "9 Elm St", city: "Chicago", headPersonId: p.id },
 			}),
 		);
-	refused(await create(retiring, await revisionOf(retiring.id)));
-	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM household`), [{ n: 0 }]);
-	const created = inHousehold(ok(await create(head, head.revision)).result);
+	const beginning = await rows(sql`SELECT count(*)::int n FROM household`);
+	refused(await untouched(admin, async () => create(retiring, await revisionOf(retiring.id))));
+	const leaving = await person("Lee Leaving");
+	const [gone, late] = await inTurn(await retirement(leaving), () => create(leaving, leaving.revision));
+	ok(gone!);
+	refused(late!);
+	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM household`), beginning, "no household without a person");
+	const staying = await person("Sky Staying");
+	const [made, stale] = await inTurn(() => create(staying, staying.revision), await retirement(staying));
+	refused(stale!, "conflict");
+	const kept = inHousehold((ok(made!) as { result: Household }).result);
+	assert.deepEqual(
+		kept.members.map((m) => [m.personId, m.role]),
+		[[staying.id, "head"]],
+	);
+	const stayed = await revisionOf(staying.id);
+	ok(
+		await write(0, async (t, c) =>
+			leave(t, c, { requestKey: key(), expectedRevision: stayed, input: { personId: staying.id } }, true),
+		),
+	);
+	refused(await untouched(admin, () => create(head, "9")), "conflict");
+	const creating = {
+		requestKey: key(),
+		expectedRevision: head.revision,
+		input: { name: "Rivera household", street: "9 Elm St", city: "Chicago", headPersonId: head.id },
+	};
+	const start = () => write(0, async (t, c) => fields.createHouseholdWithHead(t, c, creating));
+	await faulted(admin, "audit_event", start);
+	const creation = await recorded(admin, start);
+	assert.deepEqual(creation.added, updated);
+	const started = ok(creation.value);
+	assert.deepEqual(ok(await untouched(admin, start)), started);
+	const created = inHousehold(started.result);
 	const h = created.household;
 	assert.deepEqual(
 		created.members.map((m) => [m.displayName, m.role, m.street, m.city]),
@@ -354,17 +591,43 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			["Jamie Chen", "child", "9 Elm St"],
 		],
 	);
-	refused(await join(head, "head", "1"), "conflict");
-	refused(await tx((t) => fields.getHousehold(t, ctx(2), { householdId: h.id })));
-	refused(
-		await write(2, async (t, c) =>
+	refused(await untouched(admin, () => join(head, "head", "1")), "conflict");
+	const stranger = await person("Foreign Riley", {}, 2);
+	const joinAs = (who: Who, householdId: string, p: { id: string; revision: string }) =>
+		write(who, async (t, c) =>
 			fields.addToHousehold(t, c, {
 				requestKey: key(),
-				expectedRevision: "1",
-				input: { householdId: h.id, personId: jamie.id, role: "other" },
+				expectedRevision: p.revision,
+				input: { householdId, personId: p.id, role: "other" },
 			}),
-		),
+		);
+	refused(await untouched(admin, () => joinAs(0, h.id, stranger)));
+	refused(await untouched(admin, () => joinAs(1, h.id, retiring)));
+	await foreignRefused((who, id) => joinAs(who, id, stranger), h.id);
+	await foreignRefused((who, id) => joinAs(who, id, jamie), h.id);
+	await foreignRefused((who, id) => tx((t) => fields.getHousehold(t, ctx(who), { householdId: id })), h.id);
+	await foreignRefused((who, id) => tx((t) => fields.getHousehold(t, ctx(who), { personId: id })), head.id);
+	const theirs = inHousehold(
+		ok(
+			await write(2, async (t, c) =>
+				fields.createHouseholdWithHead(t, c, {
+					requestKey: key(),
+					expectedRevision: stranger.revision,
+					input: { name: "Foreign household", headPersonId: stranger.id },
+				}),
+			),
+		).result,
 	);
+	assert.deepEqual(
+		theirs.members.map((m) => m.personId),
+		[stranger.id],
+	);
+	refused(await untouched(admin, () => joinAs(0, theirs.household.id, retiring)));
+	const crossing = () =>
+		rows(
+			sql`SELECT count(*)::int n FROM person p JOIN household x ON x.id=p.household_id WHERE x.plant_id<>p.tenant_id`,
+		);
+	assert.deepEqual(await crossing(), [{ n: 0 }]);
 
 	const preview = inHousehold(ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id }))));
 	const edited = inHousehold(
@@ -387,9 +650,9 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 				input: { householdId: h.id, members },
 			}),
 		);
-	refused(await propagate(preview.household.revision), "conflict");
+	refused(await untouched(admin, () => propagate(preview.household.revision)), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0]!.street, "1 Own St");
-	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
+	refused(await untouched(admin, () => propagate(edited.household.revision, reviewed.slice(1))), "conflict");
 	const caseyRevision = await revisionOf(casey.id);
 	ok(
 		await write(0, async (t, c) =>
@@ -400,17 +663,17 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			}),
 		),
 	);
-	const audited = await rows(sql`SELECT count(*)::int n FROM audit_event`);
-	refused(await propagate(edited.household.revision), "conflict");
+	refused(await untouched(admin, () => propagate(edited.household.revision)), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0]!.street, "2 New St");
-	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM audit_event`), audited);
 	const fresh = inHousehold(ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id }))));
-	const propagated = ok(
-		await propagate(
+	const propagation = await recorded(admin, () =>
+		propagate(
 			fresh.household.revision,
 			fresh.members.map((m) => ({ personId: m.personId, revision: m.revision })),
 		),
 	);
+	assert.deepEqual(propagation.added, updated);
+	const propagated = ok(propagation.value);
 	assert.equal(propagated.updatedPeople, 3);
 	assert.deepEqual(new Set(inHousehold(propagated.result).members.map((m) => m.street)), new Set(["10 Oak Ave"]));
 	assert.deepEqual(await rows(sql`SELECT DISTINCT street FROM person WHERE household_id=${sql.param(h.id)}`), [
@@ -465,19 +728,20 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	);
 	const empty = inHousehold(ok(await tx((t) => fields.getHousehold(t, ctx(), { householdId: h.id }))));
 	assert.deepEqual([empty.household.memberCount, empty.members], [0, []]);
-	const raced = await Promise.all([
-		join(casey, "other"),
+	const discard = (revision: string) =>
 		write(0, async (t, c) =>
-			fields.deleteHousehold(t, c, {
-				requestKey: key(),
-				expectedRevision: empty.household.revision,
-				input: { householdId: h.id },
-			}),
-		),
-	]);
-	assert.deepEqual(raced.map((r) => r.status).sort(), ["ok", "refused"]);
-	if (raced[0].status === "ok") {
-		const again = ok(
+			fields.deleteHousehold(t, c, { requestKey: key(), expectedRevision: revision, input: { householdId: h.id } }),
+		);
+	const caseyJoins = await revisionOf(casey.id);
+	const [joinedFirst, deletedLate] = await inTurn(
+		() => join(casey, "other", caseyJoins),
+		() => discard(empty.household.revision),
+	);
+	ok(joinedFirst!);
+	refused(deletedLate!, "conflict");
+	assert.equal((await rows(sql`SELECT household_id FROM person WHERE id=${casey.id}`))[0]!.household_id, h.id);
+	const again = inHousehold(
+		ok(
 			await write(0, async (t, c) =>
 				fields.removeFromHousehold(t, c, {
 					requestKey: key(),
@@ -485,18 +749,27 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 					input: { personId: casey.id },
 				}),
 			),
-		);
-		ok(
-			await write(0, async (t, c) =>
-				fields.deleteHousehold(t, c, {
-					requestKey: key(),
-					expectedRevision: inHousehold(again.result).household.revision,
-					input: { householdId: h.id },
-				}),
-			),
-		);
-	}
-	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM person WHERE household_id IS NOT NULL`), [{ n: 0 }]);
+		).result,
+	);
+	const joining = await person("Drew Joining");
+	const [retiredFirst, joinedRetired] = await inTurn(await retirement(joining), () => join(joining, "other", "1"));
+	ok(retiredFirst!);
+	refused(joinedRetired!);
+	const caseyReturns = await revisionOf(casey.id);
+	const [deletedFirst, joinedLate] = await inTurn(
+		() => discard(again.household.revision),
+		() => join(casey, "other", caseyReturns),
+	);
+	ok(deletedFirst!);
+	refused(joinedLate!);
+	assert.deepEqual(await rows(sql`SELECT id FROM household WHERE plant_id=${plants[0]}`), []);
+	assert.deepEqual(await rows(sql`SELECT id FROM person WHERE household_id IS NOT NULL AND plant_id=${plants[0]}`), []);
+	assert.deepEqual(await crossing(), [{ n: 0 }]);
+	assert.deepEqual(
+		await rows(sql`SELECT x.id FROM household x WHERE NOT EXISTS(SELECT FROM person p WHERE p.household_id=x.id)`),
+		[],
+		"no household is left without a member",
+	);
 	assert.deepEqual(ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: jamie.id }))), { status: "none" });
 	const history = ok(await tx((t) => reads.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(

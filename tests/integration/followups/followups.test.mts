@@ -1,4 +1,4 @@
-import test, { after, before } from "node:test";
+import test, { after, before, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -29,14 +29,31 @@ import {
 } from "../../../packages/domain/src/followups/index.ts";
 import type { FollowUpReply } from "../../../packages/domain/src/followups/core.ts";
 import type { TaskReply } from "../../../packages/domain/src/tasks/core.ts";
-import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { interviews, peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { activityRequest, listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { recorded } from "../../support/recorded.mts";
-import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
+import { recorded, untouched } from "../../support/recorded.mts";
+import { pinSchemaClock } from "../../support/test-database.mts";
+import { readAs } from "../communication/communication-support.mts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import {
+	approveProposal,
+	createConversation,
+	evryActor,
+	executeProposal,
+	prepareProposal,
+	readReview,
+	submitTurn,
+} from "../../../packages/evry/src/index.ts";
+import { createFacts, createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import type { TeamsReply } from "../../../packages/contracts/src/teams/index.ts";
 import { teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
-import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
+import {
+	createAttendanceWriter,
+	meetingsWriter,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
 import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
@@ -90,6 +107,7 @@ async function church() {
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
 	const seated = async (role: "owner" | "admin" | "member") => {
 		const a = await f.account();
+		await f.admin.execute(sql`UPDATE auth_session SET expires_at='2099-01-01T00:00:00Z' WHERE id=${a.session}`);
 		await f.seat(a, w, role);
 		return { ...a, actor: await f.actor(a.session) };
 	};
@@ -169,6 +187,63 @@ const onTask = (task: { id: string; revision: string } | null) => ({
 	expectedRevision: present(task, "task").revision,
 });
 
+const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
+const only = (...audits: string[]) => ({ ...NOTHING, audits: audits.sort() });
+const refusedUntouched = async (body: () => Promise<unknown>, code?: string) =>
+	refused(await untouched(f.admin, body), code);
+async function emailed(c: Church, personId: string, at: string) {
+	const communication = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO communication (id,plant_id,author_id,revision,state,subject,body_html,body_text,audience,created_at)
+		VALUES(${communication},${c.w.id},${c.owner.id},1,'reviewed','Hello','<p>Hello</p>','Hello',
+			'{"groups":[],"teamIds":[],"personIds":[]}',${at})`);
+	await f.admin
+		.execute(sql`INSERT INTO mail (id,tenant_id,recipient_person_id,purpose,communication_id,logical_key,payload_hash,
+		audience_hash,state,created_at,accepted_at,sent_at,delivered_at,opened_at)
+		VALUES(gen_random_uuid(),${c.w.id},${personId},'communication',${communication},${"communication/" + communication},
+			'payload','audience','sent',${at},${at},${at},${at},${at})`);
+}
+const changeStage = async (c: Church, personId: string, stage: string, handoffs: object[] = []) =>
+	withPeopleWrite(f.db, c.owner.actor, async (tx, ctx) =>
+		peopleWriter.changeStatus(
+			tx,
+			ctx,
+			{
+				requestKey: key(),
+				expectedRevision: (await one(sql`SELECT revision::text r FROM person WHERE id=${personId}`)).r,
+				input: { personId, stage, reason: "Stepped back", handoffs },
+			},
+			reminders,
+		),
+	);
+const followUps = async (c: Church, personId: string) =>
+	ok(
+		await gatedTransaction(f.db, (tx) =>
+			peopleReader.getActivities(
+				tx,
+				new PeopleReadContext(c.admin.actor),
+				activityRequest.parse({ personId, kinds: ["follow_up"] }),
+			),
+		),
+	).items;
+const contactHistory = async (who: Seat, personId: string) => ok(await read(who, "listContactHistory", { personId }));
+const liveNotices = async (taskId: string) =>
+	integerOf(
+		(await one(sql`SELECT count(*)::int n FROM notice WHERE source_record_id=${taskId} AND cancelled_at IS NULL`)).n,
+	);
+async function pinned(t: TestContext, dbNow: string, body: (c: Church, at: (iso: string) => void) => Promise<void>) {
+	await pinSchemaClock(f.admin, f.schema, new Date(dbNow));
+	t.mock.timers.enable({ apis: ["Date"], now: Date.parse(dbNow) });
+	try {
+		const c = await church();
+		await body(c, (iso) => t.mock.timers.setTime(Date.parse(iso)));
+	} finally {
+		t.mock.timers.reset();
+		for (const fn of ["clock_timestamp", "statement_timestamp", "transaction_timestamp", "now"])
+			await f.admin.execute(sql.raw(`DROP FUNCTION "${f.schema}".${fn}()`));
+	}
+}
+
 let statements = 0;
 async function counted<T>(body: () => Promise<T>) {
 	const start = statements;
@@ -220,47 +295,82 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time", async () => {
+test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time across both clock changes", async () => {
 	assert.deepEqual(
 		["2026-03-07", "2026-10-31", "2026-12-31"].map((d) => followUpDueDate(localDate.parse(d))),
 		["2026-03-09", "2026-11-02", "2027-01-02"],
 	);
 	const c = await church();
-	const origin = { at: "2026-03-07T15:00:00Z", date: "2026-03-07", zone: "America/Chicago" };
-	const exact = await generated(c, await person(c, "Exact"), "Exact", origin);
-	const late = await generated(c, await person(c, "Late"), "Late", origin);
-	const completions = ["2026-03-09T15:00:00Z", "2026-03-09T15:00:00.001Z"];
-	assert.deepEqual(
-		completions.map((at) => within48Hours(instant.parse(origin.at), instant.parse(at))),
-		[true, false],
-	);
-	const pairs: Array<[typeof exact, string | undefined]> = [
-		[exact, completions[0]],
-		[late, completions[1]],
-	];
-	for (const [{ obligation }, at] of pairs)
-		ok(await record(c.owner, onTask(obligation.task), "contacted", { occurredAt: at, completeTask: true }));
 	const read48 = async (m: string) =>
-		ok(await read(c.owner, "readObligations", { meetingId: m, asOf: "2026-03-20T00:00:00Z" })).items[0];
-	const [a, b] = [await read48(exact.meetingId), await read48(late.meetingId)];
-	assert.deepEqual(
-		[a, b].map((o) => [o?.dueDate, o?.measurement?.success, o?.completion?.occurredAt]),
-		[
-			["2026-03-09", true, "2026-03-09T15:00:00.000Z"],
-			["2026-03-09", false, "2026-03-09T15:00:00.001Z"],
-		],
-	);
+		ok(await read(c.owner, "readObligations", { meetingId: m, asOf: "2026-11-10T00:00:00Z" })).items[0];
+	for (const { origin, dueDate, rows: expected } of [
+		{
+			origin: { at: "2026-03-07T15:00:00Z", date: "2026-03-07", zone: "America/Chicago" },
+			dueDate: "2026-03-09",
+			rows: [
+				["2026-03-09T14:59:59.999Z", true],
+				["2026-03-09T15:00:00.000Z", true],
+				["2026-03-09T15:00:00.001Z", false],
+			],
+		},
+		{
+			origin: { at: "2026-10-31T23:00:00Z", date: "2026-10-31", zone: "America/Chicago" },
+			dueDate: "2026-11-02",
+			rows: [
+				["2026-11-02T22:59:59.999Z", true],
+				["2026-11-02T23:00:00.000Z", true],
+				["2026-11-02T23:00:00.001Z", false],
+			],
+		},
+	] as const)
+		for (const [occurredAt, success] of expected) {
+			assert.equal(within48Hours(instant.parse(origin.at), instant.parse(occurredAt)), success, occurredAt);
+			const { meetingId, obligation } = await generated(c, await person(c, occurredAt), occurredAt, origin);
+			ok(await record(c.owner, onTask(obligation.task), "contacted", { occurredAt, completeTask: true }));
+			const o = await read48(meetingId);
+			assert.deepEqual(
+				[o?.dueDate, o?.origin.at, o?.completion?.occurredAt, o?.measurement],
+				[dueDate, origin.at.replace("Z", ".000Z"), occurredAt, { eligible: true, success, reason: "measured" }],
+				occurredAt,
+			);
+		}
+	for (const [at, eligible] of [
+		["2026-11-02T22:59:59.999Z", false],
+		["2026-11-02T23:00:00.000Z", true],
+	] as const) {
+		const origin = { at: "2026-10-31T23:00:00Z", date: "2026-10-31", zone: "America/Chicago" };
+		const { meetingId } = await generated(c, await person(c, at), at, origin);
+		const [o] = ok(await read(c.owner, "readObligations", { meetingId, asOf: at })).items;
+		assert.deepEqual(
+			o?.measurement,
+			eligible
+				? { eligible: true, success: false, reason: "measured" }
+				: { eligible: false, success: null, reason: "immature" },
+			at,
+		);
+	}
 });
 
 test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC:ROLE43-015 AC:TARGET-TSK-004 obligations measure 48 hours at a frozen asOf, separate from contact and waiver", async () => {
 	const c = await church();
 	const alex = await person(c, "Alex Rivera");
-	const asOf = "2026-09-20T12:00:00Z";
+	const asOf = "2026-10-13T16:00:00Z";
 	const at = (h: number) => ({ at: hours(asOf, h), date: hours(asOf, h).slice(0, 10), zone: "America/Chicago" });
 	const same = at(-72);
 	const [bea, cy, dee] = [await person(c, "Bea Lopez"), await person(c, "Cy Nakamura"), await person(c, "Dee Foster")];
+	const [eli, fay, gil, hal] = [
+		await person(c, "Eli Grant"),
+		await person(c, "Fay Moore"),
+		await person(c, "Gil Stone"),
+		await person(c, "Hal Price"),
+	];
 	const m = {
 		pending23: await generated(c, alex, "M1", at(-23)),
+		pending24: await generated(c, gil, "M24", at(-24)),
+		pendingAlmost: await generated(c, gil, "M47", {
+			...at(-48),
+			at: new Date(Date.parse(hours(asOf, -48)) + 1).toISOString(),
+		}),
 		pending48: await generated(c, alex, "M2", at(-48)),
 		admin2h: await generated(c, alex, "M3", same),
 		contact48: await generated(c, bea, "M4", same),
@@ -270,13 +380,35 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		preOrigin: await generated(c, alex, "M8", same),
 		afterAsOf: await generated(c, dee, "M9", same),
 		checkbox: await generated(c, alex, "M10", same),
+		retired: await generated(c, eli, "M11", same),
+		accepted: await generated(c, hal, "M12", same),
 	};
-	assert.equal(new Set(Object.values(m).map((x) => x.obligation.id)).size, 10);
+	assert.equal(new Set(Object.values(m).map((x) => x.obligation.id)).size, 14);
+	await emailed(c, hal, same.at);
 	const complete = (x: Generated, outcome: string, occurredAt: string) =>
 		record(c.owner, onTask(x.obligation.task), outcome, { occurredAt, completeTask: true });
 	ok(await complete(m.admin2h, "administrative_completion", hours(same.at, 2)));
 	ok(await complete(m.contact48, "contacted", hours(same.at, 48)));
 	ok(await complete(m.contactLate, "contacted", new Date(Date.parse(hours(same.at, 48)) + 1).toISOString()));
+	const recordedLate = ok(
+		await complete(m.retired, "contacted", new Date(Date.parse(hours(same.at, 48)) - 1).toISOString()),
+	).record;
+	assert.equal(
+		(await one(sql`SELECT recorded_at > ${asOf}::timestamptz AS late FROM contact_outcome WHERE id=${recordedLate.id}`))
+			.late,
+		true,
+	);
+	ok(
+		await withMeetingsWrite(f.db, c.owner.actor, (tx, ctx) =>
+			meetingsWriter.delete(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { meetingId: m.retired.meetingId, reason: "Entered twice" },
+			}),
+		),
+	);
+	const manual = ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: fay } })).task;
+	ok(await record(c.owner, onTask(manual), "contacted", { occurredAt: hours(same.at, 3), completeTask: true }));
 	ok(await complete(m.preOrigin, "administrative_completion", hours(same.at, -1)));
 	ok(await complete(m.afterAsOf, "contacted", hours(asOf, 1)));
 	ok(await record(c.owner, onTask(m.waived.obligation.task), "no_longer_needed"));
@@ -288,6 +420,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		}),
 	);
 	const page = ok(await read(c.member, "readObligations", { asOf, limit: 100 }));
+	assert.equal(page.total, 14, "a manual follow-up has no meeting origin");
 	const byMeeting = new Map<string, (typeof page.items)[number]>(page.items.map((o) => [o.meeting.id, o]));
 	const result = Object.fromEntries(
 		Object.entries(m).map(([name, x]) => {
@@ -297,6 +430,8 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	);
 	assert.deepEqual(result, {
 		pending23: ["open", false, null, "immature", false],
+		pending24: ["open", false, null, "immature", false],
+		pendingAlmost: ["open", false, null, "immature", false],
 		pending48: ["open", true, false, "measured", false],
 		admin2h: ["complete", true, true, "measured", false],
 		contact48: ["complete", true, true, "measured", true],
@@ -306,6 +441,53 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		preOrigin: ["complete", false, null, "invalid_completion", false],
 		afterAsOf: ["complete", false, null, "invalid_completion", true],
 		checkbox: ["complete", true, false, "measured", false],
+		retired: ["complete", true, true, "measured", true],
+		accepted: ["open", true, false, "measured", false],
+	});
+	const measured = [m.pending23, m.pending48, m.admin2h, m.contact48, m.contactLate].map(
+		(x) => entry(byMeeting, x.meetingId).measurement,
+	);
+	assert.deepEqual(
+		[measured.map((x) => x?.eligible), measured.map((x) => x?.success === true)],
+		[
+			[false, true, true, true, true],
+			[false, false, true, true, false],
+		],
+	);
+	const late = entry(byMeeting, m.contactLate.meetingId);
+	assert.deepEqual([late.dueDate, late.completion?.occurredAt], ["2026-10-12", "2026-10-12T16:00:00.001Z"]);
+	const followUpFacts = async (of: Church) =>
+		ok(await createFacts({ clock: { now: () => instant.parse(asOf) } }).readFacts(f.db, of.owner.actor)).followUps;
+	const report = {
+		status: "measured",
+		onTime: 3,
+		measured: 7,
+		noLongerNeeded: 1,
+		pending: 3,
+		unmeasured: 3,
+		contacted: 4,
+		total: 14,
+	};
+	assert.deepEqual(await followUpFacts(c), report);
+	const unmeasured = await church();
+	const sunday = ok(
+		await write(unmeasured.owner, "createFollowUp", {
+			requestKey: key(),
+			input: { personId: await person(unmeasured, "Sunday guest") },
+		}),
+	).task;
+	ok(
+		await record(unmeasured.owner, onTask(sunday), "contacted", { occurredAt: hours(same.at, 2), completeTask: true }),
+	);
+	assert.deepEqual(await followUpFacts(unmeasured), {
+		status: "unknown",
+		onTime: 0,
+		measured: 0,
+		noLongerNeeded: 0,
+		pending: 0,
+		unmeasured: 0,
+		contacted: 0,
+		total: 0,
 	});
 	assert.deepEqual(entry(byMeeting, m.admin2h.meetingId).dueDate, followUpDueDate(localDate.parse(same.date)));
 
@@ -332,6 +514,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		[w.id, "no_longer_needed", true, true, "waived"],
 	);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE obligation_id=${w.id}`), [{ n: 1 }]);
+	assert.deepEqual(await followUpFacts(c), report);
 	const other = present(entry(byMeeting, m.pending48.meetingId).task, "task");
 	const waived = ok(
 		await taskWrite(c.owner, "waive", {
@@ -706,14 +889,14 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 			SELECT gen_random_uuid(),${c.w.id},'Call Alex '||g,'follow_up','medium',${status},now(),'undated',${alex},
 				CASE WHEN ${status}='complete' THEN now() END FROM generate_series(1,${n}) g RETURNING id)
 			INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT ${c.w.id},id,${leaving.id} FROM ins`);
-	await insert("not_started", 102);
+	await insert("not_started", 101);
 	await insert("complete", 1);
 	await insert("no_longer_needed", 1);
 	await f.admin.execute(sql`UPDATE person SET stage='prospect' WHERE id=${leavingPerson}`);
 	const plan = ok(await read(c.admin, "planHandoff", { fromAccountId: leaving.id }));
 	assert.deepEqual(
 		[plan.from.eligible, plan.from.protectedOwner, plan.total, plan.duties.length],
-		[false, false, 102, 102],
+		[false, false, 101, 101],
 	);
 	assert.deepEqual(
 		plan.recipients.map((r) => r.accountId),
@@ -732,11 +915,12 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	) => write(c.admin, "executeHandoff", { requestKey, input: { fromAccountId: from, toAccountId: to, items: chunk } });
 	const held = async () =>
 		(await one(sql`SELECT count(*)::int n FROM task_assignee WHERE account_id=${leaving.id} AND plant_id=${c.w.id}`)).n;
+	refused(await handoff(recipient.id, items), "invalid_input");
 	refused(await handoff(bystander.id, items.slice(0, 100)), "handoff_target_ineligible");
 	refused(await handoff(recipient.id, items.slice(0, 1), key(), c.owner.id), "protected_owner");
 	const stale = items.slice(0, 100).map((i, n) => (n === 99 ? { ...i, expectedRevision: "7" } : i));
 	refused(await handoff(recipient.id, stale), "conflict");
-	assert.equal(await held(), 104);
+	assert.equal(await held(), 103);
 
 	const first = key();
 	const moved = ok(await handoff(recipient.id, items.slice(0, 100), first));
@@ -748,18 +932,15 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 				.slice(100)
 				.map((i) => i.taskId)
 				.sort(),
-			2,
+			1,
 		],
 	);
-	const audits = async () => (await one(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${c.w.id}`)).n;
-	const before = await audits();
-	assert.deepEqual(ok(await handoff(recipient.id, items.slice(0, 100), first)), moved);
-	assert.equal(await audits(), before);
+	assert.deepEqual(ok(await untouched(f.admin, () => handoff(recipient.id, items.slice(0, 100), first))), moved);
 	await f.admin.execute(sql`UPDATE person SET stage='prospect' WHERE id=${recipientPerson}`);
 	refused(await handoff(recipient.id, items.slice(100)), "handoff_target_ineligible");
 	await f.admin.execute(sql`UPDATE person SET stage='core_group' WHERE id=${recipientPerson}`);
 	const rest = ok(await handoff(recipient.id, items.slice(100)));
-	assert.deepEqual([rest.moved.length, rest.remaining, rest.remainingTotal], [2, [], 0]);
+	assert.deepEqual([rest.moved.length, rest.remaining, rest.remainingTotal], [1, [], 0]);
 	assert.deepEqual(
 		await rows(
 			sql`SELECT t.status FROM task t JOIN task_assignee a ON a.task_id=t.id WHERE a.account_id=${leaving.id} AND t.plant_id=${c.w.id} ORDER BY t.status`,
@@ -1550,4 +1731,781 @@ test("AC:ROLE43-015 a finalized Vision Meeting with no lead title and nobody to 
 	assert.equal((await one(sql`SELECT count(*)::int n FROM obligation WHERE plant_id=${c.w.id}`)).n, 3);
 	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: guest }));
 	assert.equal(coverage.needsOwner, 1);
+});
+
+test("AC:TARGET-MTG-022 a late entry keeps its real date, an attempt, a task and an opened email are no contact, and a voided contact reveals the one before it", async (t) => {
+	await pinned(t, "2026-10-13T16:00:00Z", async (c, clock) => {
+		await f.admin.execute(sql`UPDATE plant SET warning_days=7, alert_days=14 WHERE id=${c.w.id}`);
+		const quiet = async (name: string) => {
+			const id = randomUUID();
+			await f.admin
+				.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
+				VALUES(${id},${c.w.id},${c.w.id},${name},'other','prospect','unknown','unknown',0,'live','2026-08-20T15:00:00Z')`);
+			return id;
+		};
+		const [alex, late, recent, wrongly] = [
+			await quiet("Alex"),
+			await quiet("Late entry"),
+			await quiet("Recent"),
+			await quiet("Wrong person"),
+		];
+		const say = (personId: string, outcome: string, occurredAt: string) =>
+			recorded(f.admin, () => record(c.owner, { kind: "person", personId }, outcome, { occurredAt }));
+		const levels = async () => {
+			const pipeline = ok(
+				await gatedTransaction(f.db, (tx) =>
+					peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), listPeopleRequest.parse({})),
+				),
+			);
+			const cards = pipeline.groups.flatMap((g) => g.cards);
+			return Object.fromEntries(
+				Object.entries({ late, recent, wrongly }).map(([name, id]) => [
+					name,
+					cards.find((k) => k.person.id === id)?.inactivity.level,
+				]),
+			);
+		};
+		const last = async () => (await contactHistory(c.member, alex)).lastConfirmedContactAt;
+		assert.equal(await last(), null);
+
+		clock("2026-10-09T16:00:00Z");
+		const first = await say(alex, "contacted", "2026-09-01T15:00:00Z");
+		assert.deepEqual(first.added, only("followup.recorded"));
+		const { record: entered } = ok(first.value);
+		assert.deepEqual(
+			[entered.occurredAt, entered.recordedAt, entered.contact],
+			["2026-09-01T15:00:00.000Z", "2026-10-09T16:00:00.000Z", true],
+		);
+		ok((await say(late, "contacted", "2026-09-01T15:00:00Z")).value);
+		ok((await say(recent, "contacted", "2026-10-08T15:00:00Z")).value);
+		for (const occurredAt of ["2026-10-09T16:02:00.001Z", "2026-10-10T15:00:00Z"])
+			await refusedUntouched(
+				() => record(c.owner, { kind: "person", personId: alex }, "contacted", { occurredAt }),
+				"future_occurrence",
+			);
+
+		clock("2026-10-10T16:00:00Z");
+		assert.deepEqual(
+			(await say(alex, "attempted_no_contact", "2026-10-10T15:00:00Z")).added,
+			only("followup.recorded"),
+		);
+		assert.equal(await last(), "2026-09-01T15:00:00.000Z");
+		clock("2026-10-11T16:00:00Z");
+		const { task } = ok(
+			await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: alex, title: "Mail packet" } }),
+		);
+		const administered = await recorded(f.admin, () =>
+			record(c.owner, onTask(task), "administrative_completion", {
+				occurredAt: "2026-10-11T15:00:00Z",
+				completeTask: true,
+			}),
+		);
+		assert.deepEqual(administered.added, only("followup.recorded", "tasks.completed"));
+		assert.equal(ok(administered.value).task?.status, "complete");
+		assert.equal(await last(), "2026-09-01T15:00:00.000Z");
+
+		clock("2026-10-12T16:00:00Z");
+		const wrong = ok((await say(alex, "contacted", "2026-10-12T15:00:00Z")).value).record;
+		const other = ok((await say(wrongly, "contacted", "2026-10-12T15:00:00Z")).value).record;
+		assert.equal(await last(), "2026-10-12T15:00:00.000Z");
+		assert.deepEqual(await levels(), { late: "alert", recent: "none", wrongly: "none" });
+		clock("2026-10-13T15:00:00Z");
+		const voiding = (outcome: typeof wrong) => ({
+			requestKey: key(),
+			expectedRevision: outcome.revision,
+			input: { outcomeId: outcome.id, correction: { kind: "void" }, reason: "Entered on the wrong person" },
+		});
+		const request = voiding(wrong);
+		const material = async () => (await one(sql`SELECT material_revision::int n FROM plant WHERE id=${c.w.id}`)).n;
+		const stale = integerOf(await material());
+		const voided = await recorded(f.admin, () => write(c.owner, "correctOutcome", request));
+		assert.deepEqual(voided.added, only("followup.corrected"));
+		assert.equal(await material(), stale + 1);
+		assert.deepEqual(await untouched(f.admin, () => write(c.owner, "correctOutcome", request)), voided.value);
+		ok(await write(c.owner, "correctOutcome", voiding(other)));
+		assert.deepEqual(await levels(), { late: "alert", recent: "none", wrongly: "alert" });
+
+		for (const id of [alex, late, wrongly]) await emailed(c, id, "2026-10-13T15:30:00Z");
+		clock("2026-10-13T16:00:00Z");
+		assert.deepEqual(await levels(), { late: "alert", recent: "none", wrongly: "alert" });
+		const history = await contactHistory(c.member, alex);
+		assert.equal(history.lastConfirmedContactAt, "2026-09-01T15:00:00.000Z");
+		assert.ok(present(history.lastConfirmedContactAt, "contact") < "2026-09-29T16:00:00.000Z");
+		assert.deepEqual(
+			history.items.map((i) => [i.outcome, i.occurredAt, i.state, i.contact, i.recordedAt, i.voided?.reason ?? null]),
+			[
+				[
+					"contacted",
+					"2026-10-12T15:00:00.000Z",
+					"voided",
+					false,
+					"2026-10-12T16:00:00.000Z",
+					"Entered on the wrong person",
+				],
+				["administrative_completion", "2026-10-11T15:00:00.000Z", "effective", false, "2026-10-11T16:00:00.000Z", null],
+				["attempted_no_contact", "2026-10-10T15:00:00.000Z", "effective", false, "2026-10-10T16:00:00.000Z", null],
+				["contacted", "2026-09-01T15:00:00.000Z", "effective", true, "2026-10-09T16:00:00.000Z", null],
+			],
+		);
+		assert.equal(
+			ok(await readAs(f.db, c.member.actor, "listForPerson", { personId: alex })).lastConfirmedContactAt,
+			"2026-09-01T15:00:00.000Z",
+		);
+		for (const from of [wrongly]) assert.equal((await contactHistory(c.member, from)).lastConfirmedContactAt, null);
+	});
+});
+
+test("AC:TARGET-COM-011 each typed outcome keeps its own label and only a contacted one, as last corrected, dates the contact log", async (t) => {
+	await pinned(t, "2026-10-13T16:00:00Z", async (c) => {
+		const occurredAt = "2026-10-12T16:00:00Z";
+		const outcomes = ["administrative_completion", "attempted_no_contact", "contacted", "no_longer_needed"] as const;
+		const people: string[] = [];
+		const saved: { task: { id: string } | null; record: { id: string; revision: string; taskId: string | null } }[] =
+			[];
+		for (const outcome of outcomes) {
+			const id = await person(c, outcome);
+			const { task } = ok(await write(c.admin, "createFollowUp", { requestKey: key(), input: { personId: id } }));
+			const { value, added } = await recorded(f.admin, () =>
+				record(c.admin, onTask(task), outcome, { occurredAt, completeTask: outcome !== "no_longer_needed" }),
+			);
+			assert.deepEqual(
+				added,
+				only("followup.recorded", outcome === "no_longer_needed" ? "tasks.waived" : "tasks.completed"),
+				outcome,
+			);
+			people.push(id);
+			saved.push(ok(value));
+			await emailed(c, id, "2026-10-13T15:00:00Z");
+		}
+		const times = async () =>
+			Promise.all(people.map(async (id) => (await contactHistory(c.member, id)).lastConfirmedContactAt));
+		const mailed = async () =>
+			Promise.all(
+				people.map(
+					async (id) =>
+						ok(await readAs(f.db, c.member.actor, "listForPerson", { personId: id })).lastConfirmedContactAt,
+				),
+			);
+		const contact = "2026-10-12T16:00:00.000Z";
+		assert.deepEqual(await times(), [null, null, contact, null]);
+		assert.deepEqual(await mailed(), [null, null, contact, null]);
+		assert.deepEqual(
+			(await Promise.all(people.map((id) => contactHistory(c.member, id)))).map(({ items }) =>
+				items.map((i) => [i.outcome, i.contact, i.occurredAt, i.taskId]),
+			),
+			outcomes.map((outcome, n) => [[outcome, outcome === "contacted", contact, present(saved[n]?.task, "task").id]]),
+		);
+		assert.deepEqual(
+			(await Promise.all(people.map((id) => followUps(c, id)))).map((items) =>
+				items.map((i) => (i.kind === "follow_up" ? i.outcome : i.kind)),
+			),
+			outcomes.map((o) => [o]),
+		);
+		const correct = (outcome: { id: string; revision: string }, correction: object) =>
+			recorded(f.admin, () =>
+				write(c.admin, "correctOutcome", {
+					requestKey: key(),
+					expectedRevision: outcome.revision,
+					input: { outcomeId: outcome.id, correction, reason: "Checked the calendar" },
+				}),
+			);
+		const contacted = present(saved[2], "contacted").record;
+		const moved = await correct(contacted, {
+			kind: "replace",
+			outcome: "contacted",
+			occurredAt: "2026-10-05T16:00:00Z",
+		});
+		assert.deepEqual(moved.added, only("followup.corrected", "followup.corrected"));
+		assert.deepEqual(await times(), [null, null, "2026-10-05T16:00:00.000Z", null]);
+		const upgraded = await correct(present(saved[1], "attempt").record, {
+			kind: "replace",
+			outcome: "contacted",
+			occurredAt: "2026-10-12T17:00:00Z",
+		});
+		ok(upgraded.value);
+		assert.deepEqual(await times(), [null, "2026-10-12T17:00:00.000Z", "2026-10-05T16:00:00.000Z", null]);
+		const removed = await correct(ok(moved.value).record, { kind: "void" });
+		assert.deepEqual(removed.added, only("followup.corrected"));
+		const expected = [null, "2026-10-12T17:00:00.000Z", null, null];
+		assert.deepEqual([await times(), await mailed()], [expected, expected]);
+		assert.deepEqual(
+			(await contactHistory(c.member, present(people[2], "person"))).items.map((i) => [
+				i.outcome,
+				i.occurredAt,
+				i.state,
+				i.taskId,
+			]),
+			[
+				["contacted", contact, "corrected", contacted.taskId],
+				["contacted", "2026-10-05T16:00:00.000Z", "voided", contacted.taskId],
+			],
+		);
+		assert.deepEqual(await rows(sql`SELECT status FROM task WHERE id=${contacted.taskId}`), [{ status: "complete" }]);
+	});
+});
+
+test("AC:TARGET-TSK-004 AC:TARGET-TSK-011 a waived follow-up earns no credit and no reminder and never returns through an edit, a deletion, a reconcile or a bulk completion; only an explicit reopen opens it", async () => {
+	const c = await church();
+	const holder = await c.seated("member");
+	await committed(c, holder, "leader");
+	const [alex, bea, cy, dee] = [
+		await person(c, "Alex"),
+		await person(c, "Bea"),
+		await person(c, "Cy"),
+		await person(c, "Dee"),
+	];
+	const origin = { at: "2099-01-10T23:00:00Z", date: "2099-01-10", zone: "America/Chicago" };
+	const v = await meeting(c, "Vision", origin);
+	await finalizeMeeting(c.admin, v, [alex, bea, cy], { followUpAssigneeIds: [holder.id] });
+	const asOf = "2099-02-01T00:00:00Z";
+	const duties = async () => {
+		const items = ok(await read(c.admin, "readObligations", { meetingId: v, asOf })).items;
+		return new Map(items.map((o) => [o.person?.id ?? "evaluation", o]));
+	};
+	const duty = async (personId: string) => entry(await duties(), personId);
+	const taskOf = async (personId: string) => present((await duty(personId)).task, "task");
+	const open = async () => ok(await read(c.admin, "listFollowUpOwners", { owner: holder.id })).matched;
+	const bell = async (personId: string) => liveNotices((await taskOf(personId)).id);
+	const on = async (op: "waive" | "edit" | "delete" | "reopen" | "complete", personId: string, input: object = {}) => {
+		const task = await taskOf(personId);
+		const { value, added } = await recorded(f.admin, () =>
+			taskWrite(c.admin, op, {
+				requestKey: key(),
+				expectedRevision: task.revision,
+				input: { taskId: task.id, ...input },
+			}),
+		);
+		ok(value);
+		return added;
+	};
+	assert.deepEqual([await open(), await bell(alex), await bell(bea), await bell(cy)], [3, 2, 2, 2]);
+	const task = await taskOf(alex);
+	const request = { requestKey: key(), expectedRevision: task.revision, input: { taskId: task.id, reason: "Moved" } };
+	const stored = await taskOf(alex);
+	const refusedRequest = { ...request, requestKey: key() };
+	for (const who of [c.member, (await church()).owner])
+		await refusedUntouched(() => taskWrite(who, "waive", refusedRequest));
+	const waived = await recorded(f.admin, () => taskWrite(c.admin, "waive", request));
+	ok(waived.value);
+	assert.deepEqual(waived.added, { ...only("tasks.waived"), jobs: ["mail cancelled", "mail cancelled"] });
+	await untouched(f.admin, () => taskWrite(c.admin, "waive", request));
+	const closed = async () => {
+		const o = await duty(alex);
+		assert.deepEqual(
+			[o.state, o.waiver?.reason, o.completion, o.contacted, o.measurement],
+			["no_longer_needed", "Moved", null, false, { eligible: false, success: null, reason: "waived" }],
+		);
+		assert.equal(await bell(alex), 0);
+		assert.deepEqual(
+			await rows(sql`SELECT (SELECT count(*)::int FROM task k WHERE k.obligation_id=o.id) AS tasks,
+				(SELECT bool_and(k.completed_at IS NULL) FROM task k WHERE k.obligation_id=o.id) AS uncredited,
+				(SELECT count(*)::int FROM contact_outcome x WHERE x.person_id=o.person_id) AS contacts
+				FROM obligation o WHERE o.id=${o.id}`),
+			[{ tasks: 1, uncredited: true, contacts: 0 }],
+		);
+		assert.equal((await taskOf(alex)).id, stored.id);
+	};
+	await closed();
+	assert.equal(await open(), 2);
+	assert.deepEqual(
+		await on("edit", alex, { patch: { title: "Renamed", due: { kind: "local_date", date: "2099-03-01" } } }),
+		only("tasks.changed"),
+	);
+	await closed();
+	assert.deepEqual(await on("delete", alex), only("tasks.changed"));
+	await closed();
+	await finalize(c, v, origin, {
+		followUps: [alex, bea, cy].map((personId) => ({ personId, assigneeIds: [] })),
+		evaluation: { assigneeIds: [] },
+	});
+	await closed();
+	const reconciled = await recorded(f.admin, () =>
+		withMeetingsWrite(f.db, c.admin.actor, async (tx, ctx) =>
+			createAttendanceWriter({ reminders }).reconcileAttendance(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: (await one(sql`SELECT attendance_revision::text r FROM meeting WHERE id=${v}`)).r,
+				input: { meetingId: v, attendeeIds: [alex, bea, cy, dee], reason: "Sign-in sheet checked" },
+			}),
+		),
+	);
+	assert.deepEqual(
+		ok(reconciled.value)
+			.work.filter((x) => x.outcome === "created")
+			.map((x) => x.personId),
+		[dee],
+	);
+	await closed();
+
+	await on("waive", bea);
+	await on("complete", cy);
+	const items = await Promise.all(
+		[bea, cy, dee].map(async (id) => {
+			const k = await taskOf(id);
+			return { taskId: k.id, expectedRevision: k.revision };
+		}),
+	);
+	const bulk = ok(await taskWrite(c.admin, "bulkComplete", { requestKey: key(), items }));
+	assert.deepEqual(
+		bulk.items.map((r) => r.outcome),
+		["closed", "noop", "changed"],
+	);
+	assert.deepEqual(await Promise.all([bea, cy, dee].map(async (id) => (await duty(id)).state)), [
+		"no_longer_needed",
+		"complete",
+		"complete",
+	]);
+	assert.deepEqual((await duty(bea)).measurement, { eligible: false, success: null, reason: "waived" });
+	assert.equal(await bell(bea), 0);
+
+	await on("reopen", bea);
+	const reopened = await duty(bea);
+	assert.deepEqual([reopened.state, reopened.waiver, await bell(bea)], ["open", null, 2]);
+	assert.deepEqual(reopened.measurement, { eligible: true, success: false, reason: "measured" });
+	assert.deepEqual(
+		await rows(
+			sql`SELECT kind FROM audit_event WHERE subject_id=${present(reopened.task, "task").id} ORDER BY occurred_at,id`,
+		),
+		[{ kind: "create" }, { kind: "waive" }, { kind: "reopen" }],
+	);
+	assert.deepEqual(
+		await rows(sql`SELECT count(*)::int n FROM task WHERE obligation_id=${reopened.id} AND deleted_at IS NULL`),
+		[{ n: 1 }],
+	);
+	await closed();
+});
+
+test("AC:TARGET-TSK-011 earlier team attendance still owes the first Vision follow-up, once for each origin, unowned and uncontacted until someone takes it", async () => {
+	const c = await church();
+	const alex = await person(c, "Alex");
+	const origin = { at: "2026-10-13T15:00:00Z", date: "2026-10-13", zone: "America/Chicago" };
+	const team = await meeting(c, "Hosts", { ...origin, at: "2026-10-01T15:00:00Z", date: "2026-10-01" });
+	const teamId = randomUUID();
+	await f.admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${teamId},${c.w.id},'Hosts','active',1)`,
+	);
+	await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${teamId} WHERE id=${team}`);
+	assert.deepEqual((await finalizeMeeting(c.admin, team, [alex])).work, []);
+	const [first, second] = [await meeting(c, "Vision A", origin), await meeting(c, "Vision B", origin)];
+	for (const id of [first, second]) {
+		const { value, added } = await recorded(f.admin, () => finalizeMeeting(c.admin, id, [alex]));
+		assert.deepEqual(
+			value.classifications.map((x) => [x.classification, x.priorVisionId]),
+			[[id === first ? "first_time" : "first_time", null]],
+		);
+		const stage = id === first ? ["people.stage_changed"] : [];
+		assert.deepEqual(added, only("meetings.finalized", ...stage, "tasks.changed", "tasks.changed"));
+	}
+	const items = ok(await read(c.admin, "readObligations", { personId: alex, asOf: "2026-10-13T16:00:00Z" })).items;
+	assert.deepEqual(
+		items.map((o) => [o.meeting.id, o.kind, o.dueDate, o.origin, o.owners, o.state, o.contacted, o.measurement]).sort(),
+		[first, second]
+			.map((id) => [
+				id,
+				"first_vision_follow_up",
+				"2026-10-15",
+				{ at: "2026-10-13T15:00:00.000Z", date: "2026-10-13", zone: "America/Chicago" },
+				[],
+				"open",
+				false,
+				{ eligible: false, success: null, reason: "immature" },
+			])
+			.sort(),
+	);
+	assert.equal(new Set(items.map((o) => o.id)).size, 2);
+	const waiting = ok(await read(c.admin, "listFollowUpOwners", { owner: "needs_owner", personId: alex }));
+	assert.deepEqual(
+		waiting.items.map((d) => [d.owners, ownerLabel(null)]),
+		[
+			[[], "Needs owner"],
+			[[], "Needs owner"],
+		],
+	);
+	assert.equal((await contactHistory(c.admin, alex)).total, 0);
+	const zero = await meeting(c, "Empty Vision", { ...origin, at: "2026-10-12T15:00:00Z", date: "2026-10-12" });
+	assert.deepEqual(
+		(await finalizeMeeting(c.admin, zero, [])).work.map((x) => [x.kind, x.personId, x.needsOwner]),
+		[["meeting_evaluation", null, true]],
+	);
+});
+
+test("AC:TARGET-TSK-012 a follow-up whose owner is demoted or loses the seat shows Needs owner with no invented date, urgency or contact", async () => {
+	const c = await church();
+	const alex = await person(c, "Alex");
+	for (const loss of ["demotion", "seat"] as const) {
+		const b = await c.seated("member");
+		const linked = await committed(c, b, "leader");
+		const { task } = ok(
+			await write(c.admin, "createFollowUp", {
+				requestKey: key(),
+				input: { personId: alex, title: loss, assigneeIds: [b.id] },
+			}),
+		);
+		const shown = async () => {
+			const r = ok(await read(c.admin, "followUpCoverage", { personId: alex }));
+			const d = present(
+				r.items[0]?.duties.find((x) => x.taskId === task.id),
+				"duty",
+			);
+			return [r.items[0]?.coverage, r.needsOwner, d.owners.map((o) => [o.accountId, o.eligible]), d.due, d.overdue];
+		};
+		const undated = { kind: "undated" };
+		assert.deepEqual(await shown(), ["owned", 0, [[b.id, true]], undated, null]);
+		const assigned = ok(await read(c.admin, "planHandoff", { fromAccountId: b.id })).duties.map((d) => ({
+			kind: "needs_owner",
+			dutyId: d.taskId,
+			expectedRevision: d.revision,
+		}));
+		if (loss === "demotion") ok(await changeStage(c, linked, "attendee", assigned));
+		else {
+			const seat = (await one(sql`SELECT id FROM seat WHERE account_id=${b.id}`)).id;
+			const review = await f.seats.readRemoval(c.owner.session, c.selected, { seatId: seat });
+			const removed = await f.seats.remove(
+				c.owner.actor,
+				c.selected,
+				{
+					requestKey: key(),
+					expectedRevision: review.expectedRevision,
+					input: {
+						seatId: review.seatId,
+						expectedRole: review.expectedRole,
+						handoffs: review.duties.map((d) => ({
+							kind: "needs_owner",
+							dutyId: d.dutyId,
+							expectedRevision: d.expectedRevision,
+						})),
+					},
+				},
+				reminders,
+			);
+			assert.equal(removed.outcome, "changed");
+		}
+		assert.deepEqual(await shown(), ["needs_owner", 1, [], undated, null]);
+		const owners = ok(await read(c.member, "listFollowUpOwners", { owner: "needs_owner", personId: alex }));
+		assert.deepEqual(
+			[owners.items.map((d) => [d.taskId, d.owners.map((o) => o.accountId)]), owners.unassigned],
+			[[[task.id, []]], 1],
+		);
+		const current = present(owners.items[0], "duty");
+		await refusedUntouched(
+			() =>
+				write(c.admin, "assignFollowUp", {
+					requestKey: key(),
+					expectedRevision: current.revision,
+					input: { taskId: task.id, assigneeIds: [b.id] },
+				}),
+			"owner_ineligible",
+		);
+		const history = await contactHistory(c.admin, alex);
+		assert.deepEqual([history.total, history.lastConfirmedContactAt], [0, null]);
+		const list = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.admin.actor, {}))).items;
+		const row = present(
+			list.find((x) => x.id === task.id),
+			"task",
+		);
+		assert.deepEqual(
+			[row.due, row.overdue, row.managed, ownerLabel(row.assignees[0] ?? null)],
+			[undated, null, null, "Needs owner"],
+		);
+		ok(
+			await taskWrite(c.admin, "complete", {
+				requestKey: key(),
+				expectedRevision: current.revision,
+				input: { taskId: task.id },
+			}),
+		);
+		assert.equal((await contactHistory(c.admin, alex)).lastConfirmedContactAt, null);
+	}
+	assert.deepEqual(ok(await read(c.admin, "readObligations", { personId: alex })).items, []);
+});
+
+test("AC:TARGET-TSK-013 an ineligible or foreign recipient, a lost recipient and a closed task move nothing and reopen nothing; declining changes nothing", async () => {
+	const c = await church();
+	const alex = await person(c, "Alex");
+	const leaving = await c.seated("member");
+	const leavingPerson = await committed(c, leaving);
+	const recipient = await c.seated("member");
+	const recipientPerson = await committed(c, recipient);
+	const target = await c.seated("member");
+	const follow = async (title: string) =>
+		ok(
+			await write(c.admin, "createFollowUp", {
+				requestKey: key(),
+				input: { personId: alex, title, assigneeIds: [leaving.id] },
+			}),
+		).task;
+	const [t1, t2, t3, t4] = [await follow("T1"), await follow("T2"), await follow("T3"), await follow("T4")];
+	const settle = async (op: "complete" | "waive" | "delete", task: { id: string; revision: string }) =>
+		ok(
+			await taskWrite(c.admin, op, {
+				requestKey: key(),
+				expectedRevision: task.revision,
+				input: { taskId: task.id },
+			}),
+		).task;
+	const settled = [await settle("complete", t2), await settle("waive", t3), await settle("delete", t4)];
+	await f.admin.execute(sql`UPDATE person SET stage='attendee' WHERE id=${leavingPerson}`);
+	const plan = await untouched(f.admin, () => read(c.admin, "planHandoff", { fromAccountId: leaving.id }));
+	const preview = ok(plan);
+	assert.deepEqual(
+		[preview.duties.map((d) => d.taskId), preview.total, preview.recipients.map((r) => r.accountId)],
+		[[t1.id], 1, [recipient.id]],
+	);
+	const items = preview.duties.map((d) => ({ taskId: d.taskId, expectedRevision: d.revision }));
+	const request = (to: string, moved = items, requestKey: string = key()) => ({
+		requestKey,
+		input: { fromAccountId: leaving.id, toAccountId: to, items: moved },
+	});
+	const states = () =>
+		rows(sql`SELECT t.title, t.status, t.deleted_at IS NOT NULL AS deleted, t.completed_at IS NOT NULL AS done, a.account_id
+			FROM task t LEFT JOIN task_assignee a ON a.task_id=t.id WHERE t.plant_id=${c.w.id} ORDER BY t.title`);
+	const start = await states();
+	assert.deepEqual(
+		start.map((x) => [x.title, x.status, x.deleted, x.done, x.account_id === leaving.id]),
+		[
+			["T1", "not_started", false, false, true],
+			["T2", "complete", false, true, true],
+			["T3", "no_longer_needed", false, false, true],
+			["T4", "not_started", true, false, true],
+		],
+	);
+	const repeated = request(target.id);
+	const foreign = await church();
+	const foreignOwner = await foreign.seated("member");
+	await committed(foreign, foreignOwner);
+	for (const body of [repeated, repeated, request(foreignOwner.id), request(randomUUID())])
+		await refusedUntouched(() => write(c.admin, "executeHandoff", body), "handoff_target_ineligible");
+	await refusedUntouched(() => write(c.member, "executeHandoff", request(recipient.id)));
+	await refusedUntouched(() => write(foreign.owner, "executeHandoff", request(foreignOwner.id)));
+	refused(await read(foreign.owner, "planHandoff", { fromAccountId: leaving.id }), "unavailable");
+	for (const closed of settled)
+		await refusedUntouched(
+			() =>
+				write(
+					c.admin,
+					"executeHandoff",
+					request(recipient.id, [...items, { taskId: closed.id as never, expectedRevision: closed.revision }]),
+				),
+			closed.id === t4.id ? "unavailable" : "conflict",
+		);
+	ok(await changeStage(c, recipientPerson, "attendee"));
+	await refusedUntouched(() => write(c.admin, "executeHandoff", request(recipient.id)), "handoff_target_ineligible");
+	assert.deepEqual(await states(), start);
+	const waiting = ok(await read(c.admin, "listFollowUpOwners", { owner: "needs_owner" }));
+	assert.deepEqual(
+		waiting.items.map((d) => [d.taskId, d.owners.map((o) => [o.accountId, o.reason])]),
+		[[t1.id, [[leaving.id, "not_committed"]]]],
+	);
+	ok(await changeStage(c, recipientPerson, "leader"));
+	const accepted = request(recipient.id);
+	const moved = await recorded(f.admin, () => write(c.admin, "executeHandoff", accepted));
+	assert.deepEqual(
+		[ok(moved.value).moved.map((x) => x.taskId), ok(moved.value).remaining, moved.added],
+		[[t1.id], [], only("tasks.changed")],
+	);
+	assert.deepEqual(await untouched(f.admin, () => write(c.admin, "executeHandoff", accepted)), moved.value);
+	assert.deepEqual(
+		await states(),
+		start.map((x) => (x.title === "T1" ? { ...x, account_id: recipient.id } : x)),
+	);
+
+	const takerPerson = await committed(c, target, "leader");
+	const t5 = ok(
+		await write(c.admin, "createFollowUp", {
+			requestKey: key(),
+			input: { personId: alex, title: "T5", assigneeIds: [recipient.id] },
+		}),
+	).task;
+	const held = new Map(
+		ok(await read(c.admin, "planHandoff", { fromAccountId: recipient.id })).duties.map((d) => [d.title, d]),
+	);
+	const choice = (title: string, kind: object) => ({
+		dutyId: entry(held, title).taskId,
+		expectedRevision: entry(held, title).revision,
+		...kind,
+	});
+	const left = choice("T1", { kind: "needs_owner" });
+	for (const partial of [[], [left]])
+		await refusedUntouched(() => changeStage(c, recipientPerson, "attendee", partial), "conflict");
+	ok(
+		await changeStage(c, recipientPerson, "attendee", [
+			left,
+			choice("T5", { kind: "assign", toPersonId: takerPerson }),
+		]),
+	);
+	assert.deepEqual(await states(), [
+		...start.map((x) => (x.title === "T1" ? { ...x, account_id: null } : x)),
+		{ title: "T5", status: "not_started", deleted: false, done: false, account_id: target.id },
+	]);
+	const after = ok(await read(c.admin, "listFollowUpOwners", { personId: alex }));
+	assert.deepEqual(
+		after.items.map((d) => [d.taskId, d.owners.map((o) => o.accountId)]).sort(),
+		[
+			[t1.id, []],
+			[t5.id, [target.id]],
+		].sort(),
+	);
+	assert.equal(after.unassigned, 1);
+});
+
+test("AC:GAP-PPL-022 a Person with no follow-up shows none, stays uncovered and gets one only when someone creates it", async () => {
+	const c = await church();
+	const foreign = await church();
+	const stranger = await foreign.seated("member");
+	await committed(c, c.admin, "leader");
+	const alex = await person(c, "Alex");
+	const activity = (who: Seat) =>
+		gatedTransaction(f.db, (tx) =>
+			peopleReader.getActivities(
+				tx,
+				new PeopleReadContext(who.actor),
+				activityRequest.parse({ personId: alex, kinds: ["follow_up"] }),
+			),
+		);
+	const shown = async () => {
+		const coverage = ok(await read(c.admin, "followUpCoverage", { personId: alex }));
+		return {
+			activity: ok(await activity(c.admin)).items.map((i) => (i.kind === "follow_up" ? i.outcome : i.kind)),
+			coverage: coverage.items[0]?.coverage,
+			duties: coverage.items[0]?.duties.map((d) => d.title),
+			contacts: (await contactHistory(c.admin, alex)).total,
+			tasks: await rows(sql`SELECT title, status FROM task WHERE person_id=${alex}`),
+		};
+	};
+	const none = { activity: [], coverage: "uncovered", duties: [], contacts: 0, tasks: [] };
+	assert.deepEqual(await untouched(f.admin, shown), none);
+	ok(await changeStage(c, alex, "following_up"));
+	assert.deepEqual(await shown(), none);
+
+	const request = {
+		requestKey: key(),
+		input: {
+			title: "Follow up with Alex",
+			category: "follow_up",
+			relation: { kind: "person", id: alex },
+			assigneeIds: [c.admin.id],
+		},
+	};
+	for (const who of [stranger, foreign.admin]) {
+		const { correlationId: _, ...error } = refused(await untouched(f.admin, () => activity(who)), "unavailable");
+		assert.equal(JSON.stringify(error).includes("Alex"), false);
+		const code = who === stranger ? "unavailable" : "invalid_subject";
+		await refusedUntouched(() => taskWrite(who, "create", request), code);
+		await refusedUntouched(() => write(who, "createFollowUp", { requestKey: key(), input: { personId: alex } }), code);
+	}
+	const { value, added } = await recorded(f.admin, () => taskWrite(c.admin, "create", request));
+	const { task } = ok(value);
+	assert.deepEqual(added, only("tasks.changed"));
+	assert.deepEqual(await untouched(f.admin, () => taskWrite(c.admin, "create", request)), value);
+	assert.deepEqual(
+		task.assignees.map((a) => a.accountId),
+		[c.admin.id],
+	);
+	const created = {
+		activity: [],
+		coverage: "owned",
+		duties: ["Follow up with Alex"],
+		contacts: 0,
+		tasks: [{ title: "Follow up with Alex", status: "not_started" }],
+	};
+	assert.deepEqual(await shown(), created);
+	ok(await record(c.admin, onTask(task), "attempted_no_contact", { occurredAt: "2026-10-12T15:00:00Z" }));
+	const tried = { ...created, activity: ["attempted_no_contact"], contacts: 1 };
+	assert.deepEqual(await shown(), tried);
+	await f.admin.execute(sql.raw("ALTER TABLE contact_outcome RENAME TO contact_outcome_away"));
+	try {
+		await untouched(f.admin, () => assert.rejects(activity(c.admin)));
+	} finally {
+		await f.admin.execute(sql.raw("ALTER TABLE contact_outcome_away RENAME TO contact_outcome"));
+	}
+	assert.deepEqual(await shown(), tried);
+});
+
+test("AC:TARGET-PPL-022 saved next steps and an unapproved Evry follow-up create no task; only the reviewed draft does, once", async () => {
+	const c = await church();
+	const alex = await person(c, "Alex");
+	const criterion = { rating: "pass", notes: null };
+	const interview = await recorded(f.admin, () =>
+		withPeopleWrite(f.db, c.admin.actor, (tx, ctx) =>
+			interviews.createInterview(tx, ctx, {
+				requestKey: key(),
+				input: {
+					personId: alex,
+					occurredOn: "2026-10-01",
+					maturity: criterion,
+					gifted: criterion,
+					chemistry: criterion,
+					rightReasons: criterion,
+					season: criterion,
+					result: "follow_up",
+					nextSteps: "Follow up with Alex about small groups",
+				},
+			}),
+		),
+	);
+	assert.deepEqual(interview.added, only("people.recorded"));
+	const state = async () => ({
+		tasks: await rows(sql`SELECT title, status FROM task WHERE person_id=${alex}`),
+		contactedAt: (await contactHistory(c.admin, alex)).lastConfirmedContactAt,
+	});
+	const none = { tasks: [], contactedAt: null };
+	assert.deepEqual(await state(), none);
+	const shownSteps = ok(
+		await gatedTransaction(f.db, (tx) =>
+			interviews.getInterviews(tx, new PeopleReadContext(c.admin.actor), { personId: alex }),
+		),
+	);
+	assert.deepEqual(
+		shownSteps.items.map((i) => i.nextSteps),
+		["Follow up with Alex about small groups"],
+	);
+
+	const who = evryActor(c.admin.actor);
+	const conversation = await createConversation(f.db, who, { requestKey: key() });
+	await submitTurn(f.db, who, conversation.id, { requestKey: key(), text: "Follow up with Alex" });
+	const [turn] = await claimDue(f.db, ["assistant_turn"], 1, 240);
+	const lease = present(turn, "turn");
+	const prepared = await prepareProposal(
+		f.db,
+		who,
+		{
+			turnId: lease.id,
+			tenantId: lease.tenant_id,
+			leaseOwner: lease.lease_owner,
+			generation: lease.claim_generation,
+		},
+		conversation.id,
+		{ operation: "tasks.createFollowUp", input: { personId: alex, title: "Call Alex about small groups" } },
+	);
+	const proposal = present(prepared, "proposal");
+	const review = async () => (await readReview(f.db, who, proposal.id)).status;
+	assert.deepEqual([await review(), proposal.approvedAt], ["pending", null]);
+	assert.deepEqual(await state(), none);
+	assert.deepEqual(await claimDue(f.db, ["evry_effect"], 1, 60), []);
+	await approveProposal(f.db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
+	assert.deepEqual(await state(), none);
+	const [effect] = await claimDue(f.db, ["evry_effect"], 1, 60);
+	const claim = present(effect, "effect");
+	const outcome = await executeProposal(
+		f.db,
+		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
+		{ reminders, phaseNotices: async () => undefined },
+	);
+	await transaction(f.db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+	assert.equal(outcome, "completed");
+	const created = { tasks: [{ title: "Call Alex about small groups", status: "not_started" }], contactedAt: null };
+	assert.deepEqual(await state(), created);
+	assert.deepEqual(await claimDue(f.db, ["evry_effect"], 1, 60), []);
+
+	const native = { requestKey: key(), input: { personId: alex, title: "Visit Alex" } };
+	for (const actor of [c.member, (await church()).admin])
+		await refusedUntouched(
+			() => write(actor, "createFollowUp", native),
+			actor === c.member ? "unavailable" : "invalid_subject",
+		);
+	const made = await recorded(f.admin, () => write(c.admin, "createFollowUp", native));
+	ok(made.value);
+	assert.deepEqual(made.added, only("tasks.changed"));
+	assert.deepEqual(await untouched(f.admin, () => write(c.admin, "createFollowUp", native)), made.value);
+	assert.equal((await state()).tasks.length, 2);
+	assert.equal((await state()).contactedAt, null);
 });

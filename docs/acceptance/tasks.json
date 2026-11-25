@@ -20,7 +20,10 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts"
+      ],
       "description": "Chicago task LocalDate 2026-10-13 at UTC 2026-10-14T03:00Z  and next local midnight.",
       "given": {
         "P": {
@@ -100,7 +103,10 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts"
+      ],
       "description": "Timed task `deadlineInstant` 18:00 Z; dispatch due notice late/early without editing deadline.",
       "given": {
         "P": {
@@ -1550,7 +1556,10 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "51 equal-key tasks, null due, deleted cursor, 2 sub tasks, My/All team filter and Assignments, foreign team.",
       "given": {
         "P": {
@@ -1913,7 +1922,10 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "Whitespace title, invalid date/foreign assignee/facility, failing prerequisite edit, protected generated relation change, parent delete with children.",
       "given": {
         "P": {
@@ -2029,7 +2041,10 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "Assignee changed after preview, Member other duty, double complete/lost response, reopen older recurrence with open successor and person administrative task.",
       "given": {
         "P": {
@@ -2149,7 +2164,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Waive generated task then edit/delete/reconcile; counts/notifications/metric; explicit reopen and bulk complete mixed states.",
       "given": {
         "P": {
@@ -2275,7 +2293,10 @@
       "work_packages": [
         "WP-025"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "Checklist rows are one-level child tasks. Admin ticks the Member's row C under parent T: C completes, T stays open and unchanged. Nesting, a Member override or null assignee, and a Member ticking another account's row refuse. Removal keeps the row's history. Positive Member own-duty paths (create under own parent, tick own row) are covered by the regression test because the case checker derives only plant roles.",
       "given": {
         "P": {
@@ -2575,7 +2596,10 @@
       "work_packages": [
         "WP-025"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "A→B→C→A, concurrent A→B/B→A, waived versus open prerequisite, delete an existing predecessor after saving its edge, manual blocked and foreign edge.",
       "given": {
         "P": {
@@ -2894,7 +2918,10 @@
       "work_packages": [
         "WP-025"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts"
+      ],
       "description": "January 31 monthly, leap February/yearly, end date equal/after, late completion, 2 concurrent complete, fail child copy and older reopen.",
       "given": {
         "P": {
@@ -3775,7 +3802,11 @@
       "work_packages": [
         "WP-025"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts",
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "Bulk complete with duplicates, missing, foreign, waived, unassigned and changed tasks; a fault before commit, then the same request again and its lost-reply retry; invalid shared date.",
       "given": {
         "P": {
@@ -4065,7 +4096,11 @@
       "work_packages": [
         "WP-026"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts",
+        "tests/integration/tasks/templates.test.mts"
+      ],
       "description": "Canonical selected keys/offsets, lost response/retry versus new intent, stale version, source plain multiline text.",
       "given": {
         "P": {
@@ -4191,7 +4226,10 @@
       "work_packages": [
         "WP-026"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/templates.test.mts"
+      ],
       "description": "Two devices answer accept/decline, subset selection, stale/forged key, fail mid insert and response loss.",
       "given": {
         "P": {
@@ -4323,7 +4361,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Zero Vision evaluation, prior only team attendance, two same-day Vision origins, no lead title, waiver edit/delete and 48 h DST boundary.",
       "given": {
         "P": {
@@ -4442,7 +4483,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Linked committed versus demoted/unlinked/shared mailbox; current seat removed; uncovered no-task contact and manual undated create.",
       "given": {
         "P": {
@@ -4562,7 +4606,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Demotion with open/complete/waived tasks, decline, recipient loses eligibility after preview, 101 task chunk response loss.",
       "given": {
         "P": {
@@ -4706,7 +4753,11 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts",
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "Date-only DST due, timed deadline, undated/unassigned, change assignee before claim, settle after queue and zone edit delivered slot.",
       "given": {
         "P": {
@@ -4845,7 +4896,10 @@
       "work_packages": [
         "WP-024"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/tasks.test.mts"
+      ],
       "description": "User/bulk/system managed completion, no-op retry, corrected outcome, reopen, foreign history request.",
       "given": {
         "P": {
@@ -4973,7 +5027,11 @@
       "work_packages": [
         "WP-026"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/templates.test.mts",
+        "tests/unit/tasks/description.test.mjs"
+      ],
       "description": "Multiline plaintext, java script link/script HTML, empty clear, long text cap and matching full/preview.",
       "given": {
         "P": {
@@ -5101,7 +5159,10 @@
         "WP-022",
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/attendance.test.mts"
+      ],
       "description": "Finalizing creates two person follow-ups and one evaluation task; a duplicate request, two same-day origin meetings, a waived or deleted task, and a failure before finalizing completes leave no partial change.",
       "given": {
         "P": {
@@ -5300,7 +5361,10 @@
         "WP-025",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/tasks/clock.test.mts"
+      ],
       "description": "America/Chicago spring gap 02:30 and fall fold 01:30; all-day 2026-03-08/2026-11-01; change to Pacific/Auckland with fixed appointment and delivered reminder; process runs non UTC.",
       "given": {
         "P": {

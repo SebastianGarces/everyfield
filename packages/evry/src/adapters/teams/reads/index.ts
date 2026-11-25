@@ -82,7 +82,7 @@ type Listed = {
 	archived: boolean;
 	leaderName: string | null;
 	leaderSource: string | null;
-	activeCount: number;
+	people: number;
 };
 const listedRow = (t: Listed) =>
 	team(t.id, t.name, {
@@ -90,7 +90,7 @@ const listedRow = (t: Listed) =>
 		archived: t.archived,
 		leader: t.leaderName,
 		leaderKind: t.leaderSource === "explicit" ? "appointed" : t.leaderSource ? "fallback" : null,
-		people: t.activeCount,
+		people: t.people,
 	});
 type Health = {
 	teamId: string;

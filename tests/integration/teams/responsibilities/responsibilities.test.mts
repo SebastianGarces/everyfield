@@ -20,6 +20,8 @@ import {
 import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
 import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
+import { recorded, untouched } from "../../../support/recorded.mts";
+import { faulted } from "../fault.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
@@ -251,27 +253,45 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	const worship = await expectedLines("worship");
 	const team = await makeTemplateTeam("Launch", "worship");
 	const started = await phase();
-	assert.equal(
-		(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id })).status,
-		"ok",
-	);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), 0);
+	const offered = await untouched(admin, async () => {
+		ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id }));
+		return ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
+	});
+	assert.deepEqual([offered.lines, offered.offer, offered.proposedCount], [worship, null, worship.length]);
+	assert.equal(worship.length >= 3, true);
 	const picked = worship.slice(0, 2).map((line) => line.key);
 	const input = await offerInput(team.id, "accept", picked, team.revision);
-	await assert.rejects(
-		tx(async (t) => {
-			const result = await responsibilityWriter.offerResponsibilities(t, ctx(), input);
-			assert.equal(result.status, "ok", JSON.stringify(result));
-			throw new Error("crash");
-		}),
-		/crash/,
-	);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), 0);
-	assert.equal(await audits(input.requestKey), 0);
-	const accepted = ok(await run(responsibilityWriter.offerResponsibilities, input));
+	for (const table of ["responsibility", "audit_event"])
+		refused(
+			await untouched(admin, () => faulted(admin, table, () => run(responsibilityWriter.offerResponsibilities, input))),
+			"required_write_failed",
+		);
+	const saved = await recorded(admin, () => run(responsibilityWriter.offerResponsibilities, input));
+	const accepted = ok(saved.value);
+	assert.deepEqual(saved.added, { audits: ["teams.changed"], jobs: [], notices: 0, mail: 0 });
 	assert.equal(accepted.createdIds.length, worship.length);
-	const replay = ok(await run(responsibilityWriter.offerResponsibilities, input));
-	assert.equal(replay.receiptId, accepted.receiptId);
+	assert.deepEqual(await untouched(admin, () => run(responsibilityWriter.offerResponsibilities, input)), saved.value);
+	const listing = async () =>
+		ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id })).items.map((item) => [
+			item.sourceLine,
+			item.text,
+		]);
+	assert.deepEqual(
+		await listing(),
+		worship.slice(0, 2).map((line) => [line.key, line.text]),
+	);
+	refused(
+		await untouched(admin, () =>
+			tx((t) =>
+				responsibilityWriter.offerResponsibilities(
+					t,
+					{ session: actors[3]!.session, selected: { kind: "plant", id: tenantId.parse(P) } },
+					{ ...input, requestKey: key() },
+				),
+			),
+		),
+		"unavailable",
+	);
 	assert.equal(await audits(input.requestKey), 1);
 	let stored = await linesOf(team.id);
 	assert.equal(stored.filter((row) => !row.removed).length, 2);
@@ -382,6 +402,16 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	assert.equal(added.revision, columnDefault);
 	assert.equal((await linesOf(team.id)).find((row) => row.id === added.id)!.removed, false);
 	assert.equal(await phase(), started);
+	const completions = (
+		await admin.execute(sql`SELECT before_value->>'completedOn' AS before, after_value->>'completedOn' AS after,
+			actor_id AS actor FROM audit_event WHERE subject_id=${second.id} AND kind<>'noop'
+			AND after_value ? 'completedOn' ORDER BY occurred_at, id`)
+	).rows;
+	assert.deepEqual(completions, [
+		{ before: null, after: today, actor: actors[0]!.id },
+		{ before: today, after: null, actor: actors[0]!.id },
+		{ before: null, after: today, actor: actors[0]!.id },
+	]);
 
 	const facilities = await expectedLines("facilities");
 	const declinedTeam = await makeTemplateTeam("Passed", "facilities");
@@ -435,6 +465,12 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	assert.equal(stored.find((row) => row.id === first.id)!.removed, true);
 	assert.equal(stored.find((row) => row.source_line === worship[2]!.key)!.removed, true);
 	assert.equal(stored.find((row) => row.id === added.id)!.text, "Bring the keys");
+	assert.equal(stored.length, worship.length + 1);
+	assert.equal(new Set(stored.map((row) => row.source_line)).size, stored.length);
+	assert.deepEqual(await listing(), [
+		[worship[1]!.key, "Follow up within two days"],
+		[`custom:${added.id}`, "Bring the keys"],
+	]);
 	const beforeDecline = await linesOf(team.id);
 	refused(
 		await run(

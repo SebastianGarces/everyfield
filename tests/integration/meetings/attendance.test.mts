@@ -10,20 +10,37 @@ import {
 	attendanceReader as reads,
 	createAttendanceWriter,
 	guestsWriter,
+	describeRsvpToken,
 	meetingsReader,
 	previewMeetingsWrite,
 	withMeetingsWrite,
 	type AttendanceWriter,
 	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
-import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
+import {
+	authorizeTaskReminders,
+	createTaskWriter,
+	reminderRecipients,
+	withTaskWrite,
+} from "../../../packages/domain/src/tasks/index.ts";
+import { createFollowUpWriter, withFollowUpWrite } from "../../../packages/domain/src/followups/index.ts";
+import { getPlant } from "../../../packages/domain/src/oversight/index.ts";
+import { PeopleReadContext, peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
+import { activityRequest } from "../../../packages/contracts/src/people/index.ts";
+import { owner as ownerValue } from "../../../packages/contracts/src/common/index.ts";
+import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
+import { recorded, touched, untouched } from "../../support/recorded.mts";
+import { issueRsvpToken } from "./rsvp-token.mts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { ok, refused } from "../../support/fixture.mts";
+import { ok, refused, waitingOnLock } from "../../support/fixture.mts";
 
 let f: Fixture;
 let writer: AttendanceWriter;
+let reminders: ReturnType<typeof taskReminders>;
 let plant: Workspace;
 let other: Workspace;
 let owner: Seated;
@@ -182,7 +199,8 @@ before(async () => {
 			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient)! } : null));
 		},
 	});
-	writer = createAttendanceWriter({ reminders: taskReminders(notifications) });
+	reminders = taskReminders(notifications);
+	writer = createAttendanceWriter({ reminders });
 	plant = await f.workspace();
 	other = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id IN (${plant.id},${other.id})`);
@@ -893,6 +911,19 @@ test("AC:GAP-MTG-017 AC:TARGET-MTG-017 an attendee note names its attended meeti
 	assert.deepEqual(progress.followUps, { total: 1, open: 1, complete: 0, closed: 0, needsOwner: 1 });
 });
 
+test("AC:TARGET-TSK-012 a meeting counts a follow-up whose stored owner is no longer committed as Needs owner", async () => {
+	const v = await meeting("vision_meeting", "2026-10-11T23:00:00Z");
+	ok(await finalize(owner, v, [await person("Alex")]));
+	const needsOwner = async () => ok(await read(owner, reads.linkedTaskProgress, { meetingId: v })).followUps.needsOwner;
+	const caller = await eligibleAccount();
+	await f.admin.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id)
+		SELECT t.plant_id,t.id,${caller.id} FROM task t JOIN obligation o ON o.id=t.obligation_id
+		WHERE o.meeting_id=${v} AND o.kind='follow_up'`);
+	assert.equal(await needsOwner(), 0);
+	await f.admin.execute(sql`UPDATE person SET stage='attendee' WHERE linked_account_id=${caller.id}`);
+	assert.equal(await needsOwner(), 1);
+});
+
 test("INV-attendance: guest list writes that change the attended set move its revision and wait for Correct attendance once finalized", async () => {
 	const m = await meeting();
 	const [alex, casey, dana] = [await person("Alex"), await person("Casey"), await person("Dana")];
@@ -1507,4 +1538,1024 @@ test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle at
 		ok(await reconcile(who, m, []));
 	}
 	refused(await finalize(leader, await meeting("orientation", "2026-09-06T23:00:00Z"), [guest]), "unavailable");
+});
+
+const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
+const only = (...audits: string[]) => ({ ...NOTHING, audits: audits.sort() });
+const refusedUntouched = async (body: () => Promise<unknown>, code?: string) =>
+	refused(await untouched(f.admin, body), code);
+const deniedUntouched = async (body: () => Promise<unknown>) => {
+	const { correlationId: _, ...error } = await refusedUntouched(body);
+	assert.deepEqual(error, { code: "unavailable", details: {}, retry: "never" });
+};
+
+type Church = Awaited<ReturnType<typeof church>>;
+async function church() {
+	const w = await f.workspace("plant", { timezone: "America/Chicago" });
+	const q = await f.workspace("plant", { timezone: "America/New_York" });
+	const seated = async (place: Workspace, role: "owner" | "admin" | "member") => {
+		const a = await f.account();
+		await f.seat(a, place, role);
+		return { ...a, actor: await f.actor(a.session) };
+	};
+	return {
+		w,
+		q,
+		selected: ownerValue.parse(w),
+		owner: await seated(w, "owner"),
+		admin: await seated(w, "admin"),
+		member: await seated(w, "member"),
+		strangerMember: await seated(q, "member"),
+		strangerAdmin: await seated(q, "admin"),
+		seated: (role: "owner" | "admin" | "member") => seated(w, role),
+	};
+}
+async function failing<T>(event: "INSERT" | "UPDATE", table: string, when: string, body: () => Promise<T>) {
+	await f.admin.execute(
+		sql.raw(`CREATE FUNCTION required_write() RETURNS trigger LANGUAGE plpgsql AS
+			$$BEGIN RAISE EXCEPTION 'required_write'; END$$;
+			CREATE TRIGGER required_write AFTER ${event} ON ${table} FOR EACH ROW WHEN (${when}) EXECUTE FUNCTION required_write()`),
+	);
+	try {
+		return await body();
+	} finally {
+		await f.admin.execute(sql.raw(`DROP FUNCTION required_write() CASCADE`));
+	}
+}
+async function queued<T extends readonly unknown[]>(
+	meetingId: string,
+	bodies: { [K in keyof T]: () => Promise<T[K]> },
+): Promise<T> {
+	const holder = await f.admin.$client.connect();
+	const running: Promise<unknown>[] = [];
+	try {
+		await holder.query("BEGIN");
+		await holder.query("SELECT 1 FROM meeting WHERE id = $1 FOR UPDATE", [meetingId]);
+		for (const body of bodies) {
+			running.push(body());
+			await waitingOnLock(f.db, { count: running.length });
+		}
+	} finally {
+		await holder.query("COMMIT");
+		holder.release();
+	}
+	return (await Promise.all(running)) as unknown as T;
+}
+const note = (who: Seated, input: Record<string, unknown>, k: string = key()) =>
+	write(who, writer.addAttendeeNote, { requestKey: k, input });
+const invited = (who: Seated, meetingId: string, personId: string) =>
+	write(who, guestsWriter.inviteGuest, { requestKey: key(), input: { meetingId, personId } });
+const guestOf = async (who: Seated, meetingId: string, personId: string) =>
+	ok(await meetingsReader.listGuests(f.db, who.actor, { meetingId })).guests.find(
+		(g) => g.person.personId === personId,
+	)!;
+const rsvp = async (who: Seated, meetingId: string, personId: string) =>
+	write(who, guestsWriter.correctRsvp, {
+		requestKey: key(),
+		expectedRevision: (await guestOf(who, meetingId, personId)).revision,
+		input: { meetingId, personId, rsvp: "confirmed" },
+	});
+const card = async (who: Seated, meetingId: string, personId: string, input: Record<string, unknown>) =>
+	write(who, guestsWriter.recordCard, {
+		requestKey: key(),
+		expectedRevision: (await guestOf(who, meetingId, personId)).revision,
+		input: { meetingId, personId, ...input },
+	});
+const activities = async (c: Church, personId: string) =>
+	ok(
+		await gatedTransaction(f.db, (tx) =>
+			peopleReader.getActivities(tx, new PeopleReadContext(c.admin.actor), activityRequest.parse({ personId })),
+		),
+	).items;
+const stageEvents = async (personId: string) =>
+	(
+		await rows<{ move: string }>(sql`SELECT (before_value->>'stage')||' to '||(after_value->>'stage') AS move
+			FROM audit_event WHERE subject_id=${personId} AND action='people.stage_changed' AND kind<>'noop'
+			ORDER BY occurred_at,id`)
+	).map((r) => r.move);
+async function priorAssessment(w: Workspace) {
+	const id = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO assessment_run(id,plant_id,as_of,phase,source_revision,formula_version,rubric_version,
+		rubric_sha256,model,outcome,grounding,facts,model_input,drafts,result,attempts,input_tokens,output_tokens,demand,demand_key,
+		captured_at,deadline_at,settled_at,available_at) VALUES(${id},${w.id},'2026-10-12T16:00:00Z',1,'rev-1','1','v1','0','model',
+		'published','grounded','{"today":"2026-10-12"}','{}','[]','{"draft":{}}',1,1,1,'manual','manual/1','2026-10-12T16:00:00Z',
+		'2026-10-12T17:00:00Z','2026-10-12T16:01:00Z','2026-10-12T16:01:00Z')`);
+	return () => one(sql`SELECT to_jsonb(r) AS run FROM assessment_run r WHERE id=${id}`);
+}
+const factors = [
+	"attendanceScore",
+	"locationScore",
+	"logisticsScore",
+	"agendaScore",
+	"vibeScore",
+	"messageScore",
+	"closeScore",
+	"nextStepsScore",
+] as const;
+const every = (n: number): Scores => Object.fromEntries(factors.map((k) => [k, n]));
+const evaluate = (who: Seated, meetingId: string, scores: Scores, extra: Record<string, unknown> = {}) =>
+	write(who, writer.recordEvaluation, { requestKey: key(), input: { meetingId, scores, ...extra } });
+const correctTo = (who: Seated, meetingId: string, expectedRevision: string, changes: Scores) =>
+	write(who, writer.correctEvaluation, {
+		requestKey: key(),
+		expectedRevision,
+		input: { meetingId, changes, reason: "Correct entered rating" },
+	});
+const evaluationState = async (meetingId: string) =>
+	one(sql`SELECT (SELECT count(*)::int FROM meeting x WHERE x.id=m.id AND x.evaluated_at IS NOT NULL) AS evaluations,
+		t.status, (SELECT count(*)::int FROM audit_event a WHERE a.subject_id=t.id AND a.action='tasks.completed') AS completions,
+		(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=m.id AND a.metadata->>'event'='evaluation_corrected'
+			AND a.kind<>'noop') AS corrections
+		FROM meeting m JOIN obligation b ON b.meeting_id=m.id AND b.kind='evaluation' JOIN task t ON t.obligation_id=b.id
+		WHERE m.id=${meetingId}`);
+const finalizations = async (meetingId: string) =>
+	(
+		await one<{ n: number }>(
+			sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${meetingId} AND action='meetings.finalized' AND kind<>'noop'`,
+		)
+	).n;
+
+test("AC:GAP-PPL-020 an actual Vision attendance moves a prospect to attendee once; an invitation, a team meeting and an advanced stage move nobody", async () => {
+	const c = await church();
+	const alex = await person("Alex", "prospect", c.w),
+		casey = await person("Casey", "leader", c.w);
+	const uninvolved = await meeting("vision_meeting", "2026-10-03T15:00:00Z", c.w);
+	ok(await invited(c.admin, uninvolved, alex));
+	const invitedOnly = await recorded(f.admin, () => finalize(c.admin, uninvolved, []));
+	assert.deepEqual(ok(invitedOnly.value).stageChanges, []);
+	assert.deepEqual(invitedOnly.added, only("meetings.finalized", "tasks.changed"));
+	assert.deepEqual([await stageOf(alex), await stageEvents(alex)], ["prospect", []]);
+
+	const m = await meeting("vision_meeting", "2026-10-10T15:00:00Z", c.w);
+	await f.admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${m}`);
+	ok(await invited(c.admin, m, alex));
+	const request = await finalizeRequest(m, [alex, casey], {}, key());
+	for (const who of [c.strangerMember, c.strangerAdmin, c.member]) {
+		await deniedUntouched(() => write(who, writer.finalizeAttendance, request));
+	}
+	await failing("INSERT", "audit_event", `NEW.action = 'people.stage_changed'`, () =>
+		refusedUntouched(() => write(c.admin, writer.finalizeAttendance, request), "required_write_failed"),
+	);
+	assert.deepEqual([await stageOf(alex), await finalizations(uninvolved)], ["prospect", 1]);
+
+	const saved = await recorded(f.admin, () => write(c.admin, writer.finalizeAttendance, request));
+	assert.deepEqual(ok(saved.value).stageChanges, [{ personId: alex, from: "prospect", to: "attendee" }]);
+	assert.deepEqual(
+		saved.added,
+		only("meetings.finalized", "people.stage_changed", "tasks.changed", "tasks.changed", "tasks.changed"),
+	);
+	assert.deepEqual(
+		[await stageOf(alex), await stageEvents(alex), await stageOf(casey), await stageEvents(casey)],
+		["attendee", ["prospect to attendee"], "leader", []],
+	);
+	assert.deepEqual(
+		(await activities(c, alex)).map((i) => (i.kind === "stage_changed" ? [i.from, i.to] : [i.kind])),
+		[["prospect", "attendee"]],
+	);
+	const replay = await untouched(f.admin, () => write(c.admin, writer.finalizeAttendance, request));
+	assert.deepEqual(ok(replay), ok(saved.value));
+	const again = await recorded(f.admin, () => finalize(c.admin, m, [alex, casey]));
+	assert.deepEqual([ok(again.value).outcome, ok(again.value).stageChanges], ["noop", []]);
+	assert.deepEqual(again.added, only("meetings.finalized"));
+	const second = await meeting("vision_meeting", "2026-10-11T15:00:00Z", c.w);
+	assert.deepEqual(ok(await finalize(c.admin, second, [alex])).stageChanges, []);
+	ok(await reconcile(c.admin, second, []));
+	ok(await reconcile(c.admin, m, [casey]));
+	assert.deepEqual([await stageOf(alex), await stageEvents(alex)], ["attendee", ["prospect to attendee"]]);
+
+	const [pat, dana, lee] = [
+		await person("Pat", "prospect", c.w),
+		await person("Dana", "core_group", c.w),
+		await person("Lee", "launch_team", c.w),
+	];
+	const onTeam = async <R,>(op: "create" | "createRole" | "assignRole" | "removeRole" | "appointLeader", raw: object) =>
+		ok(
+			await withTeamsWrite(
+				f.db,
+				c.admin.actor,
+				(tx, ctx) =>
+					teamsWriter[op](tx, ctx, { requestKey: key(), ...raw }) as Promise<{ status: "ok"; value: R } | never>,
+			),
+		);
+	const { team } = await onTeam<{ team: { id: string } }>("create", { input: { name: "Hosts", description: null } });
+	const { role } = await onTeam<{ role: { id: string } }>("createRole", {
+		input: { teamId: team.id, name: "Greeter", leadership: false },
+	});
+	const rev = async (table: string, id: string) =>
+		(await one<{ r: string }>(sql`SELECT revision::text r FROM ${sql.raw(table)} WHERE id=${id}`)).r;
+	const assign = async (personId: string) =>
+		onTeam("assignRole", {
+			expectedRevision: await rev("team", team.id),
+			input: { teamId: team.id, roleId: role.id, personId },
+		});
+	const leave = async (personId: string) =>
+		onTeam("removeRole", {
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, personId },
+		});
+	for (const id of [dana, dana, casey, pat]) {
+		await assign(id);
+		await leave(id);
+	}
+	await onTeam("appointLeader", {
+		expectedRevision: await rev("team", team.id),
+		input: { teamId: team.id, personId: lee },
+	});
+	assert.deepEqual(
+		await Promise.all([dana, casey, pat, lee].map(async (id) => [await stageOf(id), await stageEvents(id)])),
+		[
+			["launch_team", ["core_group to launch_team"]],
+			["leader", []],
+			["prospect", []],
+			["leader", ["launch_team to leader"]],
+		],
+	);
+	const teamMeeting = await meeting("orientation", "2026-10-05T15:00:00Z", c.w);
+	await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team.id} WHERE id=${teamMeeting}`);
+	assert.deepEqual(ok(await finalize(c.admin, teamMeeting, [pat])).stageChanges, []);
+	assert.deepEqual([await stageOf(pat), await stageEvents(pat)], ["prospect", []]);
+	ok(await finalize(c.admin, await meeting("vision_meeting", "2026-10-12T15:00:00Z", c.w), [pat]));
+	assert.deepEqual([await stageOf(pat), await stageEvents(pat)], ["attendee", ["prospect to attendee"]]);
+});
+
+test("AC:TARGET-MTG-010 only an earlier actual Vision makes a guest returning, a committed stage keeps its category, and a bad batch or another team's leader changes nothing", async () => {
+	const c = await church();
+	const [alex, pat] = [await person("Alex", "leader", c.w), await person("Pat", "prospect", c.w)];
+	const lee = await person("Lee", "core_group", c.w);
+	await f.admin.execute(sql`UPDATE person SET linked_account_id=${c.member.id} WHERE id=${lee}`);
+	const team = async (leader: string | null) => {
+		const id = randomUUID();
+		await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
+			VALUES(${id},${c.w.id},${id},'active',1,${leader},${leader ? "explicit" : null})`);
+		return id;
+	};
+	const teamMeeting = async (teamId: string, at: string) => {
+		const id = await meeting("orientation", at, c.w);
+		await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${teamId} WHERE id=${id}`);
+		return id;
+	};
+	const own = await teamMeeting(await team(lee), "2026-09-20T15:00:00Z");
+	const others = await teamMeeting(await team(null), "2026-09-21T15:00:00Z");
+	ok(await finalize(c.member, own, [alex, pat]));
+
+	const m = await meeting("vision_meeting", "2026-10-10T15:00:00Z", c.w);
+	const first = ok(await finalize(c.admin, m, [alex, pat]));
+	assert.deepEqual(
+		first.classifications.map((x) => [x.personId, x.classification, x.firstVision, x.priorVisionId]),
+		[
+			[alex, "core_group", true, null],
+			[pat, "first_time", true, null],
+		],
+	);
+	const backdated = await meeting("vision_meeting", "2026-10-01T15:00:00Z", c.w);
+	const earlier = ok(await finalize(c.admin, backdated, [alex, pat]));
+	assert.deepEqual(
+		earlier.classifications.map((x) => [x.personId, x.classification, x.firstVision, x.priorVisionId]),
+		[
+			[alex, "core_group", true, null],
+			[pat, "first_time", true, null],
+		],
+	);
+	const listed = async () =>
+		ok(await read(c.admin, reads.listAttendance, { meetingId: m })).items.map((i) => [
+			i.person.personId,
+			i.classification,
+			i.classificationStage,
+			i.priorVisionId,
+		]);
+	const shown = [
+		[alex, "core_group", "leader", backdated],
+		[pat, "returning", "prospect", backdated],
+	];
+	assert.deepEqual(await listed(), shown);
+	assert.deepEqual(
+		await rows(sql`SELECT o.local_date::text AS earliest, p.stage FROM participation g JOIN meeting o ON o.id=g.prior_vision_id
+			JOIN person p ON p.id=g.person_id WHERE g.meeting_id=${m} AND g.person_id=${alex}`),
+		[{ earliest: "2026-10-01", stage: "leader" }],
+	);
+	const { r: patRevision } = await one<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${pat}`);
+	ok(
+		await gatedTransaction(f.db, (tx) =>
+			peopleWriter.changeStatus(
+				tx,
+				{ session: c.admin.actor.session, selected: c.selected },
+				{
+					requestKey: key(),
+					expectedRevision: patRevision,
+					input: { personId: pat, stage: "core_group", reason: "Committed later", handoffs: [] },
+				},
+				reminders,
+			),
+		),
+	);
+	assert.deepEqual([await stageOf(pat), await listed()], ["core_group", shown]);
+
+	const draft = await meeting("vision_meeting", "2026-10-12T15:00:00Z", c.w);
+	const [casey, dana] = [await person("Casey", "prospect", c.w), await person("Dana", "prospect", c.w)];
+	const batch = (ids: string[]) =>
+		write(c.admin, writer.captureAttendanceBatch, {
+			requestKey: key(),
+			input: { meetingId: draft, entries: ids.map((personId) => ({ personId, presence: "attended" })) },
+		});
+	for (const [bad, code] of [
+		[randomUUID(), "invalid_subject"],
+		[await person("Foreign", "prospect", c.q), "invalid_subject"],
+		["not-an-id", "invalid_input"],
+	] as const)
+		await refusedUntouched(() => batch([casey, bad, dana]), code);
+	const both = await recorded(f.admin, () => batch([casey, dana]));
+	assert.deepEqual(
+		ok(both.value).attendees.map((a) => [a.person.personId, a.presence]),
+		[
+			[casey, "attended"],
+			[dana, "attended"],
+		],
+	);
+	assert.deepEqual(both.added, only("meetings.changed"));
+	await refusedUntouched(() =>
+		write(c.admin, writer.clearAttendance, { requestKey: key(), input: { meetingId: draft, personId: alex } }),
+	);
+
+	const cleared = (who: Seated, meetingId: string, personId: string) =>
+		write(who, writer.clearAttendance, { requestKey: key(), input: { meetingId, personId } });
+	ok(await rsvp(c.admin, draft, casey));
+	ok(await card(c.admin, draft, casey, { response: "interested", notes: "Call me" }));
+	const facts = (meetingId: string, personId: string) =>
+		rows(sql`SELECT id, presence, rsvp, card_response, card_notes, removed_at FROM participation
+			WHERE meeting_id=${meetingId} AND person_id=${personId}`);
+	const [kept] = await facts(draft, casey);
+	assert.equal(ok(await cleared(c.admin, draft, casey)).outcome, "changed");
+	assert.deepEqual(await facts(draft, casey), [{ ...kept, presence: "absent" }]);
+	assert.deepEqual([kept!.rsvp, kept!.card_response, kept!.card_notes], ["confirmed", "interested", "Call me"]);
+
+	const ownDraft = await teamMeeting(
+		(await one<{ t: string }>(sql`SELECT team_id t FROM meeting WHERE id=${own}`)).t,
+		"2026-10-13T15:00:00Z",
+	);
+	ok(await invited(c.admin, ownDraft, casey));
+	ok(await rsvp(c.admin, ownDraft, casey));
+	ok(await write(c.member, writer.checkIn, { requestKey: key(), input: { meetingId: ownDraft, personId: casey } }));
+	await f.admin.execute(
+		sql`UPDATE participation SET card_response='interested', card_notes='Call me', card_recorded_at=clock_timestamp()
+			WHERE meeting_id=${ownDraft} AND person_id=${casey}`,
+	);
+	const [onTeam] = await facts(ownDraft, casey);
+	assert.deepEqual([onTeam!.presence, onTeam!.rsvp], ["attended", "confirmed"]);
+	const byLeader = await recorded(f.admin, () => cleared(c.member, ownDraft, casey));
+	assert.equal(ok(byLeader.value).outcome, "changed");
+	assert.deepEqual(byLeader.added, only("meetings.changed"));
+	assert.deepEqual(await facts(ownDraft, casey), [{ ...onTeam, presence: "absent" }]);
+	ok(await invited(c.admin, others, casey));
+	ok(await write(c.admin, writer.checkIn, { requestKey: key(), input: { meetingId: others, personId: casey } }));
+	for (const meetingId of [others, draft]) await refusedUntouched(() => cleared(c.member, meetingId, dana));
+	await refusedUntouched(() => cleared(c.member, others, casey));
+	await refusedUntouched(() => cleared(c.strangerAdmin, ownDraft, casey));
+});
+
+test("AC:TARGET-MTG-012 an empty Vision owes one evaluation nobody owns; a repeat, a race and a failed write add nothing; corrections follow identity and keep performed contact", async () => {
+	const c = await church();
+	const empty = await meeting("vision_meeting", "2026-10-10T15:00:00Z", c.w);
+	const request = await finalizeRequest(empty, []);
+	const first = await recorded(f.admin, () => write(c.admin, writer.finalizeAttendance, request));
+	const value = ok(first.value);
+	assert.deepEqual(first.added, only("meetings.finalized", "tasks.changed"));
+	assert.deepEqual(
+		[value.attendeeIds, value.work.map((x) => [x.kind, x.outcome, x.personId, x.needsOwner, x.owners])],
+		[[], [["meeting_evaluation", "created", null, true, []]]],
+	);
+	assert.equal(ownerLabel(value.work[0]!.owners[0] ?? null), "Needs owner");
+	assert.deepEqual(await work(empty), [
+		{ kind: "evaluation", person_id: null, waiver: null, status: "not_started", assignee_ids: [] },
+	]);
+	assert.deepEqual(ok(await untouched(f.admin, () => write(c.admin, writer.finalizeAttendance, request))), value);
+	const repeated = await recorded(f.admin, () => finalize(c.admin, empty, []));
+	assert.deepEqual([ok(repeated.value).outcome, repeated.added], ["noop", only("meetings.finalized")]);
+	assert.equal((await work(empty)).length, 1);
+	assert.equal((await one(sql`SELECT status FROM meeting WHERE id=${empty}`)).status, "in_progress");
+
+	const [alex, jamie, casey] = [
+		await person("Alex", "prospect", c.w),
+		await person("Jamie", "prospect", c.w),
+		await person("Casey", "leader", c.w),
+	];
+	const v = await meeting("vision_meeting", "2026-10-11T15:00:00Z", c.w);
+	const reviewed = await finalizeRequest(v, [alex]);
+	for (const [table, when] of [
+		["task", "true"],
+		["obligation", "NEW.kind = 'follow_up'"],
+		["audit_event", "NEW.action = 'meetings.finalized'"],
+	] as const)
+		await failing("INSERT", table, when, () =>
+			refusedUntouched(() => write(c.admin, writer.finalizeAttendance, reviewed), "required_write_failed"),
+		);
+	assert.deepEqual(await work(v), []);
+	assert.deepEqual(await one(sql`SELECT finalized_at, finalized_revision FROM meeting WHERE id=${v}`), {
+		finalized_at: null,
+		finalized_revision: null,
+	});
+	const raced = await recorded(f.admin, () =>
+		queued<MeetingsReply<{ outcome: string; receiptId: string }>[]>(v, [
+			() => write(c.admin, writer.finalizeAttendance, reviewed),
+			() => write(c.admin, writer.finalizeAttendance, reviewed),
+			() => write(c.owner, writer.finalizeAttendance, { ...reviewed, requestKey: key() }),
+		]),
+	);
+	const [a, b, other] = raced.value.map((r) => ok(r));
+	assert.deepEqual([a, b!.outcome, other!.outcome], [b, "changed", "noop"]);
+	assert.deepEqual(
+		raced.added,
+		only("meetings.finalized", "meetings.finalized", "people.stage_changed", "tasks.changed", "tasks.changed"),
+	);
+	assert.deepEqual(
+		(await work(v)).map((x) => [x.kind, x.person_id]),
+		[
+			["evaluation", null],
+			["follow_up", alex],
+		],
+	);
+	assert.equal(await finalizations(v), 1);
+
+	const followUp = await one<{ id: string; r: string }>(sql`SELECT t.id, t.revision::text r FROM task t
+		JOIN obligation o ON o.id=t.obligation_id WHERE o.meeting_id=${v} AND o.person_id=${alex}`);
+	ok(
+		await withFollowUpWrite(f.db, c.admin.actor, (tx, ctx) =>
+			createFollowUpWriter({ reminders }).recordOutcome(tx, ctx, {
+				requestKey: key(),
+				input: {
+					target: { kind: "task", taskId: followUp.id, expectedRevision: followUp.r },
+					outcome: "contacted",
+					occurredAt: "2026-10-12T15:00:00Z",
+					completeTask: true,
+				},
+			}),
+		),
+	);
+	const performed = () =>
+		rows(sql`SELECT to_jsonb(x) AS outcome, to_jsonb(t) AS task, to_jsonb(o) AS duty FROM contact_outcome x
+			JOIN task t ON t.id=x.task_id JOIN obligation o ON o.id=t.obligation_id WHERE x.plant_id=${c.w.id}`);
+	const history = await performed();
+	assert.equal(history.length, 1);
+	const replaced = await recorded(f.admin, () => reconcile(c.admin, v, [jamie]));
+	assert.deepEqual(
+		[ok(replaced.value).attendeeIds, ok(replaced.value).added, ok(replaced.value).removed],
+		[[jamie], [jamie], [alex]],
+	);
+	assert.deepEqual(replaced.added, only("meetings.finalized", "people.stage_changed", "tasks.changed"));
+	assert.deepEqual(await performed(), history);
+	const none = await recorded(f.admin, () => reconcile(c.admin, v, []));
+	assert.deepEqual(
+		[ok(none.value).attendeeIds, ok(none.value).removed, none.added],
+		[[], [jamie], only("meetings.finalized", "tasks.waived")],
+	);
+	assert.deepEqual(await performed(), history);
+	assert.deepEqual(
+		(await work(v)).map((x) => [x.kind, x.person_id, x.status]).sort(),
+		[
+			["evaluation", null, "not_started"],
+			["follow_up", alex, "complete"],
+			["follow_up", jamie, "no_longer_needed"],
+		].sort(),
+	);
+	assert.deepEqual(
+		ok(await read(c.admin, reads.listAttendance, { meetingId: v })).items.map((i) => i.presence),
+		["absent", "absent"],
+	);
+	const back = ok(await reconcile(c.admin, v, [casey]));
+	assert.deepEqual([back.attendeeIds, back.added], [[casey], [casey]]);
+	assert.deepEqual(await performed(), history);
+});
+
+test("AC:TARGET-TSK-017 finalizing owes one follow-up per first-time attendee and one evaluation for each origin meeting; a repeat, a waiver, a deletion or a failure never adds another", async () => {
+	const c = await church();
+	const [alex, casey] = [await person("Alex", "prospect", c.w), await person("Casey", "prospect", c.w)];
+	const at = "2026-10-13T23:00:00Z";
+	const [m1, m2] = [await meeting("vision_meeting", at, c.w), await meeting("vision_meeting", at, c.w)];
+	const request = await finalizeRequest(m1, [alex, casey], { evaluationAssigneeIds: [c.admin.id] });
+	await failing("INSERT", "audit_event", `NEW.action = 'meetings.finalized'`, () =>
+		refusedUntouched(() => write(c.admin, writer.finalizeAttendance, request), "required_write_failed"),
+	);
+	assert.deepEqual(
+		await one(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${c.w.id}) AS tasks,
+			(SELECT count(*)::int FROM obligation WHERE plant_id=${c.w.id}) AS obligations,
+			(SELECT count(*)::int FROM meeting WHERE plant_id=${c.w.id} AND finalized_at IS NOT NULL) AS markers`),
+		{ tasks: 0, obligations: 0, markers: 0 },
+	);
+	const saved = await recorded(f.admin, () => write(c.admin, writer.finalizeAttendance, request));
+	assert.deepEqual(
+		ok(saved.value)
+			.work.map((x) => [x.kind, x.personId, x.outcome, x.assigneeIds, x.needsOwner])
+			.sort(),
+		[
+			["first_vision_follow_up", alex, "created", [], true],
+			["first_vision_follow_up", casey, "created", [], true],
+			["meeting_evaluation", null, "created", [c.admin.id], false],
+		].sort(),
+	);
+	assert.deepEqual(
+		{ ...saved.added, notices: 0, mail: 0 },
+		only(
+			"meetings.finalized",
+			"people.stage_changed",
+			"people.stage_changed",
+			"tasks.changed",
+			"tasks.changed",
+			"tasks.changed",
+		),
+	);
+	await untouched(f.admin, () => write(c.admin, writer.finalizeAttendance, request));
+	const origin = (meetingId: string) =>
+		rows<{ id: string; person_id: string }>(sql`SELECT id, person_id, origin_date::text, due_date::text, timezone,
+			origin_at='2026-10-13T23:00:00Z' AS at FROM obligation WHERE meeting_id=${meetingId} AND kind='follow_up' ORDER BY person_id`);
+	const same = { origin_date: "2026-10-13", due_date: "2026-10-15", timezone: "America/Chicago", at: true };
+	ok(await finalize(c.admin, m2, [alex, casey]));
+	const [one_, two] = [await origin(m1), await origin(m2)];
+	assert.deepEqual(
+		[...one_, ...two],
+		[
+			...one_.map((x) => ({ id: x.id, person_id: x.person_id, ...same })),
+			...two.map((x) => ({ id: x.id, person_id: x.person_id, ...same })),
+		],
+	);
+	assert.deepEqual(new Set([...one_, ...two].map((x) => x.id)).size, 4);
+
+	const tasks = createTaskWriter({ reminders });
+	const duty = (personId: string) =>
+		one<{
+			id: string;
+			r: string;
+		}>(sql`SELECT t.id, t.revision::text r FROM task t JOIN obligation o ON o.id=t.obligation_id
+			WHERE o.meeting_id=${m1} AND o.person_id=${personId}`);
+	const onTask = async (personId: string, op: "waive" | "delete" | "edit", input: object = {}) => {
+		const t = await duty(personId);
+		return ok(
+			await withTaskWrite(
+				f.db,
+				c.admin.actor,
+				(tx, ctx) =>
+					tasks[op](tx, ctx, {
+						requestKey: key(),
+						expectedRevision: t.r,
+						input: { taskId: t.id, ...input },
+					}) as Promise<{
+						status: "ok";
+						value: unknown;
+					}>,
+			),
+		);
+	};
+	await onTask(alex, "waive", { reason: "Moved away" });
+	await onTask(alex, "edit", { patch: { title: "Renamed" } });
+	await onTask(casey, "delete");
+	const stored = () =>
+		rows(sql`SELECT o.id, o.waiver_reason, t.id AS task, t.status, t.title, t.deleted_at IS NOT NULL AS deleted
+			FROM obligation o JOIN task t ON t.obligation_id=o.id WHERE o.meeting_id=${m1} ORDER BY t.id`);
+	const settled = await stored();
+	assert.deepEqual(
+		settled.map((x) => [x.status, x.deleted, x.waiver_reason]).sort(),
+		[
+			["no_longer_needed", false, "Moved away"],
+			["not_started", false, null],
+			["not_started", true, null],
+		].sort(),
+	);
+	ok(await finalize(c.admin, m1, [alex, casey]));
+	ok(await reconcile(c.admin, m1, [alex, casey]));
+	assert.deepEqual(await stored(), settled);
+	const dana = await person("Dana", "prospect", c.w);
+	const added = ok(await reconcile(c.admin, m1, [alex, casey, dana]));
+	assert.deepEqual(
+		added.work.filter((x) => x.outcome === "created").map((x) => [x.kind, x.personId]),
+		[["first_vision_follow_up", dana]],
+	);
+	assert.deepEqual(
+		(await stored()).filter((x) => settled.some((s) => s.task === x.task)),
+		settled,
+	);
+});
+
+test("AC:TARGET-MTG-013 a card belongs to its own guest, no card is unknown, and prayer notes reach no Member, public link or organization", async () => {
+	const c = await church();
+	const org = await f.workspace("sending_network");
+	const director = await f.account();
+	await f.seat(director, org, "owner");
+	const watcher = { ...director, actor: await f.actor(director.session) };
+	await f.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
+		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${c.w.id},${org.id},clock_timestamp(),true,true,true,true,true,true,true)`);
+	const m = await meeting("vision_meeting", "2099-10-10T15:00:00Z", c.w);
+	const [alex, casey] = [await person("Alex", "prospect", c.w), await person("Casey", "prospect", c.w)];
+	ok(await write(c.admin, writer.checkIn, { requestKey: key(), input: { meetingId: m, personId: alex } }));
+	ok(await invited(c.admin, m, casey));
+	const breakdown = async (who = c.admin) => ok(await meetingsReader.cardBreakdown(f.db, who.actor, { meetingId: m }));
+	const counted = async () => {
+		const x = await breakdown();
+		return [
+			x.attended.total,
+			x.attended.withCard,
+			x.attended.unknown,
+			x.attended.responses.not_interested,
+			x.absentWithCard.total,
+			x.absentWithCard.responses.not_interested,
+		];
+	};
+	assert.deepEqual(await counted(), [1, 0, 1, 0, 0, 0]);
+	const saved = await recorded(f.admin, () =>
+		card(c.admin, m, casey, { response: "not_interested", notes: "PRAYER-CANARY", occurredAt: "2026-10-10T16:00:00Z" }),
+	);
+	assert.equal(ok(saved.value).outcome, "changed");
+	assert.deepEqual(saved.added, only("meetings.response_recorded"));
+	assert.deepEqual(await counted(), [1, 0, 1, 0, 1, 1]);
+	const cards = async (who: Seated) =>
+		ok(await meetingsReader.listCards(f.db, who.actor, { meetingId: m })).cards.map((x) => [
+			x.personId,
+			x.response,
+			x.notes,
+			x.occurredAt,
+		]);
+	const at = "2026-10-10T16:00:00.000Z";
+	assert.deepEqual(await cards(c.admin), [[casey, "not_interested", "PRAYER-CANARY", at]]);
+	assert.deepEqual(await cards(c.member), [[casey, "not_interested", null, at]]);
+	for (const [who, notes] of [
+		[c.admin, "PRAYER-CANARY"],
+		[c.member, null],
+	] as const)
+		assert.deepEqual(
+			ok(await meetingsReader.pageGuests(f.db, who.actor, { meetingId: m })).cards.cards.map((x) => x.notes),
+			[notes],
+		);
+	assert.equal((await guestOf(c.admin, m, alex)).hasCard, false);
+	assert.deepEqual([await stageOf(alex), await stageOf(casey)], ["prospect", "prospect"]);
+
+	const token = await issueRsvpToken(f.admin as never, c.w.id, m, casey);
+	const link = await describeRsvpToken(f.db, { token });
+	assert.equal(link.state, "pending");
+	const held = await meeting("vision_meeting", "2026-09-01T15:00:00Z", c.w);
+	ok(await finalize(c.admin, held, [await person("Guest", "prospect", c.w)]));
+	const seen = await getPlant(f.db, watcher.actor, c.w.id);
+	assert.equal(seen?.sections.meetings.status, "shared");
+	for (const shown of [link, seen, await activities(c, casey), await breakdown(c.member)])
+		assert.equal(JSON.stringify(shown).includes("PRAYER-CANARY"), false);
+	for (const who of [watcher, c.strangerAdmin]) {
+		refused(await meetingsReader.listCards(f.db, who.actor, { meetingId: m }), "unavailable");
+		refused(await meetingsReader.cardBreakdown(f.db, who.actor, { meetingId: m }), "unavailable");
+	}
+	const { revision: current } = await guestOf(c.admin, m, casey);
+	const raw = (who: Seated, input: Record<string, unknown>) =>
+		write(who, guestsWriter.recordCard, {
+			requestKey: key(),
+			expectedRevision: current,
+			input: { meetingId: m, personId: casey, response: "interested", ...input },
+		});
+	for (const bad of [
+		{ personId: "not-an-id" },
+		{ response: "maybe" },
+		{ response: "   " },
+		{ name: "   " },
+		{ notes: "x".repeat(2001) },
+		{ occurredAt: "2099-01-01T00:00:00Z" },
+	])
+		await refusedUntouched(() => raw(c.admin, bad), "invalid_input");
+	for (const who of [c.member, watcher, c.strangerAdmin]) await refusedUntouched(() => raw(who, {}));
+	const stranger = await person("Stranger", "prospect", c.w);
+	await refusedUntouched(() => raw(c.admin, { personId: stranger }));
+	for (const type of ["orientation", "prelaunch_practice"]) {
+		const other_ = await meeting(type, "2026-10-09T15:00:00Z", c.w);
+		ok(await invited(c.admin, other_, casey));
+		await refusedUntouched(async () => card(c.admin, other_, casey, { response: "interested" }), "wrong_meeting_type");
+	}
+
+	const corrected = await recorded(f.admin, () =>
+		raw(c.admin, { notes: "CORRECTED-CANARY", occurredAt: "2026-10-10T17:00:00Z" }),
+	);
+	assert.equal(ok(corrected.value).card!.response, "interested");
+	assert.deepEqual(corrected.added, only("meetings.response_recorded"));
+	await refusedUntouched(() => raw(c.admin, {}), "conflict");
+	assert.deepEqual(await cards(c.admin), [[casey, "interested", "CORRECTED-CANARY", "2026-10-10T17:00:00.000Z"]]);
+	const clearing = {
+		requestKey: key(),
+		expectedRevision: (await guestOf(c.admin, m, casey)).revision,
+		input: { meetingId: m, personId: casey, reason: "Wrong guest" },
+	};
+	const cleared = await recorded(f.admin, () => write(c.admin, guestsWriter.clearCard, clearing));
+	assert.equal(ok(cleared.value).card, null);
+	assert.deepEqual(cleared.added, only("meetings.response_recorded"));
+	assert.deepEqual(
+		ok(await untouched(f.admin, () => write(c.admin, guestsWriter.clearCard, clearing))),
+		ok(cleared.value),
+	);
+	assert.deepEqual([await counted(), await cards(c.admin)], [[1, 0, 1, 0, 0, 0], []]);
+	assert.deepEqual(
+		await rows(sql`SELECT kind, before_value->>'response' AS before, after_value->>'response' AS after, reason, actor_id
+			FROM audit_event WHERE action='meetings.response_recorded' AND metadata->>'meetingId'=${m} ORDER BY occurred_at, id`),
+		[
+			{ kind: "create", before: null, after: "not_interested", reason: null, actor_id: c.admin.id },
+			{ kind: "correct", before: "not_interested", after: "interested", reason: null, actor_id: c.admin.id },
+			{ kind: "correct", before: "interested", after: null, reason: "Wrong guest", actor_id: c.admin.id },
+		],
+	);
+	ok(await card(c.admin, m, alex, { response: "not_interested" }));
+	assert.deepEqual(await counted(), [1, 1, 0, 1, 0, 0]);
+});
+
+test("AC:TARGET-MTG-014 one Vision keeps one human evaluation with its computed average; a forged average, a rival, another meeting type and a failed task settlement add nothing", async () => {
+	const c = await church();
+	const m = await meeting("vision_meeting", "2026-10-10T15:00:00Z", c.w);
+	ok(await finalize(c.admin, m, [await person("Alex", "prospect", c.w)]));
+	const open = { evaluations: 0, status: "not_started", completions: 0, corrections: 0 };
+	assert.deepEqual(await evaluationState(m), open);
+	for (const forged of [{ average: 5 }, { submittedAverage: 5 }, { scores: { ...every(1), average: 5 } }])
+		await refusedUntouched(() => evaluate(c.admin, m, every(1), forged), "invalid_input");
+	for (const score of [0, 6, 1.5, "5", null])
+		await refusedUntouched(() => evaluate(c.admin, m, { ...every(1), closeScore: score as number }), "invalid_input");
+	const { closeScore: _, ...seven } = every(1);
+	await refusedUntouched(() => evaluate(c.admin, m, seven as Scores), "invalid_input");
+	for (const who of [c.member, c.strangerAdmin, c.strangerMember])
+		await refusedUntouched(() => evaluate(who, m, every(1)));
+	for (const type of ["orientation", "prelaunch_practice", "team_meeting"]) {
+		const id = await meeting("orientation", "2026-10-09T15:00:00Z", c.w);
+		const team = randomUUID();
+		await f.admin.execute(
+			sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${c.w.id},${team},'active',1)`,
+		);
+		await f.admin.execute(
+			sql`UPDATE meeting SET type=${type}, team_id=${type === "team_meeting" ? team : null} WHERE id=${id}`,
+		);
+		ok(await finalize(c.admin, id, []));
+		await refusedUntouched(() => evaluate(c.admin, id, every(1)), "wrong_meeting_type");
+	}
+	await failing("UPDATE", "task", "NEW.status = 'complete'", () =>
+		refusedUntouched(() => evaluate(c.admin, m, every(1)), "required_write_failed"),
+	);
+	assert.deepEqual(await evaluationState(m), open);
+
+	const raced = await touched(f.admin, () =>
+		recorded(f.admin, () =>
+			queued<
+				MeetingsReply<{
+					outcome: string;
+					taskCompleted: boolean;
+					evaluation: { average: number; evaluator: unknown; scores: unknown };
+				}>[]
+			>(m, [() => evaluate(c.admin, m, every(1)), () => evaluate(c.owner, m, every(5))]),
+		),
+	);
+	const [kept, seen] = raced.value.value.map((r) => ok(r));
+	assert.deepEqual(
+		[kept!.outcome, kept!.taskCompleted, kept!.evaluation.average, kept!.evaluation.scores, kept!.evaluation.evaluator],
+		["changed", true, 1, every(1), { kind: "current_account", accountId: c.admin.id }],
+	);
+	assert.deepEqual([seen!.outcome, seen!.taskCompleted, seen!.evaluation], ["noop", false, kept!.evaluation]);
+	assert.deepEqual(raced.value.added, only("meetings.changed", "meetings.changed", "tasks.completed"));
+	assert.deepEqual(raced.tables, ["audit_event", "meeting", "plant", "record", "task"]);
+	assert.deepEqual(await evaluationState(m), { ...open, evaluations: 1, status: "complete", completions: 1 });
+	assert.deepEqual(await shownEvaluation(c.owner, m), kept!.evaluation);
+	assert.deepEqual(
+		ok(await read(c.admin, reads.evaluationTrend, { from: "2026-10-01", to: "2026-10-31" })).points.map((p) => [
+			p.meetingId,
+			p.average,
+		]),
+		[[m, 1]],
+	);
+	const best = await meeting("vision_meeting", "2026-10-11T15:00:00Z", c.w);
+	ok(await finalize(c.admin, best, []));
+	const one_ = await recorded(f.admin, () => evaluate(c.admin, best, every(5)));
+	assert.equal(ok(one_.value).evaluation.average, 5);
+	assert.deepEqual(one_.added, only("meetings.changed", "tasks.completed"));
+});
+
+test("AC:GAP-MTG-015 AC:TARGET-MTG-015 a reviewed correction keeps the old rating once; a stale tab, a rival, another church and a failed write change nothing", async () => {
+	const c = await church();
+	const m = await meeting("vision_meeting", "2026-10-20T15:00:00Z", c.w);
+	ok(await finalize(c.admin, m, [await person("Alex", "prospect", c.w)]));
+	const { evaluation } = ok(await evaluate(c.admin, m, every(3)));
+	assert.deepEqual([evaluation.revision, evaluation.average], ["1", 3]);
+	const assessment = await priorAssessment(c.w);
+	const before = await assessment();
+	const source = async () =>
+		(await one<{ r: string }>(sql`SELECT material_revision::text r FROM plant WHERE id=${c.w.id}`)).r;
+	const done = { evaluations: 1, status: "complete", completions: 1 };
+	assert.deepEqual(await evaluationState(m), { ...done, corrections: 0 });
+	const request = {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { meetingId: m, changes: { attendanceScore: 4 }, reason: "Correct entered rating" },
+	};
+	for (const who of [c.strangerMember, c.strangerAdmin, c.member]) {
+		await deniedUntouched(() => write(who, writer.correctEvaluation, request));
+	}
+	for (const [event, table, when] of [
+		["UPDATE", "meeting", "NEW.evaluation_corrected_at IS NOT NULL"],
+		["INSERT", "audit_event", "NEW.action = 'meetings.corrected'"],
+	] as const)
+		await failing(event, table, when, () =>
+			refusedUntouched(() => write(c.admin, writer.correctEvaluation, request), "required_write_failed"),
+		);
+	await f.admin.execute(sql.raw("ALTER TABLE obligation RENAME TO obligation_away"));
+	try {
+		refused(await write(c.admin, writer.correctEvaluation, request), "required_write_failed");
+	} finally {
+		await f.admin.execute(sql.raw("ALTER TABLE obligation_away RENAME TO obligation"));
+	}
+	assert.deepEqual(await shownEvaluation(c.admin, m), evaluation);
+
+	const sourceBefore = await source();
+	const saved = await recorded(f.admin, () => write(c.admin, writer.correctEvaluation, request));
+	const { evaluation: corrected, taskCompleted } = ok(saved.value);
+	assert.deepEqual(
+		[corrected.scores, corrected.average, corrected.revision, taskCompleted],
+		[{ ...every(3), attendanceScore: 4 }, 3.1, "2", false],
+	);
+	assert.deepEqual(saved.added, only("meetings.corrected"));
+	assert.equal(BigInt(await source()) - BigInt(sourceBefore), 1n);
+	assert.deepEqual(await untouched(f.admin, () => write(c.admin, writer.correctEvaluation, request)), saved.value);
+	const history = async () => ok(await read(c.admin, reads.evaluationHistory, { meetingId: m })).entries;
+	assert.deepEqual(
+		(await history()).map((e) => [e.kind, e.before, e.after, e.average, e.reason, e.actor]),
+		[
+			[
+				"recorded",
+				null,
+				every(3),
+				{ before: null, after: 3 },
+				null,
+				{ kind: "current_account", accountId: c.admin.id },
+			],
+			[
+				"corrected",
+				{ attendanceScore: 3 },
+				{ attendanceScore: 4 },
+				{ before: 3, after: 3.1 },
+				"Correct entered rating",
+				{ kind: "current_account", accountId: c.admin.id },
+			],
+		],
+	);
+	assert.deepEqual([await evaluationState(m), await assessment()], [{ ...done, corrections: 1 }, before]);
+
+	for (const stale of ["1", "3"])
+		await refusedUntouched(() => correctTo(c.owner, m, stale, { attendanceScore: 5 }), "conflict");
+	await refusedUntouched(() => correctTo(c.strangerAdmin, m, "2", { attendanceScore: 5 }));
+	const other_ = await meeting("vision_meeting", "2026-10-21T15:00:00Z", c.q);
+	await refusedUntouched(() => correctTo(c.admin, other_, "2", { attendanceScore: 5 }));
+	const task = await one<{ id: string; r: string }>(sql`SELECT t.id, t.revision::text r FROM task t
+		JOIN obligation o ON o.id=t.obligation_id WHERE o.meeting_id=${m} AND o.kind='evaluation'`);
+	ok(
+		await withTaskWrite(f.db, c.admin.actor, (tx, ctx) =>
+			createTaskWriter({ reminders }).reopen(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: task.r,
+				input: { taskId: task.id },
+			}),
+		),
+	);
+	const tabs = await recorded(f.admin, () =>
+		queued<MeetingsReply<{ outcome: string }>[]>(m, [
+			() => correctTo(c.admin, m, "2", { vibeScore: 5 }),
+			() => correctTo(c.owner, m, "2", { vibeScore: 1 }),
+		]),
+	);
+	assert.equal(ok(tabs.value[0]!).outcome, "changed");
+	refused(tabs.value[1], "conflict");
+	assert.deepEqual(tabs.added, only("meetings.corrected"));
+	assert.deepEqual((await shownEvaluation(c.admin, m)).scores, { ...every(3), attendanceScore: 4, vibeScore: 5 });
+	assert.deepEqual(await evaluationState(m), { evaluations: 1, status: "not_started", completions: 1, corrections: 2 });
+	assert.deepEqual([(await history()).length, await assessment()], [3, before]);
+});
+
+test("AC:TARGET-MTG-016 a report reads corrected scores without rewriting history, counts only attended Persons and calls no evidence unknown", async () => {
+	const c = await church();
+	const [alex, casey, dana] = [
+		await person("Alex", "prospect", c.w),
+		await person("Casey", "prospect", c.w),
+		await person("Dana", "core_group", c.w),
+	];
+	const m = await meeting("vision_meeting", "2026-10-10T15:00:00Z", c.w);
+	ok(await invited(c.admin, m, alex));
+	const analytics = async (meetingId: string) => ok(await read(c.admin, reads.readAnalytics, { meetingId }));
+	const unknown = { status: "unknown" };
+	const unmeasured = await untouched(f.admin, () => analytics(m));
+	assert.deepEqual(
+		[unmeasured.attended, unmeasured.growth, unmeasured.classifications, unmeasured.evaluation],
+		[unknown, unknown, null, { meetingId: m, current: unknown, baseline: unknown, delta: unknown, corrected: false }],
+	);
+	ok(await finalize(c.admin, m, []));
+	const none = await analytics(m);
+	assert.deepEqual(
+		[none.attended, none.growth, none.evaluation!.baseline],
+		[{ status: "known", value: 0 }, unknown, unknown],
+	);
+
+	const score = async (at: string, attendees: string[], n: number) => {
+		const id = await meeting("vision_meeting", at, c.w);
+		ok(await finalize(c.admin, id, attendees));
+		return { id, revision: ok(await evaluate(c.admin, id, every(n))).evaluation.revision };
+	};
+	const first = await score("2026-10-11T15:00:00Z", [alex], 2);
+	const last = await score("2026-10-12T15:00:00Z", [alex, casey, dana], 4);
+	const compared = async (id: string) => {
+		const x = ok(await read(c.admin, reads.compareEvaluation, { meetingId: id }));
+		return [x.current, x.baseline, x.delta, x.corrected];
+	};
+	const known = (value: number) => ({ status: "known", value });
+	assert.deepEqual(await compared(first.id), [known(2), unknown, unknown, false]);
+	assert.deepEqual(await compared(last.id), [known(4), { ...known(2), count: 1 }, known(2), false]);
+	const shown = await analytics(last.id);
+	assert.deepEqual(
+		[shown.attended, shown.growth, shown.classifications],
+		[known(3), { status: "known", difference: 2, percent: 200 }, { first_time: 1, returning: 1, core_group: 1 }],
+	);
+	const twin = await score("2026-10-12T15:00:00Z", [], 1);
+	assert.deepEqual(await compared(last.id), [known(4), { ...known(2), count: 1 }, known(2), false]);
+	assert.deepEqual(await compared(twin.id), [known(1), { ...known(2), count: 1 }, known(-1), false]);
+	const grown = await analytics(first.id);
+	assert.deepEqual([grown.attended, grown.growth], [known(1), { status: "unavailable", difference: 1 }]);
+
+	ok(await correctTo(c.admin, first.id, first.revision, every(3)));
+	ok(await correctTo(c.admin, last.id, last.revision, { attendanceScore: 5 }));
+	assert.deepEqual(await compared(last.id), [known(4.1), { ...known(3), count: 1 }, known(1.1), true]);
+	await untouched(f.admin, async () => {
+		ok(await read(c.admin, reads.summaryStats, {}));
+		ok(await read(c.admin, reads.attendanceTrend, {}));
+		ok(await read(c.admin, reads.evaluationTrend, {}));
+		await analytics(last.id);
+		await compared(last.id);
+	});
+	assert.deepEqual(
+		ok(await read(c.admin, reads.evaluationHistory, { meetingId: last.id })).entries.map((e) => [e.kind, e.average]),
+		[
+			["recorded", { before: null, after: 4 }],
+			["corrected", { before: 4, after: 4.1 }],
+		],
+	);
+	for (const who of [c.member, c.strangerAdmin])
+		refused(await read(who, reads.compareEvaluation, { meetingId: last.id }), "unavailable");
+});
+
+test("AC:GAP-MTG-017 AC:TARGET-MTG-017 a note reaches only the attended guest it names, once, and a forged link, a blank, an over-long text or a failed write adds nothing", async () => {
+	const c = await church();
+	const [alex, casey] = [await person("Alex", "prospect", c.w), await person("Casey", "leader", c.w)];
+	const m = await meeting("vision_meeting", "2026-10-20T15:00:00Z", c.w);
+	const elsewhere = await meeting("vision_meeting", "2026-10-21T15:00:00Z", c.w);
+	const foreignMeeting = await meeting("vision_meeting", "2026-10-21T15:00:00Z", c.q);
+	const foreignPerson = await person("Foreign", "prospect", c.q);
+	ok(await finalize(c.strangerAdmin, foreignMeeting, [foreignPerson]));
+	ok(await invited(c.admin, m, casey));
+	const request = await finalizeRequest(m, [alex], {}, key());
+	ok(await write(c.admin, writer.finalizeAttendance, request));
+	ok(await untouched(f.admin, () => write(c.admin, writer.finalizeAttendance, request)));
+	ok(await finalize(c.admin, elsewhere, [casey]));
+	const assessment = await priorAssessment(c.w);
+	const before = await assessment();
+	const text = "Called today; prefers evening interview";
+	const requestKey = key();
+	const input = { meetingId: m, personId: alex, text };
+	for (const who of [c.member, c.strangerMember, c.strangerAdmin]) {
+		await deniedUntouched(() => note(who, input, requestKey));
+	}
+	for (const [table, when] of [
+		["person_note", "true"],
+		["audit_event", "NEW.action = 'people.updated'"],
+	] as const)
+		await failing("INSERT", table, when, () =>
+			refusedUntouched(() => note(c.admin, input, requestKey), "required_write_failed"),
+		);
+	const saved = await recorded(f.admin, () => note(c.admin, input, requestKey));
+	const value = ok(saved.value);
+	assert.deepEqual(saved.added, only("people.updated"));
+	assert.deepEqual(
+		[value.authorId, value.personId, value.meetingId, value.meetingType, value.text],
+		[c.admin.id, alex, m, "vision_meeting", text],
+	);
+	assert.deepEqual(ok(await untouched(f.admin, () => note(c.admin, input, requestKey))), value);
+	const stored = () =>
+		rows(sql`SELECT n.body, n.author_id, g.meeting_id, n.person_id, n.occurred_at=n.recorded_at AS instant FROM person_note n
+			JOIN participation g ON g.id=n.participation_id WHERE n.plant_id=${c.w.id}`);
+	assert.deepEqual(await stored(), [
+		{ body: text, author_id: c.admin.id, meeting_id: m, person_id: alex, instant: true },
+	]);
+	assert.deepEqual(
+		(await activities(c, alex)).filter((i) => i.kind === "note").map((i) => i.kind === "note" && i.body),
+		[text],
+	);
+	for (const forged of [
+		{ personId: casey },
+		{ meetingId: elsewhere },
+		{ meetingId: foreignMeeting },
+		{ personId: foreignPerson },
+		{ meetingId: foreignMeeting, personId: foreignPerson },
+		{ meetingId: randomUUID() },
+		{ personId: randomUUID() },
+	])
+		await refusedUntouched(() => note(c.admin, { ...input, ...forged }));
+	for (const bad of [
+		{ meetingType: "orientation" },
+		{ authorId: c.owner.id },
+		{ text: "" },
+		{ text: " \n\t " },
+		{ text: "x".repeat(5001) },
+	])
+		await refusedUntouched(() => note(c.admin, { ...input, ...bad }), "invalid_input");
+	assert.equal(ok(await note(c.owner, { ...input, text: ` ${"x".repeat(5000)} ` })).text.length, 5000);
+	assert.deepEqual([(await stored()).length, await finalizations(m), await assessment()], [2, 1, before]);
 });

@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { tenantId } from "../../../../packages/contracts/src/common/index.ts";
 import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { peopleMerge, peopleUnmerge, peopleWriter } from "../../../../packages/domain/src/people/index.ts";
+import { createAttendanceWriter, attendanceReader } from "../../../../packages/domain/src/meetings/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
 	teamsReader,
@@ -14,12 +15,13 @@ import {
 } from "../../../../packages/domain/src/teams/index.ts";
 import { meetingsReader, meetingsWriter } from "../../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
+import { recorded } from "../../../support/recorded.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const database = await fixture({ prefix: "wp019", max: 6 });
+const database = await fixture({ prefix: "wp019", max: 6, clock: new Date("2026-10-13T16:00:00Z") });
 const { admin } = database;
 const db = database.pools.runtime;
 let memberPerson: string;
@@ -30,10 +32,11 @@ const actors = [
 	database.actors.member,
 	database.actors.admin,
 	await database.actor({ kind: "plant", id: Q }, "admin"),
+	await database.actor({ kind: "plant", id: Q }, "member"),
 ];
 const ctx = (who = 0) => ({
 	session: actors[who]!.session,
-	selected: { kind: "plant" as const, id: tenantId.parse(who === 3 ? Q : P) },
+	selected: { kind: "plant" as const, id: tenantId.parse(actors[who]!.selected.id) },
 });
 type Context = ReturnType<typeof ctx>;
 const tx = <V,>(body: (t: WriteTx) => Promise<V>) => gatedTransaction(db, body);
@@ -49,7 +52,7 @@ const count = async (query: SQL) => Number((await admin.execute(query)).rows[0]!
 const rev = async (table: string, id: string) =>
 	(await admin.execute<{ r: string }>(sql.raw(`SELECT revision::text AS r FROM ${table} WHERE id='${id}'`))).rows[0]!.r;
 const plantRevision = () =>
-	admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`).then((r) => r.rows[0]!.r);
+	admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`).then((r) => String(r.rows[0]!.r));
 
 async function person(name: string, fields: { plant?: string; stage?: string; account?: string; state?: string } = {}) {
 	const id = randomUUID();
@@ -109,11 +112,117 @@ const teamMeeting = (teamId: string, fields: object = {}, who = 0) =>
 		{ requestKey: key(), input: { type: "team_meeting", teamId, date: "2026-10-24", time: "09:00", ...fields } },
 		who,
 	);
-async function held(meetingId: string, personIds: string[]) {
-	await admin.execute(sql`UPDATE participation SET presence='attended'
-		WHERE meeting_id=${meetingId} AND person_id = ANY(${sql.param(personIds)}::uuid[])`);
-	await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${meetingId}`);
+const attendance = createAttendanceWriter({ reminders: async () => {} });
+async function held(meetingId: string, personIds: string[], who = 0) {
+	for (const status of ["ready", "in_progress"])
+		ok(
+			await run(meetingsWriter.changeStatus, {
+				requestKey: key(),
+				expectedRevision: await rev("meeting", meetingId),
+				input: { meetingId, to: status },
+			}),
+		);
+	const { attendanceRevision } = ok(await attendanceReader.listAttendance(db, await viewer(who), { meetingId }));
+	ok(
+		await run(
+			attendance.finalizeAttendance,
+			{
+				requestKey: key(),
+				expectedRevision: attendanceRevision,
+				input: { meetingId, attendeeIds: personIds },
+			},
+			who,
+		),
+	);
+	ok(
+		await run(meetingsWriter.changeStatus, {
+			requestKey: key(),
+			expectedRevision: await rev("meeting", meetingId),
+			input: { meetingId, to: "completed" },
+		}),
+	);
 }
+const TABLES = [
+	"audit_event",
+	"job",
+	"notice",
+	"mail",
+	"seat",
+	"plant",
+	"person",
+	"team",
+	"team_role",
+	"team_tenure",
+	"training_program",
+	"training_assignment",
+	"training_credit",
+	"meeting",
+	"participation",
+	"task",
+	"phase_transition",
+];
+const stored = async () =>
+	(
+		await admin.execute(
+			sql.raw(
+				`SELECT ${TABLES.map((t) => `(SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]') FROM ${t} x) AS ${t}`).join(",")}`,
+			),
+		)
+	).rows[0]!;
+async function untouched<V>(body: () => Promise<V>) {
+	const before = await stored();
+	const value = await body();
+	assert.deepEqual(await stored(), before);
+	return value;
+}
+async function faulty<V>(table: string, event: string, body: () => Promise<V>) {
+	await admin.execute(sql`CREATE FUNCTION training_fault() RETURNS trigger LANGUAGE plpgsql AS
+		$$BEGIN RAISE EXCEPTION 'injected fault'; END$$`);
+	await admin.execute(
+		sql.raw(`CREATE TRIGGER training_fault BEFORE ${event} ON ${table} FOR EACH ROW
+		EXECUTE FUNCTION training_fault()`),
+	);
+	try {
+		return await body();
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER training_fault ON ${table}`));
+		await admin.execute(sql`DROP FUNCTION training_fault()`);
+	}
+}
+const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
+const audited = (...audits: string[]) => ({ ...NOTHING, audits });
+async function leads(teamId: string, personId: string) {
+	return run(teamsWriter.appointLeader, {
+		requestKey: key(),
+		expectedRevision: await rev("team", teamId),
+		input: { teamId, personId },
+	});
+}
+async function leave(teamId: string, personId: string) {
+	return ok(
+		await run(teamsWriter.endMembership, {
+			requestKey: key(),
+			expectedRevision: await rev("team", teamId),
+			input: { teamId, personId },
+		}),
+	);
+}
+const attestation = async (programId: string, personId: string, earnedOn = "2026-10-01") => ({
+	requestKey: key(),
+	expectedRevision: await rev("training_program", programId),
+	input: { kind: "program", personId, programId, earnedOn },
+});
+const namedCredit = async (programId: string, personId: string, earnedOn?: string) => ({
+	requestKey: key(),
+	expectedRevision: await rev("training_program", programId),
+	input: { personId, programId, ...(earnedOn ? { earnedOn } : {}) },
+});
+const guestIds = async (meetingId: string, who = 0) =>
+	ok(await meetingsReader.listGuests(db, await viewer(who), { meetingId })).guests.map((g) => g.person.personId);
+const historyOf = async (personId: string, programId: string) =>
+	ok(await trainingReader.readTrainingHistory(db, await viewer(), { personId })).credits.filter(
+		(row) => row.programId === programId,
+	);
 
 before(async () => {
 	memberPerson = await person("Member leader", { account: actors[1]!.id });
@@ -146,10 +255,7 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 	const replaced = await saveRoster(required.id, [alex, casey]);
 	assert.deepEqual(replaced.personIds, [alex, casey]);
 
-	const church = (
-		await admin.execute<{ d: string }>(sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d
-			FROM plant WHERE id=${P}`)
-	).rows[0]!.d;
+	const church = "2026-10-13";
 	await admin.execute(sql`UPDATE training_assignment SET effective_on='2026-10-01'
 		WHERE program_id=${required.id} AND state='active'`);
 	const obligations = async () =>
@@ -479,15 +585,32 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 		}),
 	);
 	const credits = await count(sql`SELECT count(*)::int AS n FROM training_credit`);
-	const meeting = ok(await teamMeeting(hospitality.id, { subtype: "training" }, 1)).meeting;
+	const meetings = await count(sql`SELECT count(*)::int AS n FROM meeting`);
+	const made = await recorded(admin, () => teamMeeting(hospitality.id, { subtype: "training" }, 1));
+	const meeting = ok(made.value).meeting;
+	assert.deepEqual(
+		made.added,
+		{ ...audited("meetings.changed"), jobs: Array(4).fill("notification") },
+		"only its own reminders are queued: no notice, mail, calendar or task",
+	);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM meeting`), meetings + 1);
+	assert.deepEqual((await guestIds(meeting.id)).sort(), [alex, casey].sort());
 	assert.equal(meeting.subtype, "training");
 	assert.equal(meeting.guestCount, 2);
 	const guests = await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.id}`);
 	assert.equal(guests, 2);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_credit`), credits);
 	await assign(await makeRole(hospitality.id, "Later guest"), hospitality.id, jamie);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.id}`), 2);
-	refused(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1));
+	assert.deepEqual((await guestIds(meeting.id)).sort(), [alex, casey].sort(), "a later member is not added");
+	assert.equal(
+		refused(
+			await untouched(() =>
+				teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1),
+			),
+		).code,
+		"unavailable",
+	);
+	ok(await teamMeeting(other.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1));
 	const second = ok(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-26" }, 1)).meeting;
 	assert.equal(second.guestCount, 3);
 	const stored = (await admin.execute(sql`SELECT type, subtype, team_id FROM meeting WHERE id=${meeting.id}`)).rows[0]!;
@@ -524,7 +647,7 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 			input: { teamId: team.id, personId: leader },
 		}),
 	);
-	const meeting = ok(await teamMeeting(team.id, { subtype: "regular", date: "2026-10-20", guests: [jamie] })).meeting;
+	const meeting = ok(await teamMeeting(team.id, { subtype: "regular", date: "2026-10-06", guests: [jamie] })).meeting;
 	await held(meeting.id, [alex, casey, jamie]);
 	ok(
 		await run(teamsWriter.endMembership, {
@@ -535,7 +658,11 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	);
 	const phases = await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action LIKE 'phase.%'`);
 	const jobs = await count(sql`SELECT count(*)::int AS n FROM job`);
-	const facts = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id }));
+	const seen = await recorded(admin, async () =>
+		untouched(async () => trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id })),
+	);
+	assert.deepEqual(seen.added, NOTHING);
+	const facts = ok(seen.value);
 	assert.equal(facts.filledSlots, 2);
 	assert.equal(facts.distinctPeople, 1);
 	assert.equal(facts.memberAttendance, 2);
@@ -568,7 +695,7 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	);
 	const quiet = await makeTeam("Measured zero");
 	await makeRole(quiet.id, "Open");
-	const quietMeeting = ok(await teamMeeting(quiet.id, { subtype: "regular", date: "2026-10-21" })).meeting;
+	const quietMeeting = ok(await teamMeeting(quiet.id, { subtype: "regular", date: "2026-10-07" })).meeting;
 	await held(quietMeeting.id, []);
 	const zero = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: quiet.id }));
 	assert.equal(zero.staffingRate, 0);
@@ -576,6 +703,17 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	assert.equal(zero.trainingRate, null);
 	assert.equal(zero.composite, null);
 	assert.deepEqual(await measuresOf(quiet.id), [null, 0, 0, null, "red", "yellow"]);
+	const operational = async () =>
+		ok(await trainingReader.readAggregateHealth(db, await viewer(), {})).teams.map((t) => t.teamId);
+	assert.ok((await operational()).includes(quiet.id));
+	ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", quiet.id),
+			input: { teamId: quiet.id },
+		}),
+	);
+	assert.equal((await operational()).includes(quiet.id), false, "an archived ministry is not measured now");
 	const church = ok(await trainingReader.readAggregateHealth(db, await viewer(), {}));
 	assert.ok(church.totalTeams > 1);
 	assert.deepEqual(
@@ -1300,4 +1438,629 @@ test("INV-concurrency two leaders recording the same credit at once add one cred
 	});
 	assert.deepEqual(revokes.map((reply) => ok(reply).outcome).sort(), ["changed", "noop"]);
 	assert.equal(await credits("revoked"), 1);
+});
+
+test("AC:TARGET-TEAM-008 one person in two roles is one required person with one earned credit, and only the leader's own program is theirs", async () => {
+	const team = await makeTeam("Credit team");
+	const otherTeam = await makeTeam("Credit other team");
+	const alex = await person("Alex Credit");
+	const casey = await person("Casey Credit");
+	await assign(await makeRole(team.id, "R1"), team.id, alex);
+	await assign(await makeRole(team.id, "R2"), team.id, alex);
+	await assign(await makeRole(otherTeam.id, "R3"), otherTeam.id, casey);
+	ok(await leads(team.id, memberPerson));
+	const course = await program("Program A", { teamId: team.id });
+	const churchwide = await program("Everyone", { required: false });
+	const elsewhere = await program("Elsewhere", { teamId: otherTeam.id, required: false });
+	const listed = async (who = 0) => ok(await trainingReader.listTraining(db, await viewer(who), {})).programs;
+	const counts = async () => {
+		const row = (await listed()).find((p) => p.id === course.id)!;
+		return [row.requiredPeople, row.compatibleCredits];
+	};
+	assert.deepEqual(await counts(), [0, 0], "two roles require nobody by themselves");
+	const unassigned = await attestation(course.id, alex);
+	refused(await untouched(() => run(trainingWriter.attestCompletion, unassigned)), "invalid_subject");
+	const saved = await recorded(admin, () => saveRoster(course.id, [alex, alex]));
+	assert.deepEqual(saved.added, audited("training.assigned"));
+	assert.deepEqual(await counts(), [1, 0]);
+	const planned = ok(await teamMeeting(team.id, { subtype: "training", date: "2026-10-20" }, 1)).meeting;
+	assert.deepEqual(await guestIds(planned.id), [alex]);
+	assert.deepEqual(await counts(), [1, 0], "a planned session earns nothing");
+	const earned = await recorded(admin, async () =>
+		run(trainingWriter.attestCompletion, await attestation(course.id, alex), 1),
+	);
+	assert.deepEqual(earned.added, audited("training.completed"));
+	assert.equal(ok(earned.value).verifierAccountId, actors[1]!.id);
+	assert.equal(ok(await run(trainingWriter.attestCompletion, await attestation(course.id, alex), 1)).outcome, "noop");
+	assert.deepEqual(await counts(), [1, 1], "the second role adds no second credit");
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_credit WHERE program_id=${course.id}`), 1);
+	const seen = await recorded(admin, () => untouched(() => listed()));
+	assert.deepEqual(seen.added, NOTHING);
+
+	for (const [programId, personId] of [
+		[churchwide.id, alex],
+		[elsewhere.id, casey],
+	] as const) {
+		const request = await attestation(programId, personId);
+		refused(await untouched(() => run(trainingWriter.attestCompletion, request, 1)), "access_denied");
+		ok(await run(trainingWriter.attestCompletion, request, 2));
+	}
+	const foreign = await person("Foreign Credit", { plant: Q });
+	for (const who of [3, 4]) {
+		const request = await attestation(course.id, alex);
+		refused(
+			await untouched(() => run(trainingWriter.attestCompletion, request, who)),
+			who === 3 ? "unavailable" : "access_denied",
+		);
+		assert.deepEqual(
+			(await listed(who)).map((p) => p.name),
+			["Foreign course"],
+		);
+	}
+	const theirs = await program("Their course", { required: false, who: 3 });
+	ok(await run(trainingWriter.attestCompletion, await attestation(theirs.id, foreign), 3));
+	assert.deepEqual(await counts(), [1, 1], "another church's completion counts only there");
+	const abroad = await attestation(course.id, foreign);
+	refused(await untouched(() => run(trainingWriter.attestCompletion, abroad)), "access_denied");
+
+	await leave(team.id, alex);
+	assert.deepEqual(
+		(await historyOf(alex, course.id)).map((row) => [row.kind, row.earnedOn]),
+		[["earned", "2026-10-01"]],
+	);
+	ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", team.id),
+			input: { teamId: team.id },
+		}),
+	);
+	const kept = (await listed()).find((p) => p.id === course.id)!;
+	assert.deepEqual([kept.teamId, kept.requiredPeople, kept.compatibleCredits], [team.id, 1, 1]);
+	assert.equal((await historyOf(alex, course.id)).length, 1);
+	const late = await attestation(course.id, alex);
+	refused(await untouched(() => run(trainingWriter.attestCompletion, late, 1)), "access_denied");
+});
+
+test("AC:TARGET-TEAM-009 complete, revoke and redo each record once and keep the first verifier and date", async () => {
+	const team = await makeTeam("Transition team");
+	const alex = await person("Alex Transition");
+	const course = await program("Transition course", { teamId: team.id });
+	await saveRoster(course.id, [alex]);
+	const current = async () =>
+		ok(await trainingReader.readRequiredTrainingParticipants(db, await viewer(), { programId: course.id })).people.map(
+			(p) => [p.personId, p.complete],
+		);
+	const material = async () => BigInt(await plantRevision());
+	const step = async (op: Parameters<typeof run>[0], request: unknown, who: number) => {
+		const before = await material();
+		const made = await recorded(admin, () => run(op, request, who));
+		return {
+			outcome: ok(made.value as { status: string }) as { outcome: string },
+			added: made.added,
+			stale: (await material()) - before,
+		};
+	};
+	const complete = await step(trainingWriter.attestCompletion, await attestation(course.id, alex), 2);
+	assert.deepEqual(
+		[complete.outcome.outcome, complete.added, complete.stale],
+		["changed", audited("training.completed"), 1n],
+	);
+	assert.deepEqual(await current(), [[alex, true]]);
+	const request = await namedCredit(course.id, alex);
+	for (const who of [3, 4]) {
+		const code = who === 3 ? "unavailable" : "access_denied";
+		const redo = { ...request, input: { ...request.input, earnedOn: "2026-10-13" } };
+		refused(await untouched(() => run(trainingWriter.revokeCompletion, request, who)), code);
+		refused(await untouched(() => run(trainingWriter.recompleteTraining, redo, who)), code);
+	}
+	const revoke = await step(trainingWriter.revokeCompletion, request, 0);
+	assert.deepEqual([revoke.outcome.outcome, revoke.added, revoke.stale], ["changed", audited("training.revoked"), 1n]);
+	assert.deepEqual(await current(), [[alex, false]]);
+	const history = async () =>
+		(await historyOf(alex, course.id)).map((row) => [row.kind, row.earnedOn, row.verifierAccountId, row.version]);
+	const two = [
+		["earned", "2026-10-01", actors[2]!.id, 1],
+		["revoked", null, actors[0]!.id, 1],
+	];
+	assert.deepEqual(await history(), two);
+	const repeat = await step(trainingWriter.revokeCompletion, await namedCredit(course.id, alex), 2);
+	assert.deepEqual([repeat.outcome.outcome, repeat.stale], ["noop", 0n]);
+	assert.deepEqual(repeat.added, audited("training.revoked"));
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${alex} AND action='training.revoked'
+			AND kind='noop'`),
+		1,
+	);
+	assert.deepEqual(await history(), two);
+	assert.deepEqual(
+		(await recorded(admin, () => untouched(() => run(trainingWriter.revokeCompletion, request)))).added,
+		NOTHING,
+	);
+	const redo = await step(trainingWriter.recompleteTraining, await namedCredit(course.id, alex, "2026-10-13"), 0);
+	assert.deepEqual([redo.outcome.outcome, redo.added, redo.stale], ["changed", audited("training.completed"), 1n]);
+	assert.deepEqual(await history(), [...two, ["earned", "2026-10-13", actors[0]!.id, 1]]);
+	assert.deepEqual(await current(), [[alex, true]]);
+	const stale = {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { programId: course.id, name: "Stale", required: false, reason: "Old screen" },
+	};
+	refused(await untouched(() => run(trainingWriter.correctProgram, stale)), "conflict");
+	const fresh = { ...stale, requestKey: key(), expectedRevision: await rev("training_program", course.id) };
+	const corrected = await recorded(admin, () =>
+		run(trainingWriter.correctProgram, {
+			...fresh,
+			input: { ...fresh.input, name: "Transition course 2", required: true },
+		}),
+	);
+	assert.equal(ok(corrected.value).program.version, 2);
+	assert.deepEqual(corrected.added, audited("training.corrected"));
+	assert.deepEqual(await current(), [[alex, false]], "a credit for the earlier version is not current");
+	assert.deepEqual(await history(), [...two, ["earned", "2026-10-13", actors[0]!.id, 1]]);
+	const proof = (
+		await admin.execute(sql`SELECT actor_id, before_value, after_value, reason FROM audit_event
+			WHERE action='training.corrected' AND id=${ok(corrected.value).receiptId}`)
+	).rows[0];
+	assert.deepEqual(proof, {
+		actor_id: actors[0]!.id,
+		before_value: { name: "Transition course", version: 1 },
+		after_value: { name: "Transition course 2", version: 2 },
+		reason: "Old screen",
+	});
+});
+
+test("AC:TARGET-TEAM-010 the person past the first hundred shows one current team, one current assignment and a revoked completion kept in history", async () => {
+	for (let n = 1; n <= 100; n += 1) await person("Crew " + String(n).padStart(3, "0"));
+	const past = await person("Crew 101");
+	const t1 = await makeTeam("T1 current");
+	const t2 = await makeTeam("T2 archived");
+	await assign(await makeRole(t1.id, "R1"), t1.id, past);
+	await assign(await makeRole(t1.id, "R2"), t1.id, past);
+	await assign(await makeRole(t2.id, "Old"), t2.id, past);
+	const course = await program("Assigned course", { teamId: t1.id });
+	await saveRoster(course.id, [past]);
+	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, past)));
+	const facts = async () => ok(await trainingReader.readPersonTraining(db, await viewer(), { personId: past }));
+	assert.deepEqual(
+		[(await facts()).currentTeams, (await facts()).currentTrainingComplete],
+		[["T1 current", "T2 archived"], true],
+	);
+	ok(await run(trainingWriter.revokeCompletion, await namedCredit(course.id, past)));
+	ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", t2.id),
+			input: { teamId: t2.id },
+		}),
+	);
+	const seen = await recorded(admin, () => untouched(facts));
+	assert.deepEqual(seen.added, NOTHING);
+	assert.deepEqual(seen.value, {
+		personId: past,
+		currentTeams: ["T1 current"],
+		formerTeams: ["T2 archived"],
+		concurrentAssignments: 2,
+		currentTrainingComplete: false,
+		earnedHistoryRetained: true,
+		distinctPeople: 1,
+	});
+	const counted = ok(await teamsReader.personTeamCounts(db, await viewer(), { minTeams: 1 }));
+	assert.deepEqual(
+		counted.people.filter((p) => p.personId === past).map((p) => [p.teams, p.teamNames]),
+		[[1, ["T1 current"]]],
+	);
+	const required = ok(await trainingReader.readTrainingMatrix(db, await viewer(), {})).programs.filter((p) =>
+		p.people.some((x) => x.personId === past),
+	);
+	assert.deepEqual(
+		required.map((p) => [p.id, p.people.map((x) => x.complete)]),
+		[[course.id, [false]]],
+	);
+	assert.deepEqual(
+		(await historyOf(past, course.id)).map((row) => row.kind),
+		["earned", "revoked"],
+	);
+	const roles = ok(await teamsReader.listPersonAssignments(db, await viewer(), { personId: past })).assignments;
+	assert.deepEqual(roles.map((a) => [a.teamName, a.roleName, a.startedOn]).sort(), [
+		["T1 current", "R1", "2026-10-13"],
+		["T1 current", "R2", "2026-10-13"],
+		["T2 archived", "Old", "2026-10-13"],
+	]);
+	assert.equal(
+		(ok(await teamsReader.listLeaderCandidates(db, await viewer(), {})).people as { name: string }[]).some(
+			(p) => p.name === "Crew 101",
+		),
+		false,
+	);
+	assert.deepEqual(
+		ok(await teamsReader.listLeaderCandidates(db, await viewer(), { q: "crew 101" })).people.map((p) => p.personId),
+		[past],
+	);
+	for (const who of [3, 4]) {
+		refused(await teamsReader.listPersonAssignments(db, await viewer(who), { personId: past }), "access_denied");
+		refused(await trainingReader.readPersonTraining(db, await viewer(who), { personId: past }), "access_denied");
+	}
+});
+
+test("AC:GAP-TEAM-010 two ministries are two assignments, each program's evidence stands alone, and a refused or failed read changes nothing", async () => {
+	const worship = await makeTeam("Worship links");
+	const hospitality = await makeTeam("Hospitality links");
+	const alex = await person("Alex Links");
+	await assign(await makeRole(worship.id, "Vocals"), worship.id, alex);
+	await assign(await makeRole(hospitality.id, "Door"), hospitality.id, alex);
+	const a = await program("Links A", { teamId: worship.id });
+	const b = await program("Links B", { teamId: hospitality.id });
+	await saveRoster(a.id, [alex]);
+	await saveRoster(b.id, [alex]);
+	const evidence = async () =>
+		ok(await trainingReader.readTrainingMatrix(db, await viewer(), {}))
+			.programs.filter((p) => [a.id, b.id].includes(p.id))
+			.map((p) => [p.name, p.people.map((x) => x.complete)]);
+	assert.deepEqual(
+		await evidence(),
+		[
+			["Links A", [false]],
+			["Links B", [false]],
+		],
+		"serving completes nothing",
+	);
+	ok(await run(trainingWriter.attestCompletion, await attestation(a.id, alex)));
+	const complete = [
+		["Links A", [true]],
+		["Links B", [false]],
+	];
+	assert.deepEqual(await evidence(), complete);
+	const teams = async (who = 0) => teamsReader.listPersonAssignments(db, await viewer(who), { personId: alex });
+	const training = async (who = 0) => trainingReader.readPersonTraining(db, await viewer(who), { personId: alex });
+	const seen = await recorded(admin, () =>
+		untouched(
+			async () =>
+				[
+					ok(await teams())
+						.assignments.map((x) => x.teamName)
+						.sort(),
+					ok(await training()),
+				] as const,
+		),
+	);
+	assert.deepEqual(seen.added, NOTHING);
+	const [names, person_] = seen.value;
+	assert.deepEqual(names, ["Hospitality links", "Worship links"]);
+	assert.deepEqual(
+		[person_.currentTeams, person_.concurrentAssignments, person_.currentTrainingComplete],
+		[["Hospitality links", "Worship links"], 2, false],
+	);
+	const readers: ((who?: number) => Promise<{ status: string }>)[] = [teams, training];
+	for (const reader of readers) {
+		const error = refused(await untouched(() => reader(4)), "access_denied");
+		assert.deepEqual(error.details, {});
+	}
+	await admin.execute(sql`ALTER TABLE team_tenure RENAME TO team_tenure_away`);
+	try {
+		for (const reader of readers)
+			await assert.rejects(
+				async () => reader(),
+				(e) => /team_tenure/.test(String((e as Error & { cause?: Error }).cause?.message)),
+			);
+	} finally {
+		await admin.execute(sql`ALTER TABLE team_tenure_away RENAME TO team_tenure`);
+	}
+	assert.deepEqual(ok(await training()).concurrentAssignments, 2);
+	assert.deepEqual(await evidence(), complete);
+});
+
+test("AC:GAP-TEAM-013 the ministry's own leader schedules training for its people as they are, and a refusal or a failed write leaves no meeting", async () => {
+	const team = await makeTeam("Training hosts");
+	const foreignTeam = await makeTeam("Foreign hosts", 3);
+	const alex = await person("Alex Host", { account: actors[2]!.id });
+	const casey = await person("Casey Host", { stage: "leader" });
+	const jamie = await person("Jamie Host");
+	await assign(await makeRole(team.id, "Greeter"), team.id, casey);
+	await assign(await makeRole(team.id, "Usher"), team.id, jamie);
+	ok(await leads(team.id, alex));
+	const input = {
+		subtype: "training",
+		date: "2026-10-20",
+		time: "10:00",
+		venue: { kind: "new", venue: { name: "Hall", address: "1 Main" } },
+	};
+	const made = await recorded(admin, () => teamMeeting(team.id, input, 2));
+	const meeting = ok(made.value).meeting;
+	assert.deepEqual(made.added, {
+		...audited("meetings.changed"),
+		jobs: ["notification", "notification", "notification"],
+	});
+	assert.deepEqual(
+		[meeting.type, meeting.subtype, meeting.team, meeting.startsAt, meeting.venue?.name],
+		["team_meeting", "training", { id: team.id, name: "Training hosts" }, "2026-10-20T15:00:00.000Z", "Hall"],
+	);
+	assert.deepEqual((await guestIds(meeting.id)).sort(), [casey, jamie].sort());
+	const later = await person("Later Host");
+	await assign(await makeRole(team.id, "Later"), team.id, later);
+	assert.deepEqual((await guestIds(meeting.id)).sort(), [casey, jamie].sort());
+	for (const who of [2, 0]) refused(await untouched(() => teamMeeting(foreignTeam.id, input, who)), "team_unavailable");
+	for (const who of [4, 3]) {
+		const error = refused(
+			await untouched(() => teamMeeting(team.id, input, who)),
+			who === 3 ? "team_unavailable" : "unavailable",
+		);
+		assert.equal(JSON.stringify(error).includes("Training hosts"), false);
+	}
+	for (const table of ["participation", "meeting", "job", "audit_event"])
+		refused(
+			await untouched(() => faulty(table, "INSERT", () => teamMeeting(team.id, input, 2))),
+			"required_write_failed",
+		);
+	assert.deepEqual((await guestIds(meeting.id)).sort(), [casey, jamie].sort());
+	ok(await teamMeeting(team.id, input, 2));
+	await admin.execute(sql`UPDATE person SET linked_account_id=NULL WHERE id=${alex}`);
+});
+
+test("AC:TARGET-TEAM-015 AC:GAP-TEAM-015 a placement moves one stage in the same commit, once, and a failed write leaves nothing", async () => {
+	const team = await makeTeam("Effects team");
+	const other = await makeTeam("Effects other team");
+	const stageOf = async (id: string) =>
+		(await admin.execute(sql`SELECT stage FROM person WHERE id=${id}`)).rows[0]!.stage;
+	const seats = () => count(sql`SELECT count(*)::int AS n FROM seat`);
+	const seatsBefore = await seats();
+	const stages: unknown[] = [];
+	const placed: string[] = [];
+	for (const [stage, leadership] of [
+		["core_group", false],
+		["launch_team", true],
+		["leader", false],
+	] as const) {
+		const who = await person("Effects " + stage, { stage });
+		const role = await makeRole(team.id, "Effects role " + stage, { leadership });
+		const request = {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", role.id),
+			input: { roleId: role.id, teamId: team.id, personId: who },
+		};
+		const material = BigInt(await plantRevision());
+		for (const [table, event] of [
+			["plant", "UPDATE"],
+			["team_tenure", "INSERT"],
+			["audit_event", "INSERT"],
+			...(stage === "leader" ? [] : [["person", "UPDATE"]]),
+		] as [string, string][])
+			refused(
+				await untouched(() => faulty(table, event, () => run(teamsWriter.assignRole, request))),
+				"required_write_failed",
+			);
+		const made = await recorded(admin, () => run(teamsWriter.assignRole, request));
+		ok(made.value);
+		const moved = stage !== "leader";
+		assert.deepEqual(made.added, audited(...(moved ? ["people.stage_changed"] : []), "teams.changed"), stage);
+		assert.equal(BigInt(await plantRevision()), material + 1n);
+		const commit = (
+			await admin.execute(sql`SELECT count(DISTINCT v)::int AS n FROM (
+				SELECT xmin::text AS v FROM plant WHERE id=${P}
+				UNION ALL SELECT xmin::text FROM team_tenure WHERE person_id=${who}
+				UNION ALL SELECT xmin::text FROM audit_event WHERE subject_id=${who} AND action='people.stage_changed'
+				${moved ? sql`UNION ALL SELECT xmin::text FROM person WHERE id=${who}` : sql``}) x`)
+		).rows[0]!.n;
+		assert.equal(commit, 1, "the placement, the stage, its history and the freshness mark commit together");
+		const again = await recorded(admin, () => untouched(() => run(teamsWriter.assignRole, request)));
+		assert.deepEqual([again.added, ok(again.value)], [NOTHING, ok(made.value)]);
+		const anew = { ...request, requestKey: key(), expectedRevision: await rev("team_role", role.id) };
+		const noop = await recorded(admin, () => run(teamsWriter.assignRole, anew));
+		assert.deepEqual([ok(noop.value).outcome, noop.added], ["noop", audited("teams.changed")]);
+		assert.equal(await count(sql`SELECT count(*)::int AS n FROM team_tenure WHERE person_id=${who}`), 1);
+		if (moved) {
+			const event = (
+				await admin.execute(sql`SELECT actor_id, before_value, after_value FROM audit_event
+					WHERE subject_id=${who} AND action='people.stage_changed'`)
+			).rows;
+			assert.deepEqual(event, [
+				{
+					actor_id: actors[0]!.id,
+					before_value: { stage },
+					after_value: { stage: leadership ? "leader" : "launch_team" },
+				},
+			]);
+		}
+		stages.push(await stageOf(who));
+		placed.push(who);
+	}
+	assert.deepEqual(stages, ["launch_team", "leader", "leader"]);
+	assert.equal(await seats(), seatsBefore);
+
+	const prospect = await person("Effects prospect");
+	const role = await makeRole(team.id, "Effects prospect role");
+	await assign(role, team.id, prospect);
+	assert.equal(await stageOf(prospect), "prospect", "only the exact stage moves");
+	const early = await person("Effects early leader", { stage: "core_group" });
+	ok(await leads(other.id, early));
+	assert.equal(await stageOf(early), "core_group", "leadership does not move a core group person");
+	const lead = await person("Effects launch leader", { stage: "launch_team" });
+	const appointed = await recorded(admin, () => leads(other.id, lead));
+	ok(appointed.value);
+	assert.deepEqual(appointed.added, audited("people.stage_changed", "teams.changed"));
+	assert.equal(await stageOf(lead), "leader");
+	const second = await recorded(admin, () => leads(other.id, lead));
+	assert.equal(ok(second.value).outcome, "noop");
+	assert.deepEqual(second.added, audited("teams.changed"));
+	await leave(team.id, placed[0]!);
+	assert.equal(await stageOf(placed[0]!), "launch_team", "leaving moves nobody back");
+
+	const casey = await person("Effects Casey", { stage: "leader" });
+	const advanced = await recorded(admin, () => leads(other.id, casey));
+	assert.equal(ok(advanced.value).team.leaderPersonId, casey);
+	assert.deepEqual(advanced.added, audited("teams.changed"));
+	assert.equal(await stageOf(casey), "leader");
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team WHERE leader_person_id=${casey}`), 1);
+	assert.equal(await seats(), seatsBefore);
+
+	const alex = await person("Effects Alex", { stage: "core_group" });
+	const open = await makeRole(other.id, "Effects open");
+	const request = {
+		requestKey: key(),
+		expectedRevision: await rev("team_role", open.id),
+		input: { roleId: open.id, teamId: other.id, personId: alex },
+	};
+	for (const [who, code] of [
+		[4, "access_denied"],
+		[3, "unavailable"],
+	] as const) {
+		const error = refused(await untouched(() => run(teamsWriter.assignRole, request, who)), code);
+		assert.deepEqual(error.details, {});
+		const leader = {
+			requestKey: key(),
+			expectedRevision: await rev("team", other.id),
+			input: { teamId: other.id, personId: casey },
+		};
+		refused(await untouched(() => run(teamsWriter.appointLeader, leader, who)), code);
+	}
+	ok(await run(teamsWriter.assignRole, request));
+	assert.equal(ok(await teamsReader.listMembers(db, await viewer(), { teamId: other.id })).members.length, 1);
+	assert.equal(await stageOf(alex), "launch_team");
+
+	const session = await recorded(admin, () => teamMeeting(team.id, { subtype: "training", date: "2026-10-20" }));
+	ok(session.value);
+	assert.deepEqual(session.added, {
+		...audited("meetings.changed"),
+		jobs: ["notification", "notification", "notification"],
+	});
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail`), 0);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM task`), 0);
+});
+
+test("AC:TARGET-TEAM-016 AC:SME53-001 a reviewed list of two ministries and their leaders is exact, and changes only by a reviewed change", async () => {
+	const t = await makeTeam("Source team");
+	const u = await makeTeam("Source other team");
+	const alex = await person("Alex Source", { stage: "leader" });
+	const casey = await person("Casey Source");
+	const jordan = await person("Jordan Source");
+	const jamie = await person("Jamie Source");
+	const mara = await person("Mara Source");
+	await assign(await makeRole(t.id, "One"), t.id, alex);
+	await assign(await makeRole(t.id, "Two"), t.id, alex);
+	await assign(await makeRole(t.id, "Three"), t.id, casey);
+	await assign(await makeRole(u.id, "Four"), u.id, alex);
+	ok(await leads(u.id, jordan));
+	const course = await program("Source course", { teamId: t.id });
+	const selection = async (...teamIds: string[]) => {
+		const ids: string[] = [];
+		for (const teamId of teamIds) {
+			const found = ok(await teamsReader.get(db, await viewer(), { teamId }));
+			ids.push(
+				...found.members.map((m) => m.personId),
+				...(found.team.leaderPersonId ? [found.team.leaderPersonId] : []),
+			);
+		}
+		return ids;
+	};
+	const chosen = await selection(t.id, u.id);
+	assert.deepEqual(chosen.filter((id) => id === alex).length, 3, "one person, three places");
+	const seen = await recorded(admin, () => untouched(() => preview(course.id, chosen)));
+	assert.deepEqual(seen.added, NOTHING);
+	const expected = [alex, casey, jordan].sort();
+	assert.deepEqual([...seen.value.personIds].sort(), expected);
+	const saved = await recorded(admin, () => saveRoster(course.id, chosen));
+	assert.deepEqual(saved.added, audited("training.assigned"));
+	assert.equal(saved.value.added, 3);
+	const required = async () =>
+		ok(await trainingReader.readRequiredTrainingParticipants(db, await viewer(), { programId: course.id }))
+			.people.map((p) => p.personId)
+			.sort();
+	const matrix = async () =>
+		ok(await trainingReader.readTrainingMatrix(db, await viewer(), { teamId: t.id })).programs.find(
+			(p) => p.id === course.id,
+		)!.personIds;
+	assert.deepEqual([await required(), await matrix()], [expected, expected]);
+	const reviewed = await preview(course.id, chosen);
+	await leave(t.id, casey);
+	await assign(await makeRole(t.id, "Five"), t.id, mara);
+	await assign(await makeRole(u.id, "Six"), u.id, jamie);
+	ok(await leads(u.id, jamie));
+	assert.deepEqual(
+		[await required(), await matrix()],
+		[expected, expected],
+		"people joining, leaving and leading change nothing",
+	);
+
+	const remove = await recorded(admin, () => saveRoster(course.id, [alex, casey]));
+	assert.deepEqual([remove.added, remove.value.removed], [audited("training.assignment_removed"), 1]);
+	assert.deepEqual(await required(), [alex, casey].sort());
+	const add = await recorded(admin, () => saveRoster(course.id, [alex, casey, jamie]));
+	assert.deepEqual([add.added, add.value.added], [audited("training.assigned"), 1]);
+	const now = [alex, casey, jamie].sort();
+	const stale = {
+		requestKey: key(),
+		expectedRevision: reviewed.revision,
+		input: { programId: course.id, personIds: chosen, rosterDigest: reviewed.rosterDigest },
+	};
+	refused(await untouched(() => run(trainingWriter.setRequiredTrainingParticipants, stale)), "conflict");
+	const fresh = await preview(course.id, now);
+	const swapped = {
+		requestKey: key(),
+		expectedRevision: fresh.revision,
+		input: { programId: course.id, personIds: [alex, mara], rosterDigest: fresh.rosterDigest },
+	};
+	refused(await untouched(() => run(trainingWriter.setRequiredTrainingParticipants, swapped)), "conflict");
+	const dated = {
+		requestKey: key(),
+		expectedRevision: reviewed.revision,
+		input: { programId: course.id, personIds: now, rosterDigest: fresh.rosterDigest },
+	};
+	refused(await untouched(() => run(trainingWriter.setRequiredTrainingParticipants, dated)), "conflict");
+	const episodes = () => count(sql`SELECT count(*)::int AS n FROM training_assignment WHERE program_id=${course.id}`);
+	const before = await episodes();
+	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, alex)));
+	ok(await run(trainingWriter.revokeCompletion, await namedCredit(course.id, alex)));
+	assert.equal(ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: t.id })).trainingRate, 0);
+	ok(await run(trainingWriter.recompleteTraining, await namedCredit(course.id, alex, "2026-10-13")));
+	assert.deepEqual([await required(), await episodes()], [now, before], "credits leave the saved list alone");
+	assert.equal(ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: t.id })).trainingRate, 1 / 3);
+	assert.equal(ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: u.id })).trainingRate, null);
+	for (const [who, code] of [
+		[3, "access_denied"],
+		[4, "access_denied"],
+	] as const)
+		refused(
+			await trainingReader.readRequiredTrainingPreview(db, await viewer(who), {
+				programId: course.id,
+				personIds: [alex],
+			}),
+			code,
+		);
+});
+
+test("AC:SME53-002 coverage counts each assigned person and program once, and only current credits", async () => {
+	const team = await makeTeam("Coverage team");
+	const alex = await person("Alex Coverage");
+	const casey = await person("Casey Coverage");
+	const jordan = await person("Jordan Coverage");
+	await assign(await makeRole(team.id, "One"), team.id, alex);
+	await assign(await makeRole(team.id, "Two"), team.id, alex);
+	await assign(await makeRole(team.id, "Three"), team.id, casey);
+	const course = await program("Coverage course", { teamId: team.id });
+	const rates = async () => {
+		const found = ok(
+			await trainingReader.readRequiredTrainingParticipants(db, await viewer(), { programId: course.id }),
+		);
+		const health = ok(await trainingReader.readHealth(db, await viewer(), { teamId: team.id }));
+		return [found.complete, found.total, health.trainingRate];
+	};
+	assert.deepEqual(await rates(), [0, 0, null], "no saved list is unknown");
+	await saveRoster(course.id, [jordan]);
+	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, jordan)));
+	assert.deepEqual(await rates(), [1, 1, 1], "everyone required finished");
+	await saveRoster(course.id, [alex, casey]);
+	assert.deepEqual(
+		(await historyOf(jordan, course.id)).map((c) => c.kind),
+		["earned"],
+	);
+	assert.deepEqual(await rates(), [0, 2, 0], "a credit of someone no longer required does not count");
+	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, alex)));
+	assert.deepEqual(await rates(), [1, 2, 0.5]);
+	ok(await run(trainingWriter.attestCompletion, await attestation(course.id, casey)));
+	assert.deepEqual(await rates(), [2, 2, 1]);
+	ok(await run(trainingWriter.revokeCompletion, await namedCredit(course.id, casey)));
+	const seen = await recorded(admin, () => untouched(rates));
+	assert.deepEqual([seen.value, seen.added], [[1, 2, 0.5], NOTHING]);
+	await saveRoster(course.id, []);
+	assert.deepEqual(await rates(), [0, 0, null], "an emptied list is unknown, not complete");
 });
