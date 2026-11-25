@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, type KeyObject } from "node:crypto";
 import type { BackupBucket, Remain, Retention, StoredObject } from "./bucket.mts";
 import { CaptureRefused, KEEP_MS } from "./capture.mts";
 import { OperatorRefused } from "./control.mts";
@@ -26,7 +26,7 @@ const backupOperator = {
 
 export type BackupDeps = {
 	bucket: BackupBucket;
-	keyFile: string;
+	key: KeyObject;
 	capture: () => Promise<Snapshot>;
 	clock: () => Date;
 };
@@ -63,11 +63,11 @@ export async function runBackup(deps: BackupDeps): Promise<BackupResult> {
 	}
 	const result = await createEncryptedCopy(
 		{ store: deps.bucket, clock: deps.clock },
-		{ capability: backupOperator, keyFile: deps.keyFile, source: { snapshot } },
+		{ capability: backupOperator, key: deps.key, source: { snapshot } },
 	);
 	if (!result.copy_encrypted) return { copy_complete: false, refusal: result.refusal };
 	try {
-		const opened = await openEncryptedCopy(deps.bucket, result.location, deps.keyFile);
+		const opened = await openEncryptedCopy(deps.bucket, result.location, deps.key);
 		const captured = manifestSchema.parse(snapshot.manifest);
 		const stored = manifestSchema.parse(opened.manifest);
 		const same =

@@ -1,10 +1,7 @@
 import "../../../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import {
@@ -584,14 +581,12 @@ test("INV-recovery: the deletion check reads real rows and files, and no cancel 
 	});
 
 	await step.test("a purge is proven only against a bucket that was read and holds no copy past its end", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "deletion-check-"));
-		const keyFile = join(dir, "backup.key");
-		writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
+		const key = createSecretKey(randomBytes(32));
 		const store = async (when: Date, taken: Snapshot) => {
 			backups.settings.now = when;
 			const stored = await runBackup({
 				bucket: backups.bucket,
-				keyFile,
+				key,
 				capture: async () => taken,
 				clock: () => when,
 			});
@@ -637,7 +632,6 @@ test("INV-recovery: the deletion check reads real rows and files, and no cancel 
 		} finally {
 			backups.objects.clear();
 			await at(PURGED);
-			rmSync(dir, { recursive: true, force: true });
 		}
 		const unreadable = await fakeBucket();
 		await unreadable.close();

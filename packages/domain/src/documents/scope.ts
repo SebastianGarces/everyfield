@@ -150,7 +150,7 @@ export function generatedFrom(
 	});
 }
 
-export async function historyRows(db: Database, scope: Scope, documentId: string | null) {
+export async function historyRows(db: Database | Transaction, scope: Scope, documentId: string | null) {
 	const found = await rowsOf<
 		Parameters<typeof generatedFrom>[0] & { ok: boolean; template_id: string; present: boolean }
 	>(

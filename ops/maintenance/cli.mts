@@ -11,6 +11,7 @@ import {
 import { validateCandidate } from "./recovery.mts";
 import { OPERATION, readCurrentManifest, restoreWithCurrentManifest } from "./restore.mts";
 import { BackupDirectory, COPY_OPERATION, createEncryptedCopy } from "./copy.mts";
+import { BACKUP_KEY_HELP, BackupKeyRefused, takeBackupKey } from "./key.mts";
 import { OPERATOR_COMMANDS, runOperator } from "./operator.mts";
 import { READINESS_OPERATION, readiness } from "./readiness.mts";
 
@@ -25,6 +26,7 @@ const commands = [
 ];
 const SNAPSHOT_LIMIT = 256 * 1024 * 1024;
 async function main() {
+	const backupKey = takeBackupKey();
 	const { values, positionals } = parseArgs({
 		allowPositionals: true,
 		options: {
@@ -32,7 +34,6 @@ async function main() {
 			review: { type: "string" },
 			manifest: { type: "string" },
 			snapshot: { type: "string" },
-			key: { type: "string" },
 			out: { type: "string" },
 			recopy: { type: "string" },
 			evidence: { type: "string" },
@@ -51,13 +52,13 @@ async function main() {
 	});
 	if (values.help) {
 		console.log(
-			"Restricted development operations. Commands: migration-inspect, migration-apply, migration-adopt, backup-check, backup-copy, restore-rehearsal, readiness. Requires --control <private host-bound authorization file>. Adoption additionally requires --review <private reviewed per-file SHA-256 map>. restore-rehearsal requires --snapshot <private directory with manifest.json, image.json and objects/<id>> and restores into a fresh closed schema it drops afterwards. backup-copy requires --key <private 32-byte backup key file>, --out <private copy directory> and either --snapshot <directory> or --recopy <copy location in --out>. readiness reads --evidence <private evidence file> when given and reports the customer-data gate. The restricted backup and recovery commands backup-key-create, backup-capture, backup-daily, backup-expire, backup-status, bucket-probe, schedule-install, schedule-uninstall, restore-copy, restore-open and deletion-check take --config <private directory> instead and exit 2 when their check fails; docs/runbooks/recovery.md gives each one. No production action or provider setup.",
+			"Restricted development operations. Commands: migration-inspect, migration-apply, migration-adopt, backup-check, backup-copy, restore-rehearsal, readiness. Requires --control <private host-bound authorization file>. Adoption additionally requires --review <private reviewed per-file SHA-256 map>. restore-rehearsal requires --snapshot <private directory with manifest.json, image.json and objects/<id>> and restores into a fresh closed schema it drops afterwards. backup-copy requires --out <private copy directory> and either --snapshot <directory> or --recopy <copy location in --out>. readiness reads --evidence <private evidence file> when given and reports the customer-data gate. The restricted backup and recovery commands backup-capture, backup-daily, backup-expire, backup-status, bucket-probe, schedule-install, schedule-uninstall, restore-copy, restore-open and deletion-check take --config <private directory> instead and exit 2 when their check fails; docs/runbooks/recovery.md gives each one. backup-daily, backup-copy and restore-copy --copy read the encryption key from EVERYFIELD_BACKUP_KEY, exactly 64 hex characters; no other command needs it and none reads a key file. Production backups stay off until go-live and are turned on only on Sebastian's words. No production action or provider setup.",
 		);
 		return;
 	}
 	const command = positionals[0];
 	if (positionals.length === 1 && command !== undefined && Object.hasOwn(OPERATOR_COMMANDS, command)) {
-		if (!(await runOperator(command, values))) process.exitCode = 2;
+		if (!(await runOperator(command, values, backupKey))) process.exitCode = 2;
 		return;
 	}
 	if (positionals.length !== 1 || !commands.includes(command) || !values.control) throw Error("invalid_command");
@@ -78,7 +79,8 @@ async function main() {
 		return;
 	}
 	if (command === "backup-copy") {
-		if (!values.key || !values.out || !values.snapshot === !values.recopy) throw Error("copy_arguments_required");
+		if (!values.out || !values.snapshot === !values.recopy) throw Error("copy_arguments_required");
+		const key = backupKey();
 		const store = new BackupDirectory(values.out);
 		let source;
 		if (values.recopy) source = { copy: values.recopy };
@@ -101,7 +103,7 @@ async function main() {
 					operation_ids: [COPY_OPERATION],
 					environment: "isolated-test",
 				},
-				keyFile: values.key,
+				key,
 				source,
 			},
 		);
@@ -176,7 +178,8 @@ async function main() {
 		await closeDatabase(db);
 	}
 }
-main().catch(() => {
+main().catch((error) => {
+	if (error instanceof BackupKeyRefused) console.error(BACKUP_KEY_HELP[error.problem]);
 	console.error("Operations command refused or failed. No credentials or raw errors were logged.");
 	process.exitCode = 1;
 });

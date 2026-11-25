@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, type KeyObject, randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -42,13 +42,12 @@ export type CopyStore = BackupDirectory | BackupBucket;
 export type CopyDeps = { store: CopyStore; clock: () => Date };
 export type CopyInput = {
 	capability: unknown;
-	keyFile: string;
+	key: KeyObject;
 	source: { snapshot: Snapshot } | { copy: string };
 	originalExpiries?: ReadonlyMap<string, string>;
 };
 export type CopyRefusal =
 	| "operator_unavailable"
-	| "key_unavailable"
 	| "copy_unreadable"
 	| "manifest_invalid"
 	| "copy_expired_or_invalid"
@@ -84,13 +83,13 @@ export const SEALED_BYTES = IV + TAG;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const instant = (value: string | number) => new Date(value).toISOString().replace(/\.000Z$/, "Z");
 
-function seal(key: Uint8Array, plain: Uint8Array, aad: string) {
+function seal(key: Uint8Array | KeyObject, plain: Uint8Array, aad: string) {
 	const iv = randomBytes(IV);
 	const cipher = createCipheriv("aes-256-gcm", key, iv).setAAD(Buffer.from(aad));
 	const body = Buffer.concat([cipher.update(plain), cipher.final()]);
 	return Buffer.concat([iv, cipher.getAuthTag(), body]);
 }
-function open(key: Uint8Array, sealed: Uint8Array | null, aad: string) {
+function open(key: Uint8Array | KeyObject, sealed: Uint8Array | null, aad: string) {
 	if (!sealed || sealed.length < IV + TAG) throw new Refused("copy_unreadable");
 	try {
 		const decipher = createDecipheriv("aes-256-gcm", key, sealed.subarray(0, IV)).setAAD(Buffer.from(aad));
@@ -102,14 +101,7 @@ function open(key: Uint8Array, sealed: Uint8Array | null, aad: string) {
 }
 const artifactAad = (a: { id: string; sha256: string }) => `${a.id}:${a.sha256}`;
 
-async function backupKey(path: string) {
-	const key = await readPrivateBytes(path, 32).catch(() => null);
-	if (!key || key.length !== 32) throw new Refused("key_unavailable");
-	return key;
-}
-
-export async function openEncryptedCopy(store: CopyStore, location: string, keyFile: string): Promise<Snapshot> {
-	const kek = await backupKey(keyFile);
+export async function openEncryptedCopy(store: CopyStore, location: string, kek: KeyObject): Promise<Snapshot> {
 	const manifestBytes = await store.get(`${location}/manifest.json`);
 	if (!manifestBytes) throw new Refused("copy_unreadable");
 	const dataKey = open(kek, await store.get(`${location}/key`), sha256(manifestBytes));
@@ -143,11 +135,8 @@ export async function createEncryptedCopy(deps: CopyDeps, input: CopyInput): Pro
 
 async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 	const now = deps.clock();
-	const kek = await backupKey(input.keyFile);
 	const snapshot =
-		"copy" in input.source
-			? await openEncryptedCopy(deps.store, input.source.copy, input.keyFile)
-			: input.source.snapshot;
+		"copy" in input.source ? await openEncryptedCopy(deps.store, input.source.copy, input.key) : input.source.snapshot;
 	let checked;
 	try {
 		checked = validateCandidate(snapshot.manifest, now, input.originalExpiries);
@@ -169,7 +158,7 @@ async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 	await deps.store.put(`${location}/database`, seal(dataKey, snapshot.image, artifactAad(manifest.database)));
 	for (const o of manifest.objects)
 		await deps.store.put(`${location}/objects/${o.id}`, seal(dataKey, snapshot.objects.get(o.id)!, artifactAad(o)));
-	await deps.store.put(`${location}/key`, seal(kek, dataKey, sha256(manifestBytes)));
+	await deps.store.put(`${location}/key`, seal(input.key, dataKey, sha256(manifestBytes)));
 	await deps.store.put(`${location}/manifest.json`, manifestBytes);
 	dataKey.fill(0);
 	const subjects = manifest.subjects.map((s) => Date.parse(s.expiresAt));

@@ -19,7 +19,6 @@ const operations = z.enum([
 	"restore-rehearsal",
 	"backup-copy",
 	"readiness",
-	"backup-key-create",
 	"backup-capture",
 	"backup-daily",
 	"backup-expire",

@@ -1,11 +1,11 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { BackupBucket, objectClient } from "../../ops/maintenance/bucket.mts";
+import { BACKUP_BUCKET, BackupBucket, objectClient } from "../../ops/maintenance/bucket.mts";
 
 type Stored = { bytes: Buffer; modifiedAt: Date };
 type Put = (key: string, bytes: Buffer) => Buffer | "refuse";
 
-export async function fakeBucket() {
+export async function fakeBucket(name = BACKUP_BUCKET) {
 	const objects = new Map<string, Stored>();
 	const deleted: string[] = [];
 	const settings = {
@@ -16,7 +16,9 @@ export async function fakeBucket() {
 		put: ((_key, bytes) => bytes) as Put,
 	};
 	const xml = (body: string) => `<?xml version="1.0" encoding="UTF-8"?>${body}`;
+	let requests = 0;
 	const server = createServer((request, response) => {
+		requests++;
 		const url = new URL(request.url ?? "/", "http://bucket");
 		const [, bucket, ...rest] = decodeURIComponent(url.pathname).split("/");
 		const key = rest.join("/");
@@ -26,7 +28,7 @@ export async function fakeBucket() {
 			response.end(request.method === "HEAD" ? undefined : body);
 		};
 		const fail = (status: number, code: string) => answer(status, xml(`<Error><Code>${code}</Code></Error>`));
-		if (bucket !== "everyfield-backup") return fail(403, "AccessDenied");
+		if (bucket !== name) return fail(403, "AccessDenied");
 		if (!key) {
 			if (request.method === "HEAD") {
 				response.setHeader("x-tigris-enable-snapshot", String(settings.snapshots));
@@ -94,6 +96,7 @@ export async function fakeBucket() {
 		endpoint,
 		objects,
 		settings,
+		requests: () => requests,
 		close: () =>
 			new Promise<void>((done) => {
 				server.close(() => done());

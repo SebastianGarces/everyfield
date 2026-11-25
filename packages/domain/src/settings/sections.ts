@@ -32,6 +32,7 @@ import {
 	finish,
 	parse,
 	preference,
+	principalOf,
 	recover,
 	reply,
 	revision,
@@ -471,6 +472,10 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		return finish(tx, c, q.savedSectionResult, () => ({ current }));
 	}
 	const operations: Operations = {
+		getOwnSection: (db, authority, raw) =>
+			recover(async () =>
+				operations.getSection(db, { authority, principal: await principalOf(db, authority.session) }, raw),
+			),
 		getSection: (db, viewer, raw) =>
 			recover(async () => {
 				if (!viewer.principal.verified) deny("unavailable");
@@ -518,6 +523,7 @@ type Operations = Pick<
 	"saveSection" | "saveChurch" | "updatePlantProfile" | "setDigestSchedule"
 > & {
 	getSection(db: Reader, viewer: SectionViewer, raw: unknown): Promise<SettingsReply<q.SectionResult>>;
+	getOwnSection(db: Reader, authority: RequestActor, raw: unknown): Promise<SettingsReply<q.SectionResult>>;
 };
 function churchSection(church: z.infer<typeof q.saveChurchRequest>): q.SaveSectionRequest {
 	const [change] = church.input.changes;

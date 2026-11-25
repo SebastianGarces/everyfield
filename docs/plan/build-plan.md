@@ -46,7 +46,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
 | WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 23 | 6 | 2 |
-| WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 11 | 2.5 |
+| WP-007 | Organizations and consent relationships | 10 | 20 | 53 | 11 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 6 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
@@ -113,7 +113,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-080 | Evry documents draft/propose/execute adapters | 0 | 12 | 4 | 0 | 1.5 |
 | WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
 | WP-082 | Evry notifications draft/propose/execute adapters | 2 | 26 | 3 | 0 | 1.5 |
-| WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
+| WP-083 | Evry platform reads/helper adapters | 0 | 39 | 0 | 0 | 2 |
 | WP-084 | Evry platform draft/propose/execute adapters | 1 | 53 | 1 | 0 | 2 |
 | WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 9 | 0 | 1.5 |
 | WP-055 | Evry autonomy policy/evals/human ownership | 28 | 5 | 31 | 0 | 2 |
