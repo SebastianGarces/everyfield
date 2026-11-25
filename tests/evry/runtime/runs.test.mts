@@ -258,9 +258,29 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match(
-		(await events(seatless, none)).text,
-		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
+	const ownAnswer = (await events(seatless, none)).text;
+	assert.equal(
+		ownAnswer,
+		[
+			"Here is what I can do for you here:",
+			"- See your own Discovery space.",
+			"- Find and browse what the public Wiki says.",
+			"- Find and read your own documents.",
+			"- Read your pending link invitations and the history of your links.",
+			"- Read your settings and your own account name and photo.",
+			"- Write a document of your own, or change the words of one you have, for your review.",
+			"- Make a document of your own from a Word or text file you attach here, for your review.",
+			"- Archive one of your documents for your review.",
+			"- Change your account name, or remove your account photo, for your review.",
+			"- Resend or withdraw a pending link invitation for your review.",
+			"- Prepare starting a new church for your review, with you as its Owner.",
+			"- Prepare a private Discovery space for your review, to explore church planting first.",
+			"- Prepare turning your Discovery space into a church for your review, with you as its Owner.",
+			"",
+			"Nothing changes until you review and approve it in the app.",
+			"",
+			"I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
+		].join("\n"),
 	);
 	const memberTaskWrites = [
 		"tasks.complete",
@@ -503,6 +523,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"onboarding.createPlant",
 								"discovery.create",
 								"discovery.convertToPlant",
+								"documents.saveNative",
+								"documents.archive",
+								"documents.importTextOrWord",
 							],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
@@ -694,7 +717,18 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"account.getAvatar",
 							]
 						: who === "seatless"
-							? ["discovery.getProfile", ...ownReads, "account.getAvatar"]
+							? [
+									"discovery.getProfile",
+									"wiki.search",
+									"wiki.referenceExcerpt",
+									"wiki.navigation",
+									"wiki.articles.list",
+									"wiki.tableOfContents",
+									"documents.listOwned",
+									"documents.read",
+									...ownReads,
+									"account.getAvatar",
+								]
 							: [],
 		);
 	}

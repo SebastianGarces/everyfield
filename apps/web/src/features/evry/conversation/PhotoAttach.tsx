@@ -6,7 +6,7 @@ import { cn } from "@everyfield/ui/foundations";
 import { useRef } from "react";
 import { uploadAvatarBytes } from "../../settings/flows/avatarBytes.ts";
 import { stagePhoto } from "./photoActions.ts";
-import { ATTACH, fileSize } from "./attachments.ts";
+import { ACCEPTS, fileSize, type Attaches } from "./attachments.ts";
 import type { Attachment } from "./model.ts";
 import { NativeImage } from "@/components/native";
 
@@ -29,22 +29,22 @@ export async function stageAvatar(file: File): Promise<string | null> {
 
 export function AttachButton({
 	disabled,
-	church,
+	attaches,
 	onFiles,
 }: {
 	disabled: boolean;
-	church: boolean;
+	attaches: Attaches;
 	onFiles: (files: File[]) => void;
 }) {
 	const input = useRef<HTMLInputElement>(null);
-	const label = church ? "Attach a file" : "Attach a photo";
+	const { accept, label, hint } = ACCEPTS[attaches];
 	return (
 		<>
 			<input
 				ref={input}
 				type="file"
-				accept={church ? `${ATTACH.accept},${ATTACH.photos}` : ATTACH.photos}
-				multiple={church}
+				accept={accept}
+				multiple={attaches !== "photo"}
 				className="sr-only"
 				tabIndex={-1}
 				aria-hidden
@@ -54,9 +54,9 @@ export function AttachButton({
 					if (files.length) onFiles(files);
 				}}
 			/>
-			<Tooltip content={church ? "Attach a CSV, Word, text or PDF file, or a photo" : "Attach a photo"}>
+			<Tooltip content={hint}>
 				<IconButton
-					icon={church ? Attachment01Icon : Image01Icon}
+					icon={attaches === "photo" ? Image01Icon : Attachment01Icon}
 					label={label}
 					size="sm"
 					disabled={disabled}
