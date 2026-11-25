@@ -11,8 +11,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReviewContext } from "../../../proposals/types.ts";
 import { approvedNow, reviewed, idInput } from "../../native.ts";
-import { RATING } from "../../intelligence/reads/assessment.ts";
-import { runText } from "../reads/index.ts";
+import { RATING, runText } from "../reads/index.ts";
 
 type Reply = { status: "ok"; value: object } | { status: "refused"; refusal: { code: string } };
 const settled = (reply: Reply) => (reply.status === "ok" ? { revision: "1" } : { refused: reply.refusal.code });

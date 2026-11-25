@@ -54,7 +54,7 @@ const goals = async (name: PipelineName = "dana") => ok(await readPipelineGoals(
 const board = async () => ok(await readPipelineBoard(db, await authority("dana"), {}));
 const program = async (name: PipelineName = "ana", programId = seeded.residency.programId) =>
 	ok(await readProgram(db, await authority(name), { programId }));
-const enrollment = async (name: PipelineName = "ana", enrollmentId = seeded.residency.enrollmentId) =>
+const enrollment = async (name: PipelineName = "ana", enrollmentId: string = seeded.residency.enrollmentId) =>
 	ok(await readEnrollment(db, await authority(name), { enrollmentId }));
 const addDays = (day: string, n: number) =>
 	new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
