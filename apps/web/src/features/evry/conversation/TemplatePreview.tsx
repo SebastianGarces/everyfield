@@ -14,14 +14,14 @@ const keyOf = (fill: TemplateFill) =>
 	JSON.stringify(["evry", fill.templateId, fill.format, fill.meetingId, Object.entries(fill.overrides).sort()]);
 const rendered = createRead(
 	(_key: string, fill: TemplateFill) =>
-		sharedPreview(keyOf(fill), fill.templateId, fill.format, fill.overrides, null, fill.meetingId).then((reply) =>
-			reply.status === "ok" ? reply.value.artifact : null,
-		),
-	{ failed: () => null },
+		sharedPreview(keyOf(fill), fill.templateId, fill.format, fill.overrides, null, fill.meetingId).then((reply) => ({
+			artifact: reply.status === "ok" ? reply.value.artifact : null,
+		})),
+	{ failed: () => ({ artifact: null }) },
 );
 
 export function TemplatePreview({ fill }: { fill: TemplateFill }) {
-	const artifact = useRead(rendered, keyOf(fill), fill).value;
+	const artifact = useRead(rendered, keyOf(fill), fill).value?.artifact;
 	const bytes = useMemo(() => (artifact && fill.format === "pdf" ? bytesOf(artifact) : null), [artifact, fill.format]);
 	return (
 		<div className="flex flex-col gap-2 px-2 pb-3">

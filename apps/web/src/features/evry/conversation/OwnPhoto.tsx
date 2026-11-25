@@ -5,18 +5,18 @@ import { Avatar } from "@everyfield/ui/display";
 import { Skeleton } from "@everyfield/ui/controls";
 import { readOwnPhoto } from "./fetch.ts";
 
-const ownPhoto = createRead(readOwnPhoto, { failed: () => null, fresh: 0 });
+const ownPhoto = createRead(readOwnPhoto, { failed: () => ({ src: null }), fresh: 0 });
 
 export function OwnPhoto({ name }: { name: string }) {
-	const photo = useRead(ownPhoto);
+	const photo = useRead(ownPhoto).value;
 	return (
-		<div className="flex items-center gap-3 px-2 pb-3" aria-busy={photo.value === undefined || undefined}>
-			{photo.value === undefined ? (
+		<div className="flex items-center gap-3 px-2 pb-3" aria-busy={photo === undefined || undefined}>
+			{photo === undefined ? (
 				<Skeleton shape="block" width={80} height={80} />
-			) : photo.value ? (
-				<Avatar name={name} src={photo.value} size="xl" />
+			) : photo.src ? (
+				<Avatar name={name} src={photo.src} size="xl" />
 			) : (
-				<p className="text-sm text-text-2">This photo is no longer on your account.</p>
+				<p className="text-sm text-text-2">This photo cannot be shown now.</p>
 			)}
 		</div>
 	);
