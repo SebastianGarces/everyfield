@@ -8,6 +8,7 @@ import {
 	formatNumber,
 	parseAmount,
 	tableIssue,
+	type DocNode,
 	type TableNode,
 } from "../../../packages/contracts/src/documents/index.ts";
 import {
@@ -61,8 +62,8 @@ test("INV-doc-table: columnWidths shares the free width among the columns with w
 });
 
 test("AC:CASE-DOC-023 exports follow the body: Excel only with a budget table, and an unchanged list keeps its order", () => {
-	const withBudget = { type: "doc", content: [{ type: "table", attrs: { style: "ledger", columns: [] } }] } as never;
-	const without = { type: "doc", content: [{ type: "paragraph" }] } as never;
+	const withBudget: DocNode = { type: "doc", content: [{ type: "table", attrs: { style: "ledger", columns: [] } }] };
+	const without: DocNode = { type: "doc", content: [{ type: "paragraph" }] };
 	assert.deepEqual(exportsFor(["xlsx", "pdf", "docx"], withBudget), ["xlsx", "pdf", "docx"]);
 	assert.deepEqual(exportsFor(["pdf", "docx"], withBudget), ["pdf", "docx", "xlsx"]);
 	assert.deepEqual(exportsFor(["xlsx", "pdf", "docx"], without), ["pdf", "docx"]);

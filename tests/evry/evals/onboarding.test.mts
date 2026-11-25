@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { landingFor } from "../../../packages/contracts/src/identity/navigation.ts";
+import { createDiscoveryResult, resumeResult } from "../../../packages/contracts/src/onboarding/results.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { readPlantSetupComplete } from "../../../packages/domain/src/identity/index.ts";
 import { readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
@@ -17,12 +18,12 @@ import {
 	readReview,
 	reviseProposal,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { nativePorts } from "./settings-ports.mts";
@@ -52,7 +53,7 @@ let close: () => Promise<void>;
 let db: Database;
 const mail: { to: string; purpose: string }[] = [];
 const native: NativePorts = nativePorts(mail);
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
@@ -126,11 +127,15 @@ async function onboardingScreen(who: SetupName) {
 		sessionId: actor.session,
 		expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
 	};
-	return readOnboardingEntry(db, native.onboarding, session as never, actor.authority, true) as Promise<
-		Record<string, any>
-	>;
+	return readOnboardingEntry(db, native.onboarding, session as never, actor.authority, true);
 }
-const resume = async (who: SetupName) => (await onboardingScreen(who)).resume;
+async function resume(who: SetupName) {
+	const screen = await onboardingScreen(who);
+	assert.ok(screen.kind === "plant");
+	const result = resumeResult.parse(screen.resume);
+	assert.ok(result.status === "available");
+	return result;
+}
 async function home(who: SetupName) {
 	const actor = await actorOf(who);
 	const plant =
@@ -168,7 +173,11 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 		after: async () => {
 			const r = await resume("setupOwner");
 			assert.deepEqual(
-				[r.journey.value, r.launch.value, r.currentPhase],
+				[
+					r.journey.status === "saved" && r.journey.value,
+					r.launch.status === "saved" && r.launch.value,
+					r.currentPhase,
+				],
 				[{ answer: "discerning" }, { answer: "skip" }, 1],
 			);
 		},
@@ -176,7 +185,10 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 	"ONB-04": {
 		after: async () => {
 			const r = await resume("setupOwner");
-			assert.deepEqual([r.journey.value, r.currentPhase], [{ answer: "existing", phase: 2 }, 2]);
+			assert.deepEqual(
+				[r.journey.status === "saved" && r.journey.value, r.currentPhase],
+				[{ answer: "existing", phase: 2 }, 2],
+			);
 		},
 	},
 	"ONB-08": {
@@ -194,7 +206,7 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 	"ONB-09": {
 		after: async () => {
 			const lead = (await resume("setupOwner")).lead;
-			assert.equal(lead.answer, "yes");
+			assert.ok(lead.answer === "yes");
 			assert.deepEqual(
 				await rows(sql`SELECT t.name AS team, r.name AS role, pe.display_name AS person FROM team_role r JOIN team t ON t.id=r.team_id
 					JOIN person pe ON pe.id=${lead.assignment.personId} WHERE r.id=${lead.assignment.roleId}`),
@@ -233,8 +245,8 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 	"ONB-16": {
 		after: async () => {
 			const screen = await onboardingScreen("discovery");
-			assert.equal(screen.kind, "discovery");
-			assert.equal(screen.profile.relationships.length, 1);
+			assert.ok(screen.kind === "discovery");
+			assert.equal(createDiscoveryResult.shape.profile.parse(screen.profile).relationships.length, 1);
 		},
 	},
 	"ONB-19": {

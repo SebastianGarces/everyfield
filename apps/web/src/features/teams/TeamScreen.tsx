@@ -1,4 +1,5 @@
 "use client";
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import {
@@ -73,7 +74,6 @@ import {
 import { TrainingTab } from "./training/TrainingTab.tsx";
 import {
 	changedFields,
-	dayText,
 	asPersonId,
 	asRecordId,
 	asRevision,
@@ -83,10 +83,10 @@ import {
 	newSetup,
 	people,
 	planTeamEdit,
-	plural,
 	problemText,
 	stampText,
 	type HistoryEntry,
+	type TeamPast,
 	type Member,
 	type Role,
 	type SetupForm,
@@ -113,7 +113,7 @@ const earliest = (days: readonly string[]) => {
 };
 
 const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
-	failed: (): Outcome<{ entries: HistoryEntry[] }> | ReadFailure => ({ status: "lost" }),
+	failed: (): Outcome<TeamPast> | ReadFailure => ({ status: "lost" }),
 });
 
 const TABS = ["roles", "responsibilities", "people", "training", "history"] as const;
@@ -192,12 +192,12 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
-	const teamForm = (): TeamForm => ({
+	const teamForm = (team: TeamView["team"]): TeamForm => ({
 		mode: "edit",
-		name: t.name,
-		description: t.description ?? "",
-		icon: iconKey(t),
-		state: t.state,
+		name: team.name,
+		description: team.description ?? "",
+		icon: iconKey(team),
+		state: team.state,
 		reason: "",
 	});
 	function saveTeam(form: TeamForm) {
@@ -208,7 +208,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			state: form.state,
 			reason: form.reason,
 		};
-		const plan = planTeamEdit(teamForm(), form);
+		const plan = planTeamEdit(teamForm(data.team), form);
 		if (plan !== "send") {
 			teamLane.close();
 			if (plan === "close-and-say") toast({ tone: "info", message: "Nothing changed, so nothing was saved." });
@@ -251,6 +251,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
+	const openRole = data.roles?.find((r) => r.id === roleLane.editing?.roleId);
 	function saveRole(form: RoleForm) {
 		const facts = {
 			name: form.name.trim(),
@@ -344,7 +345,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		toast({
 			tone: "success",
 			message: added.newRoles
-				? `Added ${plural(added.newRoles, "role")} to ${t.name}.`
+				? `Added ${counted(added.newRoles, "role")} to ${t.name}.`
 				: "Everything you chose was already here. Nothing was added.",
 		});
 		void stale();
@@ -398,7 +399,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						<IconButton icon={MoreHorizontalIcon} label="More actions" />
 					</MenuTrigger>
 					<MenuContent align="end">
-						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm())}>
+						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm(t))}>
 							Edit details
 						</MenuItem>
 						<MenuSeparator />
@@ -585,6 +586,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				{teamLane.editing ? (
 					<TeamDialog
 						form={teamLane.editing}
+						latest={teamForm(data.team)}
 						problem={teamLane.problem}
 						wait={teamLane.wait}
 						onClose={teamLane.close}
@@ -596,6 +598,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				{roleLane.editing ? (
 					<RoleDialog
 						form={roleLane.editing}
+						latest={openRole ? roleForm(openRole) : undefined}
 						problem={roleLane.problem}
 						wait={roleLane.wait}
 						onClose={roleLane.close}
@@ -886,7 +889,7 @@ function RolesCard({
 			)}
 			{retired ? (
 				<p className="mt-4 text-sm text-text-3">
-					{plural(retired, "retired role")} not shown. Past holders are in the People tab.
+					{counted(retired, "retired role")} not shown. Past holders are in the People tab.
 				</p>
 			) : null}
 		</Card>
@@ -1001,7 +1004,7 @@ function PeopleCard({
 				<CardHeader>
 					<CardHeading>
 						<CardTitle id="people-title">Serving now</CardTitle>
-						{crew?.length ? <CardDescription>{plural(crew.length, "person", "people")}</CardDescription> : null}
+						{crew?.length ? <CardDescription>{counted(crew.length, "person", "people")}</CardDescription> : null}
 					</CardHeading>
 				</CardHeader>
 				{crew === null ? (
@@ -1100,10 +1103,42 @@ function PeopleCard({
 
 function HistoryCard({ teamId, revision }: { teamId: string; revision: string }) {
 	const history = useRead(histories, { teamId, revision });
-	return <HistoryList state={history.value ?? null} />;
+	const past = history.value?.status === "ok" ? history.value.value.assignments : [];
+	return (
+		<div className="flex flex-col gap-5">
+			{past.length ? <PastAssignments assignments={past} /> : null}
+			<HistoryList state={history.value ?? null} />
+		</div>
+	);
 }
 
-function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | ReadFailure | null }): ReactNode {
+function PastAssignments({ assignments }: { assignments: TeamPast["assignments"] }) {
+	return (
+		<Card as="section" aria-labelledby="past-training-title">
+			<CardHeader>
+				<CardHeading>
+					<CardTitle id="past-training-title">Earlier training assignments</CardTitle>
+					<CardDescription>People who were on a training list and no longer are, newest first.</CardDescription>
+				</CardHeading>
+			</CardHeader>
+			<ul className="flex flex-col divide-y divide-line">
+				{assignments.map((a) => (
+					<li key={a.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-3">
+						<span className="min-w-0 wrap-anywhere">
+							<span className="font-medium text-ink">{a.personName}</span>
+							<span className="text-text-2"> · {a.programName}</span>
+						</span>
+						<span className="text-sm text-text-3">
+							{dayText(a.assignedOn)} to {dayText(a.endedOn)}
+						</span>
+					</li>
+				))}
+			</ul>
+		</Card>
+	);
+}
+
+function HistoryList({ state }: { state: Outcome<TeamPast> | ReadFailure | null }): ReactNode {
 	return (
 		<Card as="section" aria-labelledby="history-title">
 			<CardHeader>

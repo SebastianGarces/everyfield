@@ -1,8 +1,8 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import { ok } from "../../support/fixture.mts";
 import { frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
 import { createFacts } from "../../../packages/domain/src/intelligence/index.ts";
@@ -11,18 +11,24 @@ import { readCatalog, readReadiness } from "../../../packages/domain/src/phases/
 
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 const CONSTITUTED = "Constituted as a church";
-let f, reader, writer, facts, catalog;
-const one = async (q) => (await f.admin.execute(q)).rows[0];
+let f: Fixture;
+let reader: ReturnType<typeof createLaunchReader>;
+let writer: ReturnType<typeof createLaunchWriter>;
+let facts: ReturnType<typeof createFacts>;
+let catalog: Awaited<ReturnType<typeof readCatalog>>;
+type Workspace = Awaited<ReturnType<Fixture["workspace"]>>;
+type Who = Pick<Awaited<ReturnType<typeof seated>>, "actor">;
+const one = async (q: SQL) => (await f.admin.execute(q)).rows[0]!;
 const key = () => randomUUID();
-const revision = async (who) => ok(await reader.readPlan(f.db, who.actor)).plan.revision;
-const read = async (who) => ok(await facts.readFacts(f.db, who.actor, {}));
-const phase5 = async (who) =>
+const revision = async (who: Who) => ok(await reader.readPlan(f.db, who.actor)).plan.revision;
+const read = async (who: Who) => ok(await facts.readFacts(f.db, who.actor, {}));
+const phase5 = async (who: Who) =>
 	Object.fromEntries(
 		readReadiness(catalog, (await read(who)).criteria)
 			.find((r) => r.phase === 5)!
 			.criteria.map((x) => [x.key, x.status]),
 	);
-const choose = async (who, org) =>
+const choose = async (who: Who, org: Workspace) =>
 	ok(
 		await writer.choosePath(f.db, who.actor, {
 			requestKey: key(),
@@ -30,7 +36,7 @@ const choose = async (who, org) =>
 			input: { path: "milestone", organizationId: org.id },
 		}),
 	);
-const record = async (who, date) =>
+const record = async (who: Who, date: string) =>
 	ok(
 		await writer.recordGathering(f.db, who.actor, {
 			requestKey: key(),
@@ -38,7 +44,7 @@ const record = async (who, date) =>
 			input: { date, note: null },
 		}),
 	);
-const correct = async (who, date) =>
+const correct = async (who: Who, date: string) =>
 	ok(
 		await writer.correctGathering(f.db, who.actor, {
 			requestKey: key(),
@@ -46,7 +52,7 @@ const correct = async (who, date) =>
 			input: { date, note: null, reason: "The vote was the Sunday before" },
 		}),
 	);
-const clear = async (who) =>
+const clear = async (who: Who) =>
 	ok(
 		await writer.clearGathering(f.db, who.actor, {
 			requestKey: key(),
@@ -54,7 +60,7 @@ const clear = async (who) =>
 			input: { reason: "Recorded on the wrong church" },
 		}),
 	);
-const footprint = (w) =>
+const footprint = (w: Workspace) =>
 	one(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
 		(SELECT count(*)::int FROM meeting WHERE plant_id=${w.id}) meetings,
 		(SELECT count(*)::int FROM person WHERE tenant_id=${w.id}) people,
@@ -66,7 +72,7 @@ const footprint = (w) =>
 		(SELECT phase FROM plant WHERE id=${w.id}) phase,
 		(SELECT revision::text FROM launch WHERE plant_id=${w.id}) launch`);
 
-async function seated(w, role) {
+async function seated(w: Workspace, role: "owner" | "admin" | "member") {
 	const a = await f.account();
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
@@ -157,7 +163,7 @@ test("facts read for a day before the reached date read Unknown", async () => {
 	const c = await church();
 	await choose(c.owner, c.hill);
 	await record(c.owner, "2026-10-11");
-	const at = async (iso) =>
+	const at = async (iso: string) =>
 		ok(await createFacts({ clock: frozenClock(instant.parse(iso)) }).readFacts(f.db, c.owner.actor, {}));
 	const before = await at("2026-10-10T23:00:00.000Z");
 	assert.deepEqual([before.today, before.criteria.first_service_complete], ["2026-10-10", "unknown"]);

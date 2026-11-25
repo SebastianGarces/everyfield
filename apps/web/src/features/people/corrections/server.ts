@@ -1,4 +1,5 @@
 import "server-only";
+import { personPhotoPath, type AppAssetPath } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/people";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import {
@@ -22,7 +23,7 @@ type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 export type PairQuery = { person: PersonId; with: PersonId; keep: PersonId | null };
-type Photos = Partial<Record<"source" | "survivor", string>>;
+type Photos = Partial<Record<"source" | "survivor", AppAssetPath>>;
 export type PairView =
 	| {
 			kind: "ready";
@@ -85,7 +86,7 @@ export async function readPair(tx: WriteTx, ctx: PeopleContext, q: PairQuery): P
 			if (fieldText("photo", photo[side] as Record<string, unknown>) === null) continue;
 			const p = await personFields.getPersonPhoto(tx, ctx, { personId: review[side].personId });
 			if (p.status === "ok" && p.value.status === "available")
-				photos[side] = `/people/${p.value.personId}/photo/${p.value.versionId}`;
+				photos[side] = personPhotoPath(p.value.personId, p.value.versionId);
 		}
 	const l = await listedDuplicatePair(tx, ctx, { a: a.id, b: b.id });
 	return {

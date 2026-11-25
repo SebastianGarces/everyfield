@@ -1,3 +1,4 @@
+import "../runs-in/domain.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -16,7 +17,7 @@ import {
 	scriptedAssessmentDrafter,
 	scriptedDraft,
 	scriptedLanguageJudge,
-} from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+} from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 
 const root = new URL("../../../", import.meta.url);
 const fact = (key: string, value: c.FactEntry["value"], status: string | null = null): c.FactEntry => ({

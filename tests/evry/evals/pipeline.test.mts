@@ -25,16 +25,13 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import {
-	dayText,
-	listPeople,
-	readProgram as programRead,
-} from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
+import { dayText } from "../../../packages/contracts/src/common/index.ts";
+import { listPeople, readProgram as programRead } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
@@ -66,7 +63,7 @@ let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
 let stages: Awaited<ReturnType<typeof seedPipeline>>;
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
@@ -214,7 +211,7 @@ const kept = async (text: string) =>
 		await admin.execute(sql`SELECT
 			(SELECT count(*) FROM conversation_event e WHERE e.body::text LIKE ${`%${text}%`})::int AS events,
 			(SELECT count(*) FROM proposal p WHERE concat(p.input::text,p.review::text,p.receipt::text) LIKE ${`%${text}%`})::int AS proposals,
-			(SELECT count(*) FROM audit_event a WHERE a.metadata::text LIKE ${`%${text}%`})::int AS audit`)
+			(SELECT count(*) FROM audit_event a WHERE concat(a.reason,a.metadata::text,a.before_value::text,a.after_value::text) LIKE ${`%${text}%`})::int AS audit`)
 	).rows[0];
 
 type Hook = (p: Proposal | undefined, conversation: string) => Promise<void>;
@@ -532,6 +529,9 @@ test("INV-evry-pipeline-read: the pipeline read takes no search text and answers
 			read: async () => ({}),
 			select: async () => ({}),
 			propose: async () => ({}),
+			readNotes: async () => ({}),
+			updateNotes: async () => ({}),
+			readReview: async () => ({}),
 		}).pipeline_read!;
 		const schema = (tool.inputSchema as { safeParse?: (v: unknown) => { success: boolean } }).safeParse
 			? (tool.inputSchema as unknown as { safeParse: (v: unknown) => { success: boolean } })
@@ -581,7 +581,14 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {
 		const tools = JSON.stringify(
 			Object.values(
-				modelTools(await actorOf(who), { read: async () => ({}), select: async () => ({}), propose: async () => ({}) }),
+				modelTools(await actorOf(who), {
+					read: async () => ({}),
+					select: async () => ({}),
+					propose: async () => ({}),
+					readNotes: async () => ({}),
+					updateNotes: async () => ({}),
+					readReview: async () => ({}),
+				}),
 			).map((t) => t.description),
 		);
 		for (const op of [

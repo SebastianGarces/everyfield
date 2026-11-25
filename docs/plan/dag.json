@@ -4658,6 +4658,7 @@
       ],
       "owning_paths": [
         "packages/evry/src/runtime/",
+        "packages/evry-scripted/",
         "packages/evry/src/conversations/",
         "packages/evry/src/context/",
         "apps/web/src/features/evry/conversation/",
@@ -5165,7 +5166,7 @@
         "WP-093",
         "WP-102"
       ],
-      "estimate_engineer_days": 14.5,
+      "estimate_engineer_days": 15.0,
       "outputs": [
         "ADM-001: Feedback dialog with private page and device details",
         "ADM-002: Platform-wide feedback triage and status transitions",
@@ -5500,7 +5501,7 @@
         "WP-096",
         "WP-102"
       ],
-      "estimate_engineer_days": 14.5,
+      "estimate_engineer_days": 15.0,
       "outputs": [
         "ADM-001: Feedback dialog with private page and device details",
         "ADM-002: Platform-wide feedback triage and status transitions",
@@ -9060,8 +9061,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 89.0,
-  "total_engineer_days": 233.0,
+  "critical_path_unconstrained_days": 90.0,
+  "total_engineer_days": 234.0,
   "contract_milestones": {
     "C0": [
       "WP-002"

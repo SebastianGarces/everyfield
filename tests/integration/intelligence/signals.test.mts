@@ -1,46 +1,55 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
-import { createSignals } from "../../../packages/domain/src/intelligence/index.ts";
+import { instant } from "../../../packages/contracts/src/common/index.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
+import { createSignals, type Signals } from "../../../packages/domain/src/intelligence/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import type { SignalValue } from "../../../packages/contracts/src/intelligence/index.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f, signals;
+let f: Fixture;
+let signals: Signals;
+type Workspace = Awaited<ReturnType<Fixture["workspace"]>>;
+type Planter = Awaited<ReturnType<Fixture["account"]>> & { w: Workspace };
+type Seated = Planter & { actor: Awaited<ReturnType<Fixture["actor"]>> };
 let now = "2026-10-13T16:00:00.000Z";
-const clock = { now: () => now };
+const clock = { now: () => instant.parse(now) };
 const refusedBare = refusedWith({ details: {} });
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
-const rejects = (promise, pattern) =>
+const rows = async <T extends Record<string, unknown>>(q: SQL) => (await f.admin.execute<T>(q)).rows;
+const one = async <T extends Record<string, unknown>>(q: SQL) => (await rows<T>(q))[0]!;
+const rejects = (promise: Promise<unknown>, pattern: RegExp) =>
 	assert.rejects(promise, (e) => {
-		assert.match(String(e.cause?.message ?? e.message), pattern);
+		assert.ok(e instanceof Error);
+		assert.match(e.cause instanceof Error ? e.cause.message : e.message, pattern);
 		return true;
 	});
 const DAY = 86_400_000;
-const at = (days) => new Date(Date.parse("2026-10-13T16:00:00.000Z") + days * DAY).toISOString();
+const at = (days: number) => new Date(Date.parse("2026-10-13T16:00:00.000Z") + days * DAY).toISOString();
 
 let named = 0;
-const founders = new Map();
-async function seated(w, role = "admin") {
+const founders = new Map<string, Planter>();
+async function seated(w: Workspace, role: "owner" | "admin" | "member" = "admin"): Promise<Seated> {
 	const a = await f.account();
 	await f.seat(a, w, role);
 	const who = { ...a, w, actor: await f.actor(a.session) };
 	if (w.kind !== "plant") return who;
 	if (role !== "member" && !founders.has(w.id)) founders.set(w.id, who);
-	const own = await person(role === "member" ? founders.get(w.id) : who, `Planter ${++named}`);
+	const own = await person(role === "member" ? founders.get(w.id)! : who, `Planter ${++named}`);
 	await f.admin.execute(sql`UPDATE person SET linked_account_id=${a.id} WHERE id=${own.id}`);
 	return who;
 }
-async function person(who, displayName) {
+async function person(who: Planter, displayName: string): Promise<{ id: string }> {
+	const { w } = who;
+	assert.ok(w.kind === "plant");
 	return ok(
 		await gatedTransaction(f.db, (tx) =>
 			peopleWriter.createPerson(
 				tx,
-				{ session: who.session, selected: { kind: "plant", id: who.w.id } },
+				{ session: who.session, selected: w },
 				{
 					requestKey: randomUUID(),
 					input: { displayName, adultClassification: "adult" },
@@ -49,16 +58,31 @@ async function person(who, displayName) {
 		),
 	).person;
 }
-const page = async (who) => ok(await signals.readAttestations(f.db, who.actor, {}));
-const entry = async (who, key) => (await page(who)).signals.find((x) => x.key === key);
-const attest = (who, key, value = "yes", extra = {}, expectedRevision = "0", requestKey = randomUUID()) =>
-	signals.attest(f.db, who.actor, { requestKey, expectedRevision, input: { key, value, ...extra } });
-const correct = (who, input, expectedRevision, requestKey = randomUUID()) =>
+const page = async (who: Seated) => ok(await signals.readAttestations(f.db, who.actor, {}));
+const entry = async (who: Seated, key: string) => (await page(who)).signals.find((x) => x.key === key)!;
+const attest = (
+	who: Seated,
+	key: string,
+	value: SignalValue = "yes",
+	extra: { asOf?: string; detail?: string; reference?: string } = {},
+	expectedRevision = "0",
+	requestKey: string = randomUUID(),
+) => signals.attest(f.db, who.actor, { requestKey, expectedRevision, input: { key, value, ...extra } });
+const correct = (who: Seated, input: unknown, expectedRevision: string, requestKey: string = randomUUID()) =>
 	signals.correct(f.db, who.actor, { requestKey, expectedRevision, input });
-const reaffirm = (who, key, expectedValue, expectedRevision, requestKey = randomUUID()) =>
-	signals.reaffirm(f.db, who.actor, { requestKey, expectedRevision, input: { key, expectedValue } });
-const counts = (w) =>
-	one(sql`SELECT (SELECT count(*)::int FROM attestation WHERE plant_id=${w.id}) attestations,
+const reaffirm = (
+	who: Seated,
+	key: string,
+	expectedValue: SignalValue,
+	expectedRevision: string,
+	requestKey: string = randomUUID(),
+) => signals.reaffirm(f.db, who.actor, { requestKey, expectedRevision, input: { key, expectedValue } });
+const counts = (w: Workspace) =>
+	one<{
+		attestations: number;
+		revisions: number;
+		audits: number;
+	}>(sql`SELECT (SELECT count(*)::int FROM attestation WHERE plant_id=${w.id}) attestations,
 		(SELECT count(*)::int FROM attestation_revision WHERE plant_id=${w.id}) revisions,
 		(SELECT count(*)::int FROM audit_event WHERE tenant_id=${w.id} AND action LIKE 'attestation.%') audits`);
 before(async () => {
@@ -75,9 +99,9 @@ test("AC:PI-015 listDefinitions returns the seven keys of manual-signals.ts in o
 	);
 	for (const [i, d] of listed.entries()) {
 		assert.deepEqual(Object.keys(d).sort(), ["description", "key", "label", "reaffirms", "windowDays"]);
-		assert.equal(d.label, MANUAL_SIGNALS[i].label);
-		assert.equal(d.description, MANUAL_SIGNALS[i].description);
-		assert.equal(d.reaffirms, MANUAL_SIGNALS[i].reaffirms);
+		assert.equal(d.label, MANUAL_SIGNALS[i]!.label);
+		assert.equal(d.description, MANUAL_SIGNALS[i]!.description);
+		assert.equal(d.reaffirms, MANUAL_SIGNALS[i]!.reaffirms);
 		assert.equal(d.windowDays, d.reaffirms ? 30 : null);
 	}
 	assert.deepEqual(
@@ -213,7 +237,9 @@ test("AC:PI-014 a correction to another value keeps history; the same value and 
 	);
 	refusedBare(await correct(a, { action: "retract", key: "systems_tested" }, "0"), "not_current");
 	const view = await page(a);
-	assert.equal(view.counts.notAnswered, 7);
+	assert.deepEqual(view.counts, { current: 0, needsRenewing: 0, notAnswered: 7 });
+	const shown = view.signals.find((s) => s.key === "prayer_leader_assigned")!;
+	assert.deepEqual([shown.state, shown.value, shown.renewal], ["retracted", null, { status: "unknown" }]);
 	const again = ok(await attest(a, "prayer_leader_assigned", "yes", {}, gone.signal.revision));
 	assert.equal(again.signal.revision, "4");
 	const all = ok(await signals.getHistory(f.db, a.actor, { key: "prayer_leader_assigned" })).revisions;
@@ -247,12 +273,12 @@ test("AC:PI-014 history lists every revision newest first, and the runtime login
 			[1, "answered"],
 		],
 	);
-	assert.equal(one_[1].detail, "Monthly pledges");
-	assert.equal(one_[1].reference, "Giving sheet");
-	assert.equal(one_[1].questionVersion, "manual-signals/1");
-	assert.equal(one_[1].asOf, "2026-10-13");
-	assert.ok(one_[1].authorName);
-	assert.ok(one_[1].recordedAt);
+	assert.equal(one_[1]!.detail, "Monthly pledges");
+	assert.equal(one_[1]!.reference, "Giving sheet");
+	assert.equal(one_[1]!.questionVersion, "manual-signals/1");
+	assert.equal(one_[1]!.asOf, "2026-10-13");
+	assert.ok(one_[1]!.authorName);
+	assert.ok(one_[1]!.recordedAt);
 	const whole = ok(await signals.getHistory(f.db, a.actor, { key: null })).revisions;
 	assert.equal(whole.length, 3);
 	assert.deepEqual(
@@ -287,7 +313,7 @@ test("AC:B01-025 AC:B01-026 ages, renewal at 31 days, and funding that never exp
 		"prayer_leader_assigned",
 	])
 		ok(await attest(a, key, "yes"));
-	const status = async (key) => (await entry(a, key)).renewal;
+	const status = async (key: string) => (await entry(a, key)).renewal;
 	now = at(30);
 	assert.deepEqual(await status("prayer_rhythm_established"), { status: "current", daysLeft: 0 });
 	assert.deepEqual(await status("core_group_giving"), { status: "current", daysLeft: 0 });
@@ -336,14 +362,13 @@ test("AC:B01-025 AC:B01-026 Still true refreshes only that signal; stale or wron
 	const w = await f.workspace();
 	const a = await seated(w);
 	now = at(0);
-	const made = {};
-	for (const key of [
-		"prayer_rhythm_established",
-		"prayer_in_gatherings",
-		"core_group_giving",
-		"financial_base_established",
-	])
-		made[key] = ok(await attest(a, key, "yes")).signal;
+	const answered = async (key: string) => ok(await attest(a, key, "yes")).signal;
+	const made = {
+		prayer_rhythm_established: await answered("prayer_rhythm_established"),
+		prayer_in_gatherings: await answered("prayer_in_gatherings"),
+		core_group_giving: await answered("core_group_giving"),
+		financial_base_established: await answered("financial_base_established"),
+	};
 	now = at(20);
 	const before = await counts(w);
 	refusedBare(
@@ -435,13 +460,13 @@ test("AC:PI-014 AC:AUDIT-004 every accepted write has one audit row; refusals wr
 	for (let round = 0; round < 4; round++) {
 		const key = ["values_documented", "prayer_leader_assigned", "prayer_rhythm_established", "core_group_giving"][
 			round
-		];
+		]!;
 		const results = await Promise.all([attest(c1, key, "yes"), attest(c2, key, "not_yet")]);
 		const wins = results.filter((r) => r.status === "ok"),
 			losses = results.filter((r) => r.status === "refused");
 		assert.equal(wins.length, 1, key);
 		assert.equal(losses.length, 1, key);
-		assert.equal(losses[0].error.code, "revision_conflict");
+		assert.equal(losses[0]!.error.code, "revision_conflict");
 		assert.equal(
 			(await one(sql`SELECT count(*)::int n FROM attestation_revision WHERE plant_id=${w.id} AND key=${key}`)).n,
 			1,
@@ -453,7 +478,7 @@ test("AC:PI-014 AC:AUDIT-004 every accepted write has one audit row; refusals wr
 		correct(c2, { action: "retract", key: "prayer_in_gatherings" }, base.revision),
 	]);
 	assert.equal(both.filter((r) => r.status === "ok").length, 1);
-	assert.equal(both.find((r) => r.status === "refused").error.code, "revision_conflict");
+	assert.equal(both.find((r) => r.status === "refused")!.error.code, "revision_conflict");
 });
 
 test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive days; shorter periods say why", async () => {
@@ -515,7 +540,7 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 				input: { ...base, personId: who.id, attended, volunteered },
 			}),
 		).candidate;
-		const read = (await page(a)).candidates.find((x) => x.personId === who.id);
+		const read = (await page(a)).candidates.find((x) => x.personId === who.id)!;
 		for (const c of [saved, read])
 			assert.deepEqual(
 				[c.attended, c.volunteered, c.established, c.reasons],
@@ -633,7 +658,7 @@ test("AC:PI-014 a candidate corrects and retracts with history, and a retired Pe
 	).candidate;
 	assert.equal(fixed.established, false);
 	assert.equal(fixed.revision, "2");
-	const reread = (await page(a)).candidates[0];
+	const reread = (await page(a)).candidates[0]!;
 	assert.deepEqual([reread.personId, reread.attended, reread.volunteered, reread.revision], [mo.id, true, false, "2"]);
 	const gone = ok(
 		await signals.correctCandidate(f.db, a.actor, {
@@ -675,8 +700,8 @@ test("AC:PI-014 a candidate corrects and retracts with history, and a retired Pe
 			[1, "answered"],
 		],
 	);
-	assert.equal(trail[0].personName, "Mo Hart");
-	assert.equal(trail[0].questionVersion, "leadership-candidate/1");
+	assert.equal(trail[0]!.personName, "Mo Hart");
+	assert.equal(trail[0]!.questionVersion, "leadership-candidate/1");
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${mo.id}`);
 	const view = await page(a);
 	assert.deepEqual(view.candidates, [{ ...back, personState: "retired" }]);
@@ -754,7 +779,7 @@ test("AC:REQ-TEAM-017 recording, correcting and retracting a candidate changes n
 	const pat = await person(a, "Pat Wills");
 	const watched = ["team", "team_role", "team_tenure", "task", "commitment", "phase_transition", "notice", "job"];
 	const snapshot = async () => {
-		const out = {};
+		const out: Record<string, unknown> = {};
 		for (const t of watched)
 			out[t] = (
 				await one(

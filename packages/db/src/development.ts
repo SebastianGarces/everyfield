@@ -5,6 +5,10 @@ export const developmentHosts: ReadonlySet<string> = new Set([
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
+export function disposableDatabase(): boolean {
+	return process.env.EVERYFIELD_DISPOSABLE_DATABASE === "1";
+}
+
 export function assertDevelopmentDatabase(url: string | URL | undefined): URL {
 	const refused = () => Error("Approved shared development database or disposable CI database required");
 	if (process.env.NODE_ENV === "production" || !url) throw refused();
@@ -14,7 +18,7 @@ export function assertDevelopmentDatabase(url: string | URL | undefined): URL {
 	} catch {
 		throw refused();
 	}
-	const ci = process.env.CI === "true" && process.env.EARLY_ACCESS_TEST_DATABASE === "1";
-	if (developmentHosts.has(parsed.hostname) || (ci && LOCAL_HOSTS.has(parsed.hostname))) return parsed;
+	if (developmentHosts.has(parsed.hostname) || (disposableDatabase() && LOCAL_HOSTS.has(parsed.hostname)))
+		return parsed;
 	throw refused();
 }

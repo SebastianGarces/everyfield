@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
+import { UNSHOWN } from "../../../apps/web/src/features/evry/conversation/model.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
 import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
@@ -13,6 +14,7 @@ import {
 	byName,
 	DANIEL_INTERVIEW,
 	DOCS,
+	GUIDE,
 	goldenChurch,
 	IMPORT_KEY,
 	MEETINGS,
@@ -173,7 +175,29 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"communication.get": {},
 	"communication.forPerson": { personId: byName("Maria Santos").id },
 	"communication.templates.list": {},
+	"communication.getDraft": { communicationId: WELCOME },
+	"people.getStatusWarnings": { personId: JAMES, stage: "launch_team" },
 	"communication.resendCandidates": { communicationId: WELCOME, selection: "delivered_nonopeners" },
+	"communication.forMeeting": { meetingWords: "vision meeting" },
+	"communication.meetingRecipientTracking": { meetingWords: "vision meeting" },
+	"communication.deliveryTotals": {},
+	"communication.listAudienceTeams": {},
+	"communication.searchRecipients": { query: "Casey" },
+	"mail.suppression.listForSelf": async () =>
+		invokeRead(church.db, church.actors.owner, adapters.get("mail.suppression.listForSelf")!, {}, null, undefined, {
+			keys: {
+				encryptionKey: Buffer.alloc(32, 7),
+				addressKey: Buffer.alloc(32, 9),
+				from: "church@example.test",
+				origin: "https://app.example.test",
+			},
+			transport: {
+				paused: false,
+				send: async () => ({ outcome: "ids", ids: [] }),
+				cancel: async () => [],
+				reschedule: async () => [],
+			},
+		}),
 	"notifications.feed": { unread: true },
 	"notifications.preferences.get": {},
 	"notifications.previewPlanterDigest": {},
@@ -211,6 +235,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"phases.readCatalog": {},
 	"phases.readHistory": {},
 	"phases.readReadiness": {},
+	"intelligence.readExitCriteria": {},
+	"intelligence.readJourney": {},
 	"signals.listDefinitions": {},
 	"signals.getHistory": {},
 	"meetings.list": { window: "upcoming" },
@@ -272,6 +298,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			["intelligence.readAssessmentDelta", "owner"],
 			["oversight.listPlants", "director"],
 			["organizationIntelligence.read", "director"],
+			["organizationIntelligence.readHistory", "director"],
+			["organizationIntelligence.readLocations", "director"],
 		].map(([op, who]) => [
 			op,
 			async () => {
@@ -285,6 +313,17 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			},
 		]),
 	),
+	"organizationIntelligence.readLocationHistory": async () => {
+		const ch = await oversightChurch();
+		return invokeRead(
+			ch.db,
+			await oversightActor("director"),
+			adapters.get("organizationIntelligence.readLocationHistory")!,
+			{
+				plantId: ch.plants["Harvest Point"]!.id,
+			},
+		);
+	},
 	"oversight.getPlant": async () => {
 		const ch = await oversightChurch();
 		return invokeRead(ch.db, await oversightActor("director"), adapters.get("oversight.getPlant")!, {
@@ -320,6 +359,15 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"wiki.referenceExcerpt": { articleId: WIKI.vision.article },
 	"wiki.recommendForPhase": {},
 	"wiki.reading.resume": {},
+	"wiki.navigation": {},
+	"wiki.articles.list": {},
+	"wiki.tableOfContents": { articleId: GUIDE.article },
+	"wiki.articleNeighbors": { articleId: GUIDE.article },
+	"wiki.contextGuide": { route: "/documents" },
+	"wiki.bookmarks.list": {},
+	"wiki.reading.recent": {},
+	"wiki.reading.stats": {},
+	"wiki.feedback.getMine": { articleId: GUIDE.article },
 	"wiki.article.exportPdf": { articleId: WIKI.vision.article },
 	"documents.listOwned": {},
 	"documents.read": { documentId: DOCS.septemberAgenda.id },
@@ -335,7 +383,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	},
 };
 
-const catalogTools = Object.values(catalog).flatMap((v) => (typeof v === "string" && v.startsWith("evry.") ? [v] : []));
+const catalogTools = Object.values(catalog).flatMap((v) =>
+	typeof v === "string" && v.startsWith("evry.") && v !== catalog.COMPOSE_READS && !UNSHOWN.has(v) ? [v] : [],
+);
 const installed = [
 	...Object.values(catalog.READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
 	...catalogTools,

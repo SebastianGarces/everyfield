@@ -24,7 +24,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { savedRevision, type EffectResult, type ReviewedWrite } from "../../../proposals/types.ts";
 import { localWhen, TYPE_LABEL } from "../../../catalog/labels.ts";
 import { day, id, inPlant, meeting, meetingId, ownerOrAdmin, personId, RSVP, value, venueId } from "../shared.ts";
 import type { WriteTx } from "@everyfield/domain/access";
@@ -64,6 +64,7 @@ const REFUSAL: Record<string, string> = {
 	team_unavailable: "That ministry is archived or not in this church.",
 	wrong_meeting_type: "Only a Vision meeting has this.",
 	status_transition: "This meeting's status does not allow that change.",
+	practice_cancelled: "A cancelled practice can't be corrected.",
 	nonexistent_local_time: "That time does not exist on that day, because the clocks change. Pick another time.",
 	ambiguous_local_time: "That time happens twice on that day, because the clocks change. Pick another time.",
 	invalid_subject: "Someone named here is not a current person in this church.",
@@ -84,6 +85,7 @@ function write<I, F, V>(spec: {
 	allowed?: (actor: EvryActor) => boolean;
 	member?: true;
 	prepare(db: Reader, actor: EvryActor, input: NoInfer<I>): Promise<Prepared<F> | null>;
+	again?: ReviewedWrite<NoInfer<I>>["again"];
 	run(w: Writers, tx: WriteTx, ctx: MeetingsContext, request: unknown): Promise<MeetingsReply<V>>;
 	changes(previewed: { prepared: Prepared<F>; value: V; seen: unknown }): Change[];
 	asked?(prepared: Prepared<F>): Change[];
@@ -126,8 +128,9 @@ function write<I, F, V>(spec: {
 				: sql`WHERE ${prepared.target.kind === "meeting" ? meetingLive(actor, prepared.target.id) : venueLive(actor, prepared.target.id)}`;
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(prepared.args)}::jsonb AS args ${live}`;
 		},
+		...(spec.again && { again: spec.again }),
 		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
-			const request = { ...z.object({}).loose().parse(args), requestKey: effectKey };
+			const request = { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey };
 			try {
 				const reply = await spec.run(writers(ports.reminders), tx, context, request);
 				if (reply.status !== "ok") return { refused: reply.error.code };
@@ -285,6 +288,22 @@ const editInput = z.strictObject({
 	time: clock.optional(),
 	venueId: venueId.nullable().optional(),
 });
+function dayAndTime(when: unknown) {
+	const text = typeof when === "string" ? when : "";
+	const at = text.lastIndexOf(", ");
+	return [text.slice(0, at), text.slice(at + 2)];
+}
+const storedEdit = z.strictObject({
+	meetingId,
+	patch: editInput.omit({ meetingId: true, venueId: true }).extend({
+		venue: z
+			.discriminatedUnion("kind", [
+				z.strictObject({ kind: z.literal("none") }),
+				z.strictObject({ kind: z.literal("existing"), venueId }),
+			])
+			.optional(),
+	}),
+});
 export const edit = write({
 	operation: "meetings.edit",
 	description: "Change a meeting's title, notes, date and time, or venue (null: none).",
@@ -301,6 +320,20 @@ export const edit = write({
 				: {}),
 		};
 		return onDetail(m, { patch });
+	},
+	again(args, changes) {
+		const { meetingId: edited, patch } = storedEdit.parse(savedRevision.parse(args).input);
+		const { venue, date, time, ...rest } = patch;
+		const when = changes.find((c) => c.field === "when");
+		const [dayBefore, timeBefore] = dayAndTime(when?.before);
+		const [dayAfter, timeAfter] = dayAndTime(when?.after);
+		return editInput.parse({
+			...rest,
+			meetingId: edited,
+			...(date && (!when || dayBefore !== dayAfter || timeBefore === timeAfter) && { date }),
+			...(time && (!when || timeBefore !== timeAfter || dayBefore === dayAfter) && { time }),
+			...(venue && { venueId: venue.kind === "none" ? null : venue.venueId }),
+		});
 	},
 	run: (w, tx, ctx, r) => w.meetings.edit(tx, ctx, r),
 	changes: diffed,
@@ -788,7 +821,7 @@ async function generatedTasks(tx: WriteTx, v: Finalization) {
 	);
 	const titles = new Map(
 		z
-			.array(z.object({ id: z.string(), title: z.string() }))
+			.array(z.strictObject({ id: z.string(), title: z.string() }))
 			.parse(r.rows)
 			.map((t) => [t.id, t.title]),
 	);

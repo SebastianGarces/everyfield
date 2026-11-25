@@ -371,7 +371,7 @@
       "feature_ids": [
         "PPL-009"
       ],
-      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them all at once, returning the actual count. Empty-household deletion refuses active members; retired member references detach from current household while history still shows the household a retired person belonged to. Concurrent Person retirement, household joining and deletion cannot leave orphan records.",
+      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them all at once, returning the actual count. Empty-household deletion refuses active members; retired member references detach from current household while history still shows the household a retired person belonged to. Concurrent Person retirement, household joining and deletion cannot leave orphan records. A child's parent or guardian contact is an explicit link staff set on the Person screen, never inferred from a household role of head or spouse (D-2336): the child is marked as a child and in a household, and each contact is a live person in the same church and household who is marked as an adult or whose birth date shows one. Anyone else is not offered and a save is refused with the reason, storing nothing. A child can have several contacts; each add or remove writes an audit row on the child's history, and a contact stops counting when either person leaves the household, is retired or is merged away.",
       "spec": "docs/product/people.md#req-ppl-009",
       "operations": [
         "people.createHouseholdWithHead",
@@ -381,13 +381,15 @@
         "people.setHouseholdRole",
         "people.propagateAddress",
         "people.deleteHousehold",
-        "people.getHousehold"
+        "people.getHousehold",
+        "people.setGuardianContact"
       ],
       "acceptance_ids": [
         "AC-PPL-009--PPL-009"
       ],
       "case_ids": [
-        "TARGET-PPL-009"
+        "TARGET-PPL-009",
+        "CASE-PPL-009-GUARDIAN"
       ],
       "shared_contract_ids": [
         "REQ-IDN-029",
@@ -432,6 +434,18 @@
         {
           "operation": "people.removeFromHousehold",
           "rule": "Removing a person from a household ends their current membership and preserves its history."
+        },
+        {
+          "operation": "people.setGuardianContact",
+          "rule": "Only a live adult in the child's own household can be a contact; a child, a person whose Adult or child is not recorded, someone outside the household, retired or in another church is refused and nothing is stored."
+        },
+        {
+          "operation": "people.setGuardianContact",
+          "rule": "Adding or removing a contact bumps the child's revision and writes one audit row on the child; a repeat changes nothing."
+        },
+        {
+          "operation": "people.removeFromHousehold",
+          "rule": "Leaving a household removes the parent or guardian contacts the person had there, as a child or as an adult."
         }
       ],
       "title": "Household lifecycle, member roles and deliberate address propagation",
@@ -1079,7 +1093,7 @@
         "PPL-015",
         "PPL-017"
       ],
-      "text": "Merge shows every differing field and its effects before confirm: account, household, photo, lifecycle, the records that move and any blockers. After merge the source opens the survivor and all its history shows on the survivor; assessments that used either person are marked out of date. Two account-linked people cannot merge; the linked person survives, and account grants and authorship never move. Records that would collide, such as attendance at the same meeting, an active training assignment, a pending RSVP, a distinct open follow-up, a referral cycle or conflicting household or leadership state, are named before confirm and never silently dropped. Repeating the same merge changes nothing and shows the earlier result; a merge based on an outdated review is refused.\n\nUnmerge, native and through reviewed Evry, previews the original merge and everything it will restore. It restores both people and their records as they were, unless later changes conflict; then it names the conflict and changes nothing. Conflicts include a chained merge, a new or corrected reference, a credential or authorship conflict, and sent mail or another disclosure. Repeating an unmerge changes nothing more. Later history and original authorship stay. A separately reviewed manual correction can fix named records within ordinary domain authority; it never unsends mail. There is no universal undo. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+      "text": "Merge shows every differing field and its effects before confirm: account, household, photo, lifecycle, the records that move and any blockers. After merge the source opens the survivor and all its history shows on the survivor; assessments that used either person are marked out of date. Sent email keeps its original recipient and shows in the survivor's history. Two account-linked people cannot merge; the linked person survives, and account grants and authorship never move. Records that would collide, such as attendance at the same meeting, an active training assignment, a pending RSVP, a distinct open follow-up, a referral cycle or conflicting household or leadership state, are named before confirm and never silently dropped. Repeating the same merge changes nothing and shows the earlier result; a merge based on an outdated review is refused.\n\nUnmerge, native and through reviewed Evry, previews the original merge, everything it will restore and everything that stays. It brings both people back with the records each had before. A record added after the merge stays with the person it was added to, and a survivor field the merge did not change keeps its later value. Email stays with the person it was sent to, exactly as sent, and shows in the survivor's history while merged; it is never unsent or resent. When a later change cannot be split, Unmerge names the conflict and changes nothing: a chained merge, a moved or combined record that was edited or removed or that a later record depends on, a merged field edited again, a deleted household, a retired survivor, or a credential or authorship conflict. Repeating an unmerge changes nothing more. Later history and original authorship stay. A separately reviewed manual correction can fix named records within ordinary domain authority; it never unsends mail. There is no universal undo. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge and reference rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; an organization Unmerge keeps the REQ-MUL-017 refusals of later edits, new references and irreversible disclosure. Plant-only recruitment/household/commitment facts remain plant-only.",
       "spec": "docs/product/people.md#req-ppl-025",
       "operations": [
         "people.getMergeReview",

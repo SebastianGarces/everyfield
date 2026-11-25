@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assessmentsMount } from "../../../apps/web/src/server/jobs/assessment.ts";
@@ -5,7 +6,7 @@ import { assessmentsMount } from "../../../apps/web/src/server/jobs/assessment.t
 const db = {} as never;
 const PAID = { EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" };
 
-test("INV-spend: the assessment job mounts the paid drafter only off production, never with EVRY_SCRIPTED_MODEL=1", () => {
+test("INV-spend: the assessment job mounts the paid drafter only off production, never with EVRY_SCRIPTED_MODEL=1", async () => {
 	const cases: [string, Record<string, string | undefined>, string | null][] = [
 		["local, paid", PAID, "gpt-6-luna"],
 		["development, paid", { ...PAID, VERCEL_ENV: "development" }, "gpt-6-luna"],
@@ -28,5 +29,6 @@ test("INV-spend: the assessment job mounts the paid drafter only off production,
 		["production, neither", { VERCEL_ENV: "production" }, null],
 		["an unknown environment", { ...PAID, VERCEL_ENV: "staging" }, null],
 	];
-	for (const [name, env, drafter] of cases) assert.equal(assessmentsMount(db, env)?.drafter.id ?? null, drafter, name);
+	for (const [name, env, drafter] of cases)
+		assert.equal((await assessmentsMount(db, env))?.drafter.id ?? null, drafter, name);
 });

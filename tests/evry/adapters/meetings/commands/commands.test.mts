@@ -185,7 +185,7 @@ test("INV-meetings-evaluation: an evaluation review shows exactly the planter's 
 	assert.deepEqual((await evaluated()).rows, [{ evaluation_scores: [4, 5, 3, 4, 5, 4, 3, 4] }]);
 });
 
-test("INV-meetings-stale: a review whose meeting changed since is refused at execution and overwrites nothing", async () => {
+test("INV-meetings-stale: a review whose meeting changed since overwrites nothing and asks again against the saved version", async () => {
 	const propose = await turn(owner);
 	const proposal = await propose("meetings.edit", { meetingId: seeded.training.id, title: "Team training night" });
 	assert.ok(proposal);
@@ -199,8 +199,7 @@ test("INV-meetings-stale: a review whose meeting changed since is refused at exe
 		input: { meetingId: seeded.training.id, patch: { notes: "Bring laptops" } },
 	});
 	const { outcome, review } = await approveAndRun(owner, proposal);
-	assert.equal(outcome, "refused");
-	assert.equal(review.receipt?.code, "revision_conflict");
+	assert.deepEqual([outcome, review.status, review.revision], ["reviewing", "pending", 2]);
 	const title = (await admin.execute(sql`SELECT title FROM meeting WHERE id=${seeded.training.id}`)).rows[0]!.title;
 	assert.equal(title, "Team training");
 });
@@ -282,4 +281,31 @@ test("AC:B02-016 INV-meetings-practice: a reviewed practice is completed once; a
 	const stale = await approveAndRun(owner, again);
 	assert.deepEqual([stale.outcome, stale.review.receipt?.code], ["refused", "revision_conflict"]);
 	assert.equal(await completions(), 1);
+});
+
+test("INV-meetings-cancelled-practice: a review to correct a cancelled practice says it can't be corrected, with no Approve", async () => {
+	const scheduled = (
+		await native<{ meeting: { id: string; revision: string } }>(owner, meetingsWriter.schedule as never, {
+			input: { type: "prelaunch_practice", title: "Called-off practice", date: localDate(-3), time: "10:00" },
+		})
+	).meeting;
+	await native(owner, meetingsWriter.changeStatus as never, {
+		expectedRevision: scheduled.revision,
+		input: { meetingId: scheduled.id, to: "cancelled" },
+	});
+	const row = sql`SELECT status, revision::text AS revision, actual_occurrence_at FROM meeting WHERE id=${scheduled.id}`;
+	const untouched = (await admin.execute(row)).rows[0];
+	const proposal = await (
+		await turn(owner)
+	)("meetings.correctPracticeOccurrence", {
+		meetingId: scheduled.id,
+		state: "completed",
+		reason: "It did happen",
+	});
+	assert.ok(proposal);
+	assert.equal(proposal.review.refusal, "A cancelled practice can't be corrected.");
+	await assert.rejects(
+		approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
+	);
+	assert.deepEqual((await admin.execute(row)).rows[0], untouched, "the cancelled practice stays as it was");
 });

@@ -2,18 +2,24 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import { searchPeople } from "../../../packages/domain/src/people/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f, plant, other, owner, member;
+let f: Fixture;
+let plant: Workspace;
+let other: Workspace;
+let owner: Account;
+let member: Account;
+type Workspace = Awaited<ReturnType<Fixture["workspace"]>>;
+type Account = Awaited<ReturnType<Fixture["account"]>>;
 let statements = 0;
-const rows = (name, email, phone = null, w = plant, state = "live") =>
+const rows = (name: string, email: string | null, phone: string | null = null, w = plant, state = "live") =>
 	f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,phone,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) VALUES(${randomUUID()},${w.id},${w.id},${name},${email},${phone},
 		'other','prospect','unknown','unknown',0,${state},clock_timestamp())`);
-const search = async (query, who = owner, w = plant) => {
+const search = async (query: string, who = owner, w = plant) => {
 	const r = await gatedTransaction(f.db, (tx) =>
 		searchPeople(tx, { session: who.session, selected: { kind: "plant", id: w.id } }, query),
 	);
@@ -25,14 +31,14 @@ before(async () => {
 	f = await fixture();
 	f.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args) {
+		client.query = function (this: unknown, ...args: unknown[]) {
 			statements++;
 			return Reflect.apply(query, this, args);
 		};
 	});
 	plant = await f.workspace();
 	other = await f.workspace();
-	const seated = async (w, role) => {
+	const seated = async (w: Workspace, role: "owner" | "member") => {
 		const a = await f.account();
 		await f.seat(a, w, role);
 		return a;
@@ -95,7 +101,7 @@ test("AC:TARGET-MTG-011 a phone query needs three digits and matches the phone d
 });
 
 test("INV-access the search keeps the live access check, returns at most 8 and sends a fixed number of statements", async () => {
-	const count = async (query) => {
+	const count = async (query: string) => {
 		const before = statements;
 		await search(query);
 		return statements - before;

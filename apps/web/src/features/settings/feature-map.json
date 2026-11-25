@@ -293,6 +293,18 @@
 							"name": "Change password"
 						}
 					]
+				},
+				{
+					"id": "mail-delayed",
+					"reach": {
+						"manual": "as owner, open /settings/account, choose Change by the email and send a link with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards)"
+					},
+					"expect": [
+						{
+							"text": "Its link works for 24 hours from your request",
+							"match": "contains"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -370,6 +382,21 @@
 							]
 						}
 					}
+				},
+				{
+					"id": "mail-delayed",
+					"says": "With email paused, an email change is requested and the result says the email to the new address is delayed.",
+					"catalog": ["IDN-010"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/flags/mail-delay.test.mts",
+								"name": "an email change with mail off says delayed and queues the mail with the same proof; back on it answers as before"
+							}
+						]
+					},
+					"noOperation": "the email change runs through the credential service, which is no catalog command"
 				}
 			]
 		},

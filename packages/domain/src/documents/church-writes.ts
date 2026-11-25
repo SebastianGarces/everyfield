@@ -11,6 +11,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
+import { readSwitches, switchedOff } from "../flags/index.ts";
 import { dataFromRow } from "../branding/kit.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
@@ -654,6 +655,7 @@ export const churchWriter = {
 	) {
 		return settle(async () => {
 			const input = parse(c.exportNativeRequest, raw);
+			if (switchedOff(await readSwitches(db), "document-exports", "documents.exportNative")) deny("exports_paused");
 			const scope = readerScope(authority);
 			const found = await rowsOf<{
 				ok: boolean;

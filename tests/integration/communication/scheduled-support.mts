@@ -1,3 +1,4 @@
+import type { ProviderKey } from "../../../packages/contracts/src/common/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import {
@@ -6,7 +7,7 @@ import {
 	type DeliveryKeys,
 	type DeliveryTransport,
 } from "../../../packages/domain/src/communication/delivery.ts";
-import { scheduledMessages } from "../../../apps/web/src/server/jobs/scheduled.ts";
+import { scheduledMessages, unsubscribedCancels } from "../../../apps/web/src/server/jobs/scheduled.ts";
 
 const like = (communicationId: string) => `communication/${communicationId}/%`;
 
@@ -23,6 +24,7 @@ export async function atSendTime(
 }
 
 export async function minuteRunner(db: Database, transport: DeliveryTransport, keys: DeliveryKeys) {
+	await unsubscribedCancels(db, transport)();
 	return scheduledMessages(db, transport, keys)(20, Infinity);
 }
 
@@ -43,7 +45,7 @@ export async function heldAtProvider(
 		frozen_payload: { sealed: string };
 		recipient_address_encrypted: string;
 		held: string;
-		provider_key: string;
+		provider_key: ProviderKey;
 	}[];
 	const messages = rows.map((row) => {
 		const body = JSON.parse(

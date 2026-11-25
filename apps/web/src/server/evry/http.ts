@@ -1,6 +1,7 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
 import { privateStorage } from "@everyfield/db/schema";
+import { readSwitches, type Switches } from "@everyfield/domain/flags";
 import { dashboardReader } from "@everyfield/domain/dashboard";
 import {
 	approveProposal,
@@ -21,9 +22,12 @@ import {
 	retryTurn,
 	retryUnresolvedEffects,
 	reviseProposal,
+	shownReview,
 	stageAttachment,
 	submitTurn,
+	withMailDelays,
 	type EvryActor,
+	type Proposal,
 } from "@everyfield/evry";
 import { logFailure } from "@everyfield/domain/log";
 import { after as afterResponse } from "next/server";
@@ -34,6 +38,21 @@ import { evryNative } from "./native";
 import { parseJson } from "../platform/json.ts";
 
 type IdParams = { params: Promise<{ id: string }> };
+
+const shownPage = async <P extends { reviews: Record<string, Proposal | null> }>(
+	db: Database,
+	actor: EvryActor,
+	page: P,
+) => ({ ...page, reviews: await withMailDelays(db, actor, page.reviews) });
+
+async function shownReply<R extends { proposal: Proposal }>(
+	db: Database,
+	actor: EvryActor,
+	reply: R,
+	switches?: () => Promise<Switches>,
+) {
+	return { ...reply, proposal: await shownReview(db, actor, reply.proposal, switches) };
+}
 
 export const catalogGet = () => evryResponse(async (_db, actor) => readCatalog(actor));
 
@@ -52,8 +71,12 @@ export const conversationsPost = mutatingRoute((request: Request) =>
 
 export const conversationGet = async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
-	return evryResponse((db, actor) =>
-		readConversation(db, actor, id, Number(new URL(request.url).searchParams.get("after") ?? 0)),
+	return evryResponse(async (db, actor) =>
+		shownPage(
+			db,
+			actor,
+			await readConversation(db, actor, id, Number(new URL(request.url).searchParams.get("after") ?? 0)),
+		),
 	);
 };
 
@@ -134,11 +157,14 @@ export const conversationAttachmentsPost = mutatingRoute(async (request: Request
 });
 
 export const openGet = () =>
-	evryResponse(async (db, actor) => ({
-		...((await openLatestConversation(db, actor)) ?? { conversation: null }),
-		pipeline: await pipelineListsPeople(db, actor),
-		churchName: await churchName(db, actor),
-	}));
+	evryResponse(async (db, actor) => {
+		const page = await openLatestConversation(db, actor);
+		return {
+			...(page ? await shownPage(db, actor, page) : { conversation: null }),
+			pipeline: await pipelineListsPeople(db, actor),
+			churchName: await churchName(db, actor),
+		};
+	});
 
 async function churchName(db: Database, actor: EvryActor) {
 	if (actor.owner.kind !== "plant") return null;
@@ -148,26 +174,35 @@ async function churchName(db: Database, actor: EvryActor) {
 
 export const proposalGet = async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;
-	return evryResponse((db, actor) => readReview(db, actor, id));
+	return evryResponse(async (db, actor) => shownReview(db, actor, await readReview(db, actor, id)));
 };
 
 export const proposalApprovePost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
-		const approved = await approveProposal(db, actor, id, parseJson(await request.text()) ?? null, privateStorage());
+		const switches = await readSwitches(db);
+		const mail = evryMail(!switches["outbound-mail"]);
+		const approved = await approveProposal(
+			db,
+			actor,
+			id,
+			parseJson(await request.text()) ?? null,
+			privateStorage(),
+			mail,
+		);
 		if (!approved.replayed || approved.proposal.executing) drainEffects();
-		return approved;
+		return shownReply(db, actor, approved, async () => switches);
 	});
 });
 
 export const proposalCancelPost = mutatingRoute(async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;
-	return evryResponse((db, actor) => cancelProposal(db, actor, id));
+	return evryResponse(async (db, actor) => shownReply(db, actor, await cancelProposal(db, actor, id)));
 });
 
 export const proposalCheckPost = mutatingRoute(async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;
-	return evryResponse(async (db, actor) => checkProposal(db, actor, id, evryMail()));
+	return evryResponse(async (db, actor) => shownReply(db, actor, await checkProposal(db, actor, id, evryMail(false))));
 });
 
 export const proposalPhotoGet = async (_request: Request, { params }: IdParams) => {
@@ -187,13 +222,13 @@ export const proposalRetryPost = mutatingRoute(async (_request: Request, { param
 	return evryResponse(async (db, actor) => {
 		const retried = await retryUnresolvedEffects(db, actor, id);
 		if (retried.retried) drainEffects();
-		return retried;
+		return shownReply(db, actor, retried);
 	});
 });
 
 export const proposalRevisePost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) =>
-		reviseProposal(db, actor, id, parseJson(await request.text()) ?? null, evryMail(), evryNative()),
+		reviseProposal(db, actor, id, parseJson(await request.text()) ?? null, evryMail(false), evryNative()),
 	);
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { instant, localDate, timeZone } from "../common/time.ts";
+import { accountAvatarPath, type AppAssetPath } from "../common/assets.ts";
 import { accountId, defineSafeError, recordId, revision, safeError } from "../common/values.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 import { organizationProfileResult, sharingResult } from "../organizations/results.ts";
@@ -7,8 +8,8 @@ import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
 import { notificationSettings, plantSettings, settingsName, timezonePreference } from "./values.ts";
 
 export const avatarReference = z.strictObject({ accountId, versionId: recordId });
-export function avatarRoute(value: z.infer<typeof avatarReference>): string {
-	return `/api/accounts/${value.accountId}/avatar/${value.versionId}`;
+export function avatarRoute(value: z.infer<typeof avatarReference>): AppAssetPath {
+	return accountAvatarPath(value.accountId, value.versionId);
 }
 export const avatarResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("absent") }),
@@ -78,5 +79,6 @@ export const settingsError = z.discriminatedUnion("code", [
 	defineSafeError("manual_owner_exception_required", {}, "never"),
 ]);
 export type SectionResult = z.infer<typeof sectionResult>;
+export type EmailChangeRequested = { status: "verification_requested"; mailDelayed?: true };
 export type SettingsError = z.infer<typeof settingsError>;
 export { organizationOwner };

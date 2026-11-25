@@ -3,6 +3,7 @@ import {
 	instant,
 	localDate,
 	localDateTime,
+	dayText,
 	resolveCalendar,
 	timeZone,
 } from "@everyfield/contracts/common";
@@ -112,13 +113,7 @@ export async function planNotifications(db: Reader, plantId: string, raw: z.inpu
 
 const heading = { announcement: "New meeting", day_7: "In 7 days", day_3: "In 3 days", day_1: "Tomorrow" } as const;
 function when(m: Pick<MeetingRow, "local_date" | "local_time">) {
-	const day = new Date(`${m.local_date}T00:00:00Z`).toLocaleDateString("en-US", {
-		timeZone: "UTC",
-		weekday: "long",
-		month: "long",
-		day: "numeric",
-		year: "numeric",
-	});
+	const day = dayText(m.local_date, { weekday: "long", month: "long" });
 	const [h, min] = m.local_time.split(":").map(Number) as [number, number];
 	return `${day} at ${((h + 11) % 12) + 1}:${String(min).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }

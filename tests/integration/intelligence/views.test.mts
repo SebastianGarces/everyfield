@@ -11,8 +11,10 @@ import {
 	type Drafter,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { getPlant, listPlants } from "../../../packages/domain/src/oversight/index.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { peopleMerge } from "../../../packages/domain/src/people/index.ts";
 import { church, type Church } from "./assessment-church.mts";
 
 const HOUR = 3_600_000;
@@ -126,7 +128,9 @@ test("the plant moves to Phase 3 after its Phase 2 assessment: the read keeps it
 
 test("a fact citation opens the exact value and date from the run's own snapshot, and links only the people the reader can still open; a passage citation opens the passage the run read", async () => {
 	const { p, run } = await assessedPlant("Cedar Grove Church");
-	const gone = (await c0.one(sql`SELECT id FROM person WHERE plant_id=${p.id} AND display_name='Adult 07'`)).id;
+	const gone = (
+		await c0.one<{ id: string }>(sql`SELECT id FROM person WHERE plant_id=${p.id} AND display_name='Adult 07'`)
+	).id;
 	await c0.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${gone}`);
 	const fact = ok(
 		await assessments.resolveCitation(c0.db, p.actor, { runId: run.runId, key: "committedAdults.atLeast" }),
@@ -140,6 +144,27 @@ test("a fact citation opens the exact value and date from the run's own snapshot
 	assert.equal(fact.people.hidden, 1);
 	assert.ok(!fact.people.shown.some((x) => x.personId === gone), "no link to a record the reader cannot open");
 	assert.ok(!JSON.stringify(fact).includes(gone));
+	const [from, into] = await c0.rows<{ id: string }>(
+		sql`SELECT id FROM person WHERE plant_id=${p.id} AND display_name IN ('Adult 08','Adult 09') ORDER BY display_name`,
+	);
+	const context = { session: p.actor.session, selected: p.actor.actor.context.owner } as never;
+	const pair = { sourceId: from!.id, survivorId: into!.id };
+	const row = await runRow(run.runId);
+	const { reviewDigest } = ok(await gatedTransaction(c0.db, (tx) => peopleMerge.getMergeReview(tx, context, pair)));
+	ok(
+		await gatedTransaction(c0.db, (tx) =>
+			peopleMerge.mergePeople(tx, context, { requestKey: randomUUID(), input: { ...pair, reviewDigest } }),
+		),
+	);
+	assert.deepEqual(await runRow(run.runId), row, "the recorded assessment is unchanged");
+	const merged = ok(
+		await assessments.resolveCitation(c0.db, p.actor, { runId: run.runId, key: "committedAdults.atLeast" }),
+	);
+	assert.deepEqual(merged, fact, "the citation still names the person it counted");
+	const landing = ok(
+		await gatedTransaction(c0.db, (tx) => peopleMerge.mergedPersonDestination(tx, context, { personId: from!.id })),
+	);
+	assert.equal(landing.destinationId, into!.id, "and the link opens the survivor");
 	const stored = (await runRow(run.runId)).row as {
 		result: { citations: Record<string, { kind: string; text?: string }> };
 	};
@@ -289,7 +314,9 @@ test("every concern the organization sees is one the planter sees, with the same
 	assert.equal(org.plant.health, "watch");
 
 	const payload = JSON.stringify(org);
-	const people = await c0.rows(sql`SELECT id,display_name FROM person WHERE plant_id=${p.id}`);
+	const people = await c0.rows<{ id: string; display_name: string }>(
+		sql`SELECT id,display_name FROM person WHERE plant_id=${p.id}`,
+	);
 	for (const who of people) {
 		assert.ok(!payload.includes(who.id), "no person id");
 		assert.ok(!payload.includes(who.display_name), "no person name");

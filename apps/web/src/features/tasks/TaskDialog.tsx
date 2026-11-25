@@ -7,11 +7,14 @@ import { createDebouncer } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { localToday } from "../../components/clock.ts";
 import { createRead, useRead } from "../../components/read.tsx";
+import { changesKept, CHOOSE_FIRST, type ConflictField } from "../../components/save/conflict.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
+import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
+import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import { offsetText } from "../../components/dates.ts";
 import { createTask, editTask } from "./actions.ts";
-import { AssigneePicker, forgetAssignees } from "./AssigneePicker.tsx";
+import { AssigneePicker, reloadAssignees } from "./AssigneePicker.tsx";
 import { relationOptions } from "./fetch.ts";
 import {
 	CATEGORIES,
@@ -19,13 +22,13 @@ import {
 	DUE_KIND_LABEL,
 	dueDraftOf,
 	dueInputOf,
+	dueText,
 	heldAssignees,
 	noticingIneligible,
 	PRIORITIES,
 	PRIORITY_LABEL,
 	problemText,
 	previewOverdue,
-	rebase,
 	sameDue,
 	timeText,
 	PENDING_PREFIX,
@@ -92,6 +95,27 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	};
 }
 
+const TASK = "this task";
+const FIELDS: readonly ConflictField<Draft>[] = [
+	{ key: "title", label: "Title", text: (d) => d.title },
+	{ key: "description", label: "Description", text: (d) => d.description },
+	{ key: "due", label: "Due", text: (d) => dueDraftText(d.due) },
+	{
+		key: "assigneeIds",
+		label: "Assigned to",
+		text: (d) => d.assigneeIds.map((id) => d.assigneeNames[id] ?? "Someone").join(", ") || "Nobody",
+	},
+	{ key: "priority", label: "Priority", text: (d) => PRIORITY_LABEL[d.priority] },
+	{ key: "category", label: "Category", text: (d) => CATEGORY_LABEL[d.category] },
+	{ key: "relation", label: "Linked to", text: (d) => d.relation?.label ?? "Nothing" },
+];
+
+function dueDraftText(due: DueDraft) {
+	if (due.kind === "undated" || due.date === "") return DUE_KIND_LABEL.undated;
+	const day = dueText({ kind: "local_date", date: due.date as never }) ?? due.date;
+	return due.kind === "resolved_instant" ? `${day}, ${timeText(due.time)}` : day;
+}
+
 export type EditForm = {
 	kind: "edit";
 	task: TaskDetail | null;
@@ -119,12 +143,7 @@ export function TaskDialog({
 }) {
 	if (!form) return null;
 	const task = form.task ? (latest ?? form.task) : null;
-	return (
-		<Form
-			key={task ? `${task.id}:${task.revision}` : "new"}
-			{...{ form, task, viewer, wait, problem, onClose, onCommit }}
-		/>
-	);
+	return <Form key={task?.id ?? "new"} {...{ form, task, viewer, wait, problem, onClose, onCommit }} />;
 }
 
 function Form({
@@ -145,14 +164,25 @@ function Form({
 	onCommit: (c: Commit) => void;
 }) {
 	const initial = draftOf(task, viewer);
-	const [draft, setDraft] = useState(() =>
-		form.draft ? rebase(form.draft, draftOf(form.task, viewer), initial) : initial,
-	);
+	const merged = useMergedDraft<Draft>({
+		base: draftOf(form.task, viewer),
+		latest: initial,
+		start: form.draft,
+		fields: FIELDS,
+	});
+	const draft: Draft = {
+		...merged.values,
+		assigneeNames: { ...initial.assigneeNames, ...merged.values.assigneeNames },
+	};
 	const [touched, setTouched] = useState(false);
 	const [problem, setProblem] = useState(() =>
 		form.problem === "owner_ineligible" && form.draft
 			? problemText("owner_ineligible", form.draft.assigneeNames[form.draft.ineligible ?? ""])
-			: (refusal ?? null),
+			: form.problem === "conflict"
+				? merged.rows.length
+					? null
+					: changesKept(TASK)
+				: (refusal ?? null),
 	);
 	const [asked, setAsked] = useState<TimeQuestion>(() =>
 		form.problem === "nonexistent_local_time"
@@ -166,11 +196,11 @@ function Form({
 	const foldBox = useRef<HTMLDivElement>(null);
 	const managed = task?.managed ?? null;
 	const set = (patch: Partial<Draft>) => {
-		setDraft((d) => ({ ...d, ...patch }));
+		merged.set(patch);
 		setProblem(null);
 	};
 	const setDue = (patch: Partial<DueDraft>) => {
-		setDraft((d) => ({ ...d, due: { ...d.due, ...patch, offsetSeconds: undefined } }));
+		merged.set({ due: { ...draft.due, ...patch, offsetSeconds: undefined } });
 		setAsked(null);
 		setProblem(null);
 	};
@@ -189,7 +219,8 @@ function Form({
 
 	function submit(): boolean {
 		setTouched(true);
-		if (!title || !due.ok || descriptionError) return false;
+		if (merged.unchosen) setProblem(CHOOSE_FIRST);
+		if (!title || !due.ok || descriptionError || merged.unchosen) return false;
 		if (fold && draft.due.offsetSeconds === undefined) {
 			setProblem("Choose which time you mean.");
 			foldBox.current?.querySelector<HTMLElement>("button")?.focus();
@@ -228,7 +259,7 @@ function Form({
 			send = (key) => editTask(key, revision, task.id, patch);
 		}
 		const committed: Draft = { ...draft, ineligible: undefined };
-		send = noticingIneligible(send, forgetAssignees, (accountId) => (committed.ineligible = accountId));
+		send = noticingIneligible(send, reloadAssignees, (accountId) => (committed.ineligible = accountId));
 		const shownDue: Due =
 			due.due.kind === "undated"
 				? { kind: "undated" }
@@ -286,6 +317,19 @@ function Form({
 			description={task ? undefined : "Say what needs doing. Everything else is optional."}
 			action={task ? "Save changes" : "Add task"}
 			problem={problem ?? undefined}
+			conflict={
+				<SaveConflict
+					what={TASK}
+					rows={merged.rows}
+					asked={touched}
+					focus={form.problem === "conflict"}
+					onPick={(field, pick) => {
+						merged.choose(field, pick);
+						setProblem(null);
+					}}
+					onKeepSaved={onClose}
+				/>
+			}
 			wait={wait}
 			onClose={onClose}
 			onSubmit={submit}
@@ -340,8 +384,7 @@ function Form({
 						aria-labelledby="fold-question"
 						value={draft.due.offsetSeconds === undefined ? "" : String(draft.due.offsetSeconds)}
 						onValueChange={(v) => {
-							setDraft((d) => ({ ...d, due: { ...d.due, offsetSeconds: Number(v) } }));
-							setProblem(null);
+							set({ due: { ...draft.due, offsetSeconds: Number(v) } });
 						}}
 					>
 						{fold.map((c, i) => (
@@ -382,7 +425,12 @@ function Form({
 					/>
 				</Field>
 			</div>
-			<RelationField value={draft.relation} locked={Boolean(managed)} onChange={(relation) => set({ relation })} />
+			<RelationField
+				key={merged.rows.find((row) => row.field === "relation")?.pick}
+				value={draft.relation}
+				locked={Boolean(managed)}
+				onChange={(relation) => set({ relation })}
+			/>
 		</RecordDialog>
 	);
 }

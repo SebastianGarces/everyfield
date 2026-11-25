@@ -5,9 +5,14 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import type * as TS from "../../../packages/domain/node_modules/typescript/lib/typescript.js";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import {
+	communicationWriter,
+	type DeliveryTransport,
+	withCommunicationWrite,
+} from "../../../packages/domain/src/communication/index.ts";
 import {
 	assessments,
 	checkForDuplicates,
@@ -38,6 +43,9 @@ import {
 	searchPeople,
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
+import { personId } from "../../../packages/contracts/src/common/index.ts";
+import { activityRequest, listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
+import type { WriteTx } from "../../../packages/domain/src/access/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import {
 	guestsWriter,
@@ -65,7 +73,18 @@ import {
 	searchReadings,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/features/people/import-export/run-imports.ts";
-import { ok } from "../../support/fixture.mts";
+import { ok, type Workspace } from "../../support/fixture.mts";
+import {
+	casesFor,
+	plain,
+	rowsOf,
+	stubStorage,
+	tenancyCase,
+	type Seeded,
+	type Tenancy,
+	type TenancyCase,
+	type TenancyOwner,
+} from "./tenancy-case.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { dashboardCases, seedDashboard } from "./tenancy-dashboard.mts";
@@ -82,6 +101,7 @@ import { seedSettings, settingsCases } from "./tenancy-settings.mts";
 import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
 import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING, MAILING_LINE } from "../communication/church-address.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -95,22 +115,22 @@ const WRITE_VERBS = new Set(
 
 function discoverReads() {
 	const domain = path.join(root, "packages/domain");
-	const ts = createRequire(path.join(domain, "package.json"))("typescript");
+	const ts: typeof TS = createRequire(path.join(domain, "package.json"))("typescript");
 	const config = ts.getParsedCommandLineOfConfigFile(
 		path.join(domain, "tsconfig.json"),
 		{},
 		{
 			...ts.sys,
-			onUnRecoverableConfigFileDiagnostic(d) {
+			onUnRecoverableConfigFileDiagnostic(d: TS.Diagnostic) {
 				throw Error(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
 			},
 		},
 	);
 	const src = path.join(domain, "src") + path.sep;
-	const files = config.fileNames.filter((f) => f.startsWith(src) && !/\.test\.tsx?$/.test(f));
-	const program = ts.createProgram(files, { ...config.options, noEmit: true });
+	const files = config!.fileNames.filter((f) => f.startsWith(src) && !/\.test\.tsx?$/.test(f));
+	const program = ts.createProgram(files, { ...config!.options, noEmit: true });
 	const checker = program.getTypeChecker();
-	const exportsOf = (file) => {
+	const exportsOf = (file: string) => {
 		const source = program.getSourceFile(file);
 		const module = source && checker.getSymbolAtLocation(source);
 		if (!module) throw Error(`No module for ${file}`);
@@ -118,14 +138,15 @@ function discoverReads() {
 			.getExportsOfModule(module)
 			.map((s) => (s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s));
 	};
-	const typeOf = (symbol) => {
+	const typeOf = (symbol: TS.Symbol) => {
 		const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
 		return declaration ? checker.getTypeOfSymbolAtLocation(symbol, declaration) : null;
 	};
 	const requestActor = exportsOf(path.join(src, "access/session.ts")).find((s) => s.name === "RequestActor");
-	const isActor = (type) => type.getSymbol() === requestActor || (type.isUnion() && type.types.some(isActor));
-	const opaque = (type) => type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown);
-	const holdsActor = (type) =>
+	const isActor = (type: TS.Type): boolean =>
+		type.getSymbol() === requestActor || (type.isUnion() && type.types.some(isActor));
+	const opaque = (type: TS.Type) => type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown);
+	const holdsActor = (type: TS.Type): boolean =>
 		!opaque(type) &&
 		(isActor(type) ||
 			(type.isUnion() ? type.types : [type]).some((part) =>
@@ -134,14 +155,14 @@ function discoverReads() {
 					return t !== null && isActor(t);
 				}),
 			));
-	const carriers = [];
+	const carriers: TS.Type[] = [];
 	for (const file of files)
 		for (const symbol of exportsOf(file))
 			if (symbol.valueDeclaration && ts.isClassDeclaration(symbol.valueDeclaration)) {
 				const instance = checker.getDeclaredTypeOfSymbol(symbol);
 				if (holdsActor(instance)) carriers.push(instance);
 			}
-	const takesActor = (signature) =>
+	const takesActor = (signature: TS.Signature) =>
 		signature.getParameters().some((parameter) => {
 			const type = typeOf(parameter);
 			if (!type || opaque(type)) return false;
@@ -150,16 +171,18 @@ function discoverReads() {
 				(type.getProperties().length > 0 && carriers.some((c) => checker.isTypeAssignableTo(c, type)))
 			);
 		});
-	const reads = new Set();
-	const consider = (name, type) => {
+	const reads = new Set<string>();
+	const consider = (name: string, type: TS.Type | null) => {
 		if (!type?.getCallSignatures().some(takesActor)) return;
 		const verb = name
 			.split(/[:.]/)
 			.pop()
-			.match(/^[a-z]+/)?.[0];
-		if (!WRITE_VERBS.has(verb)) reads.add(name);
+			?.match(/^[a-z]+/)?.[0];
+		if (!verb || !WRITE_VERBS.has(verb)) reads.add(name);
 	};
-	const { exports } = JSON.parse(readFileSync(path.join(domain, "package.json"), "utf8"));
+	const { exports }: { exports: Record<string, string> } = JSON.parse(
+		readFileSync(path.join(domain, "package.json"), "utf8"),
+	);
 	for (const [entry, file] of Object.entries(exports)) {
 		const area = entry.replace(/^\.\//, "");
 		for (const symbol of exportsOf(path.join(domain, file))) {
@@ -175,9 +198,9 @@ function discoverReads() {
 	return reads;
 }
 
-let f, plantA, plantB, ownerA, ownerB;
-const a = {};
-let t;
+let f: Tenancy["f"], plantA: Workspace, plantB: Workspace, ownerA: TenancyOwner, ownerB: TenancyOwner;
+const a = {} as Seeded;
+let t: Tenancy;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -185,7 +208,7 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = rowsOf(() => f.admin);
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const day = 86_400_000;
 const AT = new Date(Math.ceil((Date.now() + 7 * day) / 3_600_000) * 3_600_000).toISOString();
@@ -193,30 +216,31 @@ const occurredOn = new Date(Date.now() - 30 * day).toISOString().slice(0, 10);
 const MARK = "ALPHA-TENANCY";
 const AVERY_EMAIL = "alpha-tenancy-avery@example.test";
 
-const communicate = (op, input) =>
-	withCommunicationWrite(f.db, ownerA.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-const people = (body) => withPeopleWrite(f.db, ownerA.actor, body);
-const personA = async (name, fields = {}) =>
+const communicate = <V,>(body: Parameters<typeof withCommunicationWrite<V>>[2]) =>
+	withCommunicationWrite(f.db, ownerA.actor, body);
+const people = <V,>(body: Parameters<typeof withPeopleWrite<V>>[2]) => withPeopleWrite(f.db, ownerA.actor, body);
+const personA = async (name: string, fields: object = {}) =>
 	ok(
 		await people((t, c) =>
 			peopleWriter.createPerson(t, c, { requestKey: key(), input: { displayName: `${MARK} ${name}`, ...fields } }),
 		),
 	).person;
-const transport = {
+const unreached = async () => {
+	throw Error("No scheduled message is moved");
+};
+const transport: DeliveryTransport = {
+	paused: false,
+	cancel: unreached,
+	reschedule: unreached,
 	async send(batch) {
 		return { outcome: "ids", ids: batch.messages.map(() => `prov-${key()}`) };
 	},
 };
 let storageCalls = 0;
-const storage = {
-	bucket: "tenancy-only",
-	client: {
-		async send() {
-			storageCalls += 1;
-			throw Error("storage_reached");
-		},
-	},
-};
+const storage = stubStorage("tenancy-only", () => {
+	storageCalls += 1;
+	throw Error("storage_reached");
+});
 
 async function seedChurchA() {
 	await f.admin.execute(sql`UPDATE plant SET name = ${`${MARK} Church`}, timezone = 'America/Chicago'
@@ -265,8 +289,9 @@ async function seedChurchA() {
 				input: { name: `${MARK} household`, street: "1 Alpha St", city: "Alphaville", headPersonId: blair.id },
 			}),
 		),
-	).result.household;
-	a.household = household.id;
+	).result;
+	assert.ok(household.status === "available");
+	a.household = household.household.id;
 	const lens = { score: 4, notes: `${MARK} lens` };
 	const assessment = ok(
 		await people((t, c) =>
@@ -343,7 +368,7 @@ async function seedChurchA() {
 			}),
 		),
 	);
-	a.merge = (await rows(sql`SELECT id FROM person_merge WHERE source_id = ${source.id}`))[0].id;
+	a.merge = (await rows<{ id: string }>(sql`SELECT id FROM person_merge WHERE source_id = ${source.id}`))[0]!.id;
 
 	const file = new TextEncoder().encode(
 		`first_name,email\r\n${MARK}-Imported,alpha-tenancy-import@example.test\r\n${MARK}-Again,alpha-tenancy-import@example.test\r\n` +
@@ -368,12 +393,12 @@ async function seedChurchA() {
 	const listedPairs = ok(
 		await gatedTransaction(f.db, (t) => listDuplicatePairs(t, new PeopleReadContext(ownerA.actor))),
 	).items;
-	const again = listedPairs.find((p) => p.person.displayName === `${MARK}-Again`);
+	const again = listedPairs.find((p) => p.person.displayName === `${MARK}-Again`)!;
 	a.listedPair = { a: again.with.id, b: again.person.id };
 	const pairs = listedPairs.filter((p) => p.person.displayName === `${MARK}-Third`);
 	ok(
 		await people((t, c) =>
-			dismissDuplicatePair(t, c, { personId: pairs[0].person.id, withPersonId: pairs[0].with.id }),
+			dismissDuplicatePair(t, c, { personId: pairs[0]!.person.id, withPersonId: pairs[0]!.with.id }),
 		),
 	);
 
@@ -392,47 +417,62 @@ async function seedChurchA() {
 		'2026-11-01T23:00:00Z','1','completed',1)`);
 
 	a.template = ok(
-		await communicate("createTemplate", {
-			requestKey: key(),
-			input: {
-				name: `${MARK} template`,
-				description: null,
-				category: "announcement",
-				meetingType: null,
-				subject: `${MARK} template subject`,
-				bodyHtml: `<p>${MARK} template body</p>`,
-			},
-		}),
+		await communicate((tx, ctx) =>
+			communicationWriter.createTemplate(tx, ctx, {
+				requestKey: key(),
+				input: {
+					name: `${MARK} template`,
+					description: null,
+					category: "announcement",
+					meetingType: null,
+					subject: `${MARK} template subject`,
+					bodyHtml: `<p>${MARK} template body</p>`,
+				},
+			}),
+		),
 	).templateId;
-	ok(await communicate("forkTemplate", { requestKey: key(), input: { sourceKey: "vision-meeting-invitation" } }));
+	ok(
+		await communicate((tx, ctx) =>
+			communicationWriter.forkTemplate(tx, ctx, {
+				requestKey: key(),
+				input: { sourceKey: "vision-meeting-invitation" },
+			}),
+		),
+	);
 	a.draft = ok(
-		await communicate("saveDraft", {
-			requestKey: key(),
-			input: {
-				subject: `${MARK} draft`,
-				bodyHtml: `<p>${MARK} draft body</p>`,
-				audience: { ...emptyAudience, personIds: [avery.id] },
-			},
-		}),
+		await communicate((tx, ctx) =>
+			communicationWriter.saveDraft(tx, ctx, {
+				requestKey: key(),
+				input: {
+					subject: `${MARK} draft`,
+					bodyHtml: `<p>${MARK} draft body</p>`,
+					audience: { ...emptyAudience, personIds: [avery.id] },
+				},
+			}),
+		),
 	).communicationId;
 	const sent = ok(
-		await communicate("saveDraft", {
-			requestKey: key(),
-			input: {
-				subject: `${MARK} sent`,
-				bodyHtml: `<p>${MARK} sent body</p>`,
-				audience: { ...emptyAudience, personIds: [avery.id, blair.id] },
-				meetingId: a.meeting,
-			},
-		}),
+		await communicate((tx, ctx) =>
+			communicationWriter.saveDraft(tx, ctx, {
+				requestKey: key(),
+				input: {
+					subject: `${MARK} sent`,
+					bodyHtml: `<p>${MARK} sent body</p>`,
+					audience: { ...emptyAudience, personIds: [avery.id, blair.id] },
+					meetingId: a.meeting,
+				},
+			}),
+		),
 	);
 	a.sent = sent.communicationId;
 	const scheduled = ok(
-		await communicate("scheduleReviewed", {
-			requestKey: key(),
-			expectedRevision: sent.revision,
-			input: { communicationId: a.sent, scheduledAt: AT },
-		}),
+		await communicate((tx, ctx) =>
+			communicationWriter.scheduleReviewed(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: sent.revision,
+				input: { communicationId: a.sent, scheduledAt: AT },
+			}),
+		),
 	);
 	ok(
 		await communicationWriter.sendReviewed(
@@ -447,101 +487,167 @@ async function seedChurchA() {
 }
 
 async function churchASecrets() {
-	const tables = await rows(sql`SELECT table_name AS name,
+	const tables = await rows<{ name: string; owners: string[] }>(sql`SELECT table_name AS name,
 			array_agg(column_name::text) FILTER (WHERE column_name <> 'id') AS owners
 		FROM information_schema.columns
 		WHERE table_schema = current_schema() AND column_name IN ('id', 'plant_id', 'tenant_id')
 		GROUP BY table_name HAVING bool_or(column_name = 'id') AND count(*) > 1`);
-	const ids = new Set([plantA.id, ownerA.id, a.importKey]);
+	const ids = new Set<string>([plantA.id, ownerA.id, a.importKey]);
 	for (const table of tables) {
 		const owned = sql.join(
 			table.owners.map((column) => sql`${sql.identifier(column)} = ${plantA.id}::uuid`),
 			sql` OR `,
 		);
-		for (const row of await rows(sql`SELECT id::text AS id FROM ${sql.identifier(table.name)} WHERE ${owned}`))
+		for (const row of await rows<{ id: string }>(
+			sql`SELECT id::text AS id FROM ${sql.identifier(table.name)} WHERE ${owned}`,
+		))
 			ids.add(row.id);
 	}
 	return [...ids, ownerA.email, MARK, MARK.toLowerCase()];
 }
 
-const plain = async (body) => ({ status: "ok", value: await body() });
-
-function cases(who) {
-	const comms = (op, input, deliveryKeys) =>
-		gatedTransaction(f.db, (tx) =>
-			input === undefined
-				? communicationWriter[op](tx, who.actor)
-				: communicationWriter[op](tx, who.actor, input, deliveryKeys),
-		);
-	const reads = (body) => gatedTransaction(f.db, (tx) => body(tx, new PeopleReadContext(who.actor)));
-	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
-	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
-	const area = (name, run, expected) => [name, { run, expected }];
+function cases(who: TenancyOwner) {
+	const comms = <V,>(body: (tx: WriteTx) => Promise<V>) => gatedTransaction(f.db, body);
+	const reads = <V,>(body: (tx: WriteTx, context: PeopleReadContext) => Promise<V>) =>
+		gatedTransaction(f.db, (tx) => body(tx, new PeopleReadContext(who.actor)));
+	const comm = casesFor("communication:communicationWriter.");
+	const ppl = casesFor("people:");
 	const unavailable = { refused: "unavailable" };
-	return new Map([
-		area(
+	return new Map<string, TenancyCase[1]>([
+		tenancyCase(
 			"meetings:meetingsReader.pageGuests",
 			() => gatedTransaction(f.db, (t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
 			unavailable,
 		),
-		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {
-			refused: "invalid_subject",
-		}),
-		comm("readAudience", () => comms("readAudience", { ...emptyAudience, personIds: [a.avery], teamIds: [a.team] }), {
-			value: {
-				resolvedDistinctPeople: 0,
-				eligibleRecipients: 0,
-				missingEmailExclusions: [],
-				unsubscribedExclusions: [],
-				duplicateAddressesRemoved: 0,
-				eligibleEmails: [],
-				searchResultLimit: 20,
-				searchLimitTruncatesAudience: false,
-				recipients: [],
-				complete: true,
+		comm(
+			"readPreview",
+			() =>
+				comms((tx) => communicationWriter.readPreview(tx, who.actor, { bodyHtml: "<p>Hi</p>", meetingId: a.meeting })),
+			{
+				refused: "invalid_subject",
 			},
+		),
+		comm(
+			"readAudience",
+			() =>
+				comms((tx) =>
+					communicationWriter.readAudience(tx, who.actor, {
+						...emptyAudience,
+						personIds: [a.avery],
+						teamIds: [a.team],
+					}),
+				),
+			{
+				value: {
+					resolvedDistinctPeople: 0,
+					eligibleRecipients: 0,
+					missingEmailExclusions: [],
+					unsubscribedExclusions: [],
+					childExclusions: [],
+					guardianRoutes: [],
+					duplicateAddressesRemoved: 0,
+					eligibleEmails: [],
+					searchResultLimit: 20,
+					searchLimitTruncatesAudience: false,
+					recipients: [],
+					complete: true,
+				},
+			},
+		),
+		comm("readRecipients", () => comms((tx) => communicationWriter.readRecipients(tx, who.actor, { query: MARK })), {
+			value: { people: [], limit: 20 },
 		}),
-		comm("readRecipients", () => comms("readRecipients", { query: MARK }), { value: { people: [], limit: 20 } }),
 		comm(
 			"readMergeFields",
-			() => comms("readMergeFields", { bodyHtml: "<p>Hi {{name}}</p>", merge: { name: "Bea" } }),
+			() =>
+				comms((tx) =>
+					communicationWriter.readMergeFields(tx, who.actor, {
+						bodyHtml: "<p>Hi {{name}}</p>",
+						merge: { name: "Bea" },
+					}),
+				),
 			{
 				value: { bodyHtml: "<p>Hi Bea</p>", bodyText: "Hi Bea" },
 				control: (value) => assert.deepEqual(value, { bodyHtml: "<p>Hi Bea</p>", bodyText: "Hi Bea" }),
 			},
 		),
-		comm("readMeetingTemplate", () => comms("readMeetingTemplate", { meetingType: "vision_meeting" }), {
-			partial: { origin: "system", sourceKey: "vision-meeting-invitation" },
+		comm(
+			"readMeetingTemplate",
+			() => comms((tx) => communicationWriter.readMeetingTemplate(tx, who.actor, { meetingType: "vision_meeting" })),
+			{
+				partial: { origin: "system", sourceKey: "vision-meeting-invitation" },
+			},
+		),
+		comm("get", () => comms((tx) => communicationWriter.get(tx, who.actor, { id: a.draft })), { refused: "not_found" }),
+		comm("getDraft", () => comms((tx) => communicationWriter.getDraft(tx, who.actor, { id: a.draft })), {
+			refused: "not_found",
 		}),
-		comm("get", () => comms("get", { id: a.draft }), { refused: "not_found" }),
-		comm("getDraft", () => comms("getDraft", { id: a.draft }), { refused: "not_found" }),
-		comm("listDrafts", () => comms("listDrafts"), { value: { drafts: [] } }),
-		comm("readChurchName", () => comms("readChurchName"), { value: { churchName: "Synthetic plant" } }),
-		comm("listAudienceTeams", () => comms("listAudienceTeams"), { value: { teams: [] } }),
-		comm("listTemplates", () => comms("listTemplates"), {
+		comm("listDrafts", () => comms((tx) => communicationWriter.listDrafts(tx, who.actor)), { value: { drafts: [] } }),
+		comm("readChurchName", () => comms((tx) => communicationWriter.readChurchName(tx, who.actor)), {
+			value: { churchName: "Synthetic plant", mailingAddress: MAILING_LINE },
+		}),
+		comm("listAudienceTeams", () => comms((tx) => communicationWriter.listAudienceTeams(tx, who.actor)), {
+			value: { teams: [] },
+		}),
+		comm("listTemplates", () => comms((tx) => communicationWriter.listTemplates(tx, who.actor)), {
 			check: (value) => assert.deepEqual(new Set(value.templates.map((t) => t.origin)), new Set(["system"])),
 		}),
-		comm("getTemplate", () => comms("getTemplate", { id: a.template }), { refused: "not_found" }),
+		comm("getTemplate", () => comms((tx) => communicationWriter.getTemplate(tx, who.actor, { id: a.template })), {
+			refused: "not_found",
+		}),
 		comm("listForSelf", () => communicationWriter.listForSelf(f.db, who.actor, { address: ownerA.email }, keys), {
 			refused: "access_denied",
 		}),
-		comm("listHistory", () => comms("listHistory", { limit: 100 }), {
+		comm("listHistory", () => comms((tx) => communicationWriter.listHistory(tx, who.actor, { limit: 100 })), {
 			partial: { items: [], visibleCount: 0, foreignRows: [], complete: true },
 		}),
-		comm("getDetail", () => comms("getDetail", { id: a.sent }, keys), { refused: "not_found" }),
-		comm("getDeliveryTotals", () => comms("getDeliveryTotals", { communicationId: a.sent }), { refused: "not_found" }),
-		comm("listForPerson", () => comms("listForPerson", { personId: a.avery, limit: 10 }), { refused: "not_found" }),
-		comm("listForMeeting", () => comms("listForMeeting", { meetingId: a.meeting }), { refused: "not_found" }),
-		comm("listHistoryRecipients", () => comms("listHistoryRecipients", { communicationId: a.sent, limit: 10 }, keys), {
+		comm("getDetail", () => comms((tx) => communicationWriter.getDetail(tx, who.actor, { id: a.sent }, keys)), {
 			refused: "not_found",
 		}),
-		comm("listMeetingTracking", () => comms("listMeetingTracking", { meetingId: a.meeting }), { refused: "not_found" }),
-		comm("getExecutionResult", () => comms("getExecutionResult", { communicationId: a.sent }), {
-			refused: "not_found",
-		}),
-		comm("listResendCandidates", () => comms("listResendCandidates", { communicationId: a.sent }), {
-			refused: "not_found",
-		}),
+		comm(
+			"getDeliveryTotals",
+			() => comms((tx) => communicationWriter.getDeliveryTotals(tx, who.actor, { communicationId: a.sent })),
+			{ refused: "not_found" },
+		),
+		comm(
+			"listForPerson",
+			() => comms((tx) => communicationWriter.listForPerson(tx, who.actor, { personId: a.avery, limit: 10 })),
+			{ refused: "not_found" },
+		),
+		comm(
+			"listForMeeting",
+			() => comms((tx) => communicationWriter.listForMeeting(tx, who.actor, { meetingId: a.meeting })),
+			{ refused: "not_found" },
+		),
+		comm(
+			"listHistoryRecipients",
+			() =>
+				comms((tx) =>
+					communicationWriter.listHistoryRecipients(tx, who.actor, { communicationId: a.sent, limit: 10 }, keys),
+				),
+			{
+				refused: "not_found",
+			},
+		),
+		comm(
+			"listMeetingTracking",
+			() => comms((tx) => communicationWriter.listMeetingTracking(tx, who.actor, { meetingId: a.meeting })),
+			{ refused: "not_found" },
+		),
+		comm(
+			"getExecutionResult",
+			() => comms((tx) => communicationWriter.getExecutionResult(tx, who.actor, { communicationId: a.sent })),
+			{
+				refused: "not_found",
+			},
+		),
+		comm(
+			"listResendCandidates",
+			() => comms((tx) => communicationWriter.listResendCandidates(tx, who.actor, { communicationId: a.sent })),
+			{
+				refused: "not_found",
+			},
+		),
 
 		ppl("getAccountLink", () => reads((t, c) => getAccountLink(t, c, { personId: a.avery })), unavailable),
 		ppl("peopleViewer", () => plain(() => peopleViewer(who.actor, null)), {
@@ -574,31 +680,39 @@ function cases(who) {
 					photos: [{ personId: a.avery, photo: { kind: "account", accountId: ownerA.id, versionId: a.avatar } }],
 				}),
 		}),
-		ppl("peopleReader.getPipelineData", () => reads((t, c) => peopleReader.getPipelineData(t, c, {})), {
-			check: (value) => {
-				assert.deepEqual(value.owner, plantB);
-				assert.deepEqual(
-					value.groups.filter((g) => g.total !== 0 || g.cards.length !== 0),
-					[],
-				);
+		ppl(
+			"peopleReader.getPipelineData",
+			() => reads((t, c) => peopleReader.getPipelineData(t, c, listPeopleRequest.parse({}))),
+			{
+				check: (value) => {
+					assert.deepEqual(value.owner, plantB);
+					assert.deepEqual(
+						value.groups.filter((g) => g.total !== 0 || g.cards.length !== 0),
+						[],
+					);
+				},
 			},
-		}),
+		),
 		ppl(
 			"peopleReader.getStatusWarnings",
-			() => reads((t, c) => peopleReader.getStatusWarnings(t, c, { personId: a.avery })),
+			() => reads((t, c) => peopleReader.getStatusWarnings(t, c, { personId: personId.parse(a.avery) })),
 			unavailable,
 		),
 		ppl(
 			"peopleReader.getPerson",
-			() => reads((t, c) => peopleReader.getPerson(t, c, { personId: a.avery })),
+			() => reads((t, c) => peopleReader.getPerson(t, c, { personId: personId.parse(a.avery) })),
 			unavailable,
 		),
-		ppl("peopleReader.listPeople", () => reads((t, c) => peopleReader.listPeople(t, c, { search: MARK })), {
-			value: { owner: plantB, items: [], photos: [], next: null, completeness: "complete", total: 0 },
-		}),
+		ppl(
+			"peopleReader.listPeople",
+			() => reads((t, c) => peopleReader.listPeople(t, c, listPeopleRequest.parse({ search: MARK }))),
+			{
+				value: { owner: plantB, items: [], photos: [], next: null, completeness: "complete", total: 0 },
+			},
+		),
 		ppl(
 			"peopleReader.getActivities",
-			() => reads((t, c) => peopleReader.getActivities(t, c, { personId: a.avery })),
+			() => reads((t, c) => peopleReader.getActivities(t, c, activityRequest.parse({ personId: a.avery }))),
 			unavailable,
 		),
 		ppl("peopleReader.getOwnAccountPerson", () => reads((t, c) => peopleReader.getOwnAccountPerson(t, c, {})), {
@@ -630,7 +744,7 @@ function cases(who) {
 		),
 		ppl(
 			"personFields.getPersonPhoto",
-			() => reads((t, c) => personFields.getPersonPhoto(t, c, { personId: a.avery })),
+			() => reads((t, c) => personFields.getPersonPhoto(t, c, { personId: personId.parse(a.avery) })),
 			{ refused: "unavailable", control: (value) => assert.deepEqual(value, { status: "absent" }) },
 		),
 		ppl("personFields.listTags", () => reads((t, c) => personFields.listTags(t, c, {})), { value: { items: [] } }),
@@ -722,69 +836,49 @@ function cases(who) {
 			partial: { receipt: { matched: 0, returned: 0, completeness: "complete" } },
 			control: (value) => assert.ok(value.receipt.matched > 0),
 		}),
-		[
+		tenancyCase(
 			"organizations:readPipelineConsents",
-			{
-				run: () => plain(() => readPipelineConsents(f.db, who.actor, a.avery)),
-				expected: { value: [], control: null },
-			},
-		],
-		[
-			"organizations:readPipelineBoard",
-			{
-				run: () => plain(() => readPipelineBoard(f.db, who.actor, {})),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
-		[
-			"organizations:readPipelineChoices",
-			{
-				run: () => plain(() => readPipelineChoices(f.db, who.actor)),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
-		[
+			() => plain(() => readPipelineConsents(f.db, who.actor, a.avery)),
+			{ value: [], control: null },
+		),
+		tenancyCase("organizations:readPipelineBoard", () => plain(() => readPipelineBoard(f.db, who.actor, {})), {
+			value: { status: "refused", refusal: { code: "unavailable" } },
+			control: null,
+		}),
+		tenancyCase("organizations:readPipelineChoices", () => plain(() => readPipelineChoices(f.db, who.actor)), {
+			value: { status: "refused", refusal: { code: "unavailable" } },
+			control: null,
+		}),
+		tenancyCase(
 			"organizations:readPipelinePersonRecord",
-			{
-				run: () => plain(() => readPipelinePersonRecord(f.db, who.actor, { personId: a.avery })),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
-		[
-			"organizations:readPipelineExport",
-			{
-				run: () => plain(() => readPipelineExport(f.db, who.actor)),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
-		[
-			"organizations:readAnswerReviews",
-			{
-				run: () => plain(() => readAnswerReviews(f.db, who.actor)),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
-		[
+			() => plain(() => readPipelinePersonRecord(f.db, who.actor, { personId: a.avery })),
+			{ value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+		),
+		tenancyCase("organizations:readPipelineExport", () => plain(() => readPipelineExport(f.db, who.actor)), {
+			value: { status: "refused", refusal: { code: "unavailable" } },
+			control: null,
+		}),
+		tenancyCase("organizations:readAnswerReviews", () => plain(() => readAnswerReviews(f.db, who.actor)), {
+			value: { status: "refused", refusal: { code: "unavailable" } },
+			control: null,
+		}),
+		tenancyCase(
 			"organizations:readAnswerReview",
-			{
-				run: () => plain(() => readAnswerReview(f.db, who.actor, { reviewId: a.avery })),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
-		[
+			() => plain(() => readAnswerReview(f.db, who.actor, { reviewId: a.avery })),
+			{ value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+		),
+		tenancyCase(
 			"organizations:previewPipelineImport",
-			{
-				run: () =>
-					plain(() =>
-						previewPipelineImport(f.db, who.actor, {
-							fileName: "applications.csv",
-							file: new TextEncoder().encode("Full name\r\nAvery\r\n"),
-							columns: null,
-						}),
-					),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
+			() =>
+				plain(() =>
+					previewPipelineImport(f.db, who.actor, {
+						fileName: "applications.csv",
+						file: new TextEncoder().encode("Full name\r\nAvery\r\n"),
+						columns: null,
+					}),
+				),
+			{ value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+		),
 		ppl("listOrganizationDuplicatePairs", () => reads((t, c) => listOrganizationDuplicatePairs(t, c)), {
 			refused: "unavailable",
 			control: null,
@@ -801,37 +895,25 @@ function cases(who) {
 				],
 				["searchReadings", () => searchReadings(f.db, who.actor, { q: "" })],
 			] as const
-		).map(
-			([name, read]) =>
-				[
-					`organizations:${name}`,
-					{
-						run: () => plain(read),
-						expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-					},
-				] as const,
+		).map(([name, read]) =>
+			tenancyCase(`organizations:${name}`, () => plain<unknown>(read), {
+				value: { status: "refused", refusal: { code: "unavailable" } },
+				control: null,
+			}),
 		),
-		[
-			"organizations:readMyResidency",
-			{
-				run: () => plain(() => readMyResidency(f.db, who.actor)),
-				expected: { value: { status: "ok", value: { status: "not_linked" } }, control: null },
-			},
-		],
-		[
+		tenancyCase("organizations:readMyResidency", () => plain(() => readMyResidency(f.db, who.actor)), {
+			value: { status: "ok", value: { status: "not_linked" } },
+			control: null,
+		}),
+		tenancyCase(
 			"organizations:readResidentReading",
-			{
-				run: () => plain(() => readResidentReading(f.db, who.actor, { readingId: a.avery })),
-				expected: { value: { status: "ok", value: { status: "unavailable" } }, control: null },
-			},
-		],
-		[
-			"organizations:readPipelineGoals",
-			{
-				run: () => plain(() => readPipelineGoals(f.db, who.actor)),
-				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
-			},
-		],
+			() => plain(() => readResidentReading(f.db, who.actor, { readingId: a.avery })),
+			{ value: { status: "ok", value: { status: "unavailable" } }, control: null },
+		),
+		tenancyCase("organizations:readPipelineGoals", () => plain(() => readPipelineGoals(f.db, who.actor)), {
+			value: { status: "refused", refusal: { code: "unavailable" } },
+			control: null,
+		}),
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),
@@ -852,9 +934,9 @@ function cases(who) {
 
 before(async () => {
 	f = await fixture();
-	plantA = await f.workspace();
-	plantB = await f.workspace();
-	const seated = async (w) => {
+	plantA = await f.workspace("plant", MAILING);
+	plantB = await f.workspace("plant", MAILING);
+	const seated = async (w: Workspace) => {
 		const account = await f.account();
 		await f.seat(account, w, "owner");
 		return { ...account, actor: await f.actor(account.session) };
@@ -883,7 +965,7 @@ after(() => f?.close());
 
 test("INV-tenancy: a church cannot read another church's data through any read operation", async () => {
 	const reads = discoverReads();
-	const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+	const baseline: string[] = JSON.parse(readFileSync(baselinePath, "utf8"));
 	const covered = cases(ownerB);
 	assert.deepEqual(
 		[...reads].filter((name) => !covered.has(name) && !baseline.includes(name)).sort(),
@@ -902,38 +984,38 @@ test("INV-tenancy: a church cannot read another church's data through any read o
 	);
 
 	const secrets = await churchASecrets();
-	const found = (reply, echo = []) => {
+	const found = (reply: unknown, echo: readonly string[] = []) => {
 		const text = echo.reduce((t, own) => t.split(own).join(""), JSON.stringify(reply));
 		return { text, leaked: secrets.filter((secret) => text.includes(secret)) };
 	};
-	const failures = [];
+	const failures: string[] = [];
 	for (const [name, { run, expected }] of covered) {
-		const reply = await run();
+		const { reply, check } = await run();
 		const { text, leaked } = found(reply, expected.echo);
 		if (leaked.length) failures.push(`${name} returned church A data ${JSON.stringify(leaked)}: ${text.slice(0, 400)}`);
 		else if ("refused" in expected) {
-			if (reply.status !== "refused" || reply.error.code !== expected.refused)
+			if (reply.status !== "refused" || reply.error?.code !== expected.refused)
 				failures.push(`${name} expected refusal ${expected.refused}: ${text.slice(0, 400)}`);
 		} else {
 			try {
 				const value = ok(reply);
 				if ("value" in expected) assert.deepEqual(value, expected.value);
 				if ("partial" in expected) assert.partialDeepStrictEqual(value, expected.partial);
-				expected.check?.(value);
+				check();
 			} catch (error) {
-				failures.push(`${name}: ${error.message.slice(0, 600)}`);
+				failures.push(`${name}: ${String(error).slice(0, 600)}`);
 			}
 		}
 	}
 	assert.deepEqual(failures, [], "church B read church A data or got another answer");
 	assert.equal(storageCalls, 0, "a cross-church read reached private storage");
 
-	const blind = [];
+	const blind: string[] = [];
 	for (const [name, { run, expected }] of cases(ownerA)) {
 		if (expected.control === null) continue;
-		const reply = await run();
+		const { reply, control } = await run();
 		try {
-			if (expected.control) expected.control(ok(reply));
+			if (expected.control) control();
 			else assert.notDeepEqual(found(ok(reply), expected.echo).leaked, []);
 		} catch {
 			blind.push(`${name}: ${JSON.stringify(reply).slice(0, 300)}`);
@@ -944,7 +1026,8 @@ test("INV-tenancy: a church cannot read another church's data through any read o
 
 test("INV-tenancy: a deleted Church Document and its saved export answer another church as an unknown id", async () => {
 	const before = storageCalls;
-	const code = (reply) => (reply.status === "refused" ? reply.error.code : reply.status);
+	const code = (reply: { status: string; error?: { code?: string } }) =>
+		reply.status === "refused" ? reply.error?.code : reply.status;
 	for (const c of deletedDocumentCases(t, ownerB)) {
 		const [deleted, unknown] = [await c.deleted(), await c.unknown()];
 		assert.equal(code(deleted), "unavailable", c.name);
@@ -958,11 +1041,11 @@ test("INV-tenancy: a deleted Church Document and its saved export answer another
 });
 
 test("INV-tenancy: meetings.addGuests refuses another church's meeting and adds no Person of another church", async () => {
-	const add = (input) =>
+	const add = (input: object) =>
 		withMeetingsWrite(f.db, ownerB.actor, (tx, c) => guestsWriter.addGuests(tx, c, { requestKey: key(), input }));
-	const guests = (meetingId) =>
+	const guests = (meetingId: string) =>
 		rows(sql`SELECT person_id, removed_at FROM participation WHERE meeting_id=${meetingId} ORDER BY person_id`);
-	const people = async () => (await rows(sql`SELECT count(*)::int AS n FROM person`))[0].n;
+	const people = async () => (await rows<{ n: number }>(sql`SELECT count(*)::int AS n FROM person`))[0]!.n;
 	const aGuests = await guests(a.vision);
 	const before = await people();
 	const onA = await add({ meetingId: a.vision, people: [a.avery, a.blair], contacts: [{ displayName: `${MARK} B` }] });

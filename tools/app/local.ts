@@ -52,6 +52,8 @@ export const PERSONAS: Record<Persona, string> = {
 	resident: "Casey Lee, linked resident with no seat: /my-residency",
 	endedResident: "Riley Hart, seatless account who left the Grace Austin (QA) residency: /my-residency ended message",
 	hillOwner: "Ruth Calder, Owner of Hill Country Network (QA): network side of the multiplication example",
+	discoverySender:
+		"Nico Alvarez, Discovery account with no seat: an expired connection request to Hill Country Network (QA)",
 };
 
 export function personaKey(raw: string): Persona {
@@ -275,8 +277,7 @@ export async function up(repo: Repo, options: { mode: string; timeoutSeconds: nu
 			...baseEnv,
 			DATABASE_URL: ownerUrl,
 			DATABASE_URL_UNPOOLED: ownerUrl,
-			CI: "true",
-			EARLY_ACCESS_TEST_DATABASE: "1",
+			EVERYFIELD_DISPOSABLE_DATABASE: "1",
 		},
 	});
 	log(repo, "db:migrate", migrated);

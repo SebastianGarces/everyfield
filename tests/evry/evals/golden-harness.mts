@@ -9,7 +9,14 @@ import type {
 	LanguageModelV4StreamPart,
 	LanguageModelV4Usage,
 } from "@ai-sdk/provider";
-import { readCatalog, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
+import {
+	COMPOSE_READS,
+	READ_DRAFT,
+	READ_REVIEW,
+	readCatalog,
+	SELECT_RETURNED_ROWS,
+	UPDATE_DRAFT,
+} from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { previewImport } from "../../../packages/evry/src/adapters/people-organization/reads/index.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
@@ -29,12 +36,14 @@ import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
-import { modelTools, proposalForModel, resultForModel } from "../../../packages/evry/src/runtime/tools.ts";
 import {
-	prepareProposal,
-	REVIEW_MINUTES,
-	type Proposal as Prepared,
-} from "../../../packages/evry/src/proposals/store.ts";
+	modelTools,
+	proposalForModel,
+	refusalForModel,
+	resultForModel,
+} from "../../../packages/evry/src/runtime/tools.ts";
+import { prepareProposal, type Proposal as Prepared } from "../../../packages/evry/src/proposals/store.ts";
+import { REVIEW_MINUTES } from "../../../packages/evry/src/proposals/review.ts";
 import {
 	createConversation,
 	submitTurn,
@@ -55,9 +64,11 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { PEOPLE_RECORD_COMMANDS } from "../../../packages/evry/src/adapters/people/commands/records.ts";
 import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
+import { BROWSE_READS } from "../../../packages/evry/src/adapters/wiki/reads/browse.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
 const LATER = new Set<string>([
@@ -78,9 +89,22 @@ const LATER = new Set<string>([
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
+	...BROWSE_READS.map((a) => a.operation),
+	"organizationIntelligence.readHistory",
+	"organizationIntelligence.readLocations",
+	"organizationIntelligence.readLocationHistory",
+	"intelligence.readExitCriteria",
+	"intelligence.readJourney",
+	...Object.keys(PEOPLE_RECORD_COMMANDS),
+	"people.getStatusWarnings",
+	"communication.getDraft",
+	COMPOSE_READS,
+	READ_DRAFT,
+	UPDATE_DRAFT,
+	READ_REVIEW,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
-const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
+const SCRIPTED_ONLY = new Set<string>(["documents.importTextOrWord", ...BROWSE_READS.map((a) => a.operation)]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -168,7 +192,7 @@ export function recorder(name: string) {
 	let real: LanguageModelV4 | null = null;
 	function realModel() {
 		if (real) return real;
-		const selected = selectQualifiedModel({ ...process.env, EVRY_SCRIPTED_MODEL: "" });
+		const selected = selectQualifiedModel(process.env);
 		if (selected.status !== "qualified" || !selected.spend)
 			throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
 		if (loaded && loaded.model !== selected.id)
@@ -274,10 +298,12 @@ export const saveRecording = golden.save;
 export const recordedFile = golden.file;
 
 export type Turn = { user: string } | { assistant: string };
-export type ToolCall = { operation: string; input: any; result?: SourceResult; error?: string };
+export const inputField = (input: unknown, field: string): unknown =>
+	typeof input === "object" && input !== null ? Reflect.get(input, field) : undefined;
+export type ToolCall = { operation: string; input: unknown; result?: SourceResult; error?: string };
 export type Proposal = {
 	operation: string;
-	input: any;
+	input: unknown;
 	prepared: boolean;
 	review: Prepared["review"] | null;
 	error?: string;
@@ -296,17 +322,30 @@ export type Conversation = {
 const refuse = async (): Promise<never> => {
 	throw Error("a review never calls the email service");
 };
-const MAIL: MailPort = {
+export const MAIL: MailPort = {
 	keys: {
 		encryptionKey: Buffer.alloc(32, 7),
 		addressKey: Buffer.alloc(32, 9),
 		from: "church@example.test",
 		origin: "https://app.example.test",
 	},
-	transport: { send: refuse, cancel: refuse, reschedule: refuse },
+	transport: { paused: false, send: refuse, cancel: refuse, reschedule: refuse },
 };
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
+const unrecorded = async () => ({ error: "source_unavailable" });
+
+let writing: Promise<unknown> = Promise.resolve();
+function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
+	const transaction: GoldenChurch["db"]["transaction"] = (run, config) => {
+		const written = writing.then(() => db.transaction(run, config));
+		writing = written.catch(() => undefined);
+		return written;
+	};
+	return new Proxy(db, {
+		get: (target, key, receiver) => (key === "transaction" ? transaction : Reflect.get(target, key, receiver)),
+	});
+}
 
 let opening: Promise<unknown> = Promise.resolve();
 function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
@@ -314,7 +353,7 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : "text/csv"},${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -353,20 +392,27 @@ export type CaseFile = {
 	checked?: boolean;
 };
 type Attached = CaseFile & { bytes: Uint8Array };
+const isPng = (f: CaseFile) => /\.png$/i.test(f.name);
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
 const HEADING = W.styles(W.style("Heading1", "heading 1"));
 const bytesOf = (f: CaseFile): Uint8Array =>
-	f.pdf
-		? pdf()
-		: f.base64 !== undefined
-			? Buffer.from(f.base64, "base64")
-			: f.docx
-				? W.word(
-						f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
-						{ styles: HEADING },
-					)
-				: new TextEncoder().encode(fill(f.csv ?? ""));
+	isPng(f)
+		? new Uint8Array(PNG)
+		: f.pdf
+			? pdf()
+			: f.base64 !== undefined
+				? Buffer.from(f.base64, "base64")
+				: f.docx
+					? W.word(
+							f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+							{ styles: HEADING },
+						)
+					: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,
@@ -376,14 +422,18 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	override?: LanguageModelV4,
 	page?: string,
+	offer: readonly string[] = [],
 	repetition = 1,
+	{ recordings = golden, mail = MAIL }: { recordings?: ReturnType<typeof recorder>; mail?: MailPort } = {},
 ): Promise<Conversation> {
 	const { db } = church;
+	const writer = oneWriterAtATime(db);
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
-	const model = override ?? golden.model(keys, inputs, repetition);
-	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const model = override ?? recordings.model(keys, inputs, repetition);
+	const recorded = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const offered = (op: string) => offer.includes(op) || recorded(op);
 	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
@@ -424,7 +474,11 @@ export async function converse(
 		catalog,
 		history: events,
 		text,
-		references: await resolveReferences(db, actor, page ? [{ kind: "article", slug: page }] : []),
+		references: await resolveReferences(
+			db,
+			actor,
+			page ? [page.startsWith("/") ? { kind: "page", route: page } : { kind: "article", slug: page }] : [],
+		),
 		now: NOW,
 		state,
 		settingsGuidance: false,
@@ -467,7 +521,7 @@ export async function converse(
 				calls.push(call);
 				const resultId = ++sequence;
 				try {
-					call.result = await invokeRead(db, actor, adapter, input, null, conversationFiles);
+					call.result = pinnedAsOf(await invokeRead(db, actor, adapter, input, null, conversationFiles, MAIL));
 					return keep(resultId, call.result);
 				} catch (error) {
 					if (
@@ -508,7 +562,7 @@ export async function converse(
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
 				const number = proposals.length;
-				const open = await (conversation ??= openConversation(db, actor, files));
+				const open = await (conversation ??= openConversation(writer, actor, files));
 				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
 					saved.add(check);
 					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
@@ -516,12 +570,12 @@ export async function converse(
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
 				}
 				const proposal = await prepareProposal(
-					db,
+					writer,
 					actor,
 					open.lease,
 					open.id,
 					call,
-					MAIL,
+					mail,
 					null,
 					conversationFiles,
 				).catch((error: unknown) =>
@@ -529,7 +583,7 @@ export async function converse(
 				);
 				if (!proposal || "error" in proposal) {
 					card.error = proposal?.error ?? "source_unavailable";
-					return { error: card.error, ...(proposal?.problem && { problem: proposal.problem }) };
+					return { ...refusalForModel(card.error), ...(proposal?.problem && { problem: proposal.problem }) };
 				}
 				card.prepared = true;
 				card.review = proposal.review;
@@ -541,6 +595,9 @@ export async function converse(
 					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
 				});
 			}),
+			readNotes: unrecorded,
+			updateNotes: unrecorded,
+			readReview: unrecorded,
 		},
 		offered,
 	);
@@ -566,24 +623,39 @@ export async function converse(
 	return { kind: "application", calls, proposals, answer, keys, inputs, ...(failed ? { failed } : {}) };
 }
 
+function localNow(zone: string) {
+	const part = (type: string) =>
+		new Intl.DateTimeFormat("en-US", {
+			timeZone: zone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			hourCycle: "h23",
+		})
+			.formatToParts(NOW)
+			.find((p) => p.type === type)!.value;
+	return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+}
+
+function pinnedAsOf(result: SourceResult): SourceResult {
+	if (result.operation === "intelligence.readJourney")
+		return { ...result, rows: result.rows.map((r, i) => ({ ...r, id: `journey-${result.rows.length - i}` })) };
+	if (result.operation !== "communication.deliveryTotals") return result;
+	const rows = result.rows.map((r) => {
+		const zone = typeof r.fields.asOf === "string" ? r.fields.asOf.split(" ").at(-1) : undefined;
+		return zone?.includes("/") ? { ...r, fields: { ...r.fields, asOf: localNow(zone) } } : r;
+	});
+	return { ...result, rows };
+}
+
 function pinnedContactTime<R extends { changes: { field: string; after: unknown }[] }>(review: R, input: unknown): R {
 	if ((input as { occurred?: unknown } | null)?.occurred === undefined) return review;
 	const changes = review.changes.map((c) => {
 		const zone = c.field === "occurredAt" && typeof c.after === "string" ? c.after.split(" ").at(-1) : undefined;
 		if (!zone?.includes("/")) return c;
-		const part = (type: string) =>
-			new Intl.DateTimeFormat("en-US", {
-				timeZone: zone,
-				year: "numeric",
-				month: "2-digit",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit",
-				hourCycle: "h23",
-			})
-				.formatToParts(NOW)
-				.find((p) => p.type === type)!.value;
-		const now = `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+		const now = localNow(zone);
 		return String(c.after) >= now ? { ...c, after: now } : c;
 	});
 	return { ...review, changes };

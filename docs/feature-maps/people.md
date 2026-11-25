@@ -7,7 +7,7 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 flowchart LR
   rail(["rail"])
   s1_link1(["link /people/{personId}"])
-  s2_link0(["link /people/duplicates"])
+  s3_link0(["link /people/duplicates"])
   s0["people.list<br/>/people"]
   rail -- "People" --> s0
   s0 -.- s0_st0(("populated"))
@@ -30,19 +30,23 @@ flowchart LR
   s1 --- s1_b1["retire-restore<br/>tests + cases + browser behavior"]
   s1 --- s1_b2["activity<br/>tests + cases"]
   s1 --- s1_b3["photo<br/>tests + cases"]
-  s2["people.duplicates<br/>/people/duplicates"]
-  s2_link0 --> s2
-  s2 -.- s2_st0(("empty"))
-  s2 -.- s2_st1(("pairs (setup)"))
-  s2 -.- s2_st2(("member"))
-  s2 -.- s2_st3(("error (manual)"))
-  s2 --- s2_b0["dismiss-restore<br/>tests + cases + browser behavior"]
-  s2 --- s2_b1["merge<br/>tests + cases"]
-  s3["people.import<br/>/people/import"]
-  s0 -- "link #quot;Import CSV#quot;" --> s3
-  s3 -.- s3_st0(("choose-file"))
-  s3 -.- s3_st1(("error (manual)"))
-  s3 --- s3_b0["preview-and-import<br/>tests + cases + browser behavior"]
+  s2["people.household<br/>no page"]
+  s1 -- "path" --> s2
+  s2 -.- s2_st0(("populated"))
+  s2 --- s2_b0["guardian-contact<br/>tests + cases"]
+  s3["people.duplicates<br/>/people/duplicates"]
+  s3_link0 --> s3
+  s3 -.- s3_st0(("empty"))
+  s3 -.- s3_st1(("pairs (setup)"))
+  s3 -.- s3_st2(("member"))
+  s3 -.- s3_st3(("error (manual)"))
+  s3 --- s3_b0["dismiss-restore<br/>tests + cases + browser behavior"]
+  s3 --- s3_b1["merge<br/>tests + cases"]
+  s4["people.import<br/>/people/import"]
+  s0 -- "link #quot;Import CSV#quot;" --> s4
+  s4 -.- s4_st0(("choose-file"))
+  s4 -.- s4_st1(("error (manual)"))
+  s4 --- s4_b0["preview-and-import<br/>tests + cases + browser behavior"]
 ```
 
 ## Surfaces
@@ -287,6 +291,48 @@ A person's photo is served only to readers who may see that person, as it is now
 - Cases: TARGET-IDN-006
 - Test: `tests/integration/people/person-photos.test.mts`: `AC:TARGET-IDN-006: a reader whose seat ended gets a refusal, and a request past one page is refused`
 
+### people.household
+
+The Household card on a person: members and roles, the household address, and a child's parent or guardian contacts.
+
+- Routes: none
+- Personas: `owner` write, `admin` write, `member` read
+- Catalog: PPL-009
+
+Reach:
+
+- From people.person as `owner`:
+
+```bash
+agent-browser find role heading text --name "Household" --exact
+```
+
+States:
+
+- **populated**: heading "Maria Santos"; heading "Household". As `owner`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/people"
+agent-browser wait --load networkidle
+agent-browser find role link click --name "Maria Santos" --exact
+agent-browser wait --load networkidle
+agent-browser wait --url "**/people/*"
+agent-browser find role heading text --name "Maria Santos" --exact
+agent-browser find role heading text --name "Household" --exact
+```
+
+#### people.household#guardian-contact
+
+On a person marked as a child, Household actions marks or removes each adult member as the child's parent or guardian contact; contacts carry a Parent or guardian tag.
+
+- Operations: people.setGuardianContact, people.getHousehold
+- Catalog: PPL-009
+- Cases: CASE-PPL-009-GUARDIAN
+- Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN staff mark an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history`
+- Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN a second adult can be added, and either contact can be removed, leaving the other`
+- Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN a contact who is not marked as an adult, outside the household, retired or in another church is refused and nothing is stored`
+- Test: `tests/integration/people/guardian-contacts.test.mts`: `AC:CASE-PPL-009-GUARDIAN when the adult or the child leaves the household, the contact is gone`
+
 ### people.duplicates
 
 Possible duplicates: pairs to review, dismiss or merge; Everyfield never merges on its own.
@@ -362,13 +408,14 @@ agent-browser find role heading text --name "Nothing dismissed" --exact
 
 #### people.duplicates#merge
 
-A reviewed merge keeps the chosen details on the survivor and refuses what history blocks.
+A reviewed merge keeps the chosen details on the survivor, carries its history and refuses what would collide.
 
 - Operations: people.mergePeople, people.unmergePeople
 - Catalog: PPL-017
 - Cases: TARGET-PPL-016
-- Test: `tests/unit/people/corrections-model.test.mjs`: `AC:TARGET-PPL-016 a merge blocked by past history names what blocks it and gives no advice that cannot clear it`
+- Test: `tests/unit/people/corrections-model.test.mjs`: `AC:TARGET-PPL-016 a merge blocked by a leadership conflict names the team and both roles and says to end one first`
 - Test: `tests/integration/people/corrections/merge.test.mts`: `AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source`
+- Test: `tests/integration/people/corrections/history.test.mts`: `AC:TARGET-PPL-025 a merge carries the source's follow-up and its outcome to the survivor, keeps the sent email on its recipient and shows it on the survivor, refuses a stale review and repeats as the earlier result`
 
 ### people.import
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckmarkCircle02Icon, Refresh01Icon } from "@hugeicons/core-free-icons";
 import {
 	wordChanges,
@@ -334,14 +335,14 @@ function Differences({
 			<p className="text-sm text-pretty text-text-2">
 				{view === "changes" ? (
 					<>
-						{total === 1 ? "1 change" : `${total} changes`} the template made since version{" "}
+						{counted(total, "change")} the template made since version{" "}
 						<span className="tabular-nums">{compare.baseVersion}</span>, in reading order. Your own edits are not
 						listed. Choose the changes to take; everything else keeps your version.
 					</>
 				) : (
 					<>
-						{total === 1 ? "1 difference" : `${total} differences`} from the current template, in reading order. Choose
-						the ones to take from the template; everything else keeps your version.
+						{counted(total, "difference")} from the current template, in reading order. Choose the ones to take from the
+						template; everything else keeps your version.
 					</>
 				)}
 			</p>
@@ -380,7 +381,7 @@ function Differences({
 						disabled={busy !== null || count === 0}
 						onClick={() => onAccept([...chosen].sort((a, b) => a - b))}
 					>
-						{count === 0 ? "Accept chosen" : count === 1 ? "Accept 1 change" : `Accept ${count} changes`}
+						{count === 0 ? "Accept chosen" : `Accept ${counted(count, "change")}`}
 					</Button>
 				</div>
 			</div>

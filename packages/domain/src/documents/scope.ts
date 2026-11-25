@@ -1,7 +1,13 @@
 import * as c from "@everyfield/contracts/documents";
 import { sql } from "@everyfield/db/query";
 import { checkoutClient, type Database, type Transaction } from "@everyfield/db/client";
-import { putPrivateObject, StorageError, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import {
+	putPrivateObject,
+	StorageError,
+	toUploadKey,
+	type PrivateStorage,
+	type ResourceAuthorizer,
+} from "@everyfield/db/schema";
 import "server-only";
 import { liveRead } from "../access/session.ts";
 import { deny, type PlantViewer } from "./access.ts";
@@ -96,7 +102,7 @@ export async function storeBytes(
 			purpose,
 			mediaType,
 			bytes,
-			uploadKey,
+			uploadKey: toUploadKey(uploadKey),
 		});
 	} catch (error) {
 		return refuseStorage(error);

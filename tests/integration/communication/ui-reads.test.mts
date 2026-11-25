@@ -5,22 +5,29 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { chainSendNow } from "../../../apps/web/src/features/communication/sendNowChain.ts";
-import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
+import {
+	addressAad,
+	mailAddressHash,
+	type DeliveryBatch,
+	type DeliveryTransport,
+} from "../../../packages/domain/src/communication/delivery.ts";
 import { sealAddress } from "./sealed-address.mts";
 import { ok } from "../../support/fixture.mts";
-import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
+import { readAs, type Church, type Fixture, type ReadOp, type Rest, type Staff } from "./communication-support.mts";
 
-let f, plant, owner;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
 };
-const read = (op, input, deliveryKeys) =>
-	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, owner.actor, input, deliveryKeys));
+const read = <K extends ReadOp>(op: K, ...rest: Rest<K>) => readAs(f.db, owner.actor, op, ...rest);
 
-async function person(name, email) {
+async function person(name: string, email: string | null) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -28,7 +35,7 @@ async function person(name, email) {
 		VALUES(${id},${plant.id},${plant.id},${name},${email},'other','prospect','unknown','unknown',0,'live',clock_timestamp())`);
 	return id;
 }
-async function message(state, patch = {}) {
+async function message(state: string, patch: { subject?: string; scheduledAt?: string } = {}) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO communication (id, plant_id, author_id, revision, state, subject, body_html, body_text, audience, scheduled_at)
@@ -39,7 +46,7 @@ async function message(state, patch = {}) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
@@ -54,7 +61,7 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	await person("Maria Santos", "maria@example.test");
 	await person("Aisha Bello", "aisha@example.test");
 	await person("Chloe Bennett", "chloe@example.test");
-	const names = async (query) =>
+	const names = async (query: string) =>
 		ok(await read("readRecipients", { query }))
 			.people.map((p) => p.displayName)
 			.sort();
@@ -65,14 +72,16 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	assert.deepEqual(await names("ez"), []);
 	const none = await person("Pat NoMail", null);
 	const found = ok(await read("readRecipients", { query: "NoMail" })).people;
-	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null, unsubscribedAt: null }]);
+	assert.deepEqual(found, [
+		{ id: none, displayName: "Pat NoMail", email: null, unsubscribedAt: null, child: false, guardians: [] },
+	]);
 });
 
 test("AC:CASE-COM-004 recipient search uses the one person-search rule: diacritics fold and apostrophes split name words", async () => {
 	await person("José Núñez", "jn@accent.test");
 	await person("Liam O'Brien", "liam@obrien.test");
 	await person("Nora O\u2019Brien", "nora.ob@typo.test");
-	const names = async (query) =>
+	const names = async (query: string) =>
 		ok(await read("readRecipients", { query }))
 			.people.map((p) => p.displayName)
 			.sort();
@@ -101,7 +110,7 @@ test("AC:CASE-COM-004 audience returns named reachable recipients, capped at 200
 	const big = ok(await read("readAudience", { groups: [], teamIds: [], personIds: many }));
 	assert.equal(big.recipients.length, 200);
 	assert.equal(big.complete, false);
-	assert.equal(big.recipients[0].displayName, "Crowd 000");
+	assert.equal(big.recipients[0]!.displayName, "Crowd 000");
 });
 
 test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time and sender name", async () => {
@@ -117,7 +126,7 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 		'communication', ${sent}, ${`communication/${sent}/${target}`}, 'p', 'a', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, 'sent',
 		${mailAddressHash(keys.addressKey, "receiver@aud.test")}, clock_timestamp(), '2026-11-01T15:00:00Z'::timestamptz)`);
 	const page = ok(await read("listHistory", { query: "T-" }));
-	const by = (subject) => page.items.find((item) => item.subject === subject);
+	const by = (subject: string) => page.items.find((item) => item.subject === subject)!;
 	assert.equal(by("T-draft").scheduledAt, null);
 	assert.equal(by("T-draft").sentAt, null);
 	assert.equal(by("T-draft").senderName, "Olivia Owner");
@@ -131,16 +140,13 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 	assert.equal(ok(await read("getDetail", { id: draft }, keys)).sentAt, null);
 });
 
-function carrier(behavior) {
+function carrier(behavior: () => Promise<DeliveryBatch>) {
 	const calls = { send: 0 };
-	return {
-		calls,
+	const transport: DeliveryTransport = {
+		paused: false,
 		async send() {
 			calls.send += 1;
 			return behavior();
-		},
-		async lookup() {
-			return { outcome: "unknown" };
 		},
 		async cancel(ids) {
 			return ids.map(() => ({ outcome: "unknown" }));
@@ -149,8 +155,15 @@ function carrier(behavior) {
 			throw new Error("provider_timeout");
 		},
 	};
+	return Object.assign(transport, { calls });
 }
-function chain(personId, transport, keysFor, sendRevision = (revision) => revision, now = Date.now()) {
+function chain(
+	personId: string,
+	transport: DeliveryTransport,
+	keysFor: ReturnType<typeof newKeys>,
+	sendRevision = (revision: string) => revision,
+	now = Date.now(),
+) {
 	return chainSendNow(
 		{
 			schedule: async (at) => {
@@ -170,7 +183,7 @@ function chain(personId, transport, keysFor, sendRevision = (revision) => revisi
 						input: { communicationId: saved.value.communicationId, scheduledAt: at },
 					});
 				});
-				return result.status === "ok" ? result : { status: "refused", code: result.code };
+				return result.status === "ok" ? result : { status: "refused", code: result.error.code };
 			},
 			handOff: async (revision, communicationId) => {
 				const sent = await communicationWriter.sendReviewed(
@@ -180,21 +193,20 @@ function chain(personId, transport, keysFor, sendRevision = (revision) => revisi
 					transport,
 					keys,
 				);
-				if (sent.status !== "ok") return { status: "refused", code: sent.code };
-				const { status, acceptedCount, rejectedCount, unknownCount } = sent.value;
-				return { status: "ok", value: { status, acceptedCount, rejectedCount, unknownCount } };
+				if (sent.status !== "ok") return { status: "refused", code: sent.error.code };
+				return { status: "ok", value: sent.value };
 			},
 		},
 		now,
 	);
 }
-const stateOf = async (id) =>
+const stateOf = async (id: string) =>
 	(
-		await f.admin.execute(
+		await f.admin.execute<{ state: string; accepted: number }>(
 			sql`SELECT state, (SELECT count(*)::int FROM mail m WHERE m.logical_key LIKE 'communication/' || c.id::text || '/%' AND m.state = 'accepted') AS accepted
 			FROM communication c WHERE c.id = ${id}::uuid`,
 		)
-	).rows[0];
+	).rows[0]!;
 const newKeys = () => ({ save: randomUUID(), schedule: randomUUID(), send: randomUUID() });
 
 test("AC:CASE-COM-012 the real Send now chain sends once for a double confirm", async () => {

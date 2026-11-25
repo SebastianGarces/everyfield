@@ -18,13 +18,18 @@
 			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "src/server/flags.types.ts"],
 		},
 		"packages/contracts": {
-			"entry": ["src/**/*.test.{ts,mts,tsx}"],
+			"entry": ["src/**/*.test.{ts,mts,tsx}", "src/common/assets.types.ts"],
 		},
 		"packages/db": {
-			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "src/schema/check-current.ts"],
+			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "src/schema/check-current.ts", "src/schema/storage.types.ts"],
 		},
 		"packages/domain": {
-			"entry": ["test/**/*.{js,mjs,cjs,ts,mts,cts,tsx}", "scripts/**/*.{js,mjs,cjs,ts,mts,cts}"],
+			"entry": [
+				"test/**/*.{js,mjs,cjs,ts,mts,cts,tsx}",
+				"scripts/**/*.{js,mjs,cjs,ts,mts,cts}",
+				"src/proofs.types.ts",
+				"src/meetings/tokens.types.ts",
+			],
 		},
 		"packages/reference": {
 			"entry": ["*.{js,mjs,cjs}"],

@@ -70,7 +70,10 @@ export const NO_PROGRESS: DraftProgress = {
 };
 export type Drafted = { progress: DraftProgress; retryAfterMs: number | null } & (
 	| { published: c.DraftOutput; reason: null }
-	| { published: null; reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" }
+	| {
+			published: null;
+			reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "deadline" | "lost_claim";
+	  }
 );
 
 export async function draftWithin(
@@ -78,7 +81,7 @@ export async function draftWithin(
 	input: c.ModelInput,
 	from: DraftProgress = NO_PROGRESS,
 	reserve: (progress: DraftProgress) => Promise<boolean> = async () => true,
-	callMs: number = c.ASSESSMENT_BUDGET.callMs,
+	leftMs: () => number = () => c.ASSESSMENT_BUDGET.callMs,
 ): Promise<Drafted> {
 	const B = c.ASSESSMENT_BUDGET;
 	let p: DraftProgress = { ...from, usage: { ...from.usage }, drafts: [...from.drafts] };
@@ -94,10 +97,12 @@ export async function draftWithin(
 		let reply: DraftReply | null = null;
 		while (!reply) {
 			if (p.pendingAttempts >= B.attemptsPerDraft) return stop("attempts");
+			if (leftMs() <= 0) return stop("deadline");
 			const bound = inputBound({ input, feedback, ordinal });
 			const outputLeft = B.outputTokens - p.usage.outputTokens;
 			if (p.usage.inputTokens + bound > B.inputTokens || outputLeft <= 0) return stop("budget");
 			const allowance = Math.min(OUTPUT_PER_CALL, outputLeft);
+			const unsent = p;
 			const before = p.usage;
 			p = {
 				...p,
@@ -109,10 +114,15 @@ export async function draftWithin(
 				},
 			};
 			if (!(await reserve(p))) return stop("lost_claim");
+			const left = leftMs();
+			if (left <= 0) {
+				p = unsent;
+				return stop("deadline");
+			}
 			try {
 				reply = await drafter.draft(
 					{ input, feedback, ordinal, maxOutputTokens: allowance },
-					AbortSignal.timeout(Math.min(callMs, B.callMs)),
+					AbortSignal.timeout(Math.min(left, B.callMs)),
 				);
 				p = {
 					...p,
@@ -169,7 +179,7 @@ export const heldSql = (plant: SQL) => sql`(SELECT count(*)=${c.HELD_AFTER_FAILU
 		AND r.outcome NOT IN ('superseded','pending','deferred') ORDER BY r.captured_at DESC,r.id DESC
 		LIMIT ${c.HELD_AFTER_FAILURES}::int) x)`;
 export const plantHidden = (plant: SQL) => sql`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${plant}
-	AND w.kind='plant' AND w.state NOT IN ('active','cancelled'))`;
+	AND w.kind='plant' AND w.state <> 'cancelled')`;
 const openJob = (plant: SQL) => sql`EXISTS(SELECT FROM job j WHERE j.kind='assessment' AND j.subject_record_id=${plant}
 	AND j.state IN ('ready','claimed','retry_wait'))`;
 
@@ -376,7 +386,8 @@ c AS (SELECT ${cite} AS cite,r.facts FROM r),
 pr AS (SELECT DISTINCT x->>'id' AS id FROM c CROSS JOIN LATERAL jsonb_array_elements(${countedPeople(key)}) x),
 ppl AS (SELECT coalesce(json_agg(json_build_object('personId',pe.id,'name',pe.display_name) ORDER BY pe.display_name,pe.id)
 	FILTER (WHERE pe.id IS NOT NULL),'[]'::json) AS shown,(count(*) FILTER (WHERE pe.id IS NULL))::int AS hidden
-	FROM pr LEFT JOIN person pe ON pe.id::text=pr.id AND pe.plant_id=${s.plant}::uuid AND pe.state='live'),
+	FROM pr LEFT JOIN person pe ON pe.id::text=pr.id AND pe.plant_id=${s.plant}::uuid AND (pe.state='live'
+		OR EXISTS(SELECT FROM person su WHERE su.id=pe.merged_into_person_id AND su.tenant_id=pe.tenant_id AND su.state='live'))),
 src AS (SELECT v.body,v.content_type FROM c JOIN article_revision v ON v.id=(c.cite->>'revisionId')::uuid
 	AND v.tenant_id=(c.cite->>'sourceId')::uuid
 	WHERE c.cite->>'kind'='passage' AND (c.cite->>'sourceKind'='global' OR EXISTS(SELECT FROM affiliation f

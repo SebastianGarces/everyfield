@@ -26,6 +26,7 @@ const TESTS = [
 const context: Context = {
 	testFiles: TESTS,
 	now: NOW,
+	unitTests: { "tests/unit/people/picker.test.mts": "@everyfield/domain" },
 	packages: [
 		{
 			dir: "apps/web",
@@ -49,6 +50,7 @@ const context: Context = {
 				"test:db": "node --test ../../tests/evry/runtime/*.test.mts",
 			},
 		},
+		{ dir: "packages/evry-scripted", name: "@everyfield/evry-scripted", scripts: { lint: "oxlint ." } },
 		{ dir: "packages/ui", name: "@everyfield/ui", scripts: { lint: "eslint .", typecheck: "tsc --noEmit" } },
 	],
 };
@@ -265,6 +267,38 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 			filters: ["...@everyfield/web"],
 		}),
 	);
+	await t.test(
+		"INV-ci-select: a tests/unit test no script names runs the checks of the package test-unit finds it for",
+		() =>
+			assertSelected(selectChecks(["tests/unit/people/picker.test.mts"], map, context), {
+				checks: {
+					lint: "package test outside its package: tests/unit/people/picker.test.mts",
+					typecheck: "package test outside its package: tests/unit/people/picker.test.mts",
+					"test:unit": "package test outside its package: tests/unit/people/picker.test.mts",
+					"test:db": "package test outside its package: tests/unit/people/picker.test.mts",
+					"feature-maps": "feature map input: tests/unit/people/picker.test.mts",
+					"ci-coverage": "package test outside its package: tests/unit/people/picker.test.mts",
+				},
+				tests: {},
+				filters: ["...@everyfield/domain"],
+			}),
+	);
+});
+
+test("INV-ci-select: the scripted Evry model runs the Evry and domain suites that use it, not only its own checks", () => {
+	const why =
+		"package source: packages/evry-scripted/src/scripted.ts; scripted Evry model and the suites that run it: packages/evry-scripted/src/scripted.ts";
+	assertSelected(selectChecks(["packages/evry-scripted/src/scripted.ts"], map, context), {
+		checks: {
+			lint: why,
+			typecheck: why,
+			"test:unit": why,
+			"test:db": why,
+			"feature-maps": "feature map input: packages/evry-scripted/src/scripted.ts",
+		},
+		tests: {},
+		filters: ["...@everyfield/domain", "...@everyfield/evry", "...@everyfield/evry-scripted"],
+	});
 });
 
 test("INV-ci-select: tests that read files as text are selected when those files change", async (t) => {

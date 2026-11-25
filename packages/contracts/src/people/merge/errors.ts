@@ -34,24 +34,57 @@ export const referenceKind = z.enum([
 	"training_assignment",
 	"training_credit",
 	"answer_review",
+	"guardian_contact",
 ]);
-export const referenceTreatment = z.enum(["move", "deduplicate", "keep", "block"]);
+export const referenceTreatment = z.enum(["move", "deduplicate", "keep"]);
 
 export const mergeBlocker = z.enum([
 	"linked_account_collision",
 	"linked_source",
-	"unregistered_reference",
 	"enrollment_collision",
+	"leadership_conflict",
+	"residency_invitation_collision",
 ]);
-export const inverseConflict = z.enum(["survivor_changed", "source_changed", "references_changed"]);
+const label = z.string().min(1).max(200);
+export const leadershipConflict = z.strictObject({ team: label, sourceRole: label, survivorRole: label });
+export const blockers = {
+	causes: z.array(mergeBlocker).max(mergeBlocker.options.length),
+	leadership: z.array(leadershipConflict).max(100),
+	invitations: z.array(z.strictObject({ recipientEmail: z.string().max(320) })).max(100),
+};
+export const inverseConflict = z.enum([
+	"chained_merge",
+	"survivor_retired",
+	"survivor_changed",
+	"source_changed",
+	"references_changed",
+	"household_deleted",
+	"mail_sent",
+]);
+export const mergeField = z.enum([
+	"displayName",
+	"firstName",
+	"lastName",
+	"email",
+	"phone",
+	"address",
+	"source",
+	"summaryNotes",
+	"birthDate",
+	"adultClassification",
+	"household",
+	"photo",
+]);
+export const unmergeField = z.enum([...mergeField.options, "stage"]);
 export const mergeErrors = [
+	defineSafeError("merge_blocked", { ...blockers, causes: blockers.causes.min(1) }, "never"),
 	defineSafeError(
-		"merge_blocked",
+		"inverse_conflict",
 		{
-			causes: z.array(mergeBlocker).min(1).max(3),
-			references: z.array(referenceKind).max(referenceKind.options.length),
+			causes: z.array(inverseConflict).min(1).max(inverseConflict.options.length),
+			changed: z.array(referenceKind).max(referenceKind.options.length),
+			changedFields: z.array(unmergeField).max(unmergeField.options.length),
 		},
-		"never",
+		"refresh",
 	),
-	defineSafeError("inverse_conflict", { causes: z.array(inverseConflict).min(1).max(3) }, "refresh"),
 ] as const;

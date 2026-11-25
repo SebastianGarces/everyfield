@@ -396,6 +396,27 @@ const typeName = (node) => {
 	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
 };
 
+const TEST_PATH = /(^|\/)tests?\/|\.test\./;
+
+const noDoubleCast = {
+	meta: { type: "problem" },
+	create(context) {
+		if (TEST_PATH.test(repoPath(context.filename))) return {};
+		const inner = (node) => (node.type === "ParenthesizedExpression" ? inner(node.expression) : node);
+		return {
+			"TSAsExpression, TSTypeAssertion"(node) {
+				const cast = inner(node.expression);
+				if (CASTS.has(cast.type) && cast.typeAnnotation.type === "TSUnknownKeyword")
+					context.report({
+						node,
+						message:
+							"Do not cast through unknown: it switches the type checker off. Type the value at its source, or narrow it with a check.",
+					});
+			},
+		};
+	},
+};
+
 const sitePathCast = {
 	meta: { type: "problem" },
 	create(context) {
@@ -584,10 +605,6 @@ const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asL
 export const RAW_ERROR_SCOPE =
 	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
 export const RAW_ERROR_SITES = {
-	"packages/evry/src/adapters/native.ts": {
-		sites: 2,
-		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
-	},
 	"packages/domain/src/documents/unpack.ts": {
 		sites: 1,
 		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",
@@ -776,6 +793,29 @@ const RUNTIME_GLOBALS = new Set([
 const CLOCKS = new Set(["Date", "performance"]);
 const GLOBAL_OBJECTS = new Set(["globalThis", "self", "window"]);
 
+function clockTracker() {
+	const aliases = new Map();
+	const clockOf = (node) => {
+		if (node?.type === "Identifier") return aliases.get(node.name) ?? (CLOCKS.has(node.name) ? node.name : null);
+		if (node?.type !== "MemberExpression") return null;
+		const name = memberName(node);
+		if (CLOCKS.has(name) && node.object.type === "Identifier" && GLOBAL_OBJECTS.has(node.object.name)) return name;
+		return name === "now" && clockOf(node.object) ? "now" : null;
+	};
+	const track = (node) => {
+		if (node.id.type === "Identifier") {
+			const clock = clockOf(node.init);
+			if (clock) aliases.set(node.id.name, clock);
+			return;
+		}
+		if (node.id.type !== "ObjectPattern" || !clockOf(node.init)) return;
+		for (const p of node.id.properties)
+			if (p.type === "Property" && keyName(p.key, p.computed) === "now" && p.value.type === "Identifier")
+				aliases.set(p.value.name, "now");
+	};
+	return { clockOf, track };
+}
+
 const modelModule = {
 	meta: { type: "problem" },
 	create(context) {
@@ -784,14 +824,7 @@ const modelModule = {
 				node,
 				message: `A model module is pure: it takes the clock, the browser and the server as arguments and imports none of them. Remove the ${what}.`,
 			});
-		const aliases = new Map();
-		const clockOf = (node) => {
-			if (node?.type === "Identifier") return aliases.get(node.name) ?? (CLOCKS.has(node.name) ? node.name : null);
-			if (node?.type !== "MemberExpression") return null;
-			const name = memberName(node);
-			if (CLOCKS.has(name) && node.object.type === "Identifier" && GLOBAL_OBJECTS.has(node.object.name)) return name;
-			return name === "now" && clockOf(node.object) ? "now" : null;
-		};
+		const { clockOf, track } = clockTracker();
 		const sources = moduleSources((node, name) => {
 			if (node.type === "TSImportType" || node.importKind === "type" || node.exportKind === "type") return;
 			if (RUNTIME_MODULES.test(name) && !(node.type === "ImportDeclaration" && typeOnly(node)))
@@ -801,17 +834,7 @@ const modelModule = {
 			...sources,
 			ExpressionStatement: (node) =>
 				typeof node.directive === "string" && node.directive.startsWith("use ") && report(node, `"${node.directive}"`),
-			VariableDeclarator: (node) => {
-				if (node.id.type === "Identifier") {
-					const clock = clockOf(node.init);
-					if (clock) aliases.set(node.id.name, clock);
-					return;
-				}
-				if (node.id.type !== "ObjectPattern" || !clockOf(node.init)) return;
-				for (const p of node.id.properties)
-					if (p.type === "Property" && keyName(p.key, p.computed) === "now" && p.value.type === "Identifier")
-						aliases.set(p.value.name, "now");
-			},
+			VariableDeclarator: track,
 			NewExpression: (node) =>
 				clockOf(node.callee) === "Date" && node.arguments.length === 0 && report(node, "clock read (new Date())"),
 			CallExpression: (node) => {
@@ -1582,16 +1605,19 @@ const rawSqlLiteral = {
 
 export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
 const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const URL_SIGNER_PACKAGE = /^@aws-sdk\/s3-request-presigner(?:\/|$)/;
 const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
 const storageClient = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		if (path === STORAGE_MODULE) return {};
+		const product = PRODUCT_CODE.test(path);
 		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
 		return moduleSources((node, name) => {
-			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+			if (URL_SIGNER_PACKAGE.test(name) || (product && OBJECT_STORE_PACKAGE.test(name)))
+				context.report({ node, message });
 		});
 	},
 };
@@ -1774,6 +1800,28 @@ function handles(handler, body, param) {
 
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
+const SCRIPTED_PACKAGE = "@everyfield/evry-scripted";
+const SCRIPTED_WIRING = "apps/web/src/server/models.ts";
+
+const scriptedModelWiring = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const wiring = path === SCRIPTED_WIRING;
+		return moduleSources((node, name) => {
+			if (name !== SCRIPTED_PACKAGE && !name.startsWith(`${SCRIPTED_PACKAGE}/`)) return;
+			if (wiring && node.type === "ImportExpression") return;
+			context.report({
+				node,
+				message: wiring
+					? `${SCRIPTED_WIRING} loads ${SCRIPTED_PACKAGE} only by import() inside its local and test deployment branch, so production never loads it.`
+					: `${SCRIPTED_PACKAGE} is dev-only: only ${SCRIPTED_WIRING} loads it, inside its local and test deployment branch. Take the model or drafter from that file.`,
+			});
+		});
+	},
+};
+
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
@@ -1846,10 +1894,52 @@ const classParts = (node) =>
 								? [concatenated(node)?.join("")].filter(Boolean)
 								: [];
 
+const PROBLEM_TEXT = /^text-(?:magenta|red)-\d+(?:\/\d+)?$/;
+const problemToken = (token) => PROBLEM_TEXT.test(token.replace(/^!|!$/g, "").split(":").at(-1));
+const KEPT_PROBLEM_LINES = {
+	"apps/web/src/features/tasks/TaskDialog.tsx": {
+		className: "px-1 py-2 text-sm text-magenta-600",
+		reason: "the relation search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/meetings/dialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": {
+		className: "flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600",
+		reason: "the message-level send state sits under its bubble, kept by T-407",
+	},
+};
+const elementClassStrings = (opening) => {
+	const className = jsxAttribute(opening, "className");
+	return className ? attributeStrings(className) : [];
+};
+const problemClassed = (opening) => elementClassStrings(opening).some((s) => classTokens(s).some(problemToken));
+const domDescendants = (node, out = []) => {
+	for (const child of childNodes(node)) {
+		if (child.type === "JSXOpeningElement" && domElement(child)) out.push(child);
+		domDescendants(child, out);
+	}
+	return out;
+};
+
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
-		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const kept = KEPT_PROBLEM_LINES[path];
+		let keptSeen = false;
+		const keptLine = (node) => {
+			if (!kept || keptSeen) return false;
+			const strings = elementClassStrings(node);
+			keptSeen = strings.length === 1 && strings[0] === kept.className;
+			return keptSeen;
+		};
 		const check = (node, value) => {
 			if (value === null) return;
 			if (errorNoticeLook(value))
@@ -1866,6 +1956,17 @@ const sharedNotice = {
 				});
 		};
 		return {
+			JSXOpeningElement(node) {
+				const role = domElement(node) && jsxAttribute(node, "role");
+				if (!role || !attributeStrings(role).includes("alert")) return;
+				if (!domDescendants(node.parent).some(problemClassed)) return;
+				if (noticeLook(elementClassStrings(node).join(" ")) || keptLine(node)) return;
+				context.report({
+					node,
+					message:
+						'A problem line is ProblemText (a control-level line) or InlineAlert or Alert (a section-level line) from @everyfield/ui/controls, which carry the tone, icon and live region. Do not hand-write role="alert" with magenta or red text.',
+				});
+			},
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, templateText(node)),
 			BinaryExpression(node) {
@@ -3058,6 +3159,30 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const PRIVATE_IMPORTERS = {
+	"apps/web/src/features/communication/outbox.ts": {
+		importers: ["apps/web/src/features/communication/outbox-route.ts"],
+		why: "it reads the dev outbox folder, so the send path stays free of directory reads and the production bundle does not trace the filesystem",
+	},
+	"apps/web/src/features/communication/outbox-route.ts": {
+		importers: ["apps/web/src/app/api/dev/outbox/route.ts"],
+		why: "it serves the dev mail capture, and only the dev outbox route may expose it",
+	},
+};
+
+const privateImporters = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		return moduleSources((node, spec) => {
+			const { to } = resolveImport(from, spec);
+			const rule = to && PRIVATE_IMPORTERS[to];
+			if (rule && !rule.importers.includes(from))
+				context.report({ node, message: `Only ${rule.importers.join(", ")} imports ${to}: ${rule.why}.` });
+		});
+	},
+};
+
 const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SERVER_ACTIONS = /^\s*["']use server["']/;
@@ -3287,16 +3412,11 @@ const wireParam = (param) => {
 const WIRE_HOME =
 	"A server action is a public POST endpoint: whatever the type says, its arguments arrive as untrusted JSON. Type each parameter unknown, string, number, boolean or FormData, and parse it once at the boundary, in the domain operation it reaches.";
 
-const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) => {
+function serverActions(context, check, opaque = () => {}) {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const check = (fn, name) => {
-		for (const param of fn.params)
-			if (!wireParam(param)) push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
-	};
-	const FUNCTION = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 	const wrapped = (node) => {
 		if (!node) return [];
-		if (FUNCTION.has(node.type)) return [node];
+		if (FUNCTIONS.has(node.type)) return [node];
 		if (node.type === "CallExpression") return node.arguments.flatMap(wrapped);
 		if (node.type === "TSAsExpression" || node.type === "TSSatisfiesExpression") return wrapped(node.expression);
 		return [];
@@ -3324,11 +3444,11 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			if (node.source) {
 				for (const spec of node.specifiers ?? [])
 					if (spec.exportKind !== "type")
-						push({
-							node: spec,
-							fn: nameOf(spec.exported),
-							message: `${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module. ${WIRE_HOME}`,
-						});
+						opaque(
+							spec,
+							nameOf(spec.exported),
+							`${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module.`,
+						);
 				return;
 			}
 			const d = node.declaration;
@@ -3348,11 +3468,11 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 		},
 		ExportAllDeclaration(node) {
 			if (!moduleActions || node.exportKind === "type") return;
-			push({
+			opaque(
 				node,
-				fn: "*",
-				message: `export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module. ${WIRE_HOME}`,
-			});
+				"*",
+				`export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module.`,
+			);
 		},
 		"Program:exit"() {
 			for (const [local, exported] of exportedLocals) {
@@ -3363,7 +3483,285 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			}
 		},
 	};
-});
+}
+
+const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =>
+	serverActions(
+		context,
+		(fn, name) => {
+			for (const param of fn.params)
+				if (!wireParam(param))
+					push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
+		},
+		(node, fn, message) => push({ node, fn, message: `${message} ${WIRE_HOME}` }),
+	),
+);
+
+const IDENTITY_PARAM = /^(?:actor|account|session|workspace)(?:id)?$/i;
+
+const paramKeys = (pattern) => {
+	if (!pattern) return [];
+	if (pattern.type === "Identifier") return [[pattern, pattern.name]];
+	if (pattern.type === "AssignmentPattern") return paramKeys(pattern.left);
+	if (pattern.type === "RestElement") return paramKeys(pattern.argument);
+	if (pattern.type === "ArrayPattern") return pattern.elements.flatMap(paramKeys);
+	if (pattern.type === "TSParameterProperty") return paramKeys(pattern.parameter);
+	if (pattern.type !== "ObjectPattern") return [];
+	return pattern.properties.flatMap((p) =>
+		p.type === "RestElement"
+			? paramKeys(p.argument)
+			: [[p, keyName(p.key, p.computed)], ...(p.shorthand ? [] : paramKeys(p.value))],
+	);
+};
+
+const actionIdentityParams = {
+	meta: { type: "problem" },
+	create(context) {
+		return serverActions(context, (fn, name) => {
+			for (const param of fn.params)
+				for (const [node, key] of paramKeys(param))
+					if (key && IDENTITY_PARAM.test(key))
+						context.report({
+							node,
+							message: `${name} takes ${key} from the caller. A server action is a public POST endpoint, so a caller can send any ${key} it likes. Resolve who is asking from the session on the server (getViewer, viewerActor, organizationSeat in @/server/request-context) and take only the subject of the write as input.`,
+						});
+		});
+	},
+};
+
+export const PROOF_CONTRACTS = {
+	"@everyfield/contracts/identity": [
+		"acceptSeatInvitationRequest",
+		"describeInvitationRequest",
+		"recoverPasswordRequest",
+		"registrationRequest",
+		"respondResidentInvitationRequest",
+		"resumeRegistrationRequest",
+		"verifyEmailRequest",
+	],
+	"@everyfield/contracts/organizations": ["acceptInvitationRequest", "respondInvitationRequest"],
+};
+
+const PROOF_KEY = /proof/i;
+const PROOF_HOME =
+	"An invitation or account link proof is a bearer secret: a server action takes its arguments as public POST JSON that Next logs and replays, so a proof never passes through one. The proof page posts it in the body of its own route (/api/connections/invitation, the identity routes), and server code reads a proof it set itself from its cookie.";
+
+const fromNoInput = (node) => {
+	const call = unwrap(node);
+	return call?.type === "CallExpression" && call.arguments.length === 0;
+};
+
+const actionProofs = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const report = (node, what) => context.report({ node, message: `This "use server" module ${what}. ${PROOF_HOME}` });
+		const contracts = new Map(Object.entries(PROOF_CONTRACTS).map(([source, names]) => [source, new Set(names)]));
+		const sources = new Set(contracts.keys());
+		const names = new Set([...contracts.values()].flatMap((set) => [...set]));
+		const key = (node) => (node.type === "Property" ? keyName(node.key, node.computed) : null);
+		const uses = (node, name) => report(node, `uses the proof-carrying contract ${name}`);
+		return merge(moduleUses(sources, names, [], uses, true), {
+			ImportDeclaration(node) {
+				if (node.importKind === "type") return;
+				for (const spec of node.specifiers)
+					if (
+						spec.type === "ImportSpecifier" &&
+						spec.importKind !== "type" &&
+						contracts.get(node.source.value)?.has(nameOf(spec.imported))
+					)
+						uses(spec, nameOf(spec.imported));
+			},
+			Property(node) {
+				const name = key(node);
+				if (!name || !PROOF_KEY.test(name)) return;
+				if (node.parent.type === "ObjectPattern") return report(node, `takes a field named ${name}`);
+				if (!fromNoInput(node.value)) report(node, `forwards a field named ${name} it did not read itself`);
+			},
+			MemberExpression(node) {
+				const name = memberName(node);
+				if (name && PROOF_KEY.test(name)) report(node, `reads a field named ${name}`);
+			},
+			Identifier(node) {
+				const fn = node.parent;
+				if (FUNCTIONS.has(fn?.type) && fn.params.includes(node) && PROOF_KEY.test(node.name))
+					report(node, `takes a parameter named ${node.name}`);
+			},
+		});
+	},
+};
+
+const TOKEN_ONLY = new Set([
+	"apps/web/src/features/communication/unsubscribe.ts",
+	"apps/web/src/features/communication/unsubscribeActions.ts",
+	"apps/web/src/features/communication/unsubscribeRoute.tsx",
+	"apps/web/src/features/communication/unsubscribeOneClick.ts",
+]);
+const SESSION_MODULES = [
+	/^apps\/web\/src\/server\/(?:request-context|identity|sign-in)(?:\.[cm]?[jt]sx?|\/|$)/,
+	/^apps\/web\/src\/features\/[^/]+\/mount(?:\.[cm]?[jt]sx?)?$/,
+];
+const SESSION_PACKAGES = /^(?:next\/headers|better-auth(?:\/.*)?|@everyfield\/domain\/(?:access|identity))$/;
+const SESSION_NAME = /viewer|session|actor|seat/i;
+
+const tokenAuthority = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!TOKEN_ONLY.has(from)) return {};
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `${what} in an unsubscribe module. The token in the link is the only authority here: a person who opens it may be signed out or signed in as someone else, so nothing may read the session, the request headers or a viewer.`,
+			});
+		return {
+			...moduleSources((node, spec) => {
+				const to = resolveImport(from, spec).to ?? "";
+				if (SESSION_PACKAGES.test(spec) || SESSION_MODULES.some((m) => m.test(to)))
+					report(node, `${spec} is a session, request-context or viewer module, imported`);
+			}),
+			ImportSpecifier(node) {
+				if (SESSION_NAME.test(nameOf(node.imported))) report(node, `${nameOf(node.imported)} is imported`);
+			},
+		};
+	},
+};
+
+const RENDERER_PACKAGE = /^(?:@formepdf\/|pdf-lib(?:\/|$))/;
+const RENDERER_MODULE =
+	/^packages\/domain\/src\/documents\/(?:(?:render|doc-render|library-render|pdf-post)(?:\.[cm]?[jt]sx?)?$|layouts(?:\/|$))/;
+const DOCUMENTS_WRITER = "documentsWriter";
+const RENDER_ONLY_CALLS = new Set(["exportNative", "readChurchFile"]);
+export const RENDERING_ACTIONS = {
+	"apps/web/src/features/documents/actions.ts": { generate: 1 },
+};
+const RENDER_HOME =
+	"A server action's bundle serves the PDF fonts as web assets, not files, so a render there fails. Render in a route handler, as saveExportRoute does for the church document export.";
+
+const actionRender = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const from = repoPath(context.filename);
+		const left = { ...RENDERING_ACTIONS[from] };
+		const writers = new Set();
+		const report = (node, what) =>
+			context.report({ node, message: `This "use server" module ${what}. ${RENDER_HOME}` });
+		const called = (node, name) => {
+			if (left[name] > 0) left[name]--;
+			else report(node, `reaches ${name}, which renders a document`);
+		};
+		const isWriter = (node) => {
+			const value = unwrapped(node);
+			return (
+				(value?.type === "Identifier" && (value.name === DOCUMENTS_WRITER || writers.has(value.name))) ||
+				memberName(value) === DOCUMENTS_WRITER
+			);
+		};
+		return merge(
+			moduleSources((node, spec) => {
+				if (RENDERER_PACKAGE.test(spec) || RENDERER_MODULE.test(resolveImport(from, spec).to ?? ""))
+					report(node, `imports the document renderer ${spec}`);
+			}),
+			{
+				ImportSpecifier(node) {
+					if (nameOf(node.imported) === DOCUMENTS_WRITER) writers.add(node.local.name);
+				},
+				VariableDeclarator(node) {
+					if (node.id.type === "Identifier" && isWriter(node.init)) writers.add(node.id.name);
+				},
+				MemberExpression(node) {
+					const name = memberName(node);
+					if (RENDER_ONLY_CALLS.has(name) || (name === "generate" && isWriter(node.object))) called(node, name);
+					else if (name === null && node.computed && isWriter(node.object))
+						report(
+							node,
+							"picks a documentsWriter operation at run time, so this rule cannot tell that it does not render",
+						);
+				},
+			},
+		);
+	},
+};
+
+const WIKI = "apps/web/src/features/wiki/";
+
+const wikiNoMdx = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!repoPath(context.filename).startsWith(WIKI)) return {};
+		return moduleSources((node, spec) => {
+			if (/mdx/i.test(spec))
+				context.report({
+					node,
+					message: `${spec} compiles MDX. A wiki body is a church's own text: the reader shows it as blocks (articleBlocks) and never runs the JSX, imports or expressions in it.`,
+				});
+		});
+	},
+};
+
+const notificationMount = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!repoPath(context.filename).startsWith("apps/web/src/features/notifications/")) return {};
+		return {
+			Identifier(node) {
+				if ((node.name === "globalThis" || node.name === "global") && isValueReference(node))
+					context.report({
+						node,
+						message: `The notifications mount is one producer per module instance (\`mount\` in features/notifications/server.ts). ${node.name} outlives the module, so a reload would keep a producer with the old opt-out keys.`,
+					});
+			},
+		};
+	},
+};
+
+const TEAMS = "apps/web/src/features/teams/";
+const TEAMS_WRITE_IMPORTS = {
+	[`${TEAMS}server.ts`]: /^write$/,
+	[`${TEAMS}training/server.ts`]: /^readRosterPreview$/,
+	"apps/web/src/server/request-context.ts": /^seated$/,
+	"@everyfield/domain/teams": /Writer$/,
+};
+const TEAMS_READ_IN = { readRosterPreview: "previewRoster" };
+
+const teamsWriteAnswer = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!from.startsWith(TEAMS) || !SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `${what}. A teams write answers with its own result, never with the page read again: a revalidate, refresh or redirect renders the page and sends it with the answer. The screen updates from the answer.`,
+			});
+		const reads = new Map();
+		return {
+			...moduleSources((node, spec) => {
+				if (node.type === "TSImportType" || node.importKind === "type" || node.exportKind === "type") return;
+				if (spec.startsWith("@everyfield/contracts/")) return;
+				const to = resolveImport(from, spec).to ?? "";
+				const allowed =
+					TEAMS_WRITE_IMPORTS[spec] ??
+					Object.entries(TEAMS_WRITE_IMPORTS).find(([path]) => path === to || path.startsWith(`${to}.`))?.[1];
+				if (node.type !== "ImportDeclaration" || !allowed) return report(node, `A teams action module imports ${spec}`);
+				for (const s of node.specifiers) {
+					if (s.importKind === "type") continue;
+					const name = s.type === "ImportSpecifier" ? nameOf(s.imported) : "*";
+					if (!allowed.test(name)) report(s, `A teams action module imports ${name} from ${spec}`);
+					else if (TEAMS_READ_IN[name]) reads.set(s.local.name, TEAMS_READ_IN[name]);
+				}
+			}),
+			Identifier(node) {
+				const reader = reads.get(node.name);
+				if (!reader || !isValueReference(node)) return;
+				for (let at = node.parent; at; at = at.parent)
+					if (at.type === "FunctionDeclaration" && at.id?.name === reader) return;
+				report(node, `${node.name} is used outside ${reader}`);
+			},
+		};
+	},
+};
 
 const KEY_MINTS = new Set(["newRequestKey", "randomUUID"]);
 const keySlot = (node) =>
@@ -3782,14 +4180,6 @@ const organizationSeatCheck = {
 };
 
 export const LOOSE_CONTRACTS = {
-	"packages/contracts/src/people/csv/index.ts": {
-		importValues:
-			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
-	},
-	"packages/contracts/src/communication/results.ts": {
-		mailReport:
-			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
-	},
 	"packages/contracts/src/communication/requests.ts": {
 		historyQuery:
 			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
@@ -3819,7 +4209,7 @@ const strictContracts = {
 				context.report({
 					node,
 					message:
-						"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+						"An object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, so a value with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
 				});
 		};
 		return {
@@ -4206,6 +4596,326 @@ const oneTopLevelBefore = {
 	},
 };
 
+const COUNT_TEXT_HOME = "packages/contracts/src/common/text.ts";
+const COUNT_OPERATORS = new Set(["===", "!==", "==", "!=", ">", "<=", ">=", "<"]);
+const IRREGULAR_PLURALS = new Map([
+	["person", "people"],
+	["child", "children"],
+	["is", "are"],
+	["has", "have"],
+	["was", "were"],
+	["it", "they"],
+	["this", "these"],
+	["does", "do"],
+]);
+const isOne = (node) => node?.type === "Literal" && node.value === 1;
+const textOf = (node) => {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type !== "TemplateLiteral") return null;
+	return node.quasis.map((quasi) => quasi.value.cooked ?? "").join("\u0000");
+};
+const pluralOf = (one, many) => {
+	const lower = one.toLowerCase();
+	const other = many.toLowerCase();
+	if (!/^[a-z-]+$/.test(lower) || lower === other) return false;
+	return (
+		other === `${lower}s` ||
+		other === `${lower}es` ||
+		(lower.endsWith("y") && other === `${lower.slice(0, -1)}ies`) ||
+		IRREGULAR_PLURALS.get(lower) === other
+	);
+};
+const words = (text) => text.split(/(\s+|[^\p{L}\p{N}\u0000-]+)/u).filter((part) => part !== "");
+const countPair = (a, b) => {
+	if ((a === "" && /^(?:e?s)$/.test(b)) || (b === "" && /^(?:e?s)$/.test(a))) return true;
+	const left = words(a);
+	const right = words(b);
+	if (left.length !== right.length) return false;
+	let plural = false;
+	for (let index = 0; index < left.length; index += 1) {
+		const x = left[index];
+		const y = right[index];
+		if (x === y) continue;
+		if ((x === "1" && y === "\u0000") || (y === "1" && x === "\u0000")) continue;
+		if (pluralOf(x, y) || pluralOf(y, x)) plural = true;
+		else return false;
+	}
+	return plural;
+};
+const parameterOf = (identifier, context) => {
+	if (identifier?.type !== "Identifier") return null;
+	for (let scope = context.sourceCode.getScope(identifier); scope; scope = scope.upper) {
+		const def = scope.set?.get(identifier.name)?.defs?.[0];
+		if (def) return def.type === "Parameter" ? def.node : null;
+	}
+	return null;
+};
+const countText = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === COUNT_TEXT_HOME) return {};
+		return {
+			ConditionalExpression(node) {
+				const test = node.test;
+				if (test.type !== "BinaryExpression" || !COUNT_OPERATORS.has(test.operator)) return;
+				if (!isOne(test.left) && !isOne(test.right)) return;
+				const a = textOf(node.consequent);
+				const b = textOf(node.alternate);
+				const owner = a === null || b === null ? parameterOf(node.consequent, context) : null;
+				const handWritten =
+					a !== null && b !== null ? countPair(a, b) : owner !== null && owner === parameterOf(node.alternate, context);
+				if (!handWritten) return;
+				context.report({
+					node,
+					message:
+						'This writes count text by hand. Use counted(n, one, many) for "3 tasks" or countWord(n, one, many) for the word alone, from @everyfield/contracts/common.',
+				});
+			},
+		};
+	},
+};
+
+const CIVIL_DAY_HOME = "packages/contracts/src/common/day.ts";
+const UTC_DAY = /T(?:12|00):00:00(?:\.000)?Z/;
+const civilDay = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === CIVIL_DAY_HOME) return {};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This builds a midnight- or noon-UTC Date to handle a civil day. Use dayText(day, options), daysBetween(from, to), addDays(day, n) or weekdayOf(day) from @everyfield/contracts/common.",
+			});
+		return {
+			Literal(node) {
+				if (typeof node.value === "string" && UTC_DAY.test(node.value)) report(node);
+			},
+			TemplateLiteral(node) {
+				if (node.quasis.some((quasi) => UTC_DAY.test(quasi.value.cooked ?? quasi.value.raw))) report(node);
+			},
+		};
+	},
+};
+
+const REF_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const HOOK = /^use(?:[A-Z0-9]|$)/;
+const MEMO_HOOKS = new Set(["useCallback", "useMemo"]);
+const within = (node, fn) => {
+	for (let at = node; at; at = at.parent) if (at === fn) return true;
+	return false;
+};
+const refOwner = (node) => {
+	let outermost = null;
+	let component = null;
+	for (let at = node.parent; at; at = at.parent) {
+		if (!FUNCTIONS.has(at.type)) continue;
+		outermost = at;
+		if (isOwner(functionName(at) ?? "")) component = at;
+	}
+	return component ?? outermost;
+};
+const patternDefault = (pattern, name) => {
+	for (const part of childNodes(pattern)) {
+		if (part.type === "AssignmentPattern" && part.left.type === "Identifier" && part.left.name === name)
+			return part.right;
+		const inner = FUNCTIONS.has(part.type) ? null : patternDefault(part, name);
+		if (inner) return inner;
+	}
+	return null;
+};
+const returnsOf = (fn) => {
+	if (fn.body.type !== "BlockStatement") return [fn.body];
+	const found = [];
+	walkOwn(fn.body, (node) => {
+		if (node.type === "ReturnStatement" && node.argument) found.push(node.argument);
+		return false;
+	});
+	return found;
+};
+const stableRef = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!REF_CODE.test(repoPath(context.filename))) return {};
+		const valuesOf = (id, owner) => {
+			const variable = variableOf(context, id);
+			if (!variable) return [];
+			const values = variable.references.flatMap((r) => (r.writeExpr && !r.init ? [r.writeExpr] : []));
+			for (const def of variable.defs) {
+				if (def.type === "FunctionName") values.push(def.node);
+				else if (def.type === "Variable")
+					values.push(def.node.id.type === "Identifier" ? def.node.init : patternDefault(def.node.id, id.name));
+				else if (def.type === "Parameter")
+					values.push(patternDefault({ type: "ArrayPattern", elements: def.node.params }, id.name));
+			}
+			return values.filter((value) => value && within(value, owner));
+		};
+		const propertyOf = (object, name, owner) =>
+			object.type === "Identifier" && name
+				? valuesOf(object, owner)
+						.map(unwrapped)
+						.filter((value) => value?.type === "ObjectExpression")
+						.flatMap((value) => value.properties)
+						.filter((p) => p.type === "Property" && keyName(p.key, p.computed) === name)
+						.map((p) => p.value)
+				: [];
+		const isFresh = (node, owner, seen = new Set()) => {
+			const value = unwrapped(node);
+			if (!value || !owner || seen.has(value)) return false;
+			seen.add(value);
+			const fresh = (part) => isFresh(part, owner, seen);
+			if (FUNCTIONS.has(value.type)) return true;
+			if (value.type === "ConditionalExpression") return fresh(value.consequent) || fresh(value.alternate);
+			if (value.type === "LogicalExpression") return fresh(value.left) || fresh(value.right);
+			if (value.type === "Identifier") return valuesOf(value, owner).some(fresh);
+			if (value.type === "MemberExpression") return propertyOf(value.object, memberName(value), owner).some(fresh);
+			return value.type === "CallExpression" && freshCall(value, fresh);
+		};
+		const freshCall = (call, fresh) => {
+			const name = calleeName(call.callee);
+			if (MEMO_HOOKS.has(name)) return call.arguments.length < 2;
+			if (HOOK.test(name ?? "")) return false;
+			if (call.arguments.some(fresh)) return true;
+			if (call.callee.type === "MemberExpression") return name === "bind";
+			if (call.callee.type !== "Identifier") return true;
+			const local = variableOf(context, call.callee)
+				?.defs.map((def) => (def.type === "Variable" ? unwrapped(def.node.init) : def.node))
+				.find((node) => FUNCTIONS.has(node?.type));
+			if (local) return returnsOf(local).some((answer) => isFresh(answer, local));
+			return name !== "revealRef";
+		};
+		return {
+			JSXAttribute(node) {
+				if (node.name.name !== "ref" || node.value?.type !== "JSXExpressionContainer") return;
+				if (!isFresh(node.value.expression, refOwner(node))) return;
+				context.report({
+					node,
+					message:
+						"This ref is a new function on every render, so React detaches and attaches the element each time: focus requests, observers and measurements run again. Use a module-level function, a ref object, useCallback with its dependencies, a hook's or store's stable function, or revealRef(up).",
+				});
+			},
+		};
+	},
+};
+
+const serverClock = {
+	meta: { type: "problem" },
+	create(context) {
+		const { clockOf, track } = clockTracker();
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"A review card never reads the browser clock: its expiry follows the server's now (review.now). Pass that instant in; formatting a server instant with new Date(iso) is fine.",
+			});
+		return {
+			VariableDeclarator: (node) => {
+				track(node);
+				if (node.id.type === "ObjectPattern" && clockOf(node.init))
+					for (const p of node.id.properties)
+						if (p.type === "Property" && keyName(p.key, p.computed) === "now") report(p);
+			},
+			NewExpression: (node) => clockOf(node.callee) === "Date" && node.arguments.length === 0 && report(node),
+			CallExpression: (node) => clockOf(node.callee) === "Date" && report(node),
+			MemberExpression: (node) => clockOf(node) === "now" && report(node),
+		};
+	},
+};
+
+const SCROLL_INTO_VIEW = /^scrollIntoView(?:IfNeeded)?$/;
+const noScrollIntoView = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, name) =>
+			SCROLL_INTO_VIEW.test(name ?? "") &&
+			context.report({
+				node,
+				message:
+					"scrollIntoView also scrolls the page and every column around the element. Set scrollTop on the one column that moves.",
+			});
+		return {
+			MemberExpression: (node) => report(node, memberName(node)),
+			Property: (node) => node.parent.type === "ObjectPattern" && report(node, keyName(node.key, node.computed)),
+		};
+	},
+};
+
+const DATE_OPTIONS = new Set([
+	"dateStyle",
+	"timeStyle",
+	"weekday",
+	"era",
+	"year",
+	"month",
+	"day",
+	"dayPeriod",
+	"hour",
+	"minute",
+	"second",
+	"fractionalSecondDigits",
+	"timeZoneName",
+	"hour12",
+	"hourCycle",
+]);
+const explicitTimeZone = {
+	meta: { type: "problem" },
+	create(context) {
+		const definition = (node) => {
+			const value = unwrapped(node);
+			if (value?.type !== "Identifier") return value;
+			const variable = variableOf(context, value);
+			const [def] = variable?.defs ?? [];
+			return def?.type === "Variable" && def.node.id.type === "Identifier" && def.node.init
+				? unwrapped(def.node.init)
+				: value;
+		};
+		const keysOf = (node) => {
+			const options = definition(node);
+			return options?.type === "ObjectExpression"
+				? options.properties.filter((p) => p.type === "Property").map((p) => [keyName(p.key, p.computed), p.value])
+				: [];
+		};
+		const zoned = (options) => keysOf(options).some(([key, value]) => key === "timeZone" && !isNothing(value));
+		const isDateType = (id) => {
+			const type = (variableOf(context, id)?.defs ?? [])
+				.map((def) => def.name?.typeAnnotation?.typeAnnotation)
+				.find(Boolean);
+			return type?.type === "TSTypeReference" && typeName(type) === "Date";
+		};
+		const isDate = (node) => {
+			if (node.type === "TSAsExpression" && typeName(node.typeAnnotation) === "Date") return true;
+			const value = definition(node);
+			if (value?.type === "NewExpression") return calleeName(value.callee) === "Date";
+			return value?.type === "Identifier" && isDateType(value);
+		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"Format a meeting, launch or oversight date in the church's time zone: pass { timeZone } in an options object written here. Without it the browser's zone decides the day.",
+			});
+		const formatter = (node) => {
+			const callee = definition(node.callee);
+			const name = callee?.type === "Identifier" ? callee.name : memberName(callee);
+			if (name === "DateTimeFormat" && !zoned(node.arguments[1])) report(node);
+		};
+		return {
+			NewExpression: formatter,
+			CallExpression(node) {
+				formatter(node);
+				if (node.callee.type !== "MemberExpression" || zoned(node.arguments[1])) return;
+				const name = memberName(node.callee);
+				if (name === "toLocaleDateString" || name === "toLocaleTimeString") report(node);
+				else if (
+					name === "toLocaleString" &&
+					(isDate(node.callee.object) || keysOf(node.arguments[1]).some(([key]) => DATE_OPTIONS.has(key)))
+				)
+					report(node);
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -4221,6 +4931,7 @@ export default {
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
 		"site-path-cast": sitePathCast,
+		"no-double-cast": noDoubleCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
@@ -4231,6 +4942,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"scripted-model-wiring": scriptedModelWiring,
 		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
@@ -4243,6 +4955,7 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
+		"private-importers": privateImporters,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
@@ -4250,7 +4963,14 @@ export default {
 		"render-reads": renderReads,
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
+		"action-identity-params": actionIdentityParams,
+		"action-proofs": actionProofs,
+		"token-authority": tokenAuthority,
 		"client-request-key": clientRequestKey,
+		"action-render": actionRender,
+		"wiki-no-mdx": wikiNoMdx,
+		"notification-mount": notificationMount,
+		"teams-write-answer": teamsWriteAnswer,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
 		"organization-seat": organizationSeatCheck,
@@ -4262,5 +4982,11 @@ export default {
 		"one-top-level-before": oneTopLevelBefore,
 		"confirm-keeps-refusal": confirmKeepsRefusal,
 		"no-default-database": noDefaultDatabase,
+		"count-text": countText,
+		"civil-day": civilDay,
+		"stable-ref": stableRef,
+		"server-clock": serverClock,
+		"no-scroll-into-view": noScrollIntoView,
+		"explicit-time-zone": explicitTimeZone,
 	},
 };

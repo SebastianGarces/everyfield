@@ -186,7 +186,7 @@ export const dashboardReader = {
 			OR (t.due_kind='date_only' AND ((t.due_date+1)::timestamp AT TIME ZONE pl.timezone)<=clock_timestamp())))
 		AS my_overdue,
 	(SELECT count(*)::int FROM meeting m WHERE m.plant_id=${p} AND m.type='vision_meeting' AND m.status='completed'
-		AND m.retired_at IS NULL AND m.occurrence_voided_at IS NULL AND m.actual_occurrence_at<=clock_timestamp())
+		AND m.retired_at IS NULL AND m.occurrence_voided_at IS NULL AND coalesce(m.actual_occurrence_at,m.starts_at)<=clock_timestamp())
 		AS vision) q ON g.ok`);
 			const r = rows[0];
 			if (!r || r.ok !== true) return deny();
@@ -219,6 +219,7 @@ export const dashboardReader = {
 			AND m.id IS NOT NULL)
 		OR (a.action='tasks.completed' AND t.deleted_at IS NULL AND t.id IS NOT NULL)
 		OR (a.action IN ('launch.changed','launch.outcome_recorded') AND a.subject_type='launch')
+		OR (a.action='launch.corrected' AND a.subject_type='launch' AND a.metadata->>'event'='outcome_corrected')
 		OR (a.action IN ('phase.declared','phase.transitioned') AND g.admin))
 	ORDER BY a.occurred_at DESC,a.id DESC LIMIT ${c.ACTIVITY_LIMIT + 1}) e) END AS entries
  FROM (SELECT ${scope.live} AS ok, ${scope.admin} AS admin) g`);
@@ -255,6 +256,7 @@ const ACTIVITY_ACTIONS = [
 	"tasks.completed",
 	"launch.changed",
 	"launch.outcome_recorded",
+	"launch.corrected",
 	"phase.declared",
 	"phase.transitioned",
 ] as const;
@@ -296,6 +298,8 @@ function changeOf(e: z.infer<typeof eventRow>): c.Change | null {
 		}
 		case "launch.outcome_recorded":
 			return c.change.parse({ kind: "launch_recorded", date: date(after.actualDate) });
+		case "launch.corrected":
+			return c.change.parse({ kind: "launch_corrected", date: date(after.actualDate) });
 		case "phase.declared":
 		case "phase.transitioned":
 			return c.change.parse({ kind: "phase_changed", phase: after.phase });

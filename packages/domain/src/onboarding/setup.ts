@@ -416,8 +416,8 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
   FROM seat s JOIN account ac ON ac.id=s.account_id AND ac.registration_state='active'
   LEFT JOIN person p ON p.linked_account_id=s.account_id AND p.plant_id=${plantId}::uuid AND p.state='live'
   WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-  AND NOT EXISTS(SELECT FROM lifecycle_witness w LEFT JOIN seat ws ON ws.id=w.seat_id
-   WHERE (w.opaque_subject_id=s.account_id OR ws.account_id=s.account_id) AND w.state NOT IN ('active','cancelled'))),
+  AND NOT EXISTS(SELECT FROM lifecycle_witness w
+   WHERE w.opaque_subject_id=s.account_id AND w.state <> 'cancelled')),
  rd AS (SELECT r.account_id, r.article_id, r.completed_fraction::text AS completed_fraction,
   (extract(epoch FROM r.completed_at)*1000)::float8 AS completed_at, ar.id AS source_id, ar.tenant_id, ar.revision_number,
   tn.kind, o.kind AS organization_kind

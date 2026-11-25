@@ -11,6 +11,7 @@ import { GUIDE_ROUTES, guideFor } from "../../../packages/domain/src/wiki/guides
 import { sessionId } from "../../../packages/contracts/src/common/values.ts";
 import type { SourceView } from "../../../packages/contracts/src/wiki/index.ts";
 import type { SQL } from "../../../packages/db/src/query.ts";
+import { stepsAround, treeModel } from "../../../packages/contracts/src/wiki/index.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
@@ -606,10 +607,12 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
+			const steps = stepsAround(treeModel(nav.groups, new Set()), guide);
 			assert.deepEqual(
-				neighbors.articles.map((item) => item.articleId),
-				[guideExtra, sibling],
+				[neighbors.previous?.articleId, neighbors.next?.articleId],
+				[steps.previous?.id, steps.next?.id],
 			);
+			assert.equal(Boolean(neighbors.previous ?? neighbors.next), true);
 			const toc = ok(await api.tableOfContents(db, await actor(people.owner), { articleId: guide }));
 			assert.deepEqual(toc.headings, [
 				{ level: 2, text: "Open" },
@@ -2232,6 +2235,42 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			);
 		},
 	);
+
+	test("INV-wiki-read opening the Guide and searching record no view or progress for the signed-in reader", async () => {
+		const opened = present(guideIds.get("core-group/follow-up/database-management"), "people guide");
+		const other = present(guideIds.get("core-group/vision-meetings/what-is-a-vision-meeting"), "meetings guide");
+		ok(
+			await api.updateProgress(
+				db,
+				await actor(r1.owner),
+				reading({ articleId: opened, fraction: "0.40", plantId: R1 }),
+			),
+		);
+		const stored = async () =>
+			(
+				await admin.execute(
+					sql`SELECT to_jsonb(r) AS row FROM reading r WHERE account_id=${r1.owner.id} ORDER BY article_id`,
+				)
+			).rows;
+		const before = await stored();
+		assert.ok(before.length > 0);
+		assert.ok(before.some(({ row }) => (row as { article_id: string }).article_id === opened));
+
+		const unread = await count(
+			sql`SELECT count(*)::int AS n FROM reading WHERE account_id=${r1.owner.id} AND article_id=${other}`,
+		);
+		assert.equal(unread, 0);
+		for (const [route, articleId] of [
+			["/people", opened],
+			["/meetings", other],
+		] as const) {
+			const guide = await guideOf(r1.owner, route);
+			assert.deepEqual([guide.found, guide.articleId], [true, articleId]);
+		}
+		const found = present(ok(await api.search(db, await actor(r1.owner), { query: "Track" })).results, "results");
+		assert.ok(found.length > 0);
+		assert.deepEqual(await stored(), before);
+	});
 
 	test(
 		ac(["CASE-WIKI-008", "WIKI-ENTITLEMENT-001"]) +

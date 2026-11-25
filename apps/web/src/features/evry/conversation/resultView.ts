@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { timeText } from "@everyfield/contracts/common";
+import { counted, dayText, localDate, timeText } from "@everyfield/contracts/common";
 import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
 import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
 import { fieldLabel, LEFT_OUT_REASON, sendTimeShort, valueText } from "../review/model.ts";
@@ -128,6 +128,7 @@ const VIEWS: Record<string, OpView> = {
 	}),
 	"people.getPipelineData": people("Pipeline"),
 	"evry.selectReturnedRows": people("Selected people"),
+	"people.getStatusWarnings": people("Before a stage move"),
 	"people.listHouseholds": {
 		title: "Households",
 		noun: ["household", "households"],
@@ -243,6 +244,21 @@ const VIEWS: Record<string, OpView> = {
 		counts: "criterion",
 		shownOnly: true,
 		empty: "This phase has no exit criteria.",
+	},
+	"intelligence.readExitCriteria": {
+		title: "Exit criteria",
+		noun: ["criterion", "criteria"],
+		icon: "criterion",
+		counts: "criterion",
+		shownOnly: true,
+		empty: "This phase has no exit criteria.",
+	},
+	"intelligence.readJourney": {
+		title: "Journey",
+		noun: ["step", "steps"],
+		icon: "phase",
+		counts: "phase",
+		empty: "This church's journey is not available.",
 	},
 	"signals.listDefinitions": {
 		title: "Signals",
@@ -412,6 +428,21 @@ const VIEWS: Record<string, OpView> = {
 		icon: "item",
 		empty: "No pattern: each needs two or more plants with the same finding.",
 	}),
+	"organizationIntelligence.readHistory": items("Network Intelligence by place", {
+		noun: ["row", "rows"],
+		icon: "item",
+		empty: "Network Intelligence hasn't run yet.",
+	}),
+	"organizationIntelligence.readLocations": items("Where your plants are", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "No plant is linked to this organization yet.",
+	}),
+	"organizationIntelligence.readLocationHistory": items("Saved locations", {
+		noun: ["location", "locations"],
+		icon: "item",
+		empty: "That plant has no saved location here.",
+	}),
 	"development.draftPlan": {
 		title: "Who can direct a program",
 		noun: ["staff member", "staff members"],
@@ -514,6 +545,13 @@ const VIEWS: Record<string, OpView> = {
 		icon: "message",
 		empty: "No email in Messages matches, or you can't see it.",
 	}),
+	"communication.getDraft": {
+		title: "Email",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "message",
+		empty: "No email in Messages matches, or you can't see it.",
+	},
 	"communication.forPerson": {
 		title: "Emails",
 		noun: ["email", "emails"],
@@ -528,6 +566,44 @@ const VIEWS: Record<string, OpView> = {
 		icon: "template",
 		counts: "template",
 		empty: "No email template is available.",
+	},
+	"communication.forMeeting": {
+		title: "Emails about a meeting",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "message",
+		empty: "No meeting matches, or Messages has no email about it.",
+	},
+	"communication.meetingRecipientTracking": people("Who got the meeting's emails", {
+		icon: "message",
+		empty: "No meeting matches, or no email about it has gone to anyone.",
+	}),
+	"communication.deliveryTotals": {
+		title: "Delivery totals",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "tally",
+		quiet: true,
+		empty: "No email in Messages matches, or you can't see it.",
+	},
+	"communication.listAudienceTeams": {
+		title: "Teams you can email",
+		noun: ["team", "teams"],
+		icon: "team",
+		counts: "team",
+		empty: "This church has no team an email can go to yet.",
+	},
+	"communication.searchRecipients": people("Who can get email", {
+		icon: "message",
+		empty: "No live person in this church matches.",
+	}),
+	"mail.suppression.listForSelf": {
+		title: "Your email address",
+		noun: ["address", "addresses"],
+		icon: "setting",
+		counts: "setting",
+		quiet: true,
+		empty: "Your account's email address isn't verified.",
 	},
 	"communication.resendCandidates": people("Resend", {
 		icon: "message",
@@ -616,6 +692,29 @@ const VIEWS: Record<string, OpView> = {
 	"wiki.referenceExcerpt": wiki("From the Wiki", { empty: "This article is not in your Wiki, or you can't read it." }),
 	"wiki.recommendForPhase": wiki("Suggested reading", { empty: "The Wiki has no suggestions for your phase." }),
 	"wiki.reading.resume": wiki("Where you left off", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.navigation": wiki("What's in the Wiki", {
+		noun: ["section", "sections"],
+		counts: "item",
+		empty: "The Wiki has no articles yet.",
+	}),
+	"wiki.articles.list": wiki("Wiki articles", { empty: "The Wiki has no articles there." }),
+	"wiki.tableOfContents": wiki("Sections in this article", {
+		noun: ["section", "sections"],
+		empty: "This article has no sections, or you can't read it.",
+	}),
+	"wiki.articleNeighbors": wiki("Around this article", { empty: "Nothing comes before or after this article." }),
+	"wiki.contextGuide": wiki("Page guide", {
+		noun: ["guide", "guides"],
+		empty: "That page has no guide.",
+	}),
+	"wiki.bookmarks.list": wiki("Your bookmarks", { empty: "You haven't bookmarked a Wiki article yet." }),
+	"wiki.reading.recent": wiki("Read recently", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.reading.stats": wiki("Your Wiki reading", {
+		noun: ["phase", "phases"],
+		counts: "item",
+		empty: "The Wiki has no phase articles yet.",
+	}),
+	"wiki.feedback.getMine": wiki("Your Wiki feedback", { empty: "You haven't left feedback on a Wiki article yet." }),
 	"wiki.article.exportPdf": wiki("Wiki PDF", {
 		noun: ["file", "files"],
 		empty: "This article is not in your Wiki, or you can't read it.",
@@ -785,6 +884,25 @@ const RESULT: Record<string, string> = {
 	failed: "Not sent",
 	cancelled: "Cancelled",
 	unsubscribed: "Unsubscribed, not sent",
+	"marked as a child": "Not sent: marked as a child",
+	"sent to a parent or guardian instead": "Sent to a parent or guardian instead",
+};
+const CAN_EMAIL: Record<string, string> = {
+	can_email: "Can get email",
+	no_address: "No email address",
+	unsubscribed: "Unsubscribed from this church's email",
+	"marked as a child": "Marked as a child, so no email goes to them",
+	"sent to a parent or guardian instead": "Email goes to a parent or guardian instead",
+};
+const MESSAGE_STATE: Record<string, string> = {
+	draft: "Draft",
+	scheduled: "Scheduled",
+	held: "Held",
+	sending: "Sending",
+	sent: "Sent",
+	cancelled: "Cancelled",
+	failed: "Failed",
+	unknown: "Not confirmed",
 };
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
 const ROLE: Record<string, string> = { head: "Head", spouse: "Spouse", child: "Child", other: "Other" };
@@ -827,7 +945,6 @@ const ROW_OUTCOME: Record<string, string> = {
 	remaining: "Not added yet",
 };
 
-const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const text = (value: unknown) => (typeof value === "string" && value ? value : null);
 const num = (value: unknown) =>
 	typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : Number.NaN;
@@ -840,19 +957,13 @@ const words = (value: string) => {
 const label = (table: Record<string, string>, value: unknown) =>
 	typeof value === "string" && value ? (table[value] ?? words(value)) : null;
 const phaseDay = (value: unknown) =>
-	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
-		? new Date(`${value}T00:00:00Z`).toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-				timeZone: "UTC",
-			})
-		: null;
+	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? dayText(value) : null;
 const ENTRY: Record<string, string> = {
 	creation: "Started in",
 	initial_declaration: "Declared as",
 	movement: "Moved to",
 	launch_sunday: "Held",
+	launch_date: "",
 };
 const CRITERION: Record<string, string> = {
 	Met: "Met",
@@ -873,15 +984,11 @@ const SIGNAL_KIND: Record<string, string> = {
 const ANSWER: Record<string, string> = { yes: "Yes", not_yet: "Not yet" };
 const categoryText = (value: unknown) =>
 	typeof value === "string" ? (CATEGORY_TEXT[value as keyof typeof CATEGORY_TEXT]?.label ?? words(value)) : null;
+const civilDay = (value: unknown) =>
+	typeof value === "string" && localDate.safeParse(value).success ? dayText(value) : null;
 const day = (value: unknown) => {
 	const local = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2} /.exec(value) : null;
-	if (local)
-		return new Date(`${local[1]}T12:00:00Z`).toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-			year: "numeric",
-			timeZone: "UTC",
-		});
+	if (local) return civilDay(local[1]);
 	const at = typeof value === "string" ? new Date(value) : null;
 	return at && !Number.isNaN(at.getTime())
 		? at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -971,11 +1078,62 @@ export type CardView = {
 	links: { href: string; label: string }[];
 };
 
+const WIKI_READING = new Set(["wiki.reading.resume", "wiki.bookmarks.list", "wiki.reading.recent"]);
+const WIKI_VOTE: Record<string, string> = {
+	helpful: "You found it helpful",
+	unhelpful: "You found it not helpful",
+	none: "No feedback from you",
+};
+function wikiLine(operation: string, { label, fields }: SourceRow): string | null {
+	if (operation === "wiki.tableOfContents") return label;
+	if (operation === "wiki.feedback.getMine") return WIKI_VOTE[String(fields.vote)] ?? null;
+	if (operation === "wiki.articleNeighbors")
+		return joined(
+			fields.relation === "previous" ? "Previous" : fields.relation === "next" ? "Next" : "Related",
+			text(fields.section),
+		);
+	return null;
+}
+function emptyText(view: OpView, operation: string, facts: Record<string, unknown>): string {
+	if (operation === "wiki.contextGuide" && text(facts.page)) return `${String(facts.page)} has no guide.`;
+	if (operation === "wiki.articles.list" && text(facts.section))
+		return facts.sectionFound === false
+			? `The Wiki has no section called ${String(facts.section)}.`
+			: `The Wiki has no articles in ${String(facts.section)}.`;
+	if (operation === "wiki.referenceExcerpt" && text(facts.unknownSection))
+		return `This article has no section called ${String(facts.unknownSection)}.`;
+	return view.empty;
+}
+function wikiFacts(operation: string, facts: Record<string, unknown>): string[] {
+	if (operation === "wiki.navigation") return [`${counted(num(facts.articles), "article")} in all.`];
+	if (operation === "wiki.articleNeighbors")
+		return [
+			...(facts.firstArticle === true ? ["This is the first article. Nothing comes before it."] : []),
+			...(facts.lastArticle === true ? ["This is the last article. Nothing comes after it."] : []),
+		];
+	if (operation === "wiki.reading.stats")
+		return [
+			`${num(facts.articlesRead)} of ${counted(num(facts.articlesTotal), "article")} read.`,
+			num(facts.discoveryTotal) > 0
+				? `Discovery reading: ${num(facts.discoveryRead)} of ${counted(num(facts.discoveryTotal), "article")} read${facts.discoveryComplete === true ? ", complete" : ""}.`
+				: "There is no Discovery reading yet.",
+		];
+	return [];
+}
+
 const plainExcerpt = (excerpt: string) =>
 	excerpt
 		.replace(/<\/?[A-Za-z][^>]*>/g, "")
 		.replace(/^#{1,6}\s+/gm, "")
 		.replace(/\*\*|__|`/g, "")
+		.replace(/^[ \t]*\|[ \t|:]*-[ \t|:-]*\|[ \t]*\n?/gm, "")
+		.replace(/^[ \t]*\|(.*)\|[ \t]*$/gm, (_, row: string) =>
+			row
+				.split("|")
+				.map((cell) => cell.trim())
+				.filter(Boolean)
+				.join(" · "),
+		)
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();
 
@@ -1077,7 +1235,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: joined(text(fields.city), Number.isFinite(members) ? count(members, "member", "members") : null),
+				line: joined(text(fields.city), Number.isFinite(members) ? counted(members, "member") : null),
 				avatar: "household",
 			};
 		}
@@ -1086,7 +1244,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: Number.isFinite(linked) ? count(linked, "person", "people") : null,
+				line: Number.isFinite(linked) ? counted(linked, "person", "people") : null,
 				avatar: "tag",
 			};
 		}
@@ -1134,11 +1292,9 @@ function rowView(operation: string, row: SourceRow): RowView {
 					...plain,
 					name: "Your file",
 					line: joined(
-						count(num(fields.valid) || 0, "valid row", "valid rows"),
-						count(num(fields.invalid) || 0, "invalid row", "invalid rows"),
-						num(fields.existingDuplicates) > 0
-							? count(num(fields.existingDuplicates), "possible duplicate", "possible duplicates")
-							: null,
+						counted(num(fields.valid) || 0, "valid row"),
+						counted(num(fields.invalid) || 0, "invalid row"),
+						num(fields.existingDuplicates) > 0 ? counted(num(fields.existingDuplicates), "possible duplicate") : null,
 					),
 					avatar: "file",
 				};
@@ -1158,7 +1314,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: columns ? count(columns, "column", "columns") : null,
+				line: columns ? counted(columns, "column") : null,
 				avatar: "file",
 			};
 		}
@@ -1212,15 +1368,15 @@ function rowView(operation: string, row: SourceRow): RowView {
 							`Training ${percent(fields.trainingPercent) ?? "unknown"}`,
 							`Attendance ${percent(fields.attendancePercent) ?? "unknown"}`,
 							typeof fields.windowFrom === "string" && typeof fields.windowTo === "string"
-								? `${day(fields.windowFrom + "T12:00:00Z")} – ${day(fields.windowTo + "T12:00:00Z")}`
+								? `${civilDay(fields.windowFrom)} – ${civilDay(fields.windowTo)}`
 								: null,
 						)
 					: null;
 			const staffing =
 				typeof fields.roles === "number"
 					? joined(
-							`${fields.filledRoles} of ${count(fields.roles, "role", "roles")} filled`,
-							count(Number(fields.people), "person", "people"),
+							`${fields.filledRoles} of ${counted(fields.roles, "role")} filled`,
+							counted(Number(fields.people), "person", "people"),
 						)
 					: null;
 			const leader =
@@ -1239,7 +1395,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 					health ??
 					joined(
 						leader,
-						staffing ?? (typeof fields.people === "number" ? count(fields.people, "person", "people") : null),
+						staffing ?? (typeof fields.people === "number" ? counted(fields.people, "person", "people") : null),
 					),
 				mark:
 					"composite" in fields
@@ -1264,8 +1420,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: joined(
 					text(fields.team),
 					text(fields.filledBy) ? `Filled by ${fields.filledBy}` : null,
-					text(fields.since) ? `Since ${day(fields.since + "T12:00:00Z")}` : null,
-					text(fields.ended) ? `Ended ${day(fields.ended + "T12:00:00Z")}` : null,
+					text(fields.since) ? `Since ${civilDay(fields.since)}` : null,
+					text(fields.ended) ? `Ended ${civilDay(fields.ended)}` : null,
 				),
 				mark:
 					fields.open === true
@@ -1288,11 +1444,11 @@ function rowView(operation: string, row: SourceRow): RowView {
 							? null
 							: typeof fields.requiredPeople === "number"
 								? joined(
-										`${fields.finished} of ${count(fields.requiredPeople, "required person", "required people")} finished`,
+										`${fields.finished} of ${counted(fields.requiredPeople, "required person", "required people")} finished`,
 										fields.churchWide === true ? "Church-wide" : null,
 									)
 								: typeof fields.people === "number"
-									? count(fields.people, "person", "people")
+									? counted(fields.people, "person", "people")
 									: null,
 				mark: fields.required === false ? { kind: "status", text: "Optional", warn: false } : null,
 				avatar: "training",
@@ -1301,7 +1457,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: text(fields.doneOn) ? `Done ${day(fields.doneOn + "T12:00:00Z")}` : null,
+				line: text(fields.doneOn) ? `Done ${civilDay(fields.doneOn)}` : null,
 				mark: fields.done === true ? { kind: "status", text: "Done", warn: false } : null,
 				avatar: "responsibility",
 			};
@@ -1321,6 +1477,20 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "template",
 			};
 		case "message":
+			if (operation === "communication.forMeeting")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						label(MESSAGE_STATE, fields.state) ?? text(fields.state),
+						text(fields.sentAt)
+							? `Sent ${text(fields.sentAt)}`
+							: text(fields.scheduledFor)
+								? `Sends ${text(fields.scheduledFor)}`
+								: null,
+					),
+					avatar: null,
+				};
 			if (typeof fields.result === "string")
 				return {
 					...plain,
@@ -1349,22 +1519,50 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "task":
 			return taskView(operation, row, key);
 		case "tally": {
+			if (operation === "communication.deliveryTotals")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						`Sent ${num(fields.sent)} of ${num(fields.recipients)}`,
+						`Delivered ${num(fields.delivered)}`,
+						`Opened ${num(fields.opened)}`,
+						`Bounced ${num(fields.bounced)}`,
+						`Failed ${num(fields.failed)}`,
+						`Unsubscribed ${num(fields.unsubscribed)}`,
+						`Still being checked ${num(fields.stillChecking)}`,
+						text(fields.asOf) ? `As of ${text(fields.asOf)}` : null,
+					),
+					avatar: "tally",
+				};
 			const n = num(fields.count);
 			const done = num(fields.complete);
 			return {
 				...plain,
 				name: row.id === "checklist" ? "Checklist items" : (label(TASK_STATUS, row.label) ?? ""),
 				line: Number.isFinite(done)
-					? `${done.toLocaleString()} of ${count(n || 0, "item", "items")} done`
-					: count(n || 0, "task", "tasks"),
+					? `${done.toLocaleString()} of ${counted(n || 0, "item")} done`
+					: counted(n || 0, "task"),
 				avatar: "tally",
 			};
 		}
 		case "history":
+			if (operation === "mail.suppression.listForSelf")
+				return {
+					...plain,
+					name: "Restored",
+					line: joined(text(fields.at), text(fields.by) ? `By ${fields.by}` : null, text(fields.reason)),
+					avatar: "history",
+				};
 			return {
 				...plain,
 				name: fields.from ? `${label(TASK_STATUS, fields.from)} → ${label(TASK_STATUS, fields.to)}` : "Created",
-				line: joined(day(fields.occurredAt), text(fields.by) ? `By ${fields.by}` : null),
+				line: joined(
+					day(fields.occurredAt),
+					text(fields.by) ? `By ${fields.by}` : null,
+					text(fields.mergedBy) ? `Merge by ${fields.mergedBy}` : null,
+					text(fields.unmergedBy) ? `Unmerge by ${fields.unmergedBy}` : null,
+				),
 				avatar: "history",
 			};
 		case "follow_up":
@@ -1448,12 +1646,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 			if (typeof fields.entry === "string")
 				return {
 					...plain,
-					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`,
-					line: joined(text(fields.reason), text(fields.by), phaseDay(fields.on)),
+					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`.trim(),
+					line: joined(
+						phaseDay(fields.toDate) ? `to ${phaseDay(fields.toDate)}` : null,
+						text(fields.reason),
+						text(fields.by),
+						phaseDay(fields.on),
+					),
 					mark: fields.direction === "backward" ? { kind: "status", text: "Backward", warn: true } : null,
 					avatar: "phase",
 				};
-			if (operation === "phases.readReadiness")
+			if (operation === "phases.readReadiness" || operation === "intelligence.readExitCriteria")
 				return {
 					...plain,
 					name: row.label,
@@ -1464,13 +1667,13 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: `${text(fields.phase) ?? ""} ${row.label}`.trim(),
-				line: criteria ? count(criteria, "exit criterion", "exit criteria") : "Final phase",
+				line: criteria ? counted(criteria, "exit criterion", "exit criteria") : "Final phase",
 				avatar: "phase",
 			};
 		}
 		case "criterion": {
 			const status = CRITERION[String(fields.status)];
-			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
+			return { ...plain, name: row.label, line: joined(status ?? null, text(fields.reading)), avatar: "criterion" };
 		}
 		case "signal":
 			if (operation === "signals.getHistory")
@@ -1500,10 +1703,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 					name: row.label,
 					line: text(fields.startsAt)
 						? text(fields.startsAt)
-						: joined(
-								day(String(fields.date) + "T12:00:00Z"),
-								text(fields.status) ? words(String(fields.status)) : null,
-							),
+						: joined(civilDay(fields.date), text(fields.status) ? words(String(fields.status)) : null),
 					avatar: "meeting",
 					href: `/meetings/${row.id}`,
 				};
@@ -1537,7 +1737,12 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "item":
 			return {
 				...plain,
-				href: /^(dashboard|feedback)\./.test(operation) ? text(fields.href) : null,
+				href:
+					operation === "wiki.navigation"
+						? "/wiki"
+						: /^(dashboard|feedback|organizationIntelligence)\./.test(operation)
+							? text(fields.href)
+							: null,
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
@@ -1595,7 +1800,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				href: "/launch",
 				name: row.label,
 				line: joined(
-					`${String(fields.done)} of ${count(Number(fields.total ?? 0), "task", "tasks")} done`,
+					`${String(fields.done)} of ${counted(Number(fields.total ?? 0), "task")} done`,
 					overdue ? `${overdue} overdue` : null,
 				),
 				mark: fields.completed
@@ -1613,7 +1818,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				...plain,
 				href: "/organization/pipeline",
 				name: row.label,
-				line: `${count(all, "person", "people")}${shown}`,
+				line: `${counted(all, "person", "people")}${shown}`,
 				avatar: null,
 			};
 		}
@@ -1651,7 +1856,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: joined(
 					text(fields.type),
 					fields.archived === true ? "Archived" : null,
-					text(fields.updatedOn) ? `Changed ${day(`${fields.updatedOn}T12:00:00Z`)}` : null,
+					text(fields.updatedOn) ? `Changed ${civilDay(fields.updatedOn)}` : null,
 				),
 				avatar: "document",
 				href: text(fields.link),
@@ -1672,6 +1877,13 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "notice",
 			};
 		case "setting": {
+			if (operation === "mail.suppression.listForSelf")
+				return {
+					...plain,
+					name: row.label,
+					line: fields.blocked ? "Blocked from Everyfield email. Restore it in Messages." : "Not blocked",
+					avatar: "setting",
+				};
 			const cadence = text(fields.cadence);
 			return {
 				...plain,
@@ -1708,7 +1920,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			const line =
 				operation === "wiki.search"
 					? text(fields.snippet)
-					: operation === "wiki.reading.resume"
+					: WIKI_READING.has(operation)
 						? joined(text(fields.read) && `${String(fields.read)} read`, fields.completed === true ? "Finished" : null)
 						: operation === "wiki.recommendForPhase"
 							? text(fields.phase)
@@ -1717,12 +1929,15 @@ function rowView(operation: string, row: SourceRow): RowView {
 								: text(fields.section);
 			return {
 				...plain,
-				name: row.label,
-				line: joined(line, whose),
+				...(operation === "wiki.tableOfContents" || operation === "wiki.articleNeighbors"
+					? { key: `${key}:${String(fields.position ?? fields.relation)}` }
+					: {}),
+				name: operation === "wiki.tableOfContents" ? plainExcerpt(String(fields.heading)) : row.label,
+				line: joined(wikiLine(operation, row) ?? line, whose),
 				avatar: "article",
 				href: operation === "wiki.article.exportPdf" ? null : text(fields.href),
 				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref) ?? "" } : {}),
-				...(operation === "wiki.referenceExcerpt" && text(fields.excerpt)
+				...((operation === "wiki.referenceExcerpt" || operation === "wiki.contextGuide") && text(fields.excerpt)
 					? { quote: plainExcerpt(text(fields.excerpt) ?? "") }
 					: {}),
 			};
@@ -1736,7 +1951,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			name: row.label,
 			line: joined(
 				text(fields.stage),
-				typeof fields.lastMovedOn === "string" ? `Last moved ${day(`${fields.lastMovedOn}T12:00:00Z`)}` : null,
+				typeof fields.lastMovedOn === "string" ? `Last moved ${civilDay(fields.lastMovedOn)}` : null,
 				typeof fields.responsible === "string" ? `With ${fields.responsible}` : null,
 			),
 			mark: null,
@@ -1811,6 +2026,16 @@ function rowView(operation: string, row: SourceRow): RowView {
 			photoFor: row.id,
 			href,
 		};
+	if (operation === "communication.searchRecipients")
+		return {
+			key,
+			name: row.label,
+			line: CAN_EMAIL[String(fields.email)] ?? String(fields.email),
+			mark: null,
+			avatar: "person",
+			photoFor: row.id,
+			href,
+		};
 	if ("leftOut" in fields || "result" in fields || fields.email === "no email recorded")
 		return {
 			key,
@@ -1836,7 +2061,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				typeof fields.complete === "string"
 					? text(fields.program)
 					: typeof fields.ministries === "number"
-						? joined(count(fields.ministries, "ministry", "ministries"), text(fields.names))
+						? joined(counted(fields.ministries, "ministry", "ministries"), text(fields.names))
 						: joined(
 								text(fields.role)
 									? text(fields.team)
@@ -1844,7 +2069,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 										: String(fields.role)
 									: null,
 								text(fields.currentMinistries),
-								text(fields.ended) ? `Ended ${day(fields.ended + "T12:00:00Z")}` : null,
+								text(fields.ended) ? `Ended ${civilDay(fields.ended)}` : null,
 							),
 			mark:
 				typeof fields.complete === "string"
@@ -1969,7 +2194,7 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 			line: joined(
 				capital(fields.receipt),
 				day(fields.at),
-				count(num(fields.tasksCreated) || 0, "task created", "tasks created"),
+				counted(num(fields.tasksCreated) || 0, "task created", "tasks created"),
 			),
 		};
 	const tasks = num(fields.taskCount);
@@ -1981,7 +2206,7 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 		line: joined(
 			`Phase ${fields.phase}`,
 			label(CATEGORY, fields.category),
-			count(tasks, "task", "tasks"),
+			counted(tasks, "task"),
 			fields.toPhase !== undefined ? `Offered after the move to Phase ${fields.toPhase}` : null,
 		),
 		mark:
@@ -2011,6 +2236,10 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 	switch (operation) {
 		case "dashboard.metrics":
 			return String(f.count);
+		case "wiki.navigation":
+			return counted(num(f.articles), "article");
+		case "wiki.reading.stats":
+			return `${num(f.read)} of ${num(f.total)} read`;
 		case "feedback.listOwn":
 		case "feedback.getOwnStatus":
 			return joined(`Sent ${String(f.sent)}`, text(f.status));
@@ -2023,11 +2252,11 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(typeof f.category === "string" ? words(f.category) : null, text(f.assignee));
 		case "meetings.attendanceTrend":
 			return joined(
-				day(`${String(f.date)}T12:00:00Z`),
+				civilDay(f.date),
 				f.attended === "not recorded" ? "Not recorded" : `${String(f.attended)} attended`,
 			);
 		case "meetings.evaluationTrend":
-			return joined(day(`${String(f.date)}T12:00:00Z`), `Average ${String(f.average)}`);
+			return joined(civilDay(f.date), `Average ${String(f.average)}`);
 		case "meetings.getEvaluation":
 			return f.recorded === false ? "No evaluation recorded yet" : `Average ${String(f.average)} of 5`;
 		case "meetings.listCompletedPreLaunchPractices":
@@ -2040,7 +2269,7 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(
 				f.exact === null ? `At least ${String(f.known)}` : String(f.exact),
 				typeof f.needsClassifying === "number" && f.needsClassifying
-					? count(f.needsClassifying, "needs classifying", "need classifying")
+					? counted(f.needsClassifying, "needs classifying", "need classifying")
 					: null,
 				text(f.measuredOn) ? `Measured ${String(f.measuredOn)}` : null,
 			);
@@ -2056,11 +2285,25 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(`People ${String(f.people)}`, `Tasks ${String(f.tasks)}`, `Launch ${String(f.launch)}`);
 		case "organizationIntelligence.read":
 			return joined(text(f.group), text(f.plants));
+		case "organizationIntelligence.readHistory":
+			return f.row === "run"
+				? f.latest
+					? "Latest run"
+					: "Earlier run"
+				: joined(text(f.change), text(f.level), text(f.group), text(f.plants), text(f.noPattern));
+		case "organizationIntelligence.readLocations":
+			return joined(
+				[f.city, f.stateProvince, f.country].filter((x) => typeof x === "string" && x).join(", ") || null,
+				text(f.region),
+				f.findings === "Not shared" ? "Not shared" : null,
+			);
+		case "organizationIntelligence.readLocationHistory":
+			return joined(text(f.region), text(f.effective) ? `From ${String(f.effective)}` : null);
 		case "launch.readCountdown":
 			return joined(
 				text(f.status),
 				text(f.plannedDate),
-				typeof f.daysLeft === "number" ? count(f.daysLeft, "day left", "days left") : null,
+				typeof f.daysLeft === "number" ? counted(f.daysLeft, "day left", "days left") : null,
 			);
 		case "launch.readWorkspace":
 			return joined(
@@ -2117,7 +2360,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			: (VIEWS[operation] ?? fallback);
 	const [one, many] = view.noun;
 	const rows = shownRows(operation, view, result);
-	const counted = view.countAnswer
+	const rowCount = view.countAnswer
 		? 0
 		: rows.filter(
 				(r, n) =>
@@ -2135,21 +2378,22 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			: photo || view.quiet
 				? ""
 				: view.countAnswer || view.totalOnly
-					? count(result.total ?? 0, one, many)
-					: view.shownOnly || result.total === null || result.total === counted
-						? count(counted, one, many)
-						: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
+					? counted(result.total ?? 0, one, many)
+					: view.shownOnly || result.total === null || result.total === rowCount
+						? counted(rowCount, one, many)
+						: `${rowCount.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
-	if (missing || !result.rows.length) facts.push(view.empty);
+	const totals = result.facts ?? {};
+	if (missing || !result.rows.length) facts.push(emptyText(view, operation, totals));
+	if (!missing) facts.push(...wikiFacts(operation, totals));
 	if (result.withheldRows)
-		facts.push(`${count(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
+		facts.push(`${counted(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
 	if (result.completeness === "partial")
 		facts.push(
 			result.next !== null
 				? `More ${many} match. Ask Evry for page ${result.next}.`
 				: "Only the first matches are shown.",
 		);
-	const totals = result.facts ?? {};
 	if (typeof totals.phase === "string")
 		facts.push(
 			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}${typeof totals.resumeAt === "string" && !totals.finished ? ` Setup picks up at ${totals.resumeAt}.` : ""}`,
@@ -2157,12 +2401,12 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	if (operation === "pipeline.listPeople" && typeof totals.asOf === "string")
 		facts.push(
 			typeof totals.measured === "string"
-				? `As of ${day(`${totals.asOf}T12:00:00Z`)}. ${totals.measured}`
-				: `As of ${day(`${totals.asOf}T12:00:00Z`)}.`,
+				? `As of ${civilDay(totals.asOf)}. ${totals.measured}`
+				: `As of ${civilDay(totals.asOf)}.`,
 		);
 	if (operation === "launch.readDebrief" && totals.recorded === true)
 		facts.push(
-			`Launch Sunday ${String(totals.actualDate)}: attendance ${typeof totals.attendance === "number" ? totals.attendance.toLocaleString("en-US") : "not recorded"}.${typeof totals.guestsNotNamed === "number" && totals.guestsNotNamed > 0 ? ` The debrief says ${count(totals.guestsNotNamed, "guest isn't", "guests aren't")} entered by name.` : ""}`,
+			`Launch Sunday ${String(totals.actualDate)}: attendance ${typeof totals.attendance === "number" ? totals.attendance.toLocaleString("en-US") : "not recorded"}.${typeof totals.guestsNotNamed === "number" && totals.guestsNotNamed > 0 ? ` The debrief says ${counted(totals.guestsNotNamed, "guest isn't", "guests aren't")} entered by name.` : ""}`,
 		);
 	if (typeof totals.discoveryClosedOn === "string")
 		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);
@@ -2170,16 +2414,16 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		facts.push(`${totals.foundationsRead} of ${Number(totals.foundationsTotal)} foundation articles read.`);
 	if (typeof totals.roles === "number")
 		facts.push(
-			`${count(totals.roles, "role", "roles")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,
+			`${counted(totals.roles, "role")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,
 		);
 	if (typeof totals.measuredMinistries === "number")
 		facts.push(
-			`${totals.measuredMinistries} of ${count(Number(totals.ministries), "ministry", "ministries")} measured${typeof totals.composite === "number" ? `; their composite is ${totals.composite}` : ""}. A ministry with a missing measure is Unknown.`,
+			`${totals.measuredMinistries} of ${counted(Number(totals.ministries), "ministry", "ministries")} measured${typeof totals.composite === "number" ? `; their composite is ${totals.composite}` : ""}. A ministry with a missing measure is Unknown.`,
 		);
 	if (typeof totals.minTeams === "number")
 		facts.push(`On ${totals.minTeams} or more current ministries. A count to look at, never a limit.`);
 	if (operation === "evry.selectReturnedRows") {
-		if (originalTotal !== null) facts.push(`Picked from ${count(originalTotal, "match", "matches")}.`);
+		if (originalTotal !== null) facts.push(`Picked from ${counted(originalTotal, "match", "matches")}.`);
 	} else if (view.countAnswer) {
 		if (!missing) facts.push(view.countAnswer);
 	} else if (result.exclusions.length) facts.push(`Not included: ${result.exclusions.join(", ")}.`);

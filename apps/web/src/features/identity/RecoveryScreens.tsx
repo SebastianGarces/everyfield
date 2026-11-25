@@ -32,7 +32,7 @@ function IncompleteLink({ action }: { action: ReactNode }) {
 }
 
 export function RecoverScreen() {
-	const [sent, setSent] = useState<{ to: string; again: boolean } | null>(null);
+	const [sent, setSent] = useState<{ to: string; again: boolean; delayed: boolean } | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -41,14 +41,14 @@ export function RecoverScreen() {
 	async function send(email: string) {
 		setBusy(true);
 		setRefusal(null);
-		if (sent) setSent({ to: sent.to, again: false });
+		if (sent) setSent({ ...sent, again: false });
 		const result = await identityApi.requestPasswordRecovery(email);
 		setBusy(false);
 		if (result.status !== "ok") {
 			setRefusal(refusalMessage("recover", result));
 			return;
 		}
-		setSent({ to: email, again: sent !== null });
+		setSent({ to: email, again: sent !== null, delayed: result.value.mailDelayed === true });
 	}
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
@@ -68,11 +68,17 @@ export function RecoverScreen() {
 			<Outcome
 				icon={MailOpen01Icon}
 				tone="blue"
-				title="Check your email"
+				title={sent.delayed ? "Reset emails are delayed" : "Check your email"}
 				actions={
 					<>
 						<FormMessage tone="error">{refusal}</FormMessage>
-						<FormMessage tone="success">{sent.again ? "Another link is on its way." : null}</FormMessage>
+						<FormMessage tone={sent.delayed ? "neutral" : "success"}>
+							{sent.again
+								? sent.delayed
+									? "Your new request was received. Reset emails are delayed."
+									: "Another link is on its way."
+								: null}
+						</FormMessage>
 						<SignInButton label="Back to sign in" />
 						<Button variant="ghost" loading={busy} onClick={() => void send(sent.to)} className="w-full">
 							Send another link
@@ -80,8 +86,18 @@ export function RecoverScreen() {
 					</>
 				}
 			>
-				If an account uses <span className="font-medium text-ink">{sent.to}</span>, it gets a link to reset the
-				password. The link works once and expires after 1 hour.
+				{sent.delayed ? (
+					<>
+						If an account uses <span className="font-medium text-ink">{sent.to}</span>, its reset link is waiting to be
+						sent. The link expires 1 hour after you ask, so if none arrives within an hour, ask for a new one. Until
+						then, you do not need to ask again.
+					</>
+				) : (
+					<>
+						If an account uses <span className="font-medium text-ink">{sent.to}</span>, it gets a link to reset the
+						password. The link works once and expires after 1 hour.
+					</>
+				)}
 			</Outcome>
 		);
 
@@ -117,13 +133,7 @@ export function RecoverScreen() {
 
 type ResetState = "form" | "done" | "expired";
 
-function useLinkProof(proof: string | null): string | null {
-	const [kept] = useState(proof);
-	return kept;
-}
-
-export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null }) {
-	const proof = useLinkProof(linkProof);
+export function ResetPasswordScreen({ linked }: { linked: boolean }) {
 	const [state, setState] = useState<ResetState>("form");
 	const [errors, setErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
@@ -131,7 +141,7 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 	const newRef = useRef<HTMLInputElement>(null);
 	const confirmRef = useRef<HTMLInputElement>(null);
 
-	if (!proof)
+	if (!linked)
 		return (
 			<IncompleteLink
 				action={
@@ -167,7 +177,7 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (busy || !proof) return;
+		if (busy) return;
 		const data = new FormData(event.currentTarget);
 		const newPassword = String(data.get("newPassword") ?? "");
 		const confirmPassword = String(data.get("confirmPassword") ?? "");
@@ -187,7 +197,7 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 			return;
 		}
 		setBusy(true);
-		const result = await identityApi.recoverPassword({ proof, newPassword, confirmPassword });
+		const result = await identityApi.recoverPassword({ newPassword, confirmPassword });
 		setBusy(false);
 		if (result.status === "ok") return setState("done");
 		if (result.status === "refused" && result.code === "invalid_proof") return setState("expired");
@@ -222,13 +232,12 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 
 type VerifyState = "ready" | "done" | "expired";
 
-export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }) {
-	const proof = useLinkProof(linkProof);
+export function VerifyEmailScreen({ linked }: { linked: boolean }) {
 	const [state, setState] = useState<VerifyState>("ready");
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
-	if (!proof) return <IncompleteLink action={<SignInButton />} />;
+	if (!linked) return <IncompleteLink action={<SignInButton />} />;
 	if (state === "done")
 		return (
 			<Outcome icon={CheckmarkCircle02Icon} tone="green" title="Your email is confirmed" actions={<SignInButton />}>
@@ -243,10 +252,10 @@ export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }
 		);
 
 	async function verify() {
-		if (busy || !proof) return;
+		if (busy) return;
 		setBusy(true);
 		setRefusal(null);
-		const result = await identityApi.verifyEmail(proof);
+		const result = await identityApi.verifyEmail();
 		setBusy(false);
 		if (result.status === "ok") return setState("done");
 		if (result.status === "refused" && result.code === "invalid_proof") return setState("expired");

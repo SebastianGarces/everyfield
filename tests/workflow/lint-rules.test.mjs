@@ -745,6 +745,7 @@ export function Screen() {
 			"apps/web/src/features/x/Screen.tsx:8 no-effects",
 			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
 			"apps/web/src/features/x/Screen.tsx:8 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:8 stable-ref",
 		].sort(),
 	);
 });
@@ -1263,6 +1264,24 @@ function history() {
 	return { dir, path, renamed, write, base };
 }
 
+test("INV-storage: only the storage module imports the object store's URL signer, in any linted file", () => {
+	const reach = `import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export const later = () => import("@aws-sdk/s3-request-presigner");
+export const signer = getSignedUrl;
+`;
+	const files = [
+		"packages/db/src/schema/presign.ts",
+		"packages/db/scripts/presign.ts",
+		"apps/web/src/features/x/presign.ts",
+		"tests/integration/x/presign.test.mts",
+		"tools/x/presign.ts",
+	];
+	assert.deepEqual(
+		lint(Object.fromEntries([...files, "packages/db/src/schema/storage.ts"].map((path) => [path, reach]))),
+		files.flatMap((path) => [`${path}:1 storage-client`, `${path}:2 storage-client`]).sort(),
+	);
+});
+
 test("INV-storage: only the storage module reaches the object store client and its URL signer, in product code", () => {
 	const reach = `import { S3Client } from "@aws-sdk/client-s3";
 export { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -1286,6 +1305,7 @@ export const client = S3Client;
 			"packages/domain/src/documents/reach.ts:2 storage-client",
 			"packages/domain/src/documents/reach.ts:3 storage-client",
 			"packages/domain/src/documents/reach.ts:4 storage-client",
+			"tests/integration/x/reach.test.mts:2 storage-client",
 		],
 	);
 });
@@ -1354,6 +1374,74 @@ export const p = require("node:process").env;
 			...[1, 2, 3].map((line) => `apps/web/src/features/x/imports.ts:${line} server-config`),
 			...[2, 3, 4, 5, 6, 7, 12, 15, 16, 17, 18].map((line) => `apps/web/src/features/x/reach.ts:${line} server-config`),
 		].sort(),
+	);
+});
+
+test("INV-lint: the meetings next-step table is a model module", () => {
+	const file = "apps/web/src/features/meetings/next-step.ts";
+	assert.deepEqual(lint({ [file]: 'import "server-only";\nexport const at = () => Date.now();\n' }), [
+		`${file}:1 model-module`,
+		`${file}:2 model-module`,
+	]);
+	assert.deepEqual(
+		lint({ [file]: 'import type { MeetingStatus } from "./model.ts";\nexport const s = (m: MeetingStatus) => m;\n' }),
+		[],
+	);
+});
+
+test("INV-lint: a follow-up outcome action never revalidates or refreshes, in any import form; the overlay rule still holds there", () => {
+	const rules = /^(?:everyfield|eslint)\(([\w-]+)\)$/;
+	const actions = "apps/web/src/features/followups/actions.ts";
+	const code = `import { revalidatePath } from "next/cache";
+import { revalidateTag as tag } from "next/cache";
+import * as cache from "next/cache";
+export { refresh } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { EvryPanel } from "./EvryPanel.tsx";
+export const used = [revalidatePath, tag, cache, unstable_cache, EvryPanel];
+`;
+	const dir = sandbox({
+		[actions]: code,
+		"apps/web/src/features/followups/EvryPanel.tsx": "export const EvryPanel = 1;\n",
+	});
+	assert.deepEqual(
+		lintIn(dir, [actions], rules).filter((hit) => hit.endsWith(" no-restricted-imports")),
+		[1, 2, 3, 4, 6].map((line) => `${actions}:${line} no-restricted-imports`),
+	);
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	assert.deepEqual(
+		lint({ [tasks]: 'import { revalidatePath } from "next/cache";\nexport const r = revalidatePath;\n' }).filter(
+			(hit) => hit.endsWith(" no-restricted-imports"),
+		),
+		[],
+	);
+});
+
+test("INV-lint: only the outbox route imports the dev outbox reader, and only the dev outbox route imports the outbox route, through any import form", () => {
+	const outbox = "apps/web/src/features/communication/outbox.ts";
+	const route = "apps/web/src/features/communication/outbox-route.ts";
+	const dev = "apps/web/src/app/api/dev/outbox/route.ts";
+	const send = "apps/web/src/features/communication/send.ts";
+	const capture = "apps/web/src/server/mail/capture.ts";
+	const files = {
+		[outbox]: "export const readOutbox = () => [];\n",
+		[route]: 'import { readOutbox } from "./outbox.ts";\nexport const outboxRoute = () => readOutbox();\n',
+		[dev]: 'export { outboxRoute as GET } from "../../../../features/communication/outbox-route";\n',
+		[send]: `import { readOutbox } from "./outbox";
+export const later = () => import("./outbox.ts");
+export type R = typeof import("@/features/communication/outbox-route");
+export const used = readOutbox;
+`,
+		[capture]: 'export { readOutbox } from "../../features/communication/outbox.ts";\n',
+	};
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" private-importers")),
+		[
+			`${send}:1 private-importers`,
+			`${send}:2 private-importers`,
+			`${send}:3 private-importers`,
+			`${capture}:1 private-importers`,
+		],
 	);
 });
 
@@ -1442,6 +1530,52 @@ export const BA = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (1 + "00")
 		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49, 50, 51, 53]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
+	);
+});
+
+test("INV-lint: apps/web shows a problem line through ProblemText, InlineAlert or Alert, never a hand-written role=alert element with magenta or red text on it or inside it; only the four kept list and send-state lines pass, once each", () => {
+	const code = `export const A = () => <p role="alert" className="text-sm text-magenta-600">x</p>;
+export const B = () => <p role="alert" className="mt-1 text-red-700">x</p>;
+export const C = () => <div role="alert" className="flex gap-2"><span>!</span><p className="text-sm text-magenta-600">x</p></div>;
+export const D = ({ x }) => <p role={x ? "alert" : "status"} className="text-xs text-magenta-600">x</p>;
+export const E = ({ on }) => <p role="alert" className={cn("text-sm", on ? "text-magenta-600" : "text-text-3")}>x</p>;
+export const F = () => <p role="alert" className="text-sm sm:text-red-600 hover:!text-magenta-700">x</p>;
+export const G = () => <p role="status" className="text-sm text-magenta-600">x</p>;
+export const H = () => <p role="alert" className="text-sm text-text-2">x</p>;
+export const I = () => <div role="alert" className="text-ink"><p className="text-sm">x</p></div>;
+export const J = () => <ProblemText className="px-3 py-2">x</ProblemText>;
+export const K = () => <Alert role="alert" className="text-magenta-600">x</Alert>;
+export const L = () => <Card role="alert" className="text-magenta-600">x</Card>;
+export const M = () => <p className="text-sm text-magenta-600">x</p>;
+export const N = () => <p role="alert" className="text-sm bg-magenta-600 text-ink">x</p>;
+`;
+	const kept = {
+		task: `export const A = () => <p className="px-1 py-2 text-sm text-magenta-600" role="alert">x</p>;\n`,
+		commitment: `export const A = () => <p role="alert" className="px-2 py-3 text-sm text-magenta-600">x</p>;\n`,
+		evry: `export const A = () => (
+	<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
+		<p>x</p>
+	</div>
+);
+`,
+	};
+	const reported = lint({
+		"apps/web/src/features/x/Problem.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"apps/web/src/features/tasks/TaskDialog.tsx": kept.task,
+		"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": kept.commitment,
+		"apps/web/src/features/meetings/dialogs.tsx": `${kept.commitment}${kept.commitment.replace("A", "B")}`,
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": `${kept.evry}export const B = () => <p role="alert" className="text-xs text-magenta-600">x</p>;\n`,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(reported, [
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx:6 shared-notice",
+		"apps/web/src/features/meetings/dialogs.tsx:2 shared-notice",
+		...[1, 2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/Problem.tsx:${line} shared-notice`),
+	]);
+	const [message] = lint({ "apps/web/src/features/x/Problem.tsx": code }, undefined, true);
+	assert.match(
+		message,
+		/ProblemText \(a control-level line\) or InlineAlert or Alert \(a section-level line\) from @everyfield\/ui\/controls/,
 	);
 });
 
@@ -2791,7 +2925,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: an object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2826,28 +2960,20 @@ export const p = q.object({});
 export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
-	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
-		"packages/contracts/src/x/index.ts:11 strict-contracts",
-		"packages/contracts/src/x/index.ts:12 strict-contracts",
-		"packages/contracts/src/x/index.ts:13 strict-contracts",
-		"packages/contracts/src/x/index.ts:14 strict-contracts",
-		"packages/contracts/src/x/index.ts:15 strict-contracts",
-		"packages/contracts/src/x/index.ts:16 strict-contracts",
-		"packages/contracts/src/x/index.ts:18 strict-contracts",
-		"packages/contracts/src/x/index.ts:20 strict-contracts",
-		"packages/contracts/src/x/index.ts:22 strict-contracts",
-		"packages/contracts/src/x/index.ts:24 strict-contracts",
-		"packages/contracts/src/x/index.ts:27 strict-contracts",
-		"packages/contracts/src/x/index.ts:28 strict-contracts",
-		"packages/contracts/src/x/index.ts:4 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:8 strict-contracts",
-		"packages/contracts/src/x/index.ts:9 strict-contracts",
-	]);
+	const hits = [11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 27, 28, 4, 5, 5, 8, 9];
+	assert.deepEqual(
+		reported({
+			"packages/contracts/src/x/index.ts": loose,
+			"packages/evry/src/adapters/x/commands/index.ts": loose,
+			"packages/domain/src/x.ts": loose,
+		}),
+		["packages/contracts/src/x/index.ts", "packages/evry/src/adapters/x/commands/index.ts"].flatMap((path) =>
+			hits.map((line) => `${path}:${line} strict-contracts`),
+		),
+	);
 	const listed = Object.values(LOOSE_CONTRACTS);
 	assert.ok(
-		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		listed.length <= 1 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 1,
 		"LOOSE_CONTRACTS only shrinks",
 	);
 	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];
@@ -2944,7 +3070,8 @@ function attach(node) {
 	if (undefined != node) report("attached");
 }
 `;
-	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
+	const hits = lint({ "apps/web/src/features/x/Old.tsx": source }).filter((hit) => hit.endsWith(" no-effects"));
+	assert.deepEqual(hits, [
 		"apps/web/src/features/x/Old.tsx:19 no-effects",
 		"apps/web/src/features/x/Old.tsx:20 no-effects",
 		"apps/web/src/features/x/Old.tsx:21 no-effects",
@@ -3323,6 +3450,210 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 	);
 });
 
+test("INV-lint: a server action that takes who is asking from the caller is reported in any case, destructured or wrapped, its subject ids and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function a(accountId: string) {}\nexport async function b(input: unknown, ACTOR: unknown) {}\nexport const c = async ({ workspace, note }: unknown) => note;\nexport async function d({ input: { sessionId } }: unknown) {}\nexport async function e(...session: unknown[]) {}\nconst wrap = <T>(f: T) => f;\nexport const f = wrap(async (Account: unknown) => Account);\nasync function g(workspaceId = "w") {}\nexport { g };\nexport async function h({ actorId: who }: unknown) {}\nexport async function fine(personId: string, { invitationId, accountName }: unknown, workspaces: unknown) {}\nasync function local(accountId: string) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(actor: unknown) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\nexport const view = (session: unknown) => session;\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(accountId: string) {}\n`,
+		}).filter((hit) => hit.endsWith("action-identity-params")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:11 action-identity-params",
+			"apps/web/src/features/x/actions.ts:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:3 action-identity-params",
+			"apps/web/src/features/x/actions.ts:4 action-identity-params",
+			"apps/web/src/features/x/actions.ts:5 action-identity-params",
+			"apps/web/src/features/x/actions.ts:6 action-identity-params",
+			"apps/web/src/features/x/actions.ts:8 action-identity-params",
+			"apps/web/src/features/x/actions.ts:9 action-identity-params",
+		],
+	);
+});
+
+test("INV-lint: a server action module that takes, parses or forwards a link proof is reported, a proof it reads from no input and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nimport { respondInvitationRequest } from "@everyfield/contracts/organizations";\nimport * as I from "@everyfield/contracts/identity";\nimport { inviteSeatRequest } from "@everyfield/contracts/identity";\nexport async function a(proof: string) {}\nexport async function b({ invitationProof }: unknown) {}\nexport async function c(raw: unknown) {\n\treturn I.verifyEmailRequest.safeParse(raw);\n}\nexport async function d(raw: { proof: string }, token: string) {\n\treturn save({ proof: token, other: raw.proof });\n}\nexport async function e(raw: unknown) {\n\treturn save({ proof: await readProof() });\n}\nexport async function f(raw: unknown) {\n\treturn inviteSeatRequest.parse(raw);\n}\nconst save = async (x: unknown) => x;\nconst readProof = async () => "cookie";\n`,
+			"apps/web/src/features/x/later.ts": `"use server";\nexport async function g(raw: unknown) {\n\tconst { respondSeatInvitationRequest: r } = await import("@everyfield/contracts/identity");\n\treturn r;\n}\nexport async function h() {\n\treturn (await import("@everyfield/contracts/organizations")).acceptInvitationRequest;\n}\n`,
+			"apps/web/src/features/x/handler.ts": `import { respondInvitationRequest } from "@everyfield/contracts/organizations";\nexport const route = (body: { proof: string }) => respondInvitationRequest.parse(body.proof);\n`,
+		}).filter((hit) => hit.endsWith("action-proofs")),
+		[
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:2 action-proofs",
+			"apps/web/src/features/x/actions.ts:5 action-proofs",
+			"apps/web/src/features/x/actions.ts:6 action-proofs",
+			"apps/web/src/features/x/actions.ts:8 action-proofs",
+			"apps/web/src/features/x/later.ts:3 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+		],
+	);
+});
+
+test("INV-lint: an unsubscribe module that imports the session, request headers or a viewer is reported in any import form, other modules are not", () => {
+	const reaching = `import { getViewer } from "@/server/request-context";\nimport { requestAuth } from "../../server/identity/index.ts";\nimport { cookies } from "next/headers";\nimport { getSessionCookie } from "better-auth/cookies";\nimport { viewerOf } from "./mount.ts";\nimport { readRequestViewer } from "@everyfield/domain/access";\nimport { plantSeat as p } from "@/server/elsewhere";\nexport { viewerActor } from "@/server/request-context.ts";\nexport const later = () => import("@/server/request-context");\nimport { unsubscribeCall } from "./unsubscribe.ts";\nimport { serverEnv } from "../../server/config.ts";\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/mount.ts": "export const viewerOf = 1;\n",
+			"apps/web/src/server/request-context.ts": "export const getViewer = 1;\n",
+			"apps/web/src/server/identity/index.ts": "export const requestAuth = 1;\n",
+			"apps/web/src/server/config.ts": "export const serverEnv = 1;\n",
+			"apps/web/src/features/communication/unsubscribe.ts": "export const unsubscribeCall = 1;\n",
+			"apps/web/src/features/communication/unsubscribeActions.ts": reaching,
+			"apps/web/src/features/communication/unsubscribeRoute.tsx": `import "next/headers";\n`,
+			"apps/web/src/features/communication/unsubscribeOneClick.ts": `const r = require("@/server/request-context");\nexport { r };\n`,
+			"apps/web/src/features/communication/actions.ts": reaching,
+		}).filter((hit) => hit.endsWith("token-authority")),
+		[
+			...[1, 1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 9].map(
+				(line) => `apps/web/src/features/communication/unsubscribeActions.ts:${line} token-authority`,
+			),
+			"apps/web/src/features/communication/unsubscribeOneClick.ts:1 token-authority",
+			"apps/web/src/features/communication/unsubscribeRoute.tsx:1 token-authority",
+		].sort(),
+	);
+});
+
+test("INV-lint: no server action module, whatever its file name, imports the PDF renderer or calls an operation that renders, except the one library generate call; other modules may", () => {
+	const imports = `import { render } from "@formepdf/core";
+import { PDFDocument } from "pdf-lib";
+import { renderDocFile } from "@everyfield/domain/documents/render-doc";
+import { docElement } from "../../../../../packages/domain/src/documents/layouts/doc.tsx";
+export { renderPreview } from "../../../../../packages/domain/src/documents/library-render.ts";
+export * from "@formepdf/react";
+export const later = () => import("@formepdf/core");
+`;
+	const calls = `import { documentsWriter as writer } from "@everyfield/domain/documents";
+import * as documents from "@everyfield/domain/documents";
+export async function save(op: unknown) {
+	await writer.exportNative();
+	await writer["exportNative"]();
+	await writer[\`readChurchFile\`]();
+	const again = documents.documentsWriter;
+	await again.generate();
+	await writer?.generate();
+	await writer[op as "saveNative"]();
+}
+export async function keep() {
+	await writer.saveNative();
+	return ticket.generate();
+}
+`;
+	const library = `import { documentsWriter } from "@everyfield/domain/documents";
+export async function generateDocument() {
+	return documentsWriter.generate();
+}
+`;
+	const twice = `export async function another() {
+	return documentsWriter.generate();
+}
+export async function exportDocument() {
+	return documentsWriter.exportNative();
+}
+`;
+	const files = {
+		"packages/domain/package.json": {
+			name: "@everyfield/domain",
+			exports: { "./documents": "./src/documents/index.ts", "./documents/render-doc": "./src/documents/doc-render.ts" },
+		},
+		"packages/domain/src/documents/doc-render.ts": "export {};\n",
+		"apps/web/src/features/settings/region.ts": `"use server";\n${imports}`,
+		"apps/web/src/features/documents/church/actions.ts": `"use server";\n${calls}`,
+		"apps/web/src/features/documents/actions.ts": `"use server";\n${library}${twice}`,
+		"apps/web/src/features/documents/church/server.ts": `${imports}${calls}`,
+	};
+	const hits = (code) => lintIn(sandbox(code), Object.keys(code)).filter((hit) => hit.endsWith("action-render"));
+	assert.deepEqual(
+		hits(files),
+		[
+			...[7, 10].map((line) => `apps/web/src/features/documents/actions.ts:${line}`),
+			...[5, 6, 7, 9, 10, 11].map((line) => `apps/web/src/features/documents/church/actions.ts:${line}`),
+			...[2, 3, 4, 5, 6, 7, 8].map((line) => `apps/web/src/features/settings/region.ts:${line}`),
+		]
+			.map((at) => `${at} action-render`)
+			.sort(),
+	);
+	assert.deepEqual(hits({ "apps/web/src/features/documents/actions.ts": `"use server";\n${library}` }), []);
+});
+
+test("INV-lint: a wiki module that imports an MDX compiler is reported in any import form, other modules are not", () => {
+	const code = `import { compile } from "@mdx-js/mdx";
+import { MDXRemote } from "next-mdx-remote/rsc";
+export * from "remark-mdx";
+export const later = () => import("mdx-bundler");
+import { articleBlocks } from "./model.ts";
+export const all = [compile, MDXRemote, articleBlocks];
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/wiki/prose.tsx": code, "apps/web/src/features/people/prose.tsx": code }),
+		[1, 2, 3, 4].map((line) => `apps/web/src/features/wiki/prose.tsx:${line} wiki-no-mdx`),
+	);
+});
+
+test("INV-lint: a notifications module that keeps state on globalThis or global is reported, a field or text of that name and another feature are not", () => {
+	const code = `const KEY = Symbol.for("everyfield.notifications");
+const kept = globalThis as { [KEY]?: object };
+export const mount = () => (kept[KEY] ??= {});
+export const other = () => (global as { [KEY]?: object })[KEY];
+export const source = { global: "global", globalThis: 1 };
+export const read = () => source.global;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/notifications/server.ts": code,
+			"apps/web/src/features/wiki/server.ts": code,
+		}),
+		[2, 4].map((line) => `apps/web/src/features/notifications/server.ts:${line} notification-mount`),
+	);
+});
+
+test("INV-lint: a teams action module imports only its writers, write, seated and the roster preview, so a write never revalidates, redirects or reads the page again", () => {
+	const good = `"use server";
+import type { Outcome } from "@everyfield/contracts/common";
+import { outcomeOf } from "@everyfield/contracts/common";
+import { seated } from "@/server/request-context";
+import { trainingWriter } from "@everyfield/domain/teams";
+import type { WriteTx } from "@everyfield/domain/access";
+import { write } from "../server.ts";
+import { readRosterPreview } from "./server.ts";
+export async function save() {
+	return seated("unavailable", (viewer) => write(viewer, () => trainingWriter));
+}
+export async function previewRoster() {
+	return seated("unavailable", (viewer) => readRosterPreview(viewer));
+}
+export type Saved = Outcome<WriteTx>;
+export const kinds = [outcomeOf];
+`;
+	const bad = `import { revalidatePath } from "next/cache";
+import * as cache from "next/cache";
+import { redirect } from "next/navigation";
+import { trainingReader } from "@everyfield/domain/teams";
+import { loadTraining } from "./server.ts";
+import { loadTeam, readCatalog } from "../server.ts";
+export { loadTeams } from "../server.ts";
+export async function saveAgain() {
+	const { refresh } = await import("next/cache");
+	return seated("unavailable", (viewer) => readRosterPreview(viewer));
+}
+`;
+	const server = {
+		"apps/web/src/features/teams/server.ts": "export {};\n",
+		"apps/web/src/features/teams/training/server.ts": "export {};\n",
+		"apps/web/src/server/request-context.ts": "export {};\n",
+	};
+	const at = "apps/web/src/features/teams/training/actions.ts";
+	const hits = (code) =>
+		lintIn(sandbox({ ...server, ...code }), Object.keys(code)).filter((hit) => hit.endsWith("teams-write-answer"));
+	assert.deepEqual(hits({ [at]: good, "apps/web/src/features/people/actions.ts": `"use server";\n${bad}` }), []);
+	assert.deepEqual(
+		hits({ [at]: `${good}${bad}` }),
+		[17, 18, 19, 20, 21, 22, 22, 23, 25, 26].map((line) => `${at}:${line} teams-write-answer`),
+	);
+});
+
 test("INV-lint: a server action that mints its own request key is reported, a key from the client, other ids, previews and client modules are not", () => {
 	assert.deepEqual(
 		lint({
@@ -3476,5 +3807,350 @@ export async function fallback(dependencies: { db?: Database }) {
 			"packages/db/src/old.ts:5 no-default-database",
 			"packages/db/src/old.ts:7 no-default-database",
 		],
+	);
+});
+
+test("INV-lint: hand-written count text in apps/web/src is refused, naming counted and countWord; choices on 1 that are not a singular and plural pair are allowed", () => {
+	const source = `export const a = (n: number) => \`\${n} \${n === 1 ? "task" : "tasks"}\`;
+export const b = (n: number) => \`\${n} follow-up\${n === 1 ? "" : "s"}\`;
+export const c = (n: number) => \`\${n} row\${n !== 1 ? "s" : ""}\`;
+export const d = (n: number) => \`\${n} \${n === 1 ? "person" : "people"}\`;
+export const e = (n: number) => (n === 1 ? "1 note" : \`\${n} notes\`);
+export const f = (n: number, one: string, many: string) => \`\${n} \${n === 1 ? one : many}\`;
+export const g = (n: number) => \`\${n} \${n === 1 ? "task is" : "tasks are"}\`;
+export const g2 = (n: number) => (n === 1 ? "This open task stays" : "These open tasks stay");
+export const g3 = (n: number) => \`\${n} \${n === 1 ? "task does" : "tasks do"}\`;
+export const h = (d: number) => (d === 1 ? "Yesterday" : "Earlier");
+export const i = (v: number) => (v > 1 ? " · version 2" : "");
+export const j = (s: number) => (s === 1 ? "" : " scale(2)");
+export const k = (n: number, one: string) => (n === 1 ? one : "many");
+export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/count.ts": source }, undefined, true).filter((hit) =>
+		hit.includes(" count-text "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => Number.parseInt(hit.split(":")[1], 10)),
+		[1, 2, 3, 4, 5, 6, 7, 8, 9],
+	);
+	assert.match(hits[0], /counted\(n, one, many\).*countWord\(n, one, many\).*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
+	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/text.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/contracts/src/common/other.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, daysBetween, addDays and weekdayOf", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T12:00:00Z");
+export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
+export const e = (d: string) => new Date(\`\${d}T12:00:00.000Z\`);
+export const f = (d: string) => new Date(\`\${d}T12:00:00\`);
+export const g = (d: string) => new Date(\`\${d}T09:30:00Z\`);
+export const h = "T12:00:00";
+`;
+	const hits = lint(
+		{ "apps/web/src/features/x/day.ts": source, "packages/evry/src/x/day.ts": source },
+		undefined,
+		true,
+	).filter((hit) => hit.includes(" civil-day "));
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/features/x/day.ts", "packages/evry/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /dayText.*daysBetween.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: a midnight-UTC civil-day string is refused too, while a local wall-clock midnight passes", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T00:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T00:00:00Z");
+export const c = "T00:00:00.000Z";
+export const e = (d: string) => \`\${d}T00:00:00\`;
+export const f = (d: string) => new Date(\`\${d}T00:30:00Z\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/day.ts": source, "packages/domain/src/x/day.ts": source }).filter(
+		(hit) => hit.endsWith(" civil-day"),
+	);
+	assert.deepEqual(
+		hits,
+		["apps/web/src/features/x/day.ts", "packages/domain/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3].map((line) => `${file}:${line} civil-day`),
+		),
+	);
+});
+
+test("INV-lint: the civil-day rule allows the day module itself", () => {
+	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+const midnight = (d: string) => Date.parse(d + "T00:00:00Z");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/day.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" civil-day")),
+		["packages/contracts/src/common/other.ts:1 civil-day", "packages/contracts/src/common/other.ts:2 civil-day"],
+	);
+});
+
+test("INV-lint: the root config refuses hand-written count text in package source, except packages/ui/src, which cannot import contracts", () => {
+	const source = `export const a = (n: number) => (n === 1 ? "task" : "tasks");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x/count.ts": source,
+			"packages/evry/src/x/count.ts": source,
+			"packages/ui/src/x/count.ts": source,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/domain/src/x/count.ts:1 count-text", "packages/evry/src/x/count.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: package source writes no count text by hand, apart from the ui package's Pipeline display", () => {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "lint-rules-")));
+	temps.push(dir);
+	put(dir, "count-text.json", { jsPlugins: [PLUGIN], rules: { "everyfield/count-text": "error" } });
+	const packages = ["contracts", "db", "domain", "evry", "reference", "ui"].map((name) => `packages/${name}/src`);
+	const ran = spawnSync(OXLINT, ["-c", join(dir, "count-text.json"), "-f", "json", ...packages], {
+		cwd: repo,
+		encoding: "utf8",
+		env: env(repo),
+	});
+	const files = JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{")))
+		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
+		.map((d) => relative(repo, resolve(repo, d.filename)));
+	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
+});
+
+test("INV-lint: a cast through unknown is refused in app and package source and allowed in tests, a single cast or satisfies is not", () => {
+	const source = `type X = { id: string };
+export const a = () => window as unknown as Record<symbol, X>;
+export const b = (r: object) => (r as unknown as { id: string }).id;
+export const c = <T,>(x: number) => <T>(<unknown>x);
+export const d = (x: object) => x as X;
+export const e = (x: number) => x as unknown;
+export const f = { id: "a" } satisfies X;
+`;
+	const files = [
+		"apps/web/src/components/x.ts",
+		"packages/domain/src/x/cast.ts",
+		"apps/web/src/components/x.test.ts",
+		"packages/domain/src/test/cast.ts",
+		"packages/evry/src/tests/cast.ts",
+	];
+	const hits = lint(Object.fromEntries(files.map((file) => [file, source])), undefined, true).filter((hit) =>
+		hit.includes(" no-double-cast "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/components/x.ts", "packages/domain/src/x/cast.ts"].flatMap((file) =>
+			[2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
+});
+
+test("INV-lint: a JSX ref made new on every render is reported, inline, declared in the component, in a branch, composed or returned by a call, in marketing too; stable refs pass", () => {
+	const source = `import { useCallback, useMemo, useRef } from "react";
+import { revealRef } from "@/components/motion/Reveal";
+import { mergeRefs, useTarget } from "./refs.ts";
+const focus = (el) => el?.focus();
+const attachTo = (id) => (el) => el?.setAttribute("id", id);
+const pick = (up) => (up ? focus : undefined);
+const REFS = { focus };
+const made = <p ref={(el) => el?.focus()} />;
+export function Bad({ id, on, store, ref = (el) => el?.focus() }) {
+	const attach = (el) => el?.focus();
+	function declared(el) { el?.focus(); }
+	const held = { attach };
+	const uncached = useCallback((el) => el?.focus());
+	let late = null;
+	late = (el) => el?.focus();
+	return [
+		<p ref={(el) => void el} />,
+		<p ref={(el) => revealRef()(el)} />,
+		<p ref={attach} />,
+		<p ref={declared} />,
+		<p ref={on ? attach : undefined} />,
+		<p ref={on && attach} />,
+		<p ref={store.ref ?? attach} />,
+		<p ref={mergeRefs(store.ref, focus)} />,
+		<p ref={useTarget ? attachTo(id) : undefined} />,
+		<p ref={store.compose(attach)} />,
+		<p ref={focus.bind(null)} />,
+		<p ref={held.attach} />,
+		<p ref={uncached} />,
+		<p ref={late} />,
+		<p ref={ref} />,
+		id.map((x) => <p ref={attach as never} key={x} />),
+	];
+}
+export function Good({ on, store, ref, id }) {
+	const box = useRef(null);
+	const cached = useCallback((el) => revealRef()(el), []);
+	const memo = useMemo(() => attachTo(id), [id]);
+	const { track } = store;
+	return [
+		<p ref={focus} />,
+		<p ref={box} />,
+		<p ref={cached} />,
+		<p ref={memo} />,
+		<p ref={track} />,
+		<p ref={store.actions.attach} />,
+		<p ref={store.refFor(id)} />,
+		<p ref={useTarget(id)} />,
+		<p ref={revealRef(on)} />,
+		<p ref={pick(on)} />,
+		<p ref={on ? cached : undefined} />,
+		<p ref={ref ?? box} />,
+		<p ref={REFS.focus} />,
+		<p onClick={() => focus(null)} />,
+	];
+}
+export const make = (tag) => {
+	const bind = (el) => el?.setAttribute("data-tag", tag);
+	return function Made() {
+		return <p ref={bind} />;
+	};
+};
+`;
+	const factory = `export const revealRef = (up) => (el) => el?.setAttribute("data-up", up);
+export const Reveal = ({ up }) => <div ref={revealRef(up)} />;
+`;
+	const files = {
+		"apps/web/src/features/x/Panel.tsx": source,
+		"packages/ui/src/shell/Panel.tsx": source,
+		"apps/web/src/components/motion/Reveal.tsx": factory,
+		"apps/web/src/marketing/home/Panel.tsx": source,
+	};
+	const lines = Array.from({ length: 16 }, (_, i) => 17 + i);
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" stable-ref")),
+		[
+			...[
+				"apps/web/src/features/x/Panel.tsx",
+				"packages/ui/src/shell/Panel.tsx",
+				"apps/web/src/marketing/home/Panel.tsx",
+			].flatMap((file) => lines.map((line) => `${file}:${line} stable-ref`)),
+			"apps/web/src/components/motion/Reveal.tsx:2 stable-ref",
+		].sort(),
+	);
+});
+
+test("INV-lint: a read of the browser clock in the review card's folder is reported, called, aliased or passed on; formatting a server instant is not", () => {
+	const source = `const { now: tick } = performance;
+const read = Date.now;
+export const reads = () => [
+	Date.now(),
+	new Date(),
+	Date(),
+	performance.now(),
+	new globalThis.Date(),
+];
+export const passed = (start: (clock: () => number) => void) => start(Date.now);
+export const shown = (iso: string, now: string) => [new Date(iso), Date.parse(now), Date.UTC(2026, 0, 1), tick, read];
+`;
+	const review = "apps/web/src/features/evry/review/ReviewCard.tsx";
+	const hits = lint({ [review]: source, "apps/web/src/features/evry/conversation/Panel.tsx": source });
+	assert.deepEqual(
+		hits.filter((hit) => hit.endsWith(" server-clock")),
+		[1, 2, 4, 5, 6, 7, 8, 10].map((line) => `${review}:${line} server-clock`).sort(),
+	);
+	assert.deepEqual(
+		lint({ "apps/web/src/features/evry/review/model.ts": "export const at = () => new Date();\n" }).filter((hit) =>
+			hit.endsWith(" server-clock"),
+		),
+		["apps/web/src/features/evry/review/model.ts:1 server-clock"],
+	);
+});
+
+test("INV-lint: scrollIntoView in the Wiki is reported, called, optional, computed or destructured; setting scrollTop is not", () => {
+	const source = `export function keep(el: HTMLElement, current: HTMLElement | null) {
+	current?.scrollIntoView();
+	el["scrollIntoView"]({ block: "nearest" });
+	const { scrollIntoView } = el;
+	el.scrollTop += 4;
+	return scrollIntoView;
+}
+`;
+	const wiki = "apps/web/src/features/wiki/client.tsx";
+	assert.deepEqual(
+		lint({ [wiki]: source, "apps/web/src/features/people/list.tsx": source }).filter((hit) =>
+			hit.endsWith(" no-scroll-into-view"),
+		),
+		[2, 3, 4].map((line) => `${wiki}:${line} no-scroll-into-view`),
+	);
+});
+
+test("INV-lint: a date formatted with no explicit time zone in meetings, launch or oversight is reported; a zoned date and a number are not", () => {
+	const source = `const SHORT = { month: "short" } as const;
+const ZONED = (zone: string) => ({ month: "short", timeZone: zone }) as const;
+const F = Intl.DateTimeFormat;
+export const bad = (x: string, at: Date, anything: { toLocaleString(a: string, b: object): string }) => [
+	new Intl.DateTimeFormat("en-US", { month: "short" }).format(at),
+	Intl.DateTimeFormat("en-US").format(at),
+	new F("en-US", SHORT).format(at),
+	new Date(x).toLocaleDateString("en-US"),
+	at.toLocaleTimeString("en-US", { hour: "numeric" }),
+	at.toLocaleString("en-US"),
+	new Date(x).toLocaleString(),
+	anything.toLocaleString("en-US", { dateStyle: "medium" }),
+	at.toLocaleDateString("en-US", { timeZone: undefined }),
+	at?.toLocaleDateString("en-US", ZONED),
+];
+export const good = (n: number, at: Date, timeZone: string) => {
+	const options = { month: "short", timeZone } as const;
+	return [
+		n.toLocaleString("en-US"),
+		n.toLocaleString("en-US", { style: "currency", currency: "USD" }),
+		new Intl.NumberFormat("en-US").format(n),
+		new Intl.DateTimeFormat("en-US", { month: "short", timeZone }).format(at),
+		new Intl.DateTimeFormat("en-US", options).format(at),
+		at.toLocaleDateString("en-US", { timeZone: "UTC" }),
+		at.toLocaleString("en-US", { timeZone }),
+	];
+};
+`;
+	const folders = ["meetings", "launch", "oversight"].map((name) => `apps/web/src/features/${name}/Dates.tsx`);
+	const files = Object.fromEntries([...folders, "apps/web/src/features/people/Dates.tsx"].map((f) => [f, source]));
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" explicit-time-zone")),
+		folders
+			.flatMap((file) => [5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((line) => `${file}:${line} explicit-time-zone`))
+			.sort(),
+	);
+});
+
+test("INV-spend: only the composition root loads the scripted Evry package, and only by a dynamic import", () => {
+	const code = `import { scriptedModel } from "@everyfield/evry-scripted";
+export { scriptedDraft } from "@everyfield/evry-scripted";
+export const load = () => import("@everyfield/evry-scripted");
+export const model = scriptedModel;
+`;
+	const wiring = `import type { ScriptedReply } from "@everyfield/evry-scripted";
+export const load = () => import("@everyfield/evry-scripted");
+export type Reply = ScriptedReply;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/server/evry/worker.ts": code,
+			"packages/evry/src/runtime/model.ts": code,
+			"apps/web/src/server/models.ts": wiring,
+		}).filter((hit) => hit.endsWith(" scripted-model-wiring")),
+		[
+			"apps/web/src/server/models.ts:1 scripted-model-wiring",
+			...["apps/web/src/server/evry/worker.ts", "packages/evry/src/runtime/model.ts"].flatMap((file) =>
+				[1, 2, 3].map((line) => `${file}:${line} scripted-model-wiring`),
+			),
+		].sort(),
 	);
 });

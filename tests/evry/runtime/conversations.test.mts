@@ -7,11 +7,25 @@ import {
 	openLatestConversation,
 	listConversations,
 	observeConversation,
+	projectError,
 	readConversation,
 	retryTurn,
 	submitTurn,
 } from "../../../packages/evry/src/index.ts";
-import { actor, admin, counts, db, queries, setup, sql, teardown, work } from "./support.mts";
+import {
+	actor,
+	admin,
+	counts,
+	db,
+	freshActor,
+	otherPlant,
+	plant,
+	queries,
+	setup,
+	sql,
+	teardown,
+	work,
+} from "./support.mts";
 
 before(setup);
 after(teardown);
@@ -31,7 +45,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	const owner = await actor("owner");
 	const key = randomUUID();
 	const created = await statements(() => createConversation(db, owner, { requestKey: key }));
-	assert.equal(created.count, 1, "create is one statement");
+	assert.equal(created.count, 2, "create is the kill-switch read and one statement");
 	assert.deepEqual(
 		await createConversation(db, owner, { requestKey: key }),
 		created.value,
@@ -43,7 +57,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 
 	const first = { requestKey: randomUUID(), text: "Show my people.", references: [] };
 	const submitted = await statements(() => submitTurn(db, owner, c.id, first));
-	assert.equal(submitted.count, 1, "submit is one statement");
+	assert.equal(submitted.count, 2, "submit is the kill-switch read and one statement");
 	const before = await counts();
 	assert.deepEqual(await submitTurn(db, owner, c.id, first), { ...submitted.value, replayed: true });
 	assert.deepEqual(await counts(), before, "a repeated submit writes nothing");
@@ -77,7 +91,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 
 	const retryKey = randomUUID();
 	const retry = await statements(() => retryTurn(db, owner, c.id, { requestKey: retryKey }));
-	assert.equal(retry.count, 2, "retry is one lookup and one submit statement");
+	assert.equal(retry.count, 3, "retry is one lookup, the kill-switch read and one submit statement");
 	const retried = retry.value;
 	assert.equal(retried.replayed, false);
 	assert.equal(await work(), "succeeded");
@@ -130,6 +144,150 @@ test("AC:INH-REGRESSION-FOREIGN-SESSION AC:TEN-002 AC:SEC-02 AC:UI45-006 INV-ten
 		"access_denied",
 	);
 	await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
+});
+
+test("INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing", async () => {
+	const [mover, user, session] = [randomUUID(), randomUUID(), randomUUID()];
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${mover + "@example.test"},true,'Mover')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${mover},${user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${mover},${plant},'member',clock_timestamp())`,
+	);
+	const before = (await freshActor(session))!;
+	const c = await createConversation(db, before, { requestKey: randomUUID() });
+	const owner = await actor("owner");
+	const others = await createConversation(db, owner, { requestKey: randomUUID() });
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${mover}`);
+	const seatless = (await freshActor(session))!;
+	assert.equal(seatless.seatId, null);
+	await refused(() => submitTurn(db, seatless, c.id, { requestKey: randomUUID(), text: "no new church" }), "not_found");
+	await refused(
+		() => submitTurn(db, before, c.id, { requestKey: randomUUID(), text: "no new church" }),
+		"access_denied",
+	);
+
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${mover},${otherPlant},'member',clock_timestamp())`,
+	);
+	const moved = (await freshActor(session))!;
+	assert.equal(moved.owner.id, otherPlant);
+	const counted = await counts();
+	const thrown = await submitTurn(db, moved, c.id, { requestKey: randomUUID(), text: "Who is new this week?" }).then(
+		() => assert.fail("a moved seat must not send to the old church"),
+		(e: unknown) => e,
+	);
+	const { correlationId, ...body } = projectError(thrown);
+	assert.deepEqual(body, { code: "church_changed", retry: "never", outcome: "refused" });
+	assert.match(correlationId, /^[0-9a-f-]{36}$/);
+	assert.deepEqual(await counts(), counted, "no job, event or audit row is written");
+	await refused(() => submitTurn(db, moved, randomUUID(), { requestKey: randomUUID(), text: "missing" }), "not_found");
+	await refused(() => submitTurn(db, moved, others.id, { requestKey: randomUUID(), text: "theirs" }), "not_found");
+	assert.deepEqual(await counts(), counted, "no refused send wrote anything");
+
+	const fresh = await createConversation(db, moved, { requestKey: randomUUID() });
+	assert.equal((await submitTurn(db, moved, fresh.id, { requestKey: randomUUID(), text: "Hello" })).replayed, false);
+	await cancelTurn(db, moved, fresh.id);
+});
+
+async function mover() {
+	const [id, user, session] = [randomUUID(), randomUUID(), randomUUID()];
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${id + "@example.test"},true,'Mover')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${id},${user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (church: string) =>
+		admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${id},${church},'member',clock_timestamp())`,
+		);
+	await seat(plant);
+	return {
+		session,
+		actor: async () => (await freshActor(session))!,
+		end: () =>
+			admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id} AND ended_at IS NULL`),
+		moveTo: (church: string) => seat(church),
+	};
+}
+
+const refusalBody = async (body: () => Promise<unknown>) => {
+	const thrown = await body().then(
+		() => assert.fail("a moved seat must be refused"),
+		(e: unknown) => e,
+	);
+	const { correlationId, ...rest } = projectError(thrown);
+	assert.match(correlationId, /^[0-9a-f-]{36}$/);
+	return rest;
+};
+const CHURCH_CHANGED = { code: "church_changed", retry: "never", outcome: "refused" };
+
+test("INV-church-changed: a moved seat's retry or read of the old conversation is church_changed", async () => {
+	const who = await mover();
+	const before = await who.actor();
+	const c = await createConversation(db, before, { requestKey: randomUUID() });
+	await submitTurn(db, before, c.id, { requestKey: randomUUID(), text: "Who is new this week?" });
+	await cancelTurn(db, before, c.id);
+	const theirs = (await createConversation(db, await actor("owner"), { requestKey: randomUUID() })).id;
+	const missing = randomUUID();
+	const retry = (as: typeof before, id: string) => () => retryTurn(db, as, id, { requestKey: randomUUID() });
+	const read = (as: typeof before, id: string) => () => readConversation(db, as, id);
+
+	await who.end();
+	const seatless = await who.actor();
+	assert.equal(seatless.seatId, null);
+	for (const as of [seatless, before]) {
+		await refused(retry(as, c.id), "not_found");
+		await refused(read(as, c.id), "not_found");
+	}
+
+	await who.moveTo(otherPlant);
+	const moved = await who.actor();
+	assert.equal(moved.owner.id, otherPlant);
+	const counted = await counts();
+	assert.deepEqual(await refusalBody(retry(moved, c.id)), CHURCH_CHANGED);
+	assert.deepEqual(await refusalBody(read(moved, c.id)), CHURCH_CHANGED);
+	assert.deepEqual(await refusalBody(read(before, c.id)), CHURCH_CHANGED, "a stream opened before the move");
+	for (const as of [moved, before])
+		for (const id of [missing, theirs]) {
+			await refused(retry(as, id), "not_found");
+			await refused(read(as, id), "not_found");
+		}
+	assert.deepEqual(await counts(), counted, "no turn, job, event or audit row is written");
+});
+
+test("INV-church-changed: a run's stream that is re-read after the seat moves church ends with church_changed and no more events", async () => {
+	const who = await mover();
+	const before = await who.actor();
+	const c = await createConversation(db, before, { requestKey: randomUUID() });
+	const { turnId } = await submitTurn(db, before, c.id, { requestKey: randomUUID(), text: "A long answer" });
+	const seen: number[] = [];
+	const thrown = await (async () => {
+		for await (const e of observeConversation(db, before, c.id, 0, AbortSignal.timeout(5_000), 20)) {
+			seen.push(e.sequence);
+			await who.end();
+			await who.moveTo(otherPlant);
+		}
+	})().then(
+		() => assert.fail("the stream must end with a refusal"),
+		(e: unknown) => e,
+	);
+	const { correlationId, ...body } = projectError(thrown);
+	assert.match(correlationId, /^[0-9a-f-]{36}$/);
+	assert.deepEqual(body, CHURCH_CHANGED);
+	assert.deepEqual(seen, [1], "only what was read before the move");
+	await admin.execute(sql`UPDATE job SET state='cancelled',finished_at=clock_timestamp() WHERE id=${turnId}`);
+	await admin.execute(sql`UPDATE conversation SET active_turn_id=NULL,active_session_id=NULL WHERE id=${c.id}`);
 });
 
 test("INV-budget: conversation reads use one statement regardless of size", async () => {

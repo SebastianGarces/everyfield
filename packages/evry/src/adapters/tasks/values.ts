@@ -1,6 +1,11 @@
+import { localDate } from "@everyfield/contracts/common";
 import { z } from "zod";
 
 export const id = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+export const day = z
+	.string()
+	.regex(/^\d{4}-\d{2}-\d{2}$/)
+	.refine((v) => localDate.safeParse(v).success, "not a date");
 export const localDue = z
 	.string()
 	.regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/)
@@ -10,4 +15,4 @@ export const dueOf = (value: string | null | undefined) =>
 		? ({ kind: "undated" } as const)
 		: value.length === 10
 			? ({ kind: "local_date", date: value } as const)
-			: ({ kind: "resolved_instant", local: value } as const);
+			: ({ kind: "resolved_instant", local: `${value}:00` } as const);

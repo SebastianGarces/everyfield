@@ -5,19 +5,23 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 
 ```mermaid
 flowchart LR
-  s0_link1(["link /onboarding"])
+  rail(["rail"])
+  s0_link2(["link /onboarding"])
   s2_link0(["link /design/onboarding"])
   x_overview_home(["overview.home"])
   s0["onboarding.setup<br/>/onboarding"]
+  rail -- "Set up your church" --> s0
   x_overview_home -- "path" --> s0
-  s0_link1 --> s0
+  s0_link2 --> s0
   s0 -.- s0_st0(("create-church"))
   s0 -.- s0_st1(("choose-start"))
   s0 -.- s0_st2(("member"))
   s0 -.- s0_st3(("organization"))
   s0 -.- s0_st4(("signed-out"))
+  s0 -.- s0_st5(("mail-delayed (manual)"))
   s0 --- s0_b0["create-church<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["discovery<br/>tests + cases + browser behavior"]
+  s0 --- s0_b2["mail-delayed<br/>tests"]
   s1["onboarding.steps<br/>no page"]
   s0 -- "path" --> s1
   s1 -.- s1_st0(("journey (setup)"))
@@ -43,6 +47,7 @@ The account's way into a church: create one, or explore first in a private Disco
 
 Reach:
 
+- Rail "Set up your church" for `signup`
 - From overview.home as `signup`:
 
 ```bash
@@ -101,6 +106,8 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/signin?returnTo=%2Fonboarding"
 ```
 
+- **mail-delayed**: text containing "Confirmation email is delayed.". Not scripted: sign up with an unconfirmed address and open /onboarding with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards).
+
 #### onboarding.setup#create-church
 
 A church name and the box saying you set it up yourself create the church in Phase 1, with you as its Owner.
@@ -147,6 +154,14 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Discovery" --exact
 agent-browser find role button text --name "Start your church" --exact
 ```
+
+#### onboarding.setup#mail-delayed
+
+With email paused, Confirm your email first says confirmation email is delayed.
+
+- No operation: reads the mail switch while it renders; no command runs
+- Catalog: IDN-013
+- Test: `tests/integration/flags/mail-delay.test.mts`: `a refused reply is not read as delayed, and the waiting screens follow the switch on each request`
 
 ### onboarding.steps
 

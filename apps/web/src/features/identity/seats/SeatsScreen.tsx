@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	appointAdminRequest,
 	demoteSeatRequest,
@@ -21,6 +22,7 @@ import {
 	CardTitle,
 	ConfirmDialog,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Select,
@@ -58,10 +60,19 @@ import {
 } from "./model";
 import { READ_FAILED, thrownRead } from "../../../components/read-failed.ts";
 
+async function reply(op: SeatOperation, command: unknown) {
+	const answer = await runSeatCommand(op, command);
+	if (answer.status === "refused") throw new SeatRefusal(answer.code, answer.retryAt);
+	return answer;
+}
+
 async function send<T>(op: SeatOperation, command: unknown, schema: { parse: (v: unknown) => T }): Promise<T> {
-	const reply = await runSeatCommand(op, command);
-	if (reply.status === "refused") throw new SeatRefusal(reply.code, reply.retryAt);
-	return schema.parse(reply.value);
+	return schema.parse((await reply(op, command)).value);
+}
+
+async function sendInvitation(op: "invite" | "resend", command: unknown) {
+	const { value, mailDelayed } = await reply(op, command);
+	return { ...invitationSentResult.parse(value), mailDelayed };
 }
 
 class SeatRefusal extends Refusal {
@@ -240,7 +251,7 @@ function InviteCard({
 				}),
 			async (command) => {
 				try {
-					return await send("invite", command, invitationSentResult);
+					return await sendInvitation("invite", command);
 				} catch (e) {
 					setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
 					stale = e instanceof SeatRefusal && e.code === "conflict";
@@ -252,8 +263,13 @@ function InviteCard({
 		if (result.ok) {
 			setEmail("");
 			setChecked(false);
-			const invitation = result.reply.invitation;
-			onApply((d) => withInvitation(d, invitation), `Invitation sent to ${invitation.recipientEmail}.`);
+			const { invitation, mailDelayed } = result.reply;
+			onApply(
+				(d) => withInvitation(d, invitation),
+				mailDelayed
+					? `The invitation to ${invitation.recipientEmail} is saved, but its email is delayed. You do not need to send it again unless it expires.`
+					: `Invitation sent to ${invitation.recipientEmail}.`,
+			);
 		} else if (stale) onStale();
 	}
 
@@ -394,7 +410,7 @@ function RosterCard({
 				<CardTitle id="roster-title" size="sm">
 					Seats
 				</CardTitle>
-				<span className="text-sm text-text-3">{active.length === 1 ? "1 seat" : `${active.length} seats`}</span>
+				<span className="text-sm text-text-3">{counted(active.length, "seat")}</span>
 			</div>
 			<ul className="mt-3 flex flex-col">
 				{active.map((seat) => {
@@ -494,15 +510,13 @@ function RosterCard({
 				}
 			/>
 			{next ? (
-				<div className="mt-3 flex items-center gap-3">
+				<div className="mt-3 flex flex-wrap items-center gap-3">
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more seats
 					</Button>
-					{more === "lost" || more === "failed" ? (
-						<p role="alert" className="text-sm text-magenta-600">
-							{more === "failed" ? READ_FAILED : "More seats did not load. Try again."}
-						</p>
-					) : null}
+					<InlineAlert className="min-w-0 flex-1 basis-64">
+						{more === "failed" ? READ_FAILED : more === "lost" ? "More seats did not load. Try again." : null}
+					</InlineAlert>
 				</div>
 			) : null}
 			{removed.length ? (
@@ -572,7 +586,7 @@ function PendingCard({
 				make,
 				async (command) => {
 					try {
-						return await send("resend", command, invitationSentResult);
+						return await sendInvitation("resend", command);
 					} catch (e) {
 						setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
 						throw e;
@@ -583,7 +597,9 @@ function PendingCard({
 			if (result.ok)
 				onApply(
 					(d) => withInvitation(d, result.reply.invitation),
-					`A new link went to ${invitation.recipientEmail}. The old link no longer works.`,
+					result.reply.mailDelayed
+						? `The invitation to ${invitation.recipientEmail} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`
+						: `A new link went to ${invitation.recipientEmail}. The old link no longer works.`,
 				);
 			return;
 		}
@@ -713,15 +729,13 @@ function PendingCard({
 				/>
 			) : null}
 			{next ? (
-				<div className="mt-3 flex items-center gap-3">
+				<div className="mt-3 flex flex-wrap items-center gap-3">
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more invitations
 					</Button>
-					{more === "lost" || more === "failed" ? (
-						<p role="alert" className="text-sm text-magenta-600">
-							{more === "failed" ? READ_FAILED : "More invitations did not load. Try again."}
-						</p>
-					) : null}
+					<InlineAlert className="min-w-0 flex-1 basis-64">
+						{more === "failed" ? READ_FAILED : more === "lost" ? "More invitations did not load. Try again." : null}
+					</InlineAlert>
 				</div>
 			) : null}
 		</Card>

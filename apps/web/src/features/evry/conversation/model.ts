@@ -1,3 +1,5 @@
+import { appPage } from "@everyfield/contracts/wiki";
+import { plainText } from "../../../components/markdown.ts";
 import type { Review } from "../review/model.ts";
 
 type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
@@ -14,9 +16,12 @@ export type Conversation = {
 type ErrorCode =
 	| "not_found"
 	| "access_denied"
+	| "church_changed"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
+	| "model_paused"
+	| "mail_paused"
 	| "source_unavailable"
 	| "interrupted"
 	| "review_changed"
@@ -35,10 +40,12 @@ export type ProjectedError = {
 	outcome: "unknown" | "refused";
 };
 
-export type Reference = { kind: "person" | "photo"; id: string } | { kind: "article"; slug: string };
+export type Reference =
+	{ kind: "person" | "photo"; id: string } | { kind: "article"; slug: string } | { kind: "page"; route: string };
 export type SourceRow = {
 	kind:
 		| "person"
+		| "retired_person"
 		| "household"
 		| "tag"
 		| "skill"
@@ -149,6 +156,8 @@ export const EMPTY: State = {
 	reviews: {},
 };
 
+export const UNSHOWN = new Set(["evry.readDraft", "evry.updateDraft", "evry.readReview"]);
+
 export function mergeLive(state: State, turnId: string, offset: number, text: string): State {
 	const have = state.live[turnId] ?? "";
 	if (offset > have.length || offset + text.length <= have.length) return state;
@@ -233,6 +242,7 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 				break;
 			}
 			case "tool_result":
+				if (UNSHOWN.has(e.body.operation)) break;
 				if (e.body.result.proposalId)
 					turn.blocks.push({
 						kind: "review",
@@ -273,11 +283,12 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 }
 
 export const answerText = (turn: Turn) =>
-	turn.blocks
-		.filter((b) => b.kind === "text" && !b.withheld)
-		.map((b) => (b as { text: string }).text)
-		.join("")
-		.trim();
+	plainText(
+		turn.blocks
+			.filter((b) => b.kind === "text" && !b.withheld)
+			.map((b) => (b as { text: string }).text)
+			.join(""),
+	).trim();
 
 export function retryable(state: State, turns: readonly Turn[]) {
 	const last = turns.at(-1);
@@ -323,6 +334,12 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 				title: "Evry can't answer yet",
 				text: "Evry's AI model is not turned on yet. Your message is saved, so you can try again later.",
 			};
+		case "model_paused":
+			return {
+				tone: "neutral",
+				title: "Evry is paused",
+				text: "Evry stopped before it read or changed anything. Your message is saved, so you can try again later.",
+			};
 		case "source_unavailable":
 			return {
 				tone: "error",
@@ -365,6 +382,8 @@ function startNotice(code: ErrorCode | undefined, churchName: string | null): st
 			return `You don't have access to Evry for ${churchName?.trim() || "this church"} yet. Ask whoever manages your church's Everyfield account to add you.`;
 		case "invalid_input":
 			return "Evry couldn't start a new conversation. Please try again.";
+		case "model_paused":
+			return "Evry is paused for now, so no conversation was started and nothing was saved. Your message is still here. Send it again later.";
 		default:
 			return "Evry can't start a new conversation right now. Please try again in a moment.";
 	}
@@ -379,6 +398,8 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 			return "Not sent. Evry is still answering your last message. Stop it or wait, then send again.";
 		case "invalid_input":
 			return "Not sent. A message can have up to 8,000 characters.";
+		case "model_paused":
+			return "Not sent. Evry is paused for now, so nothing was saved. Your message is still here. Send it again later.";
 		case "access_denied":
 		case "not_found":
 			return "Not sent. You no longer have access to this conversation.";
@@ -386,6 +407,8 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 			return "Not sent. Send it again.";
 	}
 }
+
+export const churchChanged = (send: Send) => send.state === "refused" && send.error?.code === "church_changed";
 
 export const resendable = (send: Send) =>
 	send.state === "unconfirmed" ||
@@ -395,11 +418,13 @@ export const resendable = (send: Send) =>
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 const ARTICLE_PAGE = /^\/wiki\/(.+?)\/?$/;
 
-export function pageReferences(pathname: string | null): Reference[] {
+export function pageReferences(pathname: string | null, inPlant: boolean): Reference[] {
+	const route = pathname && inPlant ? appPage(pathname)?.route : undefined;
+	const page: Reference[] = route ? [{ kind: "page", route }] : [];
 	const id = pathname ? PERSON_PAGE.exec(pathname)?.[1] : undefined;
-	if (id) return [{ kind: "person", id: id.toLowerCase() }];
+	if (id) return [{ kind: "person", id: id.toLowerCase() }, ...page];
 	const path = pathname ? ARTICLE_PAGE.exec(pathname)?.[1] : undefined;
-	if (!path || path.endsWith("/edit")) return [];
+	if (!path || path.endsWith("/edit")) return page;
 	try {
 		const slug = path.split("/").map(decodeURIComponent).join("/");
 		return slug.length <= 300 ? [{ kind: "article", slug }] : [];

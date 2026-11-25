@@ -12,8 +12,18 @@ export {
 	deleteUnreferencedObject,
 	privateStorage,
 	privateStorageFrom,
+	privateObjectPath,
+	toUploadKey,
 } from "./storage.ts";
-export type { PrivateStorage, ResourceAuthorizer, FileAuthorization, FilePurpose, FileIdentity } from "./storage.ts";
+export type {
+	ObjectPath,
+	UploadKey,
+	PrivateStorage,
+	ResourceAuthorizer,
+	FileAuthorization,
+	FilePurpose,
+	FileIdentity,
+} from "./storage.ts";
 export { StorageError } from "./storage-error.ts";
 export type { StorageErrorCode } from "./storage-error.ts";
 export { authStorage } from "./auth-storage.ts";

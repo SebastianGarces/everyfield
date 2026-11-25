@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { asSchema } from "../../../packages/evry/node_modules/ai/dist/index.js";
+import { PgDialect } from "../../../packages/db/node_modules/drizzle-orm/pg-core/index.js";
+import { sql } from "../../../packages/db/src/query.ts";
 import {
 	MEMBER_INTELLIGENCE,
 	MEMBER_PHASES,
@@ -9,7 +12,9 @@ import {
 	SELECT_RETURNED_ROWS,
 } from "../../../packages/evry/src/catalog/catalog.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
+import { rowLive } from "../../../packages/evry/src/conversations/liveness.ts";
 import { allowedWrites, REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
+import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 
 const read = (path: string) =>
 	JSON.parse(readFileSync(new URL(`../../../docs/catalog/${path}`, import.meta.url), "utf8"));
@@ -29,6 +34,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.getPersonPhoto",
 		"people.checkForDuplicates",
 		"people.listDuplicatePairs",
+		"people.getStatusWarnings",
 		"people.exportPeople",
 		"people.generateCsvTemplate",
 		"people.getActivities",
@@ -55,6 +61,13 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"communication.forPerson",
 		"communication.templates.list",
 		"communication.resendCandidates",
+		"communication.forMeeting",
+		"communication.meetingRecipientTracking",
+		"communication.deliveryTotals",
+		"communication.listAudienceTeams",
+		"communication.searchRecipients",
+		"mail.suppression.listForSelf",
+		"communication.getDraft",
 		"tasks.list",
 		"tasks.count",
 		"tasks.get",
@@ -107,6 +120,8 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"phases.readCatalog",
 		"phases.readHistory",
 		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
 		"signals.listDefinitions",
 		"signals.getHistory",
 		"meetings.list",
@@ -157,6 +172,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
+		"organizationIntelligence.readHistory",
+		"organizationIntelligence.readLocations",
+		"organizationIntelligence.readLocationHistory",
 		"calendar.getContext",
 		"calendar.resolve",
 		"wiki.search",
@@ -164,6 +182,15 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"wiki.recommendForPhase",
 		"wiki.reading.resume",
 		"wiki.article.exportPdf",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+		"wiki.articleNeighbors",
+		"wiki.contextGuide",
+		"wiki.bookmarks.list",
+		"wiki.reading.recent",
+		"wiki.reading.stats",
+		"wiki.feedback.getMine",
 		"documents.listOwned",
 		"documents.read",
 		"documents.readCoreValuesEvidence",
@@ -235,7 +262,13 @@ const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): Evr
 	selfPersonId: null,
 });
 const PHASE_TOOLS = {
-	phases: ["phases.readCatalog", "phases.readHistory", "phases.readReadiness"],
+	phases: [
+		"phases.readCatalog",
+		"phases.readHistory",
+		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
+	],
 	signals: ["signals.listDefinitions", "signals.getHistory"],
 	writes: ["phases.declare", "phases.transition", "signals.attest", "signals.correct", "signals.reaffirm"],
 };
@@ -383,6 +416,9 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
+		"organizationIntelligence.readHistory",
+		"organizationIntelligence.readLocations",
+		"organizationIntelligence.readLocationHistory",
 	];
 	const orgWiki = [
 		"wiki.organizationArticles.add",
@@ -471,4 +507,69 @@ test("INV-golden-guidance: the prompt and tools an Owner's model gets name the n
 	assert.doesNotMatch(member.system, /When the user says to send or save an email you drafted/);
 	const account = sent(as("account", null));
 	assert.doesNotMatch(account.system, /Private care|send or save an email|A weekday on its own|should own follow-ups/);
+});
+
+const outerAliases = (text: string) =>
+	text
+		.replace(/'(?:[^']|'')*'/g, "''")
+		.match(/[\w$]+/g)
+		?.filter((name) => /^[rc]$/i.test(name)) ?? [];
+
+test("INV-row-liveness: no liveness rule names a table r or c, which the queries around it use for the checked row and its conversation", () => {
+	const rendered = new PgDialect().sqlToQuery(
+		rowLive(sql.raw("outer_row.j"), sql.raw("outer_plant"), sql.raw("outer_account")),
+	);
+	assert.match(rendered.sql, /FROM article_revision wiki_r\b/);
+	assert.match(rendered.sql, /FROM person p\b/);
+	assert.deepEqual(outerAliases(rendered.sql), []);
+	for (const planted of ["FROM person r WHERE r.id=", "JOIN seat AS c ON true", 'FROM person "R"', "FROM a x, seat r"])
+		assert.notDeepEqual(outerAliases(planted), [], planted);
+	assert.deepEqual(outerAliases("FROM person live_r WHERE live_r.kind='r'"), []);
+});
+
+const TOOL_SCHEMA_BUDGET = 205_000;
+
+test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within their byte budget", async () => {
+	const idle = {
+		read: async () => ({}),
+		select: async () => ({}),
+		propose: async () => ({}),
+		readNotes: async () => ({}),
+		updateNotes: async () => ({}),
+		readReview: async () => ({}),
+	};
+	const bytes = new Map<string, number>();
+	for (const actor of [
+		as("plant", "owner"),
+		as("sending_church", "owner"),
+		as("sending_network", "owner"),
+		as("account", null),
+	])
+		for (const [name, tool] of Object.entries(modelTools(actor, idle))) {
+			const schema = (await asSchema(tool.inputSchema as Parameters<typeof asSchema>[0]).jsonSchema) as {
+				oneOf?: unknown[];
+				anyOf?: unknown[];
+			};
+			assert.doesNotMatch(JSON.stringify(schema), /"\$ref"/, `${name}: the sizes below would miss a shared definition`);
+			for (const option of schema.oneOf ?? schema.anyOf ?? [schema]) {
+				const { properties } = option as { properties: { operation?: { const: string } } };
+				bytes.set(properties.operation?.const ?? name, Buffer.byteLength(JSON.stringify(option)));
+			}
+		}
+	const installed = [
+		...Object.values(READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation as string)),
+		...Object.keys(REVIEWED_WRITES),
+		"select_returned_rows",
+		"compose_reads",
+		"read_planning_notes",
+		"update_planning_notes",
+		"read_review",
+	];
+	assert.deepEqual([...bytes.keys()].sort(), installed.sort(), "every installed tool is measured");
+	const total = [...bytes.values()].reduce((sum, size) => sum + size, 0);
+	const largest = [...bytes].sort((a, b) => b[1] - a[1]).slice(0, 5);
+	assert.ok(
+		total <= TOOL_SCHEMA_BUDGET,
+		`Evry tool schemas: ${total} bytes, budget ${TOOL_SCHEMA_BUDGET}; every Evry call sends them. Largest: ${largest.map(([name, size]) => `${name} ${size}`).join(", ")}`,
+	);
 });

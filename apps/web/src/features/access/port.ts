@@ -5,7 +5,10 @@ export type AllowedNotes = Extract<OrganizationNotesResult, { status: "allowed" 
 
 export type ReadNotes = (after: AllowedNotes["next"]) => Promise<OrganizationNotesResult>;
 
-export function canReadStaffNotes(access: PipelineAccessResult): boolean {
+declare const staffNotes: unique symbol;
+export type StaffNotesAccess = PipelineAccessResult & { readonly [staffNotes]: true };
+
+export function canReadStaffNotes(access: PipelineAccessResult): access is StaffNotesAccess {
 	return access.status === "allowed" && access.duties.some((duty) => duty.canReadStaffNotes);
 }
 

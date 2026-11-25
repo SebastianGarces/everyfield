@@ -4,6 +4,8 @@ import type { TaskReminders } from "@everyfield/domain/tasks";
 import {
 	changeStatusRequest,
 	createPersonRequest,
+	moveWarningLines,
+	moveWarnings,
 	removePersonPhotoRequest,
 	retirePersonRequest,
 	setPersonPhotoRequest,
@@ -13,8 +15,12 @@ import {
 } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { savedRevision, type EffectResult, type ReviewedWrite } from "../../../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
+import { PEOPLE_RECORD_COMMANDS } from "./records.ts";
+import { stageWarnings } from "../stage-warnings.ts";
+import { claimStagedPhoto, requireStagedPhoto, stagedPhotoIn } from "../../../attachments/store.ts";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -36,6 +42,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 	input: z.ZodType<I>;
 	review: ReviewedWrite<I>["review"];
 	request: R;
+	again?(args: unknown): I;
 	run(
 		tx: WriteTx,
 		context: PeopleContext,
@@ -49,8 +56,9 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
+		...(spec.again && { again: spec.again }),
 		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
-			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
+			const request = spec.request.parse({ ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			const reply = await spec.run(tx, context, request, ports.reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
@@ -88,11 +96,12 @@ const createPerson = reviewed({
 
 const patch = updatePersonRequest.shape.input.shape.patch.refine((p) => Object.keys(p).length > 0, "empty patch");
 const columns = new Map<string, string>(Object.entries(contactColumns));
+const updatePersonInput = z.strictObject({ personId, patch });
 const updatePerson = reviewed({
 	operation: "people.updatePerson",
 	description:
 		"Propose a change to one person's name, contact, address, source, notes or birth date. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ personId, patch }),
+	input: updatePersonInput,
 	review(actor, value) {
 		const changes = Object.entries(value.patch).map(([field, after], n) => {
 			const col = columns.get(field);
@@ -105,24 +114,33 @@ const updatePerson = reviewed({
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'patch',${JSON.stringify(value.patch)}::jsonb)) AS args
 			${target(actor, value.personId)}`;
 	},
+	again: (args) => updatePersonInput.parse(savedRevision.parse(args).input),
 	request: updatePersonRequest,
 	run: async (tx, context, request) => personReceipt(await peopleWriter.updatePerson(tx, context, request)),
 });
 
 const core = sql`('core_group','launch_team','leader')`;
+const changeStatusInput = z.strictObject({ personId, stage: changeStatusRequest.shape.input.shape.stage, reason });
+const storedStatus = changeStatusInput
+	.extend({ handoffs: changeStatusRequest.shape.input.shape.handoffs })
+	.transform(({ personId: id, stage, reason: why }) => ({ personId: id, stage, reason: why }));
 const changeStatus = reviewed({
 	operation: "people.changeStatus",
 	description:
 		"Propose moving one person to another pipeline stage, with the reason. Leaving the core stages hands their open tasks back as needing an owner. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({ personId, stage: changeStatusRequest.shape.input.shape.stage, reason }),
-	review(actor, value) {
+	input: changeStatusInput,
+	async review(actor, value, context) {
+		const found = await gatedTransaction(context.db, (tx) => stageWarnings(tx, actor, value.personId));
+		const lines = found ? moveWarningLines(moveWarnings(found.person.stage, value.stage, found.warnings)) : [];
+		const notes = lines.length ? sql`||jsonb_build_object('notes',${JSON.stringify(lines)}::jsonb)` : sql``;
 		const handoffs = sql`CASE WHEN p.stage IN ${core} AND ${value.stage}::text NOT IN ${core} THEN ${openTasks} ELSE '[]'::jsonb END`;
 		return sql`SELECT jsonb_build_object('target',${person},'changes',
-				jsonb_build_array(${change("stage", sql`to_jsonb(p.stage)`, value.stage)},${change("reason", sql`NULL`, value.reason)})||${tasksChange(sql`h.handoffs`)}) AS review,
+				jsonb_build_array(${change("stage", sql`to_jsonb(p.stage)`, value.stage)},${change("reason", sql`NULL`, value.reason)})||${tasksChange(sql`h.handoffs`)})${notes} AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'stage',${value.stage}::text,'reason',${value.reason}::text,'handoffs',h.handoffs)) AS args
 			FROM person p CROSS JOIN LATERAL (SELECT ${handoffs} AS handoffs) h
 			WHERE p.id=${value.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
+	again: (args) => storedStatus.parse(savedRevision.parse(args).input),
 	request: changeStatusRequest,
 	run: async (tx, context, request, reminders) =>
 		personReceipt(await peopleWriter.changeStatus(tx, context, request, reminders)),
@@ -151,15 +169,18 @@ const setPersonPhoto = reviewed({
 	description:
 		"Propose making a photo the user uploaded in this church the person's photo. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId, uploadId: z.uuid() }),
-	review(actor, value) {
+	async review(actor, value, context) {
+		await requireStagedPhoto(context.db, actor, context.conversationId, value.uploadId);
 		return sql`SELECT jsonb_build_object('target',${person},'changes',jsonb_build_array(${change("photo", sql`to_jsonb(p.photo_object_id)`, value.uploadId)})) AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'uploadId',${value.uploadId}::uuid)) AS args
 			${target(actor, value.personId)} AND EXISTS(SELECT FROM file_object f WHERE f.id=${value.uploadId}::uuid AND f.tenant_id=p.tenant_id
-				AND f.purpose='person_photo' AND f.state='ready' AND f.expires_at>clock_timestamp()
-				AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))`;
+				AND ${stagedPhotoIn("f", sql`${context.conversationId}::text`)})`;
 	},
 	request: setPersonPhotoRequest,
-	run: async (tx, context, request) => photoReceipt(await personFields.setPersonPhoto(tx, context, request)),
+	run: async (tx, context, request) => {
+		await claimStagedPhoto(tx, context.selected.id, request.input.uploadId);
+		return photoReceipt(await personFields.setPersonPhoto(tx, context, request));
+	},
 });
 
 const removePersonPhoto = reviewed({
@@ -182,4 +203,5 @@ export const PEOPLE_COMMANDS = {
 	"people.deletePerson": deletePerson,
 	"people.setPersonPhoto": setPersonPhoto,
 	"people.removePersonPhoto": removePersonPhoto,
+	...PEOPLE_RECORD_COMMANDS,
 } as const;

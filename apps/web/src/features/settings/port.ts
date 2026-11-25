@@ -1,4 +1,5 @@
 import type * as B from "@everyfield/contracts/branding";
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import type * as S from "@everyfield/contracts/settings";
 import type * as N from "@everyfield/contracts/settings/native";
 import type { OrderRead, OrderSave } from "../wiki/actions";
@@ -106,7 +107,7 @@ export interface BrandPort {
 	uploadBytes(uploadId: string, file: Blob): Promise<BrandReply<null>>;
 	finalizeUpload(request: FinalizeBrandUpload): Promise<BrandReply<BrandKit>>;
 	suggestColors(request: SuggestBrandColors): Promise<BrandReply<SuggestedColors>>;
-	assetSrc(fileId: string): string;
+	assetSrc(fileId: string): AppAssetPath;
 }
 
 export interface AvatarPort {
@@ -114,15 +115,13 @@ export interface AvatarPort {
 	uploadAvatarBytes(target: AvatarReference, file: Blob): Promise<Reply<null>>;
 	finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>>;
-	avatarSrc(avatar: AvatarReference): string;
+	avatarSrc(avatar: AvatarReference): AppAssetPath;
 }
 
 export interface FlowPort {
 	avatar: AvatarPort;
 
-	requestEmailChange(
-		request: z.input<typeof N.requestEmailChange>,
-	): Promise<Reply<{ status: "verification_requested" }>>;
+	requestEmailChange(request: z.input<typeof N.requestEmailChange>): Promise<Reply<S.EmailChangeRequested>>;
 	changePassword(request: ChangePasswordRequest): Promise<CredentialOutcome>;
 
 	previewPersonalTimezone(

@@ -1,15 +1,20 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { attendanceReader, meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
+import { firstRow, rowsFrom, type Church, type Fixture, type Row, type Staff } from "./communication-support.mts";
 
-let f, plant, owner, member;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
+let member: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -17,9 +22,9 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const secret = "whsec_" + randomBytes(32).toString("base64");
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
-async function person(name) {
+async function person(name: string) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -28,7 +33,7 @@ async function person(name) {
 		'other','prospect','unknown','unknown',0,'live',clock_timestamp())`);
 	return id;
 }
-function opened(messageId, at) {
+function opened(messageId: string, at: string) {
 	const raw = JSON.stringify({ type: "email.opened", created_at: at, data: { email_id: messageId } });
 	const eventKey = randomUUID();
 	const stamp = String(Math.floor(Date.now() / 1000));
@@ -41,15 +46,16 @@ function opened(messageId, at) {
 		headers: { "svix-id": eventKey, "svix-timestamp": stamp, "svix-signature": "v1," + signature },
 	});
 }
-const guests = async (who, meetingId) =>
+const guests = async (who: Staff, meetingId: string) =>
 	ok(await gatedTransaction(f.db, (tx) => meetingsReader.listGuests(tx, who.actor, { meetingId })));
-async function untouched(meetingId) {
+async function untouched(meetingId: string) {
 	const list = await guests(owner, meetingId);
-	const counts = { yes: 0, no: 0, pending: 0 };
-	for (const g of list.guests) counts[{ confirmed: "yes", declined: "no", pending: "pending" }[g.rsvp]] += 1;
+	const rsvpCounts = { yes: 0, no: 0, pending: 0 };
+	for (const g of list.guests)
+		rsvpCounts[({ confirmed: "yes", declined: "no", pending: "pending" } as const)[g.rsvp]] += 1;
 	return {
 		guests: list.guests,
-		rsvpCounts: counts,
+		rsvpCounts,
 		attendedCount: list.guests.filter((g) => g.presence === "attended").length,
 		attendance: ok(
 			await gatedTransaction(f.db, (tx) => attendanceReader.listAttendance(tx, owner.actor, { meetingId, limit: 500 })),
@@ -63,7 +69,7 @@ async function untouched(meetingId) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
@@ -120,9 +126,7 @@ test("AC:CASE-COM-010 a guest who opened the meeting email shows Email opened wi
 				async send(batch) {
 					return { outcome: "ids", ids: batch.messages.map((_, i) => `prov-open-${scheduled.communicationId}-${i}`) };
 				},
-				async lookup() {
-					return { outcome: "unknown" };
-				},
+				paused: false,
 				async cancel(ids) {
 					return ids.map(() => ({ outcome: "unknown" }));
 				},
@@ -133,8 +137,10 @@ test("AC:CASE-COM-010 a guest who opened the meeting email shows Email opened wi
 			keys,
 		),
 	);
-	const [alexMail] = await rows(sql`SELECT provider_message_id AS id FROM mail
-		WHERE logical_key = ${`communication/${scheduled.communicationId}/${alex}`}`);
+	const alexMail = firstRow(
+		await rows<{ id: string }>(sql`SELECT provider_message_id AS id FROM mail
+		WHERE logical_key = ${`communication/${scheduled.communicationId}/${alex}`}`),
+	);
 	assert.equal((await guests(owner, meetingId)).emailOpens.length, 0);
 	const before = await untouched(meetingId);
 

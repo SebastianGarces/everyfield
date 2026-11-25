@@ -1084,7 +1084,11 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts",
+        "tests/evry/adapters/people-assessments/merge-drafts.test.mts"
+      ],
       "description": "Meeting with guest Casey; two duplicate Alex names; no Jamie Person",
       "given": {
         "P": {
@@ -1806,7 +1810,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -2137,7 +2144,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -2473,7 +2483,10 @@
         "WP-020",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -2798,7 +2811,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3147,7 +3163,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3481,7 +3500,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3823,7 +3845,10 @@
         "WP-028",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -4148,7 +4173,11 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts",
+        "tests/integration/target/sql/core/merge.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -7758,7 +7787,10 @@
         "WP-023",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts"
+      ],
       "description": "Vision V with 0 then 2 attendees, repeat/concurrent finalize; replace P by Q at same count; add earlier Vision history; no lead title; fail each kernel/history/audit boundary and lose response.",
       "given": {
         "P": {

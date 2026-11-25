@@ -15,12 +15,15 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("referenced", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
 	defineSafeError("rsvp_needs_meeting", {}, "never"),
+	defineSafeError("mailing_address_missing", {}, "never"),
+	defineSafeError("children_only", { providerCalls: z.literal(0) }, "never"),
 	defineSafeError(
 		"missing_merge_variable",
 		{ missing: z.array(z.string()).min(1), providerCalls: z.literal(0) },
 		"never",
 	),
 	defineSafeError("cancel_unconfirmed", { replacementIntents: z.literal(0) }, "never"),
+	defineSafeError("mail_paused", { providerCalls: z.literal(0) }, "same_request"),
 ]);
 export type CommunicationError = z.infer<typeof communicationError>;
 
@@ -73,10 +76,29 @@ export const audienceResult = z.strictObject({
 	eligibleEmails: z.array(z.string()),
 	searchResultLimit: z.literal(20),
 	searchLimitTruncatesAudience: z.literal(false),
-	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(200),
+	recipients: z
+		.array(
+			z.strictObject({
+				id: recordId,
+				displayName: z.string(),
+				email: z.string(),
+				guardianOf: z.array(z.string()),
+			}),
+		)
+		.max(200),
 	complete: z.boolean(),
 	unsubscribedExclusions: z
 		.array(z.strictObject({ id: recordId, displayName: z.string(), unsubscribedAt: instant }))
+		.max(200),
+	childExclusions: z.array(z.strictObject({ id: recordId, displayName: z.string() })).max(200),
+	guardianRoutes: z
+		.array(
+			z.strictObject({
+				id: recordId,
+				displayName: z.string(),
+				guardians: z.array(z.strictObject({ id: recordId, displayName: z.string() })).min(1),
+			}),
+		)
 		.max(200),
 });
 export const recipientResult = z.strictObject({
@@ -87,6 +109,8 @@ export const recipientResult = z.strictObject({
 				displayName: z.string(),
 				email: z.string().nullable(),
 				unsubscribedAt: instant.nullable(),
+				child: z.boolean(),
+				guardians: z.array(z.string()),
 			}),
 		)
 		.max(20),
@@ -95,7 +119,7 @@ export const recipientResult = z.strictObject({
 export const teamListResult = z.strictObject({
 	teams: z.array(z.strictObject({ id: recordId, name: z.string() })),
 });
-export const churchNameResult = z.strictObject({ churchName: z.string() });
+export const churchNameResult = z.strictObject({ churchName: z.string(), mailingAddress: z.string().nullable() });
 export const draftListResult = z.strictObject({
 	drafts: z.array(draftResult),
 });
@@ -109,6 +133,8 @@ export const dispatchResult = z.strictObject({
 	rejectedCount: z.number().int().nonnegative(),
 	unknownCount: z.number().int().nonnegative(),
 	unsubscribedCount: z.number().int().nonnegative(),
+	childCount: z.number().int().nonnegative(),
+	guardianCount: z.number().int().nonnegative(),
 	uncertain: z.boolean(),
 	failed: z.boolean(),
 	providerCalls: z.number().int().nonnegative(),
@@ -165,8 +191,10 @@ export const restoreSuppressionResult = z.strictObject({
 export const hubStates = [
 	"draft",
 	"scheduled",
+	"held",
 	"not_scheduled",
 	"unsubscribed",
+	"child",
 	"sending",
 	"sent",
 	"logged",
@@ -220,6 +248,8 @@ export const deliveryTotalsResult = z.strictObject({
 	failed: z.number().int().nonnegative(),
 	suppressed: z.number().int().nonnegative(),
 	unsubscribed: z.number().int().nonnegative(),
+	child: z.number().int().nonnegative(),
+	guardian: z.number().int().nonnegative(),
 	unknown: z.number().int().nonnegative(),
 	cancelled: z.number().int().nonnegative(),
 	cancelOpen: z.number().int().nonnegative(),
@@ -249,6 +279,7 @@ export const detailResult = z.strictObject({
 			deliveryAddress: z.string().nullable(),
 			currentPersonAddress: z.string().nullable(),
 			deliveryStatus: z.string(),
+			sentTo: z.string().nullable(),
 			sentAt: instant.nullable(),
 			deliveredAt: instant.nullable(),
 			openedAt: instant.nullable(),
@@ -351,7 +382,7 @@ export const contactCorrectionResult = z.strictObject({
 export const recipientOutcome = z.enum(["cancelled", "sent", "open"]);
 export type RecipientOutcome = z.infer<typeof recipientOutcome>;
 export const mailReport = z.discriminatedUnion("kind", [
-	z.object({
+	z.strictObject({
 		kind: z.literal("schedule"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
 		scheduledAt: z.string(),
@@ -362,22 +393,22 @@ export const mailReport = z.discriminatedUnion("kind", [
 		leftOut: count.optional(),
 		code: z.string().optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("reschedule"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
 		scheduledAt: z.string(),
 		open: count,
 		sent: count,
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("cancel"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
 		cancelled: count,
 		sent: count,
 		open: count,
-		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })).optional(),
+		people: z.array(z.strictObject({ name: z.string(), outcome: recipientOutcome })).optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("replace"),
 		confirmation: z.enum(["confirmed", "not_confirmed"]),
 		scheduledAt: z.string(),
@@ -387,7 +418,7 @@ export const mailReport = z.discriminatedUnion("kind", [
 		waiting: count.optional(),
 		leftOut: count.optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("send"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
 		accepted: count,
@@ -396,13 +427,13 @@ export const mailReport = z.discriminatedUnion("kind", [
 		leftOut: count,
 		code: z.string().optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("replace_stopped"),
 		confirmation: z.enum(["not_confirmed", "blocked", "refused"]),
 		cancelled: count,
 		sent: count,
 		open: count,
-		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })),
+		people: z.array(z.strictObject({ name: z.string(), outcome: recipientOutcome })),
 		code: z.string().optional(),
 	}),
 ]);

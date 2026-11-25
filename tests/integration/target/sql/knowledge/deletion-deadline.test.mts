@@ -1,4 +1,5 @@
 import "../../../platform/setup.mts";
+import { openedDeletion } from "../../../../support/deletion-cookie.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -8,8 +9,9 @@ import { deletionOperations } from "../../../../../packages/domain/src/settings/
 import { issueRestrictedDeletionSession } from "../../../../../packages/domain/src/settings/deletion.ts";
 import { readViewer } from "../../../../../packages/domain/src/access/session.ts";
 import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
+import { accountId, sessionId } from "../../../../../packages/contracts/src/common/values.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { ok, refusedWith, seeds } from "../../../../support/fixture.mts";
+import { type Actor, type Workspace, ok, refusedWith, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
@@ -36,9 +38,10 @@ const api = deletionOperations({
 		]),
 	workspaceNotice: async () => {},
 });
-const command = (input, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
+const command = (input: object, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
 
-let plant;
+type Subject = { kind: "account"; id: ReturnType<typeof accountId.parse> };
+let plant: Workspace;
 before(async () => {
 	plant = await seed.plant({ name: "Harvest Point" });
 });
@@ -47,43 +50,50 @@ after(() => database.close());
 async function pendingDeletion() {
 	const a = await seed.actor(plant, "admin");
 	const requestId = randomUUID();
-	const [w] = await admin
-		.insert(t.lifecycle_witness)
-		.values({
-			kind: "account",
-			opaque_subject_id: a.id,
-			account_id: a.id,
-			request_id: requestId,
-			requester_id: a.id,
-			requester_opaque_id: a.id,
-			request_revision: "1",
-			state: "pending_deletion",
-			requested_at: REQUESTED,
-			cancel_until: DEADLINE,
-			witness_checkpoint: "1",
-			cleanup_state: "not_started",
-		})
-		.returning();
+	const w = (
+		await admin
+			.insert(t.lifecycle_witness)
+			.values({
+				kind: "account",
+				opaque_subject_id: a.id,
+				account_id: a.id,
+				request_id: requestId,
+				requester_id: a.id,
+				requester_opaque_id: a.id,
+				request_revision: "1",
+				state: "pending_deletion",
+				requested_at: REQUESTED,
+				cancel_until: DEADLINE,
+				witness_checkpoint: "1",
+				cleanup_state: "not_started",
+			})
+			.returning()
+	)[0]!;
 	await admin.execute(sql`SELECT settings_suspend_subject(${w.id}::uuid,${requestId}::uuid)`);
-	return { a, subject: { kind: "account" as const, id: a.id }, requestId, witness: w.id };
+	return { a, subject: { kind: "account" as const, id: accountId.parse(a.id) }, requestId, witness: w.id };
 }
 
-const restricted = (a, subject, requestId, at: Date) =>
-	gatedTransaction(admin, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: at })),
+const restricted = (a: Actor, subject: Subject, requestId: string, at: Date) =>
+	openedDeletion(
+		gatedTransaction(admin, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: at })),
+		),
+		{ subject, requestId },
 	);
 
-async function ordinary(a) {
+async function ordinary(a: Actor) {
 	const sessions = await admin
 		.select({ id: t.auth_session.id })
 		.from(t.auth_session)
 		.where(eq(t.auth_session.user_id, a.user));
-	const viewers = await Promise.all([a.session, ...sessions.map((s) => s.id)].map((id) => readViewer(db, id)));
+	const viewers = await Promise.all(
+		[a.session, ...sessions.map((s) => sessionId.parse(s.id))].map((id) => readViewer(db, id)),
+	);
 	return viewers.some((v) => v !== null);
 }
 
 const witnessOf = async (id: string) =>
-	(await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.id, id)))[0];
+	(await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.id, id)))[0]!;
 
 test("AC:DEL58-003 the restricted session cancels only the current request, and only before its deadline", async (step) => {
 	await step.test(
@@ -111,17 +121,18 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			);
 			const cancelAllowed = cancelled.status === "cancelled";
 			assert.equal(cancelAllowed, true);
+			assert.ok(cancelled.status === "cancelled");
 			assert.equal(cancelled.cancelledAt, BEFORE.toISOString());
 			assert.equal((await witnessOf(witness)).state, "cancelled");
 
-			const session = randomUUID();
+			const session = sessionId.parse(randomUUID());
 			await admin.insert(t.auth_session).values({
 				id: session,
 				user_id: a.user,
 				token: randomBytes(32).toString("hex"),
 				expires_at: new Date(BEFORE.getTime() + 86_400_000),
 			});
-			const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+			const account = (await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!;
 			const newer = ok(
 				await gatedTransaction(db, (tx) =>
 					api.requestAccountDeletion(

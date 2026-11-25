@@ -1,3 +1,4 @@
+import { counted, countWord } from "@everyfield/contracts/common";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import type { MailReport } from "@everyfield/contracts/communication";
@@ -99,7 +100,27 @@ type Meeting = { title: string; at: string; zone: string };
 const asMeeting = (value: unknown): Meeting | null =>
 	value && typeof value === "object" && "title" in value ? (value as Meeting) : null;
 
+function RemoveTemplate({ review }: { review: Review }) {
+	const template = find(review, "template");
+	const used = Number(find(review, "usedBy")?.after ?? 0);
+	return (
+		<dl className="flex flex-col gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+			<Row label="Template">
+				<New>{text(template?.before)}</New>
+			</Row>
+			<Row label="Change">
+				<New>
+					{template?.after === "deleted"
+						? "Deleted. No email used it."
+						: `Archived instead of deleted: hidden from the template list, and kept on the ${counted(used, "email", "emails")} that used it.`}
+				</New>
+			</Row>
+		</dl>
+	);
+}
+
 function TemplateChanges({ review }: { review: Review }) {
+	if (review.operation === "communication.templates.archiveOrDelete") return <RemoveTemplate review={review} />;
 	const name = find(review, "name");
 	const subject = find(review, "subject");
 	const body = find(review, "body");
@@ -198,7 +219,7 @@ export function MailChanges({ review }: { review: Review }) {
 			op === "communication.replaceScheduledReviewed" ? (
 				<Row label="People">
 					<New>
-						{String(count ?? 0)} {Number(count) === 1 ? "person" : "people"}
+						{String(count ?? 0)} {countWord(Number(count), "person", "people")}
 					</New>
 				</Row>
 			) : null}
@@ -262,6 +283,8 @@ export const MAIL_CONSEQUENCE: Record<string, string> = {
 	"communication.templates.fork":
 		"A church copy is made that you can edit. The system template stays as it is. Nothing is sent.",
 	"communication.templates.update": "The church template changes in Messages. Nothing is sent.",
+	"communication.templates.archiveOrDelete":
+		"Only the church's own template changes. Emails already sent keep their content. Nothing is sent.",
 };
 
 function Tally({ items }: { items: [string, number][] }) {
@@ -276,8 +299,6 @@ function Tally({ items }: { items: [string, number][] }) {
 		</ul>
 	);
 }
-
-const noun = (n: number) => (n === 1 ? "recipient" : "recipients");
 
 const handoffTally = (report: { accepted: number; refused: number; unknown: number }) => (
 	<Tally
@@ -319,7 +340,7 @@ function handoffText(report: Handoff, at: string | null): string {
 		return `Everyfield keeps this email until ${at}, then hands it to the email service. Anyone who unsubscribes before then doesn't get it.`;
 	return report.confirmation === "confirmed"
 		? `The email service accepted these for ${at}. Accepted does not mean the email arrived. The email service reports what happens next.`
-		: `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email at ${at}. Check again asks it again.`;
+		: `The email service has not answered for ${report.unknown} ${countWord(report.unknown, "recipient")}, so they may or may not get this email at ${at}. Check again asks it again.`;
 }
 
 function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>, at: string | null) {
@@ -366,14 +387,14 @@ export function MailResult({ review }: { review: Review }) {
 				report.confirmation === "confirmed" ? (
 					<p>
 						The new time is confirmed: {reportTime(report.scheduledAt, review)}. The earlier time is gone.
-						{report.sent ? ` ${report.sent} ${noun(report.sent)} had already been sent.` : ""}
+						{report.sent ? ` ${report.sent} ${countWord(report.sent, "recipient")} had already been sent.` : ""}
 					</p>
 				) : report.confirmation === "none" ? (
 					<p>No recipient of this message is still waiting to send, so no time changed.</p>
 				) : (
 					<p>
-						The email service did not confirm the new time for {report.open} {noun(report.open)}. They may still hold
-						the earlier time. Check again asks it again.
+						The email service did not confirm the new time for {report.open} {countWord(report.open, "recipient")}. They
+						may still hold the earlier time. Check again asks it again.
 					</p>
 				);
 			break;
@@ -410,9 +431,9 @@ export function MailResult({ review }: { review: Review }) {
 					/>
 					<p className="text-text-2">
 						{report.confirmation === "confirmed"
-							? `The email service accepted ${report.accepted} ${noun(report.accepted)}. Accepted does not mean delivered: Messages shows each delivery when the email service reports it.`
+							? `The email service accepted ${report.accepted} ${countWord(report.accepted, "recipient")}. Accepted does not mean delivered: Messages shows each delivery when the email service reports it.`
 							: report.confirmation === "not_confirmed"
-								? `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email. Check again asks it again; nothing is sent twice.`
+								? `The email service has not answered for ${report.unknown} ${countWord(report.unknown, "recipient")}, so they may or may not get this email. Check again asks it again; nothing is sent twice.`
 								: report.code
 									? `No email went out. ${stoppedReason(report.code)}`
 									: "The email service refused every recipient, so no email went out. Messages shows what it refused."}
@@ -471,7 +492,7 @@ export function InvitationChanges({ review }: { review: Review }) {
 					</Row>
 				) : null}
 			</Step>
-			<Step n={2} title={`Add ${added} ${added === 1 ? "guest" : "guests"}`}>
+			<Step n={2} title={`Add ${counted(added, "guest")}`}>
 				<People label="Guests" names={guests} />
 			</Step>
 			<Step n={3} title="Send the invitation email">

@@ -24,6 +24,7 @@ export const SEEDS = [
 	"oversight",
 	"pipeline",
 	"launch-evry",
+	"teams",
 ] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;
@@ -114,6 +115,7 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 				`IDENTITY_ADDRESS_KEY=${env.addressKey}`,
 				`IDENTITY_MAIL_FROM=security@example.test`,
 				"EVRY_SCRIPTED_MODEL=1",
+				"VERCEL=1",
 				...devStorage(),
 				"",
 			].join("\n"),

@@ -9,7 +9,7 @@ import {
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { installGeographyRelease } from "../../../packages/domain/src/organizations/index.ts";
 import { requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/index.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "../../integration/intelligence/assessment-church.mts";
 
@@ -158,6 +158,44 @@ async function seed(ch: Church) {
 		await ch.committed(plants["Redeemer Church"]!, "Redeemer Person 4", 2);
 		await refreshNetwork();
 	}
+	async function harvestRegionCorrected() {
+		await admin.execute(sql`INSERT INTO plant_geography(plant_id,city,state_province,country,region_item_id,
+			reference_version_id,committed_at,effective_at,supersedes_id)
+			SELECT g.plant_id,'Round Rock','TX','US',i.id,g.reference_version_id,clock_timestamp(),clock_timestamp(),g.id
+			FROM plant_geography g, reference_item i WHERE g.plant_id=${plants["Harvest Point"]!.id}
+			AND i.kind='geography_region' AND i.canonical_key='omb-23-01/12420'`);
+		await refreshNetwork();
+	}
+	async function meetingHeld(
+		plantName: string,
+		{ daysAgo, came, finalized }: { daysAgo: number; came: number; finalized: boolean },
+	) {
+		const p = plants[plantName]!;
+		const people = await ch.rows(
+			sql`SELECT id FROM person WHERE plant_id=${p.id} AND state='live' ORDER BY display_name LIMIT ${came}`,
+		);
+		const id = await ch.vision(
+			p,
+			daysAgo,
+			people.map((r) => ({ id: String(r.id) })),
+		);
+		if (finalized) await finalizeMeeting(id);
+		return id;
+	}
+	const finalizeMeeting = (id: string) =>
+		admin.execute(sql`UPDATE meeting SET finalized_at=clock_timestamp() WHERE id=${id}`);
+	async function meetingsHeld() {
+		await meetingHeld("Harvest Point", { daysAgo: 24, came: 3, finalized: true });
+		await meetingHeld("Harvest Point", { daysAgo: 17, came: 2, finalized: true });
+		await meetingHeld("Harvest Point", { daysAgo: 10, came: 1, finalized: false });
+		await meetingHeld("Redeemer Church", { daysAgo: 17, came: 2, finalized: false });
+		await meetingHeld("Redeemer Church", { daysAgo: 10, came: 1, finalized: false });
+	}
+	const otherNetwork = await ch.database.organization("sending_network", {
+		name: "Prairie Network",
+		timezone: "America/Chicago",
+	});
+	const otherDirector = await ch.database.actor(otherNetwork, "admin");
 	const names = async () =>
 		(
 			await ch.rows(
@@ -174,6 +212,7 @@ async function seed(ch: Church) {
 			member,
 			director,
 			networkMember,
+			otherDirector,
 		},
 		plants,
 		network,
@@ -181,6 +220,10 @@ async function seed(ch: Church) {
 		runJob,
 		classify,
 		redeemerGrows,
+		harvestRegionCorrected,
+		meetingHeld,
+		finalizeMeeting,
+		meetingsHeld,
 		names,
 	};
 }

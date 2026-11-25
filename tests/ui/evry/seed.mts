@@ -17,6 +17,9 @@ async function up() {
 	const { admin } = env;
 	const ids: Record<string, string> = {};
 	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', state_province='TX', country='United States' WHERE id=${people.plant}::uuid`,
+	);
+	await admin.execute(
 		sql`DELETE FROM person_email_opt_out WHERE person_id IN (SELECT id FROM person WHERE plant_id=${people.plant}::uuid AND display_name IN (${sql.join(
 			LAUNCH_TEAM.map(([name]) => sql`${name}`),
 			sql`, `,

@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { seeds, waitingOnLock } from "../../support/fixture.mts";
+import { seeds, waitingOnLock, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
+import { authorityOf } from "../people/people-support.mts";
 import { liveAccess, RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { accountId, instant } from "../../../packages/contracts/src/common/index.ts";
 import {
 	createOrganizationAdapter,
 	pipelineWriter,
@@ -27,8 +28,8 @@ import { createOnboardingProducer, readOnboardingEntry } from "../../../packages
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 let f: Awaited<ReturnType<typeof fixture>>;
-type Actor = { id: string; session: string; email: string };
-let grace: { kind: "organization"; id: string; organizationKind: "sending_church" };
+type Actor = Pick<SeededActor, "id" | "session" | "email">;
+let grace: Workspace & { kind: "organization" };
 let dana: Actor, luis: Actor, ana: Actor, casey: Actor, rae: Actor;
 const caseyPerson = randomUUID();
 const jordanPerson = randomUUID();
@@ -39,7 +40,7 @@ const articles = { vision: randomUUID(), team: randomUUID(), other: randomUUID()
 let release = "";
 const revisions = { vision: randomUUID(), teamGrace: randomUUID(), otherGrace: randomUUID() };
 
-const authority = (a: { session: string }) => RequestActor.resolve(f.db, sessionId.parse(a.session));
+const authority = (a: Pick<Actor, "session">) => authorityOf(f.db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -53,7 +54,7 @@ const navLink = async (a: Actor) => {
 	const owner = who.actor.context.owner;
 	const links = await residencyLinks(f.db, {
 		kind: "discovery",
-		session: sessionId.parse(a.session),
+		session: a.session,
 		accountId: owner.id,
 		selected: owner,
 		canManage: true,
@@ -76,9 +77,9 @@ const entryOf = async (a: Actor) =>
 			onboarding,
 			{
 				status: "active",
-				accountId: a.id,
+				accountId: accountId.parse(a.id),
 				sessionId: a.session,
-				expiresAt: new Date(Date.now() + 3600000).toISOString(),
+				expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 			},
 			await authority(a),
 			true,
@@ -111,13 +112,13 @@ const adapter = createOrganizationAdapter(
 		invalidate: (_tx, v) =>
 			sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 async function asResident(name: "residency.setSharing" | "residency.leave", input: unknown) {
-	const owner = { kind: "account" as const, id: casey.id };
+	const owner = { kind: "account" as const, id: accountId.parse(casey.id) };
 	return gatedTransaction(f.db, async (tx) => {
-		if (!(await RequestActor.claimWrite(tx, sessionId.parse(casey.session), owner))) throw Error("unavailable");
-		return adapter[name](tx, sessionId.parse(casey.session), owner, input as never);
+		if (!(await RequestActor.claimWrite(tx, casey.session, owner))) throw Error("unavailable");
+		return adapter[name](tx, casey.session, owner, input);
 	});
 }
 async function linkRow() {
@@ -136,13 +137,15 @@ async function share(choices: { shareFoundations: boolean; shareMilestones: bool
 	});
 }
 async function accountState() {
-	return (
+	const [state] = (
 		await f.admin.execute(sql`SELECT (SELECT count(*)::int FROM seat WHERE account_id=${casey.id}::uuid) AS seats,
 	 (SELECT count(*)::int FROM affiliation WHERE account_id=${casey.id}::uuid) AS connections,
 	 (SELECT count(*)::int FROM residency_link WHERE account_id=${casey.id}::uuid) AS links,
 	 (SELECT registration_kind FROM account WHERE id=${casey.id}::uuid) AS kind,
 	 (SELECT linked_account_id FROM person WHERE id=${caseyPerson}::uuid) AS linked`)
-	).rows[0];
+	).rows;
+	assert.ok(state);
+	return state;
 }
 async function invite() {
 	const r = await record(luis);
@@ -178,9 +181,9 @@ async function revision(
 before(async () => {
 	f = await fixture();
 	const seed = seeds(f.admin);
-	grace = (await seed.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" })) as never;
+	grace = await seed.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" });
 	const staff = async (role: "owner" | "admin" | "member", name: string) => {
-		const a = await seed.actor(grace as never, role, { user: { name } });
+		const a = await seed.actor(grace, role, { user: { name } });
 		return { id: a.id, session: a.session, email: a.email };
 	};
 	dana = await staff("owner", "Dana");
@@ -696,7 +699,7 @@ test("AC:ADR1-014 church reading opens only from Casey's own list; another churc
 });
 
 test("INV-lock-order: a resident's sharing change or leave from a stale revision, in a transaction whose gate is not bound yet, locks her account before the residency link", async (t) => {
-	const owner = { kind: "account" as const, id: casey.id };
+	const owner = { kind: "account" as const, id: accountId.parse(casey.id) };
 	const lock = (table: "account" | "residency_link", id: string, nowait = false) =>
 		sql`SELECT 1 FROM ${sql.identifier(table)} WHERE id=${sql.param(id)} FOR NO KEY UPDATE${sql.raw(nowait ? " NOWAIT" : "")}`;
 	const locked = async (table: "account" | "residency_link", id: string) => {
@@ -729,9 +732,9 @@ test("INV-lock-order: a resident's sharing change or leave from a stale revision
 				await f.admin.transaction(async (hold) => {
 					await hold.execute(lock(held.table, held.id));
 					const holder = ((await hold.execute(sql`SELECT pg_backend_pid() AS pid`)).rows[0] as { pid: number }).pid;
-					write = gatedTransaction(f.db, (tx) =>
-						adapter[name](tx, sessionId.parse(casey.session), owner, input as never),
-					).catch((reason: Error) => ({ refused: reason.message }));
+					write = gatedTransaction(f.db, (tx) => adapter[name](tx, casey.session, owner, input)).catch(
+						(reason: Error) => ({ refused: reason.message }),
+					);
 					await waitingOnLock(f.db, { blockedBy: holder });
 					const other = order[1 - step]!;
 					assert.equal(

@@ -21,7 +21,7 @@ import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 import { MEETINGS_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/index.ts";
 import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { loadHistory } from "../../../packages/evry/src/runtime/run-store.ts";
@@ -43,6 +43,7 @@ import {
 	teardown,
 	work,
 } from "./support.mts";
+import { runStatus, toolResult } from "./saved.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
@@ -103,12 +104,12 @@ async function events(who: EvryActor, id: string) {
 		if (!page.more) break;
 	}
 	return {
-		cards: events.filter((e) => e.kind === "tool_result").map((e) => e.body as Record<string, any>),
+		cards: events.filter((e) => e.kind === "tool_result").map((e) => toolResult.parse(e.body)),
 		text: events
 			.filter((e) => e.kind === "assistant_text")
 			.map((e) => e.body.text)
 			.join(""),
-		status: events.findLast((e) => e.kind === "status")!.body as Record<string, any>,
+		status: runStatus.parse(events.findLast((e) => e.kind === "status")!.body),
 	};
 }
 
@@ -137,7 +138,7 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 		["people.listPeople", total, 100, "partial", 2],
 	);
 	assert.match(text, new RegExp(`^${total} matched\\. Showing 100: .* More exist; ask for page 2\\.$`));
-	assert.deepEqual([status.state, status.reason, status.usage.toolCalls], ["completed", "completed", 1]);
+	assert.deepEqual([status.state, status.reason, status.usage?.toolCalls], ["completed", "completed", 1]);
 	console.log(
 		JSON.stringify({
 			submitToEndSeconds: Number(timing.rows[0]!.turn.toFixed(2)),
@@ -152,14 +153,14 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.equal(await work(), "succeeded");
 	const input = await events(foreign, wide);
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
-	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
+	assert.ok(input.status.usage && input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
 	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
 	assert.equal(await work(lean()), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
 	assert.deepEqual(
-		[budget.status.state, budget.status.reason, budget.status.usage.toolCalls],
+		[budget.status.state, budget.status.reason, budget.status.usage?.toolCalls],
 		["stopped", "tool_budget", 24],
 	);
 	const last = budget.cards.at(-1)!.result;
@@ -307,6 +308,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.get",
 		"communication.forPerson",
 		"communication.templates.list",
+		"communication.forMeeting",
+		"communication.meetingRecipientTracking",
+		"communication.deliveryTotals",
+		"mail.suppression.listForSelf",
+		"communication.getDraft",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
 	const orgWikiWrites = [
@@ -321,6 +327,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"wiki.recommendForPhase",
 		"wiki.reading.resume",
 		"wiki.article.exportPdf",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+		"wiki.articleNeighbors",
+		"wiki.contextGuide",
+		"wiki.bookmarks.list",
+		"wiki.reading.recent",
+		"wiki.reading.stats",
+		"wiki.feedback.getMine",
 	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
@@ -335,6 +350,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.restorePerson",
+						"people.recordAdultClassification",
+						"people.correctAdultClassification",
+						"people.reorderPipeline",
 						"people.createInterview",
 						"people.createAssessment",
 						"people.createCommitment",
@@ -375,6 +394,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.templates.create",
 						"communication.templates.fork",
 						"communication.templates.update",
+						"communication.templates.archiveOrDelete",
+						"communication.correctContactLog",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
@@ -423,9 +444,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"launch.reopenMilestone",
 						"launch.addGuestAttendance",
 						"launch.correctOutcome",
+						"launch.saveDebriefDraft",
+						"launch.saveDebriefSummaryDraft",
+						"launch.correctGuestAttendance",
 					]
 				: who === "member"
 					? [
+							"communication.correctContactLog",
 							"notifications.markSelectedRead",
 							"notifications.markAllVisibleRead",
 							"notifications.setPreferences",
@@ -491,7 +516,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 			"tasks.followUpCoverage",
 			"tasks.planHandoff",
 		];
-		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
+		const ownerReads = [...peopleReads, "people.listDuplicatePairs", "people.getStatusWarnings"];
 		const organizationReads = [
 			"people.exportPeople",
 			"people.generateCsvTemplate",
@@ -541,6 +566,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.forPerson",
 						"communication.templates.list",
 						"communication.resendCandidates",
+						"communication.forMeeting",
+						"communication.meetingRecipientTracking",
+						"communication.deliveryTotals",
+						"communication.listAudienceTeams",
+						"communication.searchRecipients",
+						"mail.suppression.listForSelf",
+						"communication.getDraft",
 						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
@@ -549,6 +581,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"phases.readCatalog",
 						"phases.readHistory",
 						"phases.readReadiness",
+						"intelligence.readExitCriteria",
+						"intelligence.readJourney",
 						"signals.listDefinitions",
 						"signals.getHistory",
 						...MEETINGS_READS,
@@ -573,6 +607,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 				: who === "member"
 					? [
 							...peopleReads,
+							"people.getStatusWarnings",
 							...organizationReads,
 							...mailReads,
 							...memberTaskReads,
@@ -600,6 +635,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"oversight.listPlants",
 								"oversight.getPlant",
 								"organizationIntelligence.read",
+								"organizationIntelligence.readHistory",
+								"organizationIntelligence.readLocations",
+								"organizationIntelligence.readLocationHistory",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]
@@ -631,8 +669,11 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 				wrapStream: async ({ doStream }) => {
 					await before(++calls);
 					const result = await doStream();
-					const finish = new TransformStream<any, any>({
-						transform: (part, controller) => (part.type === "finish" && cost(part.usage), controller.enqueue(part)),
+					const finish = new TransformStream<LanguageModelV4StreamPart, LanguageModelV4StreamPart>({
+						transform: (part, controller) => {
+							if (part.type === "finish") cost(part.usage);
+							controller.enqueue(part);
+						},
 					});
 					return { ...result, stream: result.stream.pipeThrough(finish) };
 				},
@@ -656,7 +697,7 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 	assert.equal(await work(first.model), "succeeded");
 	const spent = first.costs.reduce((a, b) => a + b, 0);
 	assert.ok(first.costs.length > 1 && spent > 0);
-	assert.deepEqual([(await events(owner, id)).status.usage.costMicroUsd, await charged()], [spent, spent]);
+	assert.deepEqual([(await events(owner, id)).status.usage?.costMicroUsd, await charged()], [spent, spent]);
 
 	const ascii = "a".repeat(6_000);
 	const unicode = "\u0800".repeat(6_000);
@@ -669,7 +710,7 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 	const refusedUnicode = await ask(owner, unicode);
 	assert.equal(await work(unicodeTurn.model), "failed");
 	assert.deepEqual(
-		[unicodeTurn.calls(), (await events(owner, refusedUnicode)).status.error.code],
+		[unicodeTurn.calls(), (await events(owner, refusedUnicode)).status.error?.code],
 		[0, "model_unavailable"],
 	);
 	assert.deepEqual(
@@ -725,7 +766,7 @@ test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people 
 	assert.equal(await work(model), "succeeded");
 	const { cards, text } = await events(owner, id);
 	assert.deepEqual(
-		cards[0]!.result.rows.map((r: any) => [r.id, r.label, r.fields]),
+		cards[0]!.result.rows.map((r) => [r.id, r.label, r.fields]),
 		[
 			[people.alexRivera, "Alex Rivera", { city: "Chicago", stage: "prospect" }],
 			[people.alexChen, "Alex Chen", { city: "Evanston", stage: "prospect" }],
@@ -767,6 +808,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"calendar_read",
 			"communication_read",
+			"compose_reads",
 			"dashboard_read",
 			"documents_read",
 			"feedback_read",
@@ -781,12 +823,15 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"people_read",
 			"phases_read",
 			"propose_change",
+			"read_planning_notes",
+			"read_review",
 			"seats_read",
 			"select_returned_rows",
 			"sharing_read",
 			"signals_read",
 			"tasks_read",
 			"teams_read",
+			"update_planning_notes",
 			"wiki_read",
 			"workflows_read",
 		],
@@ -994,7 +1039,7 @@ test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and ch
 	const { cards } = await events(owner, id);
 	assert.equal(cards.length, 2);
 	assert.deepEqual(
-		[cards[1]!.operation, cards[1]!.result.rows.map((r: any) => r.id), cards[1]!.originalTotal],
+		[cards[1]!.operation, cards[1]!.result.rows.map((r) => r.id), cards[1]!.originalTotal],
 		["evry.selectReturnedRows", [people.alexRivera], 2],
 	);
 });
@@ -1052,12 +1097,15 @@ test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff
 	);
 	assert.deepEqual(failing.sleeps, [1_000, 3_000]);
 	const { status } = await events(owner, bad);
-	assert.deepEqual([status.state, status.error.code, status.error.retry], ["failed", "model_unavailable", "new_turn"]);
+	assert.deepEqual(
+		[status.state, status.error?.code, status.error?.retry],
+		["failed", "model_unavailable", "new_turn"],
+	);
 	assert.ok(!JSON.stringify(status).includes("secret") && !JSON.stringify(status).includes("provider.example"));
 
 	const unavailable = await ask(owner, "Find Casey");
 	assert.equal(await work({ status: "unavailable" }), "failed");
-	assert.equal((await events(owner, unavailable)).status.error.code, "model_unavailable");
+	assert.equal((await events(owner, unavailable)).status.error?.code, "model_unavailable");
 });
 
 test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work and new tools at the next save; a run without its lease cannot publish", async () => {
@@ -1088,7 +1136,7 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 		sql`INSERT INTO auth_session SELECT * FROM json_populate_record(null::auth_session, ${JSON.stringify(session)}::json)`,
 	);
 	const refusedRun = await events(member, signedOut);
-	assert.deepEqual([refusedRun.cards.length, refusedRun.status.error.code], [0, "access_denied"]);
+	assert.deepEqual([refusedRun.cards.length, refusedRun.status.error?.code], [0, "access_denied"]);
 
 	const stale = await ask(owner, "Find Casey");
 	await admin.execute(
@@ -1150,7 +1198,7 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 		"classifier input is scrubbed",
 	);
 	const { cards, status } = await events(owner, id);
-	assert.deepEqual([cards.length, status.error.code], [0, "access_denied"]);
+	assert.deepEqual([cards.length, status.error?.code], [0, "access_denied"]);
 
 	await admin.execute(
 		sql`UPDATE person SET display_name='Ruth sk-live-zyxwvutsrqponmlkjihgfedcb' WHERE id=${people.alexChen}`,

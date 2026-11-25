@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import type { ActivityEntry, PromptKey, SetupStep } from "@everyfield/contracts/dashboard";
 import { countdown, type Plan } from "@everyfield/contracts/launch";
 import { TYPE_LABEL } from "../meetings/model.ts";
@@ -59,9 +60,6 @@ export const PROMPT_TEXT: Record<PromptKey, { title: string }> = {
 	invite_team: { title: "Invite your team" },
 };
 
-const at = (date: string) => new Date(`${date}T12:00:00Z`);
-const shortDate = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(at(date));
 export const churchTime = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone,
@@ -86,7 +84,6 @@ export function launchShown(plan: Plan): LaunchShown {
 	if (c.kind === "today" || c.kind === "overdue") return { kind: c.kind, date };
 	return { kind: c.kind === "postponed" ? "postponed" : "none" };
 }
-export const daysText = (days: number) => `${days} ${days === 1 ? "day" : "days"}`;
 
 export function entryText(e: ActivityEntry): { title: string; href: string } {
 	const c = e.change;
@@ -103,7 +100,7 @@ export function entryText(e: ActivityEntry): { title: string; href: string } {
 		case "task_completed":
 			return { title: `${c.title} completed`, href: `/tasks?task=${c.taskId}` };
 		case "launch_date": {
-			const day = c.date ? shortDate(c.date) : null;
+			const day = c.date ? dayText(c.date, { year: "never" }) : null;
 			const title = {
 				scheduled: day ? `Launch Sunday set for ${day}` : "Launch Sunday set",
 				moved: day ? `Launch Sunday moved to ${day}` : "Launch Sunday moved",
@@ -114,7 +111,14 @@ export function entryText(e: ActivityEntry): { title: string; href: string } {
 		}
 		case "launch_recorded":
 			return {
-				title: c.date ? `Launch Sunday recorded as held ${shortDate(c.date)}` : "Launch Sunday recorded",
+				title: c.date
+					? `Launch Sunday recorded as held ${dayText(c.date, { year: "never" })}`
+					: "Launch Sunday recorded",
+				href: "/launch",
+			};
+		case "launch_corrected":
+			return {
+				title: c.date ? `Launch Sunday corrected to ${dayText(c.date, { year: "never" })}` : "Launch Sunday corrected",
 				href: "/launch",
 			};
 		case "phase_changed":

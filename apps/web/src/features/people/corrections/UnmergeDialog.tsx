@@ -24,7 +24,16 @@ import { fresh, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, type Unmerged } from "./actions.ts";
 import { unmergeRead } from "./intent.ts";
-import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
+import {
+	attendanceText,
+	conflictText,
+	counted,
+	FIELD_LABEL,
+	kindTitle,
+	listText,
+	unmergeAdvice,
+	unmergeStaysText,
+} from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
 import { loadProblem } from "../../../components/read-failed.ts";
@@ -105,6 +114,7 @@ export function UnmergeDialog({
 	const view = preview?.status === "ok" ? preview.value : null;
 	const p = view?.preview;
 	const names = done?.names ?? view?.names;
+	const added = p && names ? unmergeStaysText(p, names) : null;
 	const blocked = Boolean(p && p.state === "merged" && p.conflicts.length);
 	const finished = done
 		? { ...done, earlier: false }
@@ -167,7 +177,7 @@ export function UnmergeDialog({
 									? `An Unmerge would bring ${names.source} back as their own person and move these back:`
 									: `${names.source} comes back as their own person. ${
 											p.fields.length
-												? `${names.survivor} gets back the details they had before the merge.`
+												? `${names.survivor} gets back the details this merge changed.`
 												: `${names.survivor}'s details stay as they are.`
 										}`}
 							</p>
@@ -188,6 +198,23 @@ export function UnmergeDialog({
 									/>
 								))}
 							</KeyValueList>
+							{p.attendance.length ? (
+								<div>
+									<p className="text-xs font-semibold text-ink-2">
+										Meeting records the merge changed go back as they were
+									</p>
+									<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+										{p.attendance.map((a) => (
+											<li key={`${a.change}-${a.meeting}`} className="text-pretty">
+												{attendanceText(a, {
+													source: { personId: p.sourceId, displayName: names.source },
+													survivor: { personId: p.survivorId, displayName: names.survivor },
+												})}
+											</li>
+										))}
+									</ul>
+								</div>
+							) : null}
 							{blocked ? (
 								<div className="rounded-md bg-surface px-4 py-3.5">
 									<CalloutLabel tone="magenta" icon={Alert02Icon}>
@@ -195,17 +222,16 @@ export function UnmergeDialog({
 									</CalloutLabel>
 									<ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-ink-2">
 										{p.conflicts.map((c) => (
-											<li key={c}>{conflictText(c, names)}</li>
+											<li key={c}>{conflictText(c, names, p.changed, p.changedFields)}</li>
 										))}
 									</ul>
-									<p className="mt-2 text-sm">
-										An Unmerge would lose those changes, so Everyfield will not run it. Correct {first(names.survivor)}
-										&rsquo;s details by hand instead; each change is kept in the history.
-									</p>
+									<p className="mt-2 text-sm">{unmergeAdvice(p.conflicts, names)}</p>
 								</div>
+							) : added ? (
+								<p className="rounded-md bg-surface px-4 py-3.5 text-sm text-pretty text-ink-2">{added}</p>
 							) : (
 								<CalloutLabel tone="green" icon={Tick02Icon}>
-									Nothing changed since the merge
+									Nothing added since the merge
 								</CalloutLabel>
 							)}
 							{blocked ? null : (
@@ -270,7 +296,7 @@ function Finished({
 			) : (
 				<p ref={focusOnMount} tabIndex={-1} className="text-ink-2 outline-none">
 					{names.source} is their own person again.{" "}
-					{preview.fields.length ? `${names.survivor} has the details from before the merge. ` : null}
+					{preview.fields.length ? `${names.survivor} has back the details this merge changed. ` : null}
 					{restored.length
 						? `${listText(restored.map((r) => counted(r.kind, r.count)))} moved back to ${first(names.source)}.`
 						: null}

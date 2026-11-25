@@ -3,6 +3,7 @@ import {
 	invalidSessionReturn,
 	LANDING_ROUTE,
 	passwordRecoveryRequest,
+	passwordRecoveryResult,
 	recoverPasswordRequest,
 	registrationOptions,
 	registrationRequest,
@@ -25,12 +26,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
+import { mailDelay, readSwitches } from "../flags/index.ts";
 import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, deny, identityRefusals, transaction } from "./budget.ts";
 import { invitationRefusals } from "./invitation-core.ts";
 import type { createInvitationService } from "./invitations.ts";
-import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
+import { lookupIdentityAccount, readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
 
 export type IdentityMail = {
 	accountId: string;
@@ -308,12 +310,9 @@ export function createIdentityService(config: IdentityConfig) {
 				await budget.finish(reservation, result.ok);
 				if (!result.ok) deny("invalid_credentials");
 				const resultBody = z.object({ user: z.object({ id: z.uuid() }) }).parse(await result.json());
-				if (!(await account(resultBody.user.id))) {
-					const exists = await config.db
-						.select({ id: tables.account.id })
-						.from(tables.account)
-						.where(eq(tables.account.auth_user_id, resultBody.user.id));
-					if (exists.length) deny("unauthenticated");
+				const found = await lookupIdentityAccount(config.db, resultBody.user.id);
+				if (found?.blocked) deny("unauthenticated");
+				if (!found) {
 					const native = await config.authDb
 						.select({ email: tables.auth_user.email, created_at: tables.auth_user.created_at })
 						.from(tables.auth_user)
@@ -354,7 +353,10 @@ export function createIdentityService(config: IdentityConfig) {
 				} catch {
 					config.diagnostic({ correlationId, outcome: "delivery_failed" });
 				}
-				return json({ status: "accepted" });
+				return json({
+					status: "accepted",
+					...(await mailDelay(() => readSwitches(config.db))),
+				} satisfies z.output<typeof passwordRecoveryResult>);
 			}
 			if (path === "reset-password") {
 				const v = recoverPasswordRequest.parse(input);

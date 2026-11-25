@@ -2,19 +2,20 @@ import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { fixture, key, noReminders } from "./invitations-support.mts";
+import { codeOf, fixture, key, noReminders, outcome, statementText, type Fixture } from "./invitations-support.mts";
 import { waitingOnLock } from "../../support/fixture.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
-let f;
-const sent = [];
+type Review = Awaited<ReturnType<Fixture["seats"]["readRemoval"]>>;
+let f: Fixture;
+const sent: string[] = [];
 before(async () => {
 	f = await fixture();
 	f.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...q) {
-			sent.push(typeof q[0] === "string" ? q[0] : (q[0]?.text ?? ""));
+		client.query = function (...q: unknown[]) {
+			sent.push(statementText(q[0]));
 			return Reflect.apply(query, this, q);
 		};
 	});
@@ -22,39 +23,52 @@ before(async () => {
 after(async () => {
 	await f?.close();
 });
-const denied = (promise, code = "invitation_unavailable") =>
+const denied = (promise: Promise<unknown>, code = "invitation_unavailable") =>
 	assert.rejects(promise, (e) => {
-		assert.equal(e.code, code);
+		assert.equal(codeOf(e), code);
 		return true;
 	});
-const count = async (table, predicate) =>
-	Number(
-		(
-			await f.admin
-				.select({ n: sql`count(*)::int` })
-				.from(table)
-				.where(predicate)
-		)[0].n,
-	);
+const count = async (...[table, predicate]: Parameters<Fixture["admin"]["$count"]>) => f.admin.$count(table, predicate);
 
 test("AC:TARGET-IDN-017 AC:TARGET-IDN-003 AC:ROLE43-006 ordinary invitation hides account resolution and persists hashed expiring proof", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),
 		description = await f.invitations.describe({ proof: i.proof });
 	assert.equal(description.status, "pending");
+	assert.ok(description.subject.purpose === "seat");
 	assert.equal(description.subject.role, "member");
 	assert.equal(description.workspaceName, "Synthetic plant");
 	assert.equal("recipientEmail" in description, false);
-	const [row] = await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId));
+	const row = (
+		await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId))
+	)[0]!;
 	assert.equal(row.token_hash, createHash("sha256").update(i.proof).digest("hex"));
 	assert.equal(new Date(i.result.invitation.expiresAt).getTime() - row.created_at.getTime(), 30 * 86400000);
 	assert.equal(JSON.stringify(i.result).includes("accountExists"), false);
 	assert.equal(JSON.stringify(i.result).includes(i.proof), false);
 	assert.deepEqual(await f.invitations.invite(await f.actor(s.sender.session), i.command), i.result);
 
-	const sent = f.effects.findLast((e) => e.text.includes(i.proof) || e.text.includes(encodeURIComponent(i.proof)));
+	const sent = f.effects.findLast((e) => e.text.includes(i.proof) || e.text.includes(encodeURIComponent(i.proof)))!;
 	assert.match(sent.text, /\/invitation#proof=\S+/);
 	assert.doesNotMatch(sent.text, /[?&]proof=/);
+});
+test("INV-invitations: opening a seat invitation with its live proof writes nothing and the proof still accepts it", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s);
+	const state = async () =>
+		JSON.stringify({
+			invitation: await f.admin
+				.select()
+				.from(t.invitation)
+				.where(eq(t.invitation.id, i.result.invitation.invitationId)),
+			audit: await count(t.audit_event, sql`true`),
+			seats: await count(t.seat, sql`true`),
+		});
+	const before = await state();
+	assert.equal((await f.invitations.describe({ proof: i.proof })).status, "pending");
+	assert.equal(await state(), before);
+	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
+	assert.equal(accepted.seat.role, "member");
 });
 test("AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurrent same-intent claim activates one seat, Person, receipt and security intent", async () => {
 	const s = await f.setup(),
@@ -74,7 +88,8 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurre
 		1,
 	);
 
-	const [person] = await f.admin.select().from(t.person).where(eq(t.person.id, a.seat.personId));
+	assert.ok(a.seat.kind === "plant");
+	const person = (await f.admin.select().from(t.person).where(eq(t.person.id, a.seat.personId)))[0]!;
 	assert.equal(person.adult_classification, "unknown");
 	assert.equal(await count(t.team_tenure, eq(t.team_tenure.person_id, person.id)), 0);
 	await denied(f.invitations.accept(s.recipient.session, { ...i.claim, requestKey: key() }));
@@ -88,8 +103,10 @@ test("AC:TARGET-IDN-030 INV-atomicity: required outbox or receipt failure rolls 
 	} finally {
 		f.setMailFault(false);
 	}
-	const [row] = await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)),
-		[account] = await f.admin.select().from(t.account).where(eq(t.account.id, s.recipient.id));
+	const row = (
+		await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId))
+	)[0]!;
+	const account = (await f.admin.select().from(t.account).where(eq(t.account.id, s.recipient.id)))[0]!;
 	assert.equal(row.state, "pending");
 	assert.equal(account.registration_state, "pending_domain");
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
@@ -97,14 +114,15 @@ test("AC:TARGET-IDN-030 INV-atomicity: required outbox or receipt failure rolls 
 	await f.admin.execute(sql`REVOKE INSERT ON ${sql.identifier(f.schema)}.audit_event FROM everyfield_runtime`);
 	try {
 		await assert.rejects(f.invitations.accept(s.recipient.session, i.claim), (error) => {
-			assert.equal(error.cause?.code, "42501");
+			assert.ok(error instanceof Error);
+			assert.equal(codeOf(error.cause), "42501");
 			return true;
 		});
 	} finally {
 		await f.admin.execute(sql`GRANT INSERT ON ${sql.identifier(f.schema)}.audit_event TO everyfield_runtime`);
 	}
 	assert.equal(
-		(await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)))[0].state,
+		(await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)))[0]!.state,
 		"pending",
 	);
 	assert.equal(await count(t.audit_event, eq(t.audit_event.request_key, i.claim.requestKey)), 0);
@@ -161,20 +179,18 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 		await f.admin.execute(
 			sql`UPDATE invitation SET created_at=clock_timestamp()-interval '720 hours'+interval '2.5 seconds' WHERE id=${id}`,
 		);
-		let claim;
-		await f.admin.transaction(async (tx) => {
-			const [{ pid }] = await tx
-				.select({ pid: sql`pg_backend_pid()` })
-				.from(t.plant)
-				.where(eq(t.plant.id, s.w.id))
-				.for("update");
-			claim = (
+		const { claim } = await f.admin.transaction(async (tx) => {
+			const { pid } = (
+				await tx
+					.select({ pid: sql<number>`pg_backend_pid()` })
+					.from(t.plant)
+					.where(eq(t.plant.id, s.w.id))
+					.for("update")
+			)[0]!;
+			const claim = outcome<unknown>(
 				via === "accept"
 					? f.invitations.accept(s.recipient.session, i.claim)
-					: f.invitations.resume(s.recipient.session, i.proof, key())
-			).then(
-				(value) => ({ value }),
-				(error) => ({ error }),
+					: f.invitations.resume(s.recipient.session, i.proof, key()),
 			);
 			assert.equal(
 				await waitingOnLock(f.admin, { blockedBy: pid }),
@@ -182,11 +198,12 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				`${via} must wait for the workspace root lock`,
 			);
 			await new Promise((resolve) => setTimeout(resolve, 3000));
+			return { claim };
 		});
 		const result = await claim;
-		assert.equal(result.error?.code, "invitation_unavailable", via + ": " + JSON.stringify(result.value ?? null));
+		assert.equal(codeOf(result.error), "invitation_unavailable", via + ": " + JSON.stringify(result.value ?? null));
 		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
-		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");
+		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0]!.state, "pending");
 	}
 });
 test("AC:TARGET-IDN-017 INV-tenancy: active seat or independent Discovery association refuses a first seat without moving grants", async () => {
@@ -252,6 +269,7 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 		requestKey: key(),
 		input: { invitationId: i2.result.invitation.invitationId },
 	});
+	assert.ok("invitation" in sent);
 	assert.equal(sent.invitation.revision, "2");
 	assert.deepEqual(await f.invitations.describe({ proof: i2.proof }), { status: "unavailable" });
 	await denied(f.invitations.accept(s2.recipient.session, i2.claim));
@@ -283,15 +301,15 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 	);
 	const other = await f.setup();
 	other.recipient.email = s.recipient.email;
-	assert.equal(
+	assert.deepEqual(
 		(
 			await f.invitations.invite(await f.actor(other.sender.session), {
 				requestKey: key(),
 				expectedRevision: "1",
 				input: { workspace: other.w, role: "admin", recipientEmail: s.recipient.email },
 			})
-		).invitation.subject.role,
-		"admin",
+		).invitation.subject,
+		{ purpose: "seat", workspace: other.w, role: "admin" },
 	);
 });
 test("AC:ADR1-004 resident accept is addressed, atomic, consent-specific and seatless", async () => {
@@ -314,6 +332,7 @@ test("AC:ADR1-004 resident accept is addressed, atomic, consent-specific and sea
 		f.invitations.respondResident(s.recipient.session, claim),
 	]);
 	assert.deepEqual(a, b);
+	assert.ok(a.status === "accepted");
 	assert.equal(a.consentRevision, "1");
 	assert.deepEqual(a.choices, { shareFoundations: true, shareMilestones: false });
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
@@ -328,7 +347,7 @@ test("AC:ADR1-004 resident decline leaves account unchanged and retired or forei
 	assert.equal(a.status, "declined");
 	assert.deepEqual(await f.invitations.respondResident(s.recipient.session, claim), a);
 	assert.equal(
-		(await f.admin.select().from(t.account).where(eq(t.account.id, s.recipient.id)))[0].registration_state,
+		(await f.admin.select().from(t.account).where(eq(t.account.id, s.recipient.id)))[0]!.registration_state,
 		"pending_domain",
 	);
 	const s2 = await f.setup("sending_church"),
@@ -348,7 +367,7 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 		a = await f.invitations.accept(s.recipient.session, i.claim),
 		list = await f.seats.list(await f.actor(s.recipient.session), { workspace: s.w });
 	assert.equal(list.items.length, 2);
-	assert.equal(list.items.find((x) => x.seatId === a.seat.seatId).joined.source, "accepted_invitation");
+	assert.equal(list.items.find((x) => x.seatId === a.seat.seatId)!.joined.source, "accepted_invitation");
 	assert.equal(JSON.stringify(list).includes(s.sender.email), false);
 	const cmd = {
 		requestKey: key(),
@@ -359,7 +378,7 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 	const changed = await f.seats.appointAdmin(await f.actor(s.sender.session), s.w, cmd);
 	assert.equal(changed.revision, "2");
 	assert.deepEqual(await f.seats.appointAdmin(await f.actor(s.sender.session), s.w, cmd), changed);
-	const owner = list.items.find((x) => x.role === "owner");
+	const owner = list.items.find((x) => x.role === "owner")!;
 	await denied(
 		f.seats.remove(
 			await f.actor(s.recipient.session),
@@ -379,7 +398,9 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 		input: { seatId: a.seat.seatId, expectedRole: "admin", to: "member" },
 	});
 	assert.equal(demoted.revision, "3");
-	assert.equal((await f.seats.readCurrentMembership(s.recipient.session)).role, "member");
+	const membership = await f.seats.readCurrentMembership(s.recipient.session);
+	assert.ok(membership.status === "active");
+	assert.equal(membership.role, "member");
 });
 test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and closed work while revoking all sessions", async () => {
 	const s = await f.setup(),
@@ -433,9 +454,10 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
-	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0].status, "complete");
+	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0]!.status, "complete");
+	assert.ok(a.seat.kind === "plant");
 	assert.equal(
-		(await f.admin.select().from(t.person).where(eq(t.person.id, a.seat.personId)))[0].linked_account_id,
+		(await f.admin.select().from(t.person).where(eq(t.person.id, a.seat.personId)))[0]!.linked_account_id,
 		s.recipient.id,
 	);
 	assert.equal(await count(t.auth_session, eq(t.auth_session.user_id, s.recipient.user)), 0);
@@ -498,7 +520,7 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 					kind: "assign",
 					dutyId: d.dutyId,
 					expectedRevision: d.expectedRevision,
-					recipientAccountId: review.recipients[0].accountId,
+					recipientAccountId: review.recipients[0]!.accountId,
 				})),
 			},
 		},
@@ -508,7 +530,7 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
 });
 
-async function statements(body) {
+async function statements<V>(body: () => Promise<V>) {
 	const start = sent.length;
 	return { result: await body(), sent: sent.slice(start) };
 }
@@ -521,10 +543,11 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 		const a = await f.account(state);
 		return { account: a, seat: await f.seat(a, s.w, "member") };
 	};
-	const witness = (values) =>
+	const witness = (
+		values: Omit<typeof t.lifecycle_witness.$inferInsert, "request_revision" | "witness_checkpoint" | "cleanup_state">,
+	) =>
 		f.admin.insert(t.lifecycle_witness).values({
 			request_revision: "1",
-			state: "revoked",
 			witness_checkpoint: "1",
 			cleanup_state: "not_started",
 			...values,
@@ -533,7 +556,6 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 	const future = await member(),
 		ended = await member(),
 		blockedAccount = await member(),
-		blockedSeat = await member(),
 		witnessed = await member();
 	await f.admin
 		.update(t.seat)
@@ -550,13 +572,21 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 		requested_at: requested,
 		cancel_until: new Date(requested.getTime() + 30 * 86400000),
 	});
-	await witness({ kind: "seat", opaque_subject_id: blockedSeat.seat, seat_id: blockedSeat.seat });
-	await witness({ kind: "seat", opaque_subject_id: witnessed.seat, seat_id: witnessed.seat, state: "active" });
+	await witness({
+		kind: "account",
+		opaque_subject_id: witnessed.account.id,
+		account_id: witnessed.account.id,
+		state: "cancelled",
+		request_id: key(),
+		requested_at: requested,
+		cancel_until: new Date(requested.getTime() + 30 * 86400000),
+		cancelled_at: requested,
+	});
 	const review = () => statements(() => f.seats.readRemoval(s.sender.session, s.w, { seatId }));
 	const few = await review();
-	const ids = (r) => r.result.recipients.map((x) => x.accountId);
-	const bySeat = (pairs) => pairs.sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((p) => p[1]);
-	const [owner] = await f.admin.select().from(t.seat).where(eq(t.seat.account_id, s.sender.id));
+	const ids = (r: { result: Review }) => r.result.recipients.map((x) => x.accountId);
+	const bySeat = (pairs: [string, string][]) => pairs.sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((p) => p[1]);
+	const owner = (await f.admin.select().from(t.seat).where(eq(t.seat.account_id, s.sender.id)))[0]!;
 	assert.deepEqual(
 		ids(few),
 		bySeat([
@@ -564,8 +594,8 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 			[witnessed.seat, witnessed.account.id],
 		]),
 	);
-	assert.equal(few.result.recipients[0].displayName, "Synthetic person");
-	const more = [];
+	assert.equal(few.result.recipients[0]!.displayName, "Synthetic person");
+	const more: Awaited<ReturnType<typeof member>>[] = [];
 	for (let n = 0; n < 4; n++) more.push(await member());
 	const many = await review();
 	assert.deepEqual(
@@ -573,7 +603,7 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 		bySeat([
 			[owner.id, s.sender.id],
 			[witnessed.seat, witnessed.account.id],
-			...more.map((m) => [m.seat, m.account.id]),
+			...more.map((m): [string, string] => [m.seat, m.account.id]),
 		]),
 	);
 	assert.equal(many.sent.length, few.sent.length);
@@ -646,7 +676,7 @@ test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is o
 	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
-	const [kept] = await f.admin.select().from(t.task).where(eq(t.task.id, closed));
+	const kept = (await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0]!;
 	assert.equal(kept.status, "complete");
 	assert.deepEqual(await assigneesOf(f.admin, closed), [s.recipient.id]);
 });
@@ -672,7 +702,7 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			})),
 		);
 		const target = { seatId: a.seat.seatId };
-		const command = (review) => ({
+		const command = (review: Review) => ({
 			requestKey: key(),
 			expectedRevision: review.expectedRevision,
 			input: {
@@ -691,7 +721,7 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 		await f.admin
 			.update(t.task)
 			.set({ revision: "2" })
-			.where(eq(t.task.id, ids[n - 1]));
+			.where(eq(t.task.id, ids[n - 1]!));
 		await denied(f.seats.remove(await f.actor(s.sender.session), s.w, command(stale), noReminders), "conflict");
 		assert.equal(await assignedCount(f.admin, s.sender.id, s.w.id), 0);
 		const fresh = await f.seats.readRemoval(s.sender.session, s.w, target);
@@ -707,7 +737,7 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 		native = f.native("invitation_only"),
 		address = key() + "@example.test",
 		password = "Synthetic-native-password-1";
-	const send = (body) => native("register", body, undefined, { "x-test-ip": "127.0.0.21" });
+	const send = (body: object) => native("register", body, undefined, { "x-test-ip": "127.0.0.21" });
 	const options = await native("registration-options?invitationProof=" + i.proof);
 	const registrationOptions = await options.json();
 	assert.equal(registrationOptions.invitation.kind, "plant_precreation");
@@ -749,8 +779,8 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 		{ "x-test-ip": "127.0.0.22" },
 	);
 	assert.deepEqual(await created.json(), { status: "continue_identity_proof" });
-	const [user] = await f.admin.select().from(t.auth_user).where(eq(t.auth_user.email, newEmail)),
-		[account] = await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, user.id));
+	const user = (await f.admin.select().from(t.auth_user).where(eq(t.auth_user.email, newEmail)))[0]!;
+	const account = (await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, user.id)))[0]!;
 	assert.equal(account.registration_state, "pending_domain");
 	assert.equal(await count(t.seat, eq(t.seat.account_id, account.id)), 0);
 	const login = await native("sign-in/email", { email: newEmail, password });
@@ -768,7 +798,7 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 		accepted = await resume.json();
 	assert.equal(accepted.status, "active");
 	assert.equal(accepted.accountId, account.id);
-	assert.equal((await f.admin.select().from(t.seat).where(eq(t.seat.account_id, account.id)))[0].role, "member");
+	assert.equal((await f.admin.select().from(t.seat).where(eq(t.seat.account_id, account.id)))[0]!.role, "member");
 
 	assert.deepEqual(await (await native("resume-registration", intent, cookie)).json(), accepted);
 	const foreign = await native("resume-registration", intent);
@@ -816,6 +846,31 @@ test("AC:ROLE43-006 INV-settings-member INV-invitations: pending and Member acto
 	await denied(f.invitations.invite(await f.actor(s.sender.session), changed), "idempotency_conflict");
 });
 
+test("INV-invitations: a seat invite or invitation list naming another workspace than the session's is refused and writes nothing", async () => {
+	const s = await f.setup(),
+		other = await f.setup(),
+		pending = await f.invitation(other);
+	const writes = async () => ({
+		invitations: await count(t.invitation, sql`true`),
+		audit: await count(t.audit_event, sql`true`),
+		mail: f.effects.length,
+	});
+	const before = await writes();
+	const sender = await f.actor(s.sender.session);
+	for (const role of ["member", "admin"])
+		await denied(
+			f.invitations.invite(sender, {
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { workspace: other.w, role, recipientEmail: key() + "@example.test" },
+			}),
+		);
+	await denied(f.invitations.list(sender, { workspace: other.w }));
+	await denied(f.invitations.list(sender, { workspace: other.w, after: pending.result.invitation.invitationId }));
+	await f.dispatch();
+	assert.deepEqual(await writes(), before);
+});
+
 test("INV-invite-revision: a stale workspace revision refuses as conflict, a duplicate pending invitation stays unavailable", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s);
@@ -849,7 +904,7 @@ test("AC:ROLE43-006 C13: seats.list and invitations.list read nothing for an act
 	const owner = await f.actor(s.sender.session),
 		appointed = await f.actor(admin.session);
 	assert.equal(
-		(await f.invitations.list(owner, { workspace: s.w })).items[0].invitationId,
+		(await f.invitations.list(owner, { workspace: s.w })).items[0]!.invitationId,
 		i.result.invitation.invitationId,
 	);
 	assert.equal((await f.invitations.list(appointed, { workspace: s.w })).items.length, 1);
@@ -882,7 +937,7 @@ test("AC:TARGET-IDN-017 INV-mail: revoked invitation cancels its pending outbox 
 	});
 	await f.dispatch();
 	assert.equal(f.effects.filter((e) => e.to === s.recipient.email).length, before);
-	const [mail] = await f.admin.select().from(t.mail).where(eq(t.mail.tenant_id, s.w.id));
+	const mail = (await f.admin.select().from(t.mail).where(eq(t.mail.tenant_id, s.w.id)))[0]!;
 	assert.equal(mail.state, "cancelled");
 });
 
@@ -890,22 +945,20 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 	const s = await f.setup("sending_church"),
 		person = await f.resident(s.w),
 		i = await f.invitation(s, person);
-	let claim;
-	await f.admin.transaction(async (tx) => {
+	const { claim } = await f.admin.transaction(async (tx) => {
 		await tx.select({ id: t.person.id }).from(t.person).where(eq(t.person.id, person)).for("update");
-		const [{ pid }] = await tx
-			.select({ pid: sql`pg_backend_pid()` })
-			.from(t.person)
-			.limit(1);
-		claim = f.invitations
-			.respondResident(s.recipient.session, {
+		const { pid } = (
+			await tx
+				.select({ pid: sql<number>`pg_backend_pid()` })
+				.from(t.person)
+				.limit(1)
+		)[0]!;
+		const claim = outcome(
+			f.invitations.respondResident(s.recipient.session, {
 				...i.claim,
 				input: { ...i.claim.input, decision: "accept", choices: { shareFoundations: true, shareMilestones: false } },
-			})
-			.then(
-				(value) => ({ value }),
-				(error) => ({ error }),
-			);
+			}),
+		);
 		assert.equal(
 			await waitingOnLock(f.admin, { blockedBy: pid }),
 			true,
@@ -919,16 +972,17 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 			.update(t.invitation)
 			.set({ state: "revoked", revision: "2" })
 			.where(eq(t.invitation.id, i.result.invitation.invitationId));
+		return { claim };
 	});
 	const result = await claim;
 	assert.equal(
-		result.error?.code,
+		codeOf(result.error),
 		"invitation_unavailable",
-		JSON.stringify({ databaseCode: result.error?.cause?.code }),
+		JSON.stringify({ databaseCode: result.error instanceof Error ? codeOf(result.error.cause) : undefined }),
 	);
 	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, person)), 0);
 	assert.equal(
-		(await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)))[0].state,
+		(await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)))[0]!.state,
 		"revoked",
 	);
 });

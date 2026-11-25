@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	CheckmarkCircle02Icon,
@@ -34,8 +35,9 @@ import {
 	StatePanel,
 	Textarea,
 	toast,
+	ProblemText,
 } from "@everyfield/ui/controls";
-import { instant } from "@everyfield/contracts/common";
+import { counted, countWord, instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
 import { listPhotoRoute, type PersonPhoto } from "@everyfield/contracts/people";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
@@ -156,7 +158,7 @@ export function GuestList({
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
-	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
+	const photoOf = new Map<string | null, AppAssetPath>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const cardTarget = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
 	const focusCardTarget = useFocusRequest<HTMLDivElement>(cardsRequest, (table) =>
@@ -617,7 +619,7 @@ export function GuestList({
 					</Button>
 					<span className="text-sm text-text-3">
 						{rows.length === shown.length
-							? `${shown.length} ${shown.length === 1 ? "guest" : "guests"}`
+							? counted(shown.length, "guest")
 							: `Showing ${rows.length} of ${shown.length}`}
 					</span>
 				</div>
@@ -752,7 +754,7 @@ function AddGuestForm({
 			? "Add this person to the list, or clear the name."
 			: null;
 	const partial = initial.notAdded?.length
-		? `${initial.notAdded.join(", ")} ${initial.notAdded.length === 1 ? "was" : "were"} not added. The others are on the guest list. Choose ${count === 1 ? "Add guest" : `Add ${count} guests`} to try again.`
+		? `${initial.notAdded.join(", ")} ${countWord(initial.notAdded.length, "was", "were")} not added. The others are on the guest list. Choose ${count === 1 ? "Add guest" : `Add ${count} guests`} to try again.`
 		: undefined;
 	const chips: ChosenChip[] = [
 		...people.map((p) => ({ key: `p:${p.id}`, name: p.name, isNew: false })),
@@ -982,11 +984,7 @@ function CardForm({
 						<Radio key={r} value={r} label={CARD_LABEL[r]} />
 					))}
 				</RadioGroup>
-				{touched && !response ? (
-					<p className="text-xs font-medium text-magenta-600" role="alert">
-						Choose what they marked on the card.
-					</p>
-				) : null}
+				{touched && !response ? <ProblemText>Choose what they marked on the card.</ProblemText> : null}
 			</fieldset>
 			<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
 				<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />

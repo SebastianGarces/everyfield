@@ -1,14 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	answerText,
 	EMPTY,
 	endNotice,
 	merge,
 	opened,
 	pageReferences,
+	resendable,
 	retryable,
+	sendNotice,
 	turnsOf,
 } from "../../../apps/web/src/features/evry/conversation/model.ts";
+import {
+	actionNotice,
+	documentRefusalText,
+	mailRefusalText,
+} from "../../../apps/web/src/features/evry/review/model.ts";
 
 const T = "11111111-1111-4111-8111-111111111111";
 const at = "2026-10-21T00:00:00Z";
@@ -111,18 +119,76 @@ test("INV-retry: only the last turn that did not complete, with no run active an
 	assert.equal(endNotice({ state: "failed", reason: "failed", error: { code: "model_unavailable" } }).tone, "neutral");
 });
 
-test("AC:UI45-006 INV-page: only a person page offers a reference", () => {
+test("AC:UI45-006 INV-page: a page offers its record and its known route, and only a church offers a route", () => {
 	const id = "0E0B6B0C-1A2B-4C3D-8E4F-5A6B7C8D9E0F";
-	assert.deepEqual(pageReferences(`/people/${id}`), [{ kind: "person", id: id.toLowerCase() }]);
-	assert.deepEqual(pageReferences("/people"), []);
-	assert.deepEqual(pageReferences(`/people/${id}/edit`), []);
-	assert.deepEqual(pageReferences(null), []);
+	assert.deepEqual(pageReferences(`/people/${id}`, true), [
+		{ kind: "person", id: id.toLowerCase() },
+		{ kind: "page", route: "/people/[personId]" },
+	]);
+	assert.deepEqual(pageReferences(`/people/${id}`, false), [{ kind: "person", id: id.toLowerCase() }]);
+	assert.deepEqual(pageReferences("/people", true), [{ kind: "page", route: "/people" }]);
+	assert.deepEqual(pageReferences("/people", false), []);
+	assert.deepEqual(pageReferences("/wiki/a/b", true), [{ kind: "article", slug: "a/b" }]);
+	assert.deepEqual(pageReferences(`/people/${id}/edit`, true), []);
+	assert.deepEqual(pageReferences(null, true), []);
 });
 
 test("INV-turns: live text of a turn with a withheld text is never shown", () => {
-	const [turn] = turnsOf([ask(1), say(2, "x", { withheld: true })], { [T]: "secret words so far" });
-	assert.deepEqual(
-		turn.blocks.map((b) => [b.kind, b.text]),
-		[["text", ""]],
-	);
+	const withheld = [ask(1), say(2, "Saved. "), say(3, "x", { withheld: true })];
+	const ended = end(4, { state: "completed", reason: "completed" });
+	for (const events of [withheld, [...withheld, ended]]) {
+		const [turn] = turnsOf(events, { [T]: "Saved. secret words so far" });
+		assert.deepEqual(
+			turn.blocks.map((b) => [b.kind, b.text]),
+			[
+				["text", "Saved. "],
+				["text", ""],
+			],
+		);
+		assert.equal(answerText(turn), "Saved.");
+	}
+});
+
+test("a paused Evry or paused email says what stopped, that nothing changed and what to do, and names no switch, flag or code", () => {
+	const paused = (code, retry) => ({ code, correlationId: "x", retry, outcome: "refused" });
+	const send = {
+		key: "k",
+		text: "Who joined?",
+		references: [],
+		state: "refused",
+		error: paused("model_paused", "new_turn"),
+		sequence: null,
+	};
+	const turn = endNotice({ state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
+	const texts = [
+		sendNotice(send),
+		sendNotice({ ...send, state: "unstarted" }),
+		documentRefusalText("exports_paused"),
+		`${turn.title}: ${turn.text}`,
+		actionNotice(paused("mail_paused", "same_request"), true),
+		mailRefusalText("mail_paused"),
+	];
+	for (const text of texts) {
+		assert.match(text, /paused/i);
+		assert.doesNotMatch(text, /kill|switch|flag|_paused|model_|error/i);
+	}
+	assert.equal(turn.tone, "neutral");
+	for (const state of ["refused", "unstarted"])
+		assert.match(
+			sendNotice({ ...send, state }),
+			/nothing was saved\. Your message is still here\. Send it again later/,
+		);
+	assert.equal(resendable(send), true, "the typed message can be sent again");
+	const failed = end(2, { state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
+	assert.equal(retryable({ ...EMPTY, events: [ask(1), failed], activeTurnId: null }, turnsOf([ask(1), failed])), true);
+});
+
+test("INV-announce: the spoken answer has no markdown symbols", () => {
+	const [turn] = turnsOf([
+		ask(1),
+		say(2, "There are **19 prospects**, *3 new*. Run `pnpm test` or see [people](/people).\n\n- **Alex**\n- Sam\n"),
+		say(3, "5 * 3 = 15", { withheld: true }),
+		end(4, { state: "completed", reason: "completed" }),
+	]);
+	assert.equal(answerText(turn), "There are 19 prospects, 3 new. Run pnpm test or see people.\n\nAlex\nSam");
 });

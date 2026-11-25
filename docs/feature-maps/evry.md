@@ -13,13 +13,15 @@ flowchart LR
   s0 -.- s0_st2(("member"))
   s0 --- s0_b0["ask-and-read<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["stop-and-retry<br/>tests + cases"]
-  s0 --- s0_b2["attach-and-import<br/>tests + cases + browser presence"]
+  s0 --- s0_b2["church-changed<br/>tests"]
+  s0 --- s0_b3["attach-and-import<br/>tests + cases + browser presence"]
   s1["evry.review<br/>no page"]
   s0 -- "button #quot;Send#quot;" --> s1
   s1 -.- s1_st0(("new-chat"))
-  s1 --- s1_b0["approve-change<br/>tests + cases + browser behavior"]
-  s1 --- s1_b1["revise-or-cancel<br/>tests + cases"]
-  s1 --- s1_b2["photo<br/>tests + cases + browser presence"]
+  s1 --- s1_b0["church-changed<br/>tests"]
+  s1 --- s1_b1["approve-change<br/>tests + cases + browser behavior"]
+  s1 --- s1_b2["revise-or-cancel<br/>tests + cases"]
+  s1 --- s1_b3["photo<br/>tests + cases + browser presence"]
 ```
 
 ## Surfaces
@@ -113,6 +115,15 @@ Stop ends a running turn and keeps what was written; Try again reruns only the l
 - Test: `tests/evry/runtime/streaming.test.mts`: `INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the stream promptly`
 - Test: `tests/evry/execution/proposals.test.mts`: `INV-effect-recovery: an approved effect that no worker took within 60 s reads as unconfirmed, not as saving; Try again's job is claimed first and runs it once`
 
+#### evry.panel#church-changed
+
+A moved seat's old-church sends, retries, streams and opens are refused with Reload.
+
+- Operations: evry.submitTurn
+- Catalog: EVR-021
+- Test: `tests/evry/runtime/conversations.test.mts`: `INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing`
+- Test: `tests/evry/runtime/conversations.test.mts`: `INV-church-changed: a moved seat's retry or read of the old conversation is church_changed`
+
 #### evry.panel#attach-and-import
 
 An Owner or Admin attaches a Word or text file in the panel and asks for a church document: Evry shows a review of the import, refuses any file the Documents import refuses with that import's own sentence, and the document is in Documents only after Approve.
@@ -125,7 +136,7 @@ An Owner or Admin attaches a Word or text file in the panel and asks for a churc
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state new-chat:
 
 ```bash
-agent-browser find role button text --name "Attach a CSV, Word, text or PDF file" --exact
+agent-browser find role button text --name "Attach a file" --exact
 ```
 
 ### evry.review
@@ -165,9 +176,17 @@ agent-browser find role button text --name "List the people in this church" --ex
 agent-browser find role textbox text --name "Message Evry" --exact
 ```
 
+#### evry.review#church-changed
+
+After a seat moves church, Approve on the old church's change is refused and it stays pending; the card says the church changed and offers Reload.
+
+- Operations: evry.approveProposal
+- Catalog: EVR-012
+- Test: `tests/evry/execution/proposals.test.mts`: `INV-church-changed: approving the old church's pending proposal after the seat moves church is refused as church_changed and changes nothing`
+
 #### evry.review#approve-change
 
-A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and the page it changed shows the new value.
+A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and its page shows the new value. An invitation says if its email is delayed.
 
 - Operations: evry.approveProposal, evry.executeProposal
 - Catalog: EVR-012, EVR-013, EVR-014
@@ -204,14 +223,15 @@ Revise replaces the prepared change and voids the earlier approval; Cancel ends 
 
 #### evry.review#photo
 
-A photo attached in the panel is staged privately for one proposal; only its owner sees it while the review lasts, and approval needs it.
+A photo attached in the panel's one attach control is staged privately in that conversation; a People photo review shows it only to its owner while the review lasts, approval needs it, and the approved photo is bound to one person once.
 
-- No operation: the panel stages the photo through the Settings avatar upload (conversation/photoActions.ts) and the review card reads it back from packages/evry/src/proposals/store.ts; neither is an Evry catalog operation
+- No operation: the panel stages the photo as a conversation attachment (packages/evry/src/attachments/store.ts) and, for the user's own account photo, through the Settings avatar upload (conversation/photoActions.ts); the review card reads it back from packages/evry/src/proposals/store.ts; none is an Evry catalog operation
 - Catalog: EVR-025
 - Cases: UI45-003
-- Test: `tests/evry/adapters/people/commands/commands.test.mts`: `AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it`
+- Test: `tests/evry/adapters/people/commands/commands.test.mts`: `AC:UI45-003 a photo proposal's owner sees the exact attached photo while the review lasts; approval needs it`
+- Test: `tests/evry/runtime/photo-attachments.test.mts`: `an Owner's attached photo becomes Priya's People photo only after Approve, and the effect runs once`
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state new-chat:
 
 ```bash
-agent-browser find role button text --name "Attach a photo" --exact
+agent-browser find role button text --name "Attach a file" --exact
 ```

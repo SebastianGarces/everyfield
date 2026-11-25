@@ -7,21 +7,33 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { behaviorFailure } from "./failures.mjs";
 import { checkBudgets, checkSamples, readRuns, tighten } from "./budgets.mjs";
 import { repeatedShapes, statementShape, statementStep } from "./kinds.cjs";
-import { partSuites, weighPart } from "./weights.mjs";
+import { newestAttempts, partSuites, readRun, weigh, weighPart } from "./weights.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
-type Census = { kind: "whole" } | { kind: "part"; index: number; total: number } | { kind: "union"; folder: string };
+type Census =
+	| { kind: "whole" }
+	| { kind: "part"; index: number; total: number }
+	| { kind: "union"; folder: string; attempt: number };
 type Sample = { kind: "sample"; name: string; status: string; count: number; writes: number; [key: string]: unknown };
 type Declaration = { kind: "declaration"; name: string; write: boolean };
 type Part = { kind: "part"; index: number; total: number; concurrency?: number; ran: string[] };
 type Row = Sample | Declaration | Part;
 
-function censusMode(part = process.env.EVF_CENSUS_PART, union = process.env.EVF_CENSUS_UNION): Census {
+function censusMode(
+	part = process.env.EVF_CENSUS_PART,
+	union = process.env.EVF_CENSUS_UNION,
+	attempt = process.env.EVF_CENSUS_ATTEMPT,
+): Census {
 	if (part && union) throw Error("Set EVF_CENSUS_PART or EVF_CENSUS_UNION, not both");
-	if (union) return { kind: "union", folder: union };
+	if (union) {
+		if (!/^[1-9]\d*$/.test(attempt ?? ""))
+			throw Error(`EVF_CENSUS_UNION needs EVF_CENSUS_ATTEMPT, the run attempt, not "${attempt}"`);
+		return { kind: "union", folder: union, attempt: Number(attempt) };
+	}
 	if (!part) return { kind: "whole" };
 	const match = /^(\d+)\/(\d+)$/.exec(part);
 	const index = Number(match?.[1]),
@@ -51,8 +63,10 @@ async function censusUnits(): Promise<string[]> {
 	return [REQUESTS, NATIVE, ...(await censusSuites())];
 }
 
-async function unionRows(folder: string, units: string[]): Promise<Row[]> {
-	const files = globSync("**/counts.jsonl", { cwd: folder });
+async function unionRows(folder: string, units: string[], attempt = Infinity): Promise<Row[]> {
+	const files = newestAttempts(folder, attempt).flatMap((artifact) =>
+		globSync(`${artifact}/**/counts.jsonl`, { cwd: folder }),
+	);
 	const rows = (await Promise.all(files.map((file) => readFile(join(folder, file), "utf8")))).flatMap(parseRows);
 	const parts = rows.filter((row) => row.kind === "part").map((row) => `${row.index}/${row.total}`);
 	const total = Number(parts[0]?.split("/")[1]);
@@ -268,6 +282,38 @@ test("INV-census: a budget fails on growth, a write above six without its measur
 	]);
 });
 
+test("INV-census: a name held to zero writes fails on any run that writes more, and the tightener keeps the field", () => {
+	const part = { kind: "part", index: 1, total: 1, ran: ["a.test.mts"] };
+	const limits = {
+		"GET /overview": { limit: 5, writes: 0 },
+		"wiki.search": { limit: 4, retry: 4, writes: 0 },
+		"people.addNote": { limit: 5, writes: 1 },
+	};
+	const within = [sample("GET /overview", 5, 0), sample("wiki.search", 3, 0), sample("people.addNote", 5, 1), part];
+	assert.deepEqual(checkSamples(within, limits), []);
+	assert.deepEqual(checkBudgets(within, limits), []);
+	assert.deepEqual(tighten(within, limits, ["a.test.mts"]), {
+		limits: { ...limits, "wiki.search": { limit: 3, retry: 4, writes: 0 } },
+		changes: ['wiki.search: 3 statements at most, limit 4; tightened to {"limit":3,"retry":4,"writes":0}'],
+	});
+
+	const over = [
+		...within,
+		sample("GET /overview", 5, 1),
+		sample("wiki.search", 4, 2, 1),
+		{ ...sample("wiki.search", 2, 1), status: "threw" },
+		sample("people.addNote", 5, 2),
+	];
+	const problems = [
+		"GET /overview: 1 writes, budget 0 (1 write, 4 read)",
+		"wiki.search: 2 writes, budget 0 (2 write, 2 read)",
+		"wiki.search: 1 writes, budget 0 (threw) (1 write, 1 read)",
+		"people.addNote: 2 writes, budget 1 (2 write, 3 read)",
+	];
+	assert.deepEqual(checkSamples(over, limits), problems);
+	assert.deepEqual(checkBudgets(over, limits), problems);
+});
+
 test("INV-census: slack, a stale reason and an unbudgeted retry pass and print the tightened entry", () => {
 	const rows = [
 		sample("people.addNote", 5),
@@ -340,8 +386,11 @@ test("INV-census: the tightener rewrites limits.json after every suite ran and l
 		await mkdir(join(folder, part), { recursive: true });
 		await writeFile(join(folder, part, "counts.jsonl"), rows.map((row) => JSON.stringify(row) + "\n").join(""));
 	};
-	await write("part-1", [sample("GET /people", 2, 0), { kind: "part", index: 1, total: 2, ran: ["requests.mjs"] }]);
-	await write("part-2", [
+	await write("statement-census-part-1-attempt-1", [
+		sample("GET /people", 2, 0),
+		{ kind: "part", index: 1, total: 2, ran: ["requests.mjs"] },
+	]);
+	await write("statement-census-part-2-attempt-1", [
 		sample("people.addNote", 4),
 		sample("people.addNote", 6, 1, 1),
 		sample("people.merge", 3),
@@ -587,26 +636,97 @@ test("INV-census: the census union fails on a budget no part measured, a missing
 	};
 	const units = ["requests.mjs", "people.test.mts", "tasks.test.mts", "unit.test.mts"];
 	const marker = (index: number, ran: string[]) => ({ kind: "part", index, total: 2, concurrency: 3, ran });
-	await write("part-1", [two("GET /people"), marker(1, ["requests.mjs", "unit.test.mts"])]);
-	await write("part-2", [two("people.addNote"), marker(2, ["people.test.mts", "tasks.test.mts"])]);
+	await write("statement-census-part-1-attempt-1", [two("GET /people"), marker(1, ["requests.mjs", "unit.test.mts"])]);
+	await write("statement-census-part-2-attempt-1", [
+		two("people.addNote"),
+		marker(2, ["people.test.mts", "tasks.test.mts"]),
+	]);
 	const rows = await unionRows(folder, units);
 	assert.deepEqual(checkSamples(rows, limits), []);
 	assert.deepEqual(checkBudgets(rows, limits), ["tasks.edit: budgeted but never measured; remove it or exercise it"]);
 	const measured = [two("people.addNote"), two("tasks.edit")];
-	await write("part-2", [...measured, marker(2, ["people.test.mts", "tasks.test.mts"])]);
+	await write("statement-census-part-2-attempt-1", [...measured, marker(2, ["people.test.mts", "tasks.test.mts"])]);
 	assert.deepEqual(checkBudgets(await unionRows(folder, units), limits), []);
-	await write("part-2", [...measured, marker(2, ["people.test.mts"])]);
+	await write("statement-census-part-2-attempt-1", [...measured, marker(2, ["people.test.mts"])]);
 	await assert.rejects(unionRows(folder, units), /The census parts must run every suite exactly once/);
-	await write("part-2", [...measured, marker(2, ["people.test.mts", "tasks.test.mts", "unit.test.mts"])]);
+	await write("statement-census-part-2-attempt-1", [
+		...measured,
+		marker(2, ["people.test.mts", "tasks.test.mts", "unit.test.mts"]),
+	]);
 	await assert.rejects(unionRows(folder, units), /The census parts must run every suite exactly once/);
-	await write("part-2", measured);
+	await write("statement-census-part-2-attempt-1", measured);
 	await assert.rejects(unionRows(folder, units), /The census union needs every part exactly once/);
+});
+
+test("INV-census: after a rerun the union reads each part's newest attempt up to the current one", async () => {
+	const units = ["requests.mjs", "people.test.mts", "tasks.test.mts"];
+	const ran = [["requests.mjs"], ["people.test.mts"], ["tasks.test.mts"]];
+	const run = async (artifacts: Array<[number, number, "failed"?]>) => {
+		const folder = await mkdtemp(join(tmpdir(), "evf-census-attempts-"));
+		for (const [part, attempt, failed] of artifacts) {
+			const directory = join(folder, `statement-census-part-${part}-attempt-${attempt}`, "evf-write-counts-x");
+			await mkdir(directory, { recursive: true });
+			const rows = [
+				{ kind: "sample", name: `part ${part} attempt ${attempt}`, count: 1, writes: 0, status: "ok" },
+				...(failed ? [] : [{ kind: "part", index: part, total: 3, concurrency: 3, ran: ran[part - 1] }]),
+			];
+			await writeFile(join(directory, "counts.jsonl"), rows.map((row) => JSON.stringify(row) + "\n").join(""));
+			await writeFile(join(directory, "behaviors.log"), `✔ part ${part} attempt ${attempt} (10ms)\nℹ duration_ms 10\n`);
+		}
+		return folder;
+	};
+	const read = async (folder: string, attempt: number) =>
+		(await unionRows(folder, units, attempt)).flatMap((row) => (row.kind === "sample" ? [row.name] : []));
+	const failedJobs = await run([
+		[1, 1],
+		[2, 1],
+		[3, 1, "failed"],
+		[3, 2],
+	]);
+	assert.deepEqual(await read(failedJobs, 2), ["part 1 attempt 1", "part 2 attempt 1", "part 3 attempt 2"]);
+	const allJobs = await run([
+		[1, 1],
+		[2, 1],
+		[3, 1],
+		[1, 2],
+		[2, 2],
+		[3, 2],
+	]);
+	assert.deepEqual(await read(allJobs, 2), ["part 1 attempt 2", "part 2 attempt 2", "part 3 attempt 2"]);
+	const newer = await run([
+		[1, 1],
+		[2, 1],
+		[3, 1],
+		[3, 2],
+		[1, 3],
+	]);
+	assert.deepEqual(await read(newer, 2), ["part 1 attempt 1", "part 2 attempt 1", "part 3 attempt 2"]);
+	const onlyNewer = await run([
+		[1, 1],
+		[2, 1],
+		[3, 3],
+	]);
+	await assert.rejects(read(onlyNewer, 2), /The census union needs every part exactly once/);
+	const sources = (file: string) =>
+		ran
+			.flatMap((files, i) => (files.includes(file) ? [1, 2, 3].map((at) => `part ${i + 1} attempt ${at}`) : []))
+			.join(" ");
+	const newestOnly = await run([
+		[1, 1],
+		[2, 1],
+		[3, 2],
+	]);
+	assert.deepEqual(weigh([readRun(failedJobs)], 0, sources), weigh([readRun(newestOnly)], 0, sources));
+	assert.deepEqual(
+		readRun(failedJobs).map(({ log }) => log.split("\n")[0]),
+		["✔ part 1 attempt 1 (10ms)", "✔ part 2 attempt 1 (10ms)", "✔ part 3 attempt 2 (10ms)"],
+	);
 });
 
 test("INV-census: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
 	const limits = JSON.parse(await readFile(new URL("./limits.json", import.meta.url), "utf8"));
 	const units = await censusUnits();
-	if (census.kind === "union") return finishWhole(await unionRows(census.folder, units), limits, units);
+	if (census.kind === "union") return finishWhole(await unionRows(census.folder, units, census.attempt), limits, units);
 	const parent = process.env.EVF_CENSUS_LOGS ?? tmpdir();
 	await mkdir(parent, { recursive: true });
 	const directory = await mkdtemp(join(parent, "evf-write-counts-")),
@@ -638,7 +758,6 @@ test("INV-census: every request and write stays within its statement budget", { 
 			cwd: join(root, "packages/domain"),
 			env: {
 				...environment,
-				EARLY_ACCESS_TEST_DATABASE: "1",
 				EVF_WRITE_COUNTS: output,
 				NODE_OPTIONS: nodeOptions.join(" "),
 			},
@@ -669,17 +788,7 @@ test("INV-census: every request and write stays within its statement budget", { 
 	}
 	if (files.length) {
 		const behaviors = await run("behaviors", ["--test", "--test-concurrency=" + CONCURRENCY, ...files], counted);
-		assert.equal(
-			behaviors.exit,
-			0,
-			"Behavior suites failed; evidence: " +
-				behaviors.evidence +
-				"\n" +
-				behaviors.log
-					.split("\n")
-					.filter((line) => line.includes("✖"))
-					.join("\n"),
-		);
+		if (behaviors.exit !== 0) assert.equal(behaviors.exit, 0, behaviorFailure(behaviors.evidence, behaviors.log));
 		ran.push(...files);
 	}
 	console.log("Statement census:", output);

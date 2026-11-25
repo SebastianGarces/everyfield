@@ -1,8 +1,29 @@
 import { deliveryTransport, type CaptureOptions } from "../../../apps/web/src/server/mail/transport.ts";
 
 export type Recorded = { method: string; path: string; idempotencyKey: string | null; body: unknown };
+export type SentEmail = {
+	from: string;
+	to: string[];
+	subject: string;
+	html: string;
+	text: string;
+	scheduled_at?: string;
+	headers?: Record<string, string>;
+};
+export type Recorder = ReturnType<typeof resendRecorder>;
 type Held = { id: string; to: string; scheduledAt: string | null; lastEvent: string };
 type Fault = "fail" | "drop";
+
+const isEmail = (entry: unknown): entry is SentEmail =>
+	typeof entry === "object" &&
+	entry !== null &&
+	"to" in entry &&
+	Array.isArray(entry.to) &&
+	["from", "subject", "html", "text"].every((field) => typeof Reflect.get(entry, field) === "string");
+export function emailsIn({ body }: Recorded): SentEmail[] {
+	if (!Array.isArray(body) || !body.every(isEmail)) throw new Error("the request holds no batch of emails");
+	return body;
+}
 
 export function resendRecorder(
 	env: Readonly<Record<string, string | undefined>> = process.env,
@@ -76,6 +97,7 @@ export function resendRecorder(
 				addressKey: Buffer.alloc(32, 9),
 				from: "church@resend.dev",
 				origin: "https://app.example.test",
+				optOutKeys: null,
 			},
 			apiKey: "re_test_key",
 		},

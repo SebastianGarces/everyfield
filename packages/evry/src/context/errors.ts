@@ -3,9 +3,12 @@ import { randomUUID } from "node:crypto";
 export type EvryErrorCode =
 	| "not_found"
 	| "access_denied"
+	| "church_changed"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
+	| "model_paused"
+	| "mail_paused"
 	| "source_unavailable"
 	| "interrupted"
 	| "review_changed"
@@ -39,9 +42,12 @@ export class EvryRefusal extends Error {
 const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_found: "never",
 	access_denied: "never",
+	church_changed: "never",
 	invalid_input: "never",
 	run_active: "same_request",
 	model_unavailable: "new_turn",
+	model_paused: "new_turn",
+	mail_paused: "same_request",
 	source_unavailable: "new_turn",
 	interrupted: "new_turn",
 	review_changed: "never",

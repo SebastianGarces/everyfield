@@ -1116,6 +1116,7 @@
       "REQ-PPL-024"
     ],
     "case_ids": [
+      "CASE-PPL-009-GUARDIAN",
       "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
       "TARGET-PPL-009",
       "TARGET-PPL-024"
@@ -1129,6 +1130,7 @@
       "people.listHouseholds",
       "people.propagateAddress",
       "people.removeFromHousehold",
+      "people.setGuardianContact",
       "people.setHouseholdRole",
       "people.updateHousehold"
     ],
@@ -3600,7 +3602,9 @@
       "REQ-NTF-016"
     ],
     "case_ids": [
-      "CASE-NTF-016"
+      "CASE-NTF-016",
+      "CASE-NTF-016-CHILD",
+      "CASE-NTF-016-GUARDIAN"
     ],
     "operations": [
       "communication.applyMessagesOptOut",

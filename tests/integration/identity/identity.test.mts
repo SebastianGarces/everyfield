@@ -43,7 +43,7 @@ test("AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no accoun
 		).rows,
 		[{ registration_state: "pending_domain", registration_kind: "discovery" }],
 	);
-	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM seat`)).rows[0].n, 0);
+	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM seat`)).rows[0]!.n, 0);
 	assert.equal((await f.req("registration-status")).status, 401);
 	assert.equal((await f.req("resume-registration", { requestKey: randomUUID() })).status, 401);
 	const login = await signIn(f, " STAGED@EXAMPLE.TEST ");
@@ -71,7 +71,7 @@ test("INV-identity: atomic registration admission counts malformed submissions, 
 	assert.equal((await register(f, "noip@example.test")).status, 503);
 	assert.equal((await f.req("register", {}, undefined, { "x-forwarded-for": "127.0.0.99" })).status, 503);
 	assert.equal(
-		(await f.db.execute(querySql`SELECT count(*)::int n FROM auth_user WHERE email='noip@example.test'`)).rows[0].n,
+		(await f.db.execute(querySql`SELECT count(*)::int n FROM auth_user WHERE email='noip@example.test'`)).rows[0]!.n,
 		0,
 	);
 	await f.db.execute(querySql`ALTER TABLE admission_attempt RENAME TO admission_unavailable`);
@@ -104,7 +104,7 @@ test("INV-identity: normalized login and reset budgets reserve concurrently, suc
 			await f.db.execute(
 				querySql`SELECT count(*)::int n FROM admission_attempt WHERE kind='login' AND state='failed' AND reserved_at>clock_timestamp()-interval '15 minutes'`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		1,
 	);
 	assert.deepEqual(
@@ -122,8 +122,9 @@ test("INV-identity: a rate-limited refusal names the end of the budget window it
 		assert.equal(response.status, 429);
 		const body = (await response.json()) as { code: string; details: { retryAt: string } };
 		assert.equal(body.code, "rate_limited");
-		const [{ now }] = (await f.db.execute(querySql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS now`))
-			.rows as { now: number }[];
+		const { now } = (
+			await f.db.execute<{ now: number }>(querySql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS now`)
+		).rows[0]!;
 		return (new Date(body.details.retryAt).getTime() - now) / 60_000;
 	};
 	const near = (actual: number, expected: number) =>
@@ -152,7 +153,7 @@ test("AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof
 	const lifetime = await f.db.execute(
 		querySql`SELECT extract(epoch FROM(expires_at-created_at))::int seconds FROM auth_verification WHERE identifier=${"reset-password:" + proof}`,
 	);
-	assert.equal(lifetime.rows[0].seconds, 3600);
+	assert.equal(lifetime.rows[0]!.seconds, 3600);
 	assert.equal(
 		(await f.req("reset-password", { proof, newPassword: password, confirmPassword: password })).status,
 		422,
@@ -185,11 +186,11 @@ test("AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof
 		querySql`SELECT action FROM audit_event WHERE action LIKE 'identity.credential%' ORDER BY recorded_at`,
 	);
 	assert.equal(
-		events.rows.some((v: { action: string }) => v.action === "identity.credential_observed"),
+		events.rows.some((v) => v.action === "identity.credential_observed"),
 		true,
 	);
 	assert.equal(
-		events.rows.some((v: { action: string }) => v.action === "identity.credential_changed"),
+		events.rows.some((v) => v.action === "identity.credential_changed"),
 		false,
 	);
 	f.setMailFault(false);
@@ -237,11 +238,11 @@ test("AC:TARGET-IDN-009 INV-nonenumeration INV-identity: recovery is nonenumerat
 	f.setProviderFault(true);
 	await f.dispatch();
 	f.setProviderFault(false);
-	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail WHERE state='unknown'`)).rows[0].n, 1);
+	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail WHERE state='unknown'`)).rows[0]!.n, 1);
 	const serialized = JSON.stringify(f.diagnostics);
 	assert.equal(serialized.includes("@example.test"), false);
 	assert.equal(serialized.includes(password), false);
-	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM job WHERE state='reconcile'`)).rows[0].n, 1);
+	assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM job WHERE state='reconcile'`)).rows[0]!.n, 1);
 });
 
 test("INV-identity: real database session renews, expired/revoked/deleted identities deny; logout converges and revocation preserves only its own session", async () => {
@@ -257,10 +258,10 @@ test("INV-identity: real database session renews, expired/revoked/deleted identi
 	const renewed = await f.req("get-session", undefined, c1);
 	assert.equal(renewed.status, 200);
 	assert.ok(cookie(renewed));
-	const row = await f.db.execute(
+	const row = await f.db.execute<{ seconds: number }>(
 		querySql`SELECT extract(epoch FROM(expires_at-clock_timestamp()))::int seconds FROM auth_session WHERE id=${s.sessionId}`,
 	);
-	assert.ok(row.rows[0].seconds >= 2591990 && row.rows[0].seconds <= 2592000);
+	assert.ok(row.rows[0]!.seconds >= 2591990 && row.rows[0]!.seconds <= 2592000);
 	assert.equal((await f.req("revoke-other-sessions", {}, c1)).status, 200);
 	assert.deepEqual(await (await f.req("get-session", undefined, c2)).json(), { status: "unauthenticated" });
 	assert.equal((await (await f.req("get-session", undefined, c1)).json()).status, "pending_domain");
@@ -357,8 +358,8 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 		await f.db.execute(querySql`DROP TRIGGER fail_pending ON account`);
 	}
 	assert.equal(
-		(await f.db.execute(querySql`SELECT count(*)::int n FROM auth_user WHERE email='interrupted@example.test'`)).rows[0]
-			.n,
+		(await f.db.execute(querySql`SELECT count(*)::int n FROM auth_user WHERE email='interrupted@example.test'`))
+			.rows[0]!.n,
 		1,
 	);
 	await f.db.execute(
@@ -381,7 +382,7 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 	const status = await (await f.req("registration-status", undefined, c)).json();
 	assert.equal(status.status, "pending_domain");
 	assert.equal(
-		(await f.db.execute(querySql`SELECT registration_kind FROM account WHERE id=${status.accountId}`)).rows[0]
+		(await f.db.execute(querySql`SELECT registration_kind FROM account WHERE id=${status.accountId}`)).rows[0]!
 			.registration_kind,
 		"discovery",
 	);
@@ -395,7 +396,7 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 	assert.ok(proof);
 	assert.deepEqual(await (await f.req("verify-email", { proof })).json(), { status: "email_verified" });
 	assert.equal(
-		(await f.db.execute(querySql`SELECT email_verified FROM auth_user WHERE email='interrupted@example.test'`)).rows[0]
+		(await f.db.execute(querySql`SELECT email_verified FROM auth_user WHERE email='interrupted@example.test'`)).rows[0]!
 			.email_verified,
 		true,
 	);
@@ -415,7 +416,7 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 			await f.db.execute(
 				querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${status.accountId} AND action='identity.credential_changed'`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		1,
 	);
 	const outbox = await f.db.execute(
@@ -500,7 +501,7 @@ test("INV-identity: outcome mail INSERT failure rolls back the success event wit
 			await f.db.execute(
 				querySql`SELECT count(*)::int n FROM mail WHERE tenant_id=${state.accountId} AND logical_key LIKE 'password_reset/outcome/%'`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		0,
 	);
 	assert.deepEqual(await (await f.req("get-session", undefined, c)).json(), { status: "unauthenticated" });
@@ -517,13 +518,13 @@ test("INV-identity: existing and missing recovery/verification requests perform 
 	f.setIp("127.0.0.21");
 	await register(f, "deferred@example.test");
 	await f.runDeliveryRequests();
-	const proofs = (await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0].n;
-	const mails = (await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n;
+	const proofs = (await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0]!.n;
+	const mails = (await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n;
 	for (const path of ["request-password-reset", "send-verification-email"])
 		for (const email of ["deferred@example.test", "absent-deferred@example.test"]) {
 			assert.deepEqual(await (await f.req(path, { email })).json(), { status: "accepted" });
-			assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0].n, proofs);
-			assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n, mails);
+			assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0]!.n, proofs);
+			assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n, mails);
 		}
 	assert.equal(f.pendingDeliveryCount(), 4);
 	await f.dispatch();
@@ -556,8 +557,8 @@ test("BUG-PR94: killing post-response recovery work leaves no stuck state and pe
 		const email = `lost-worker-${i}@example.test`;
 		await register(f, email);
 		const c = cookie(await signIn(f, email));
-		const proofs = (await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0].n;
-		const mails = (await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n;
+		const proofs = (await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0]!.n;
+		const mails = (await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n;
 		const child = spawn(
 			process.execPath,
 			["--import", "tsx", "--conditions=react-server", "--input-type=module", "--eval", worker],
@@ -591,8 +592,8 @@ test("BUG-PR94: killing post-response recovery work leaves no stuck state and pe
 				await exited;
 			}
 		}
-		assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0].n, proofs);
-		assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n, mails);
+		assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM auth_verification`)).rows[0]!.n, proofs);
+		assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n, mails);
 		assert.equal((await (await f.req("get-session", undefined, c)).json()).status, "pending_domain");
 		assert.equal((await signIn(f, email)).status, 200);
 		assert.deepEqual(await (await f.req(path, { email })).json(), { status: "accepted" });
@@ -603,7 +604,7 @@ test("BUG-PR94: killing post-response recovery work leaves no stuck state and pe
 				await f.db.execute(
 					querySql`SELECT count(*)::int n FROM admission_attempt WHERE kind='reset' AND state='reserved'`,
 				)
-			).rows[0].n,
+			).rows[0]!.n,
 			0,
 		);
 	}

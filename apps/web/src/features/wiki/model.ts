@@ -1,5 +1,6 @@
 import type { SitePath } from "@everyfield/contracts/identity";
 import {
+	articlePath,
 	EDITOR_FORMAT,
 	editorDocumentBlocks,
 	humanCredit,
@@ -9,16 +10,6 @@ import {
 	type WikiBlock,
 } from "@everyfield/contracts/wiki";
 import { z } from "zod";
-
-export const PHASE_NAME = [
-	"Discovery",
-	"Core Group Development",
-	"Launch Team Formation",
-	"Training & Preparation",
-	"Pre-Launch",
-	"Launch Sunday",
-	"Post-Launch",
-] as const;
 
 const uuid = z.uuid();
 
@@ -56,14 +47,6 @@ function slugFromParts(parts: string[] | undefined): string {
 		.join("/");
 }
 
-export function articlePath(slug: string): SitePath {
-	if (!slug) return "/wiki";
-	return `/wiki/${slug
-		.split("/")
-		.map((part) => encodeURIComponent(part))
-		.join("/")}`;
-}
-
 export function wikiReturn(path: SitePath, choice: SourceChoice): SitePath {
 	const source = sourceQuery(choice);
 	return source ? `${path}?source=${encodeURIComponent(source)}` : path;
@@ -92,57 +75,6 @@ export function percentLabel(fraction: string): string {
 export function pdfFilename(slug: string): string {
 	const clean = slug.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 	return `${clean || "article"}.pdf`;
-}
-
-type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
-
-export type TreeModel = {
-	phases: { number: number; name: string; items: NavItem[] }[];
-	more: { name: string; items: NavItem[] }[];
-};
-
-type NavGroup = {
-	name: string;
-	articles: { articleId: string; title: string; slug: string; phase: number | null }[];
-};
-
-export function treeModel(groups: NavGroup[], read: ReadonlySet<string>): TreeModel {
-	const byPhase = new Map<number, NavItem[]>();
-	const more: TreeModel["more"] = [];
-	for (const group of groups) {
-		const items = group.articles.map((article) => ({
-			id: article.articleId,
-			title: article.title,
-			href: articlePath(article.slug),
-			read: read.has(article.articleId),
-			phase: article.phase,
-		}));
-		const journey = /^Journey ([0-6])$/.exec(group.name);
-		if (journey?.[1]) {
-			if (items.length) byPhase.set(Number(journey[1]), items);
-		} else if (items.length) more.push({ name: group.name, items });
-	}
-	const phases = [...byPhase.entries()]
-		.sort((a, b) => a[0] - b[0])
-		.map(([number, items]) => ({ number, name: PHASE_NAME[number] ?? "Journey", items }));
-	return { phases, more };
-}
-
-export type Step = { title: string; href: string; group: string };
-
-export function stepsAround(tree: TreeModel, currentId: string): { previous: Step | null; next: Step | null } {
-	const flat = [
-		...tree.phases.map((phase) => ({ group: `Phase ${phase.number} · ${phase.name}`, items: phase.items })),
-		...tree.more.map((group) => ({ group: group.name, items: group.items })),
-	].flatMap((group) =>
-		group.items.map((item) => ({ id: item.id, title: item.title, href: item.href, group: group.group })),
-	);
-	const index = flat.findIndex((item) => item.id === currentId);
-	if (index < 0) return { previous: null, next: null };
-	const here = flat[index]?.group;
-	const step = (item: (typeof flat)[number] | undefined): Step | null =>
-		item ? { title: item.title, href: item.href, group: item.group === here ? "" : item.group } : null;
-	return { previous: step(flat[index - 1]), next: step(flat[index + 1]) };
 }
 
 export type SourceRow = {

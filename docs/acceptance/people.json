@@ -2912,7 +2912,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3244,7 +3247,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3581,7 +3587,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3907,7 +3916,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -4257,7 +4269,10 @@
         "WP-039",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -4581,7 +4596,10 @@
         "WP-039",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -4909,7 +4927,10 @@
         "WP-039",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -5235,7 +5256,10 @@
         "WP-039",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -5577,7 +5601,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -5911,7 +5938,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -6252,7 +6282,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -6578,7 +6611,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -6930,7 +6966,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -7263,7 +7302,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -7601,7 +7643,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -7928,7 +7973,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -8279,7 +8327,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -8604,7 +8655,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -8933,7 +8987,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -9260,7 +9317,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -10950,6 +11010,123 @@
       }
     },
     {
+      "id": "CASE-PPL-009-GUARDIAN",
+      "requirement": "REQ-PPL-009",
+      "feature_ids": [
+        "PPL-009"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-009--PPL-009"
+      ],
+      "work_packages": [
+        "WP-012"
+      ],
+      "status": "future-not-run",
+      "description": "Admin A marks adults in child Kid's household as Kid's parent or guardian contacts, adds a second and removes one; tries a child, a person not recorded, a birth date showing a child, someone outside the household, a retired person and a person in plant Q; then the adult and Kid leave the household.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Q": {
+          "fixture_type": "plant",
+          "id": "Q",
+          "timezone": "America/New_York",
+          "observed_state": "fixture-state-3"
+        },
+        "B": {
+          "fixture_type": "account",
+          "id": "B",
+          "email": "casey@example.test"
+        },
+        "seat-B": {
+          "fixture_type": "seat",
+          "account": "B",
+          "tenant": "Q",
+          "role": "Admin",
+          "active": true
+        },
+        "Alex": {
+          "fixture_type": "person",
+          "id": "Alex",
+          "plant": "P",
+          "first_name": "Alex",
+          "age_classification": "adult",
+          "stage": "prospect",
+          "observed_state": "fixture-state-4"
+        },
+        "Kid": {
+          "fixture_type": "person",
+          "id": "Kid",
+          "plant": "P",
+          "first_name": "Kid",
+          "age_classification": "child",
+          "stage": "prospect",
+          "observed_state": "fixture-state-4"
+        },
+        "case-input": {
+          "fixture_type": "domain_inputs",
+          "household": "H",
+          "person": "Kid",
+          "guardian": "Alex"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "people.setGuardianContact",
+        "arguments": {
+          "subject": "P",
+          "person": "Kid",
+          "guardian": "Alex",
+          "household": "H"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "contact_shown_on_household_card": true,
+          "history_row_on_child": true,
+          "second_contact_and_remove": true,
+          "ineligible_contact_refused_nothing_stored": true,
+          "contact_gone_after_leaving": true,
+          "inferred_from_household_role": false,
+          "cross_tenant_links": 0
+        },
+        "event": null
+      }
+    },
+    {
       "id": "TARGET-PPL-010",
       "requirement": "REQ-PPL-010",
       "feature_ids": [
@@ -12622,7 +12799,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts"
+      ],
       "description": "Each allowed prior stage vs advanced stage, retried event, failed audit, removed role/withdrawn commitment and launch date change.",
       "given": {
         "P": {
@@ -13154,7 +13334,10 @@
         "WP-091",
         "WP-094"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts"
+      ],
       "description": "Register a later attendance and training consumer after WP-015; race its insert against source→survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
       "given": {
         "P": {
@@ -13307,8 +13490,11 @@
         "WP-091",
         "WP-094"
       ],
-      "status": "future-not-run",
-      "description": "Merge unlinked duplicate S into linked survivor D with distinct tags/qualification/household/photo and registered later refs; replay; safely reverse unchanged result. Then separately edit D, add training/RSVP, chain-merge or dispatch recorded mail before attempting inverse.",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/merge.test.mts"
+      ],
+      "description": "Merge unlinked duplicate S into linked survivor D with distinct tags/qualification/household/photo and registered later refs; replay; reverse an unchanged result. Then separately edit a field the merge did not change, add training/RSVP and dispatch later mail, and split each. Then separately edit a field the merge changed, edit a moved record and chain-merge before attempting inverse.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13370,10 +13556,14 @@
           "retiring": "S",
           "merge_receipt": "merge-1",
           "later_conflicts": [
+            "merged_field_edit",
+            "moved_record_edit",
+            "chain_merge"
+          ],
+          "later_additions": [
             "survivor_edit",
             "training_insert",
             "RSVP_insert",
-            "chain_merge",
             "provider_dispatch"
           ]
         }
@@ -13399,10 +13589,14 @@
           "retiring": "S",
           "merge_receipt": "merge-1",
           "later_conflicts": [
+            "merged_field_edit",
+            "moved_record_edit",
+            "chain_merge"
+          ],
+          "later_additions": [
             "survivor_edit",
             "training_insert",
             "RSVP_insert",
-            "chain_merge",
             "provider_dispatch"
           ]
         }
@@ -13411,9 +13605,13 @@
         "state": {},
         "result": {
           "unchanged_inverse_allowed": true,
+          "split_inverse_allowed": [
+            true,
+            true,
+            true,
+            true
+          ],
           "conflicted_inverse_writes": [
-            0,
-            0,
             0,
             0,
             0

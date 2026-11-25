@@ -1,13 +1,21 @@
 import { testDatabase } from "../../support/test-database.mts";
 import { ok, seeds } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { DOC_TEMPLATES, docTemplateById, loadTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/doc-values.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
+import { MemoryClient } from "./storage.mts";
+import { blocksOf, isSlot, para, present } from "./support.mts";
+import type {
+	BlockNode,
+	ChurchDocument,
+	DocNode,
+	DocTemplate,
+	ParagraphNode,
+} from "../../../packages/contracts/src/documents/index.ts";
 import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -17,53 +25,23 @@ const { admin } = database;
 const db = database.pools.runtime;
 const seed = seeds(admin);
 
-class MemoryClient extends S3Client {
-	objects = new Map();
-	constructor() {
-		super({
-			region: "us-east-1",
-			endpoint: "https://example.invalid",
-			forcePathStyle: true,
-			credentials: { accessKeyId: "test", secretAccessKey: "test" },
-		});
-	}
-	async send(command) {
-		const input = command.input ?? {};
-		switch (command.constructor.name) {
-			case "GetBucketAclCommand":
-				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			case "PutObjectCommand":
-				this.objects.set(input.Key, Buffer.from(input.Body));
-				return {};
-			case "GetObjectCommand": {
-				const body = this.objects.get(input.Key);
-				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
-				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-			}
-			case "DeleteObjectCommand":
-				this.objects.delete(input.Key);
-				return {};
-			default:
-				throw new Error(`unexpected provider operation ${command.constructor.name}`);
-		}
-	}
-}
 const client = new MemoryClient();
 const storage = { bucket: "synthetic-only", client };
 
 const LABEL = "Statement of faith";
-const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
-const policy = docTemplateById("conflict-of-interest-policy");
-const withSlots = (id, slots) => {
+const policy = present(docTemplateById("conflict-of-interest-policy"));
+const withSlots = (id: string, slots: BlockNode[]) => {
 	const t = structuredClone(policy);
 	t.id = id;
 	t.title = "Synthetic mixed slots";
-	t.body.content.splice(4, 0, ...slots);
+	blocksOf(t).splice(4, 0, ...slots);
 	return loadTemplate(id, t);
 };
 const BYLAWS = "bylaws";
 const MIXED = "t84-mixed-slots";
 const AUTHORED = "The church writes its vision here.";
+const isMutable = (list: readonly DocTemplate[]): list is DocTemplate[] => !Object.isFrozen(list);
+assert.ok(isMutable(DOC_TEMPLATES));
 DOC_TEMPLATES.push(
 	withSlots(MIXED, [
 		{ type: "slot", attrs: { label: LABEL, key: "statement-of-faith" }, content: [] },
@@ -73,7 +51,7 @@ DOC_TEMPLATES.push(
 );
 
 const TEXT = "We hold to these words as our network's own.\n\nWe gather, we send,\nand we serve together.";
-const PARAGRAPHS = [
+const PARAGRAPHS: ParagraphNode[] = [
 	para("We hold to these words as our network's own."),
 	{
 		type: "paragraph",
@@ -85,7 +63,8 @@ const PARAGRAPHS = [
 	},
 ];
 
-async function plantWithOwner(name) {
+type Who = Awaited<ReturnType<typeof plantWithOwner>>;
+async function plantWithOwner(name: string) {
 	const plant = (await seed.plant({ name })).id;
 	const { session } = await seed.actor({ kind: "plant", id: plant }, "owner");
 	const authority = async () => {
@@ -95,35 +74,35 @@ async function plantWithOwner(name) {
 	};
 	return { plant, authority };
 }
-async function organization(kind, statement = null) {
+async function organization(kind: "sending_church" | "sending_network", statement: string | null = null) {
 	return (await seed.organization(kind, { name: "Synthetic network", statement_of_faith: statement })).id;
 }
-const setStatement = (id, statement) =>
+const setStatement = (id: string, statement: string | null) =>
 	admin.execute(sql`UPDATE organization SET statement_of_faith=${statement} WHERE id=${id}::uuid`);
-async function affiliate(plant, org, acceptedAt = "2026-01-01T00:00:00Z") {
-	const r = await admin.execute(
+async function affiliate(plant: string, org: string, acceptedAt = "2026-01-01T00:00:00Z") {
+	const r = await admin.execute<{ id: string }>(
 		sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 			VALUES(${plant},${org},${acceptedAt}::timestamptz,false,false,false,false,false,false,false) RETURNING id`,
 	);
-	return r.rows[0].id;
+	return present(r.rows[0]).id;
 }
 
-const create = async (who, templateId = BYLAWS) =>
+const create = async (who: Who, templateId = BYLAWS) =>
 	ok(
 		await documentsWriter.createFromTemplate(db, await who.authority(), {
 			templateId,
 			requestKey: randomUUID(),
 		}),
 	);
-const slotsOf = (body) => body.body.content.filter((n) => n.type === "slot");
-const keyedSlot = (body) => slotsOf(body).find((n) => n.attrs?.key === "statement-of-faith");
-const revisionOne = async (who, documentId) =>
+const slotsOf = (doc: { body: DocNode }) => blocksOf(doc).filter(isSlot);
+const keyedSlot = (doc: { body: DocNode }) => present(slotsOf(doc).find((n) => n.attrs?.key === "statement-of-faith"));
+const revisionOne = async (who: Who, documentId: string) =>
 	ok(await documentsWriter["history.get"](db, await who.authority(), { documentId, revision: 1 })).body;
-const current = async (who, documentId) =>
+const current = async (who: Who, documentId: string) =>
 	ok(await documentsWriter.readChurch(db, await who.authority(), { documentId })).body;
-async function exportsOf(who, documentId, revision = 1) {
-	const text = {};
-	for (const format of ["pdf", "docx"]) {
+async function exportsOf(who: Who, documentId: string, revision = 1) {
+	const text = { pdf: "", docx: "" };
+	for (const format of ["pdf", "docx"] as const) {
 		const generated = ok(
 			await documentsWriter.exportNative(
 				db,
@@ -133,19 +112,23 @@ async function exportsOf(who, documentId, revision = 1) {
 			),
 		);
 		const [file] = (
-			await admin.execute(
+			await admin.execute<{ opaque_key: string }>(
 				sql`SELECT f.opaque_key FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${generated.id}::uuid`,
 			)
 		).rows;
-		const bytes = client.objects.get(file.opaque_key);
+		const bytes = client.objects.get(present(file).opaque_key);
 		assert.ok(bytes, "the bytes are in private storage");
 		text[format] =
-			format === "pdf" ? (await pdfPages(bytes)).join(" ") : wordText(docxParts(bytes)["word/document.xml"]);
+			format === "pdf" ? (await pdfPages(bytes)).join(" ") : wordText(present(docxParts(bytes)["word/document.xml"]));
 	}
-	return [text.pdf, text.docx];
+	return [text.pdf, text.docx] as const;
 }
-async function assertNetworkText(who, documentId, paragraphs = PARAGRAPHS, revision = 1) {
-	const words = paragraphs.flatMap((p) => p.content.filter((n) => n.type === "text").map((n) => n.text));
+const textsOf = (p: ParagraphNode) =>
+	present(p.content)
+		.filter((n) => n.type === "text")
+		.map((n) => n.text);
+async function assertNetworkText(who: Who, documentId: string, paragraphs = PARAGRAPHS, revision = 1) {
+	const words = paragraphs.flatMap(textsOf);
 	for (const text of await exportsOf(who, documentId, revision)) {
 		const at = text.search(/statement of faith/i);
 		assert.ok(at >= 0, "the slot's label");
@@ -158,8 +141,8 @@ async function assertNetworkText(who, documentId, paragraphs = PARAGRAPHS, revis
 		assert.equal(text.includes(SLOT_BLANK_NOTE), false, "no marked blank");
 	}
 }
-async function assertMarkedBlank(who, doc) {
-	assert.deepEqual(keyedSlot(doc.body), keyedSlot(docTemplateById(BYLAWS)), "the slot as Bylaws authored it");
+async function assertMarkedBlank(who: Who, doc: ChurchDocument) {
+	assert.deepEqual(keyedSlot(doc.body), keyedSlot(present(docTemplateById(BYLAWS))), "the slot as Bylaws authored it");
 	assert.deepEqual(keyedSlot(doc.body).content ?? [], [], "an empty slot");
 	assert.deepEqual(keyedSlot(await revisionOne(who, doc.id)), keyedSlot(doc.body));
 	for (const text of await exportsOf(who, doc.id)) {
@@ -250,7 +233,7 @@ describe("AC:DOC-020 network text fills a doctrinal section at creation", { conc
 		]);
 
 		const body = structuredClone(doc.body);
-		body.body.content.push(para("A closing line the church adds."));
+		blocksOf(body).push(para("A closing line the church adds."));
 		const saved = ok(
 			await documentsWriter.saveNative(db, await who.authority(), {
 				documentId: doc.id,
@@ -263,12 +246,12 @@ describe("AC:DOC-020 network text fills a doctrinal section at creation", { conc
 	});
 });
 
-async function previewText(who) {
+async function previewText(who: Who) {
 	const value = ok(await documentsReader.preview(db, await who.authority(), { templateId: BYLAWS, format: "pdf" }));
 	assert.ok(value.artifact, "a preview artifact");
 	return (await pdfPages(Buffer.from(value.artifact, "base64"))).join(" ");
 }
-async function savedText(who, requestKey = randomUUID()) {
+async function savedText(who: Who, requestKey: string = randomUUID()) {
 	const generated = ok(
 		await documentsWriter.generate(
 			db,
@@ -279,35 +262,34 @@ async function savedText(who, requestKey = randomUUID()) {
 	);
 	return { id: generated.id, text: await storedPdfText(generated.id) };
 }
-async function storedPdfText(generatedId) {
+async function storedPdfText(generatedId: string) {
 	const [file] = (
-		await admin.execute(
+		await admin.execute<{ opaque_key: string }>(
 			sql`SELECT f.opaque_key FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${generatedId}::uuid`,
 		)
 	).rows;
-	const bytes = client.objects.get(file.opaque_key);
+	const bytes = client.objects.get(present(file).opaque_key);
 	assert.ok(bytes, "the bytes are in private storage");
 	return (await pdfPages(bytes)).join(" ");
 }
-function sectionOf(text) {
+function sectionOf(text: string) {
 	const end = text.search(/\bMembers\b/);
 	assert.ok(end > 0, "the heading after the section");
 	const head = text.slice(0, end);
 	const labels = [...head.matchAll(/statement of faith/gi)];
 	assert.ok(labels.length, "the slot's label");
-	const last = labels.at(-1);
+	const last = present(labels.at(-1));
 	return head
 		.slice(last.index + last[0].length)
 		.replace(/\s*\d+\.?\s*$/, "")
 		.trim();
 }
-const wordsOf = (paragraphs) =>
-	paragraphs.flatMap((p) => p.content.filter((n) => n.type === "text").map((n) => n.text)).join(" ");
-function assertSectionHolds(text, paragraphs = PARAGRAPHS) {
+const wordsOf = (paragraphs: ParagraphNode[]) => paragraphs.flatMap(textsOf).join(" ");
+function assertSectionHolds(text: string, paragraphs = PARAGRAPHS) {
 	assert.equal(sectionOf(text), wordsOf(paragraphs), "the network's exact text, block by block, under the label");
 	assert.equal(text.includes(SLOT_BLANK_NOTE), false, "no marked blank");
 }
-function assertSectionBlank(text) {
+function assertSectionBlank(text: string) {
 	assert.equal(sectionOf(text), SLOT_BLANK_NOTE, "the marked blank");
 	assert.equal(DOCTRINAL.test(text), false, `doctrinal words: ${DOCTRINAL.exec(text)?.[0]}`);
 	assert.equal(text.includes("network's own"), false);
@@ -391,8 +373,7 @@ describe("AC:DOC-020 network text in a Bylaws preview and a saved file", { concu
 		assert.equal(replay.id, first.id, "the same key returns the earlier file");
 		assertSectionHolds(replay.text);
 		assertSectionHolds(await storedPdfText(first.id));
-		const [{ inputs }] = (await admin.execute(sql`SELECT inputs FROM generated_document WHERE id = ${first.id}::uuid`))
-			.rows;
-		assert.equal(JSON.stringify(inputs).includes("network's own"), false, "the statement is not an input");
+		const [row] = (await admin.execute(sql`SELECT inputs FROM generated_document WHERE id = ${first.id}::uuid`)).rows;
+		assert.equal(JSON.stringify(present(row).inputs).includes("network's own"), false, "the statement is not an input");
 	});
 });

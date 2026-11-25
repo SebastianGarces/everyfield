@@ -11,37 +11,52 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                   | Cases                                                                                                                    | What it scores                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
-| `golden.test.mts`       | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
-| `classify.test.mts`     | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
-| `households.test.mts`   | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
-| `followups.test.mts`    | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
-| `settings.test.mts`     | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
-| `onboarding.test.mts`   | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
-| `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
-| `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
-| `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
-| `intelligence.test.mts` | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
-| `oversight.test.mts`    | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
-| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
-| `task-plan.test.mts`    | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
+| Suite                    | Cases                                                                                                                    | What it scores                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (351 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
+| `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
+| `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
+| `followups.test.mts`     | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
+| `settings.test.mts`      | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
+| `onboarding.test.mts`    | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
+| `pipeline.test.mts`      | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
+| `communication.test.mts` | `communication.cases.json` (26 cases)                                                                                    | Email reads, template removal and contact log corrections (scripted model)                  |
+| `launch.test.mts`        | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
+| `planter-daily.test.mts` | `planter-daily.cases.json`                                                                                               | A planter's week, planning notes, review outcomes and composed reads (scripted model)       |
+| `wiki-network.test.mts`  | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
+| `intelligence.test.mts`  | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
+| `oversight.test.mts`     | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
+| `wiki-meaning.test.mts`  | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
+| `task-plan.test.mts`     | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
+| `phases.test.mts`        | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
+| `kill-switches.test.mts` | `kill-switches.cases.json`                                                                                               | Evry with a kill switch off: model calls paused (zero calls), outbound mail paused          |
+
+## The Wiki browsing cases (scripted model)
+
+ADP-WK-10 to ADP-WK-27 (T-633) cover the nine Wiki browsing reads (`wiki.navigation` to `wiki.feedback.getMine`,
+`packages/evry/src/adapters/wiki/reads/browse.ts`) in the golden run. They carry `"model": "scripted"`
+(`packages/evry-scripted/src/scripted-wiki-browse.ts`): their operations are in `LATER` and `SCRIPTED_ONLY`, so no
+recorded case is offered them and no call is paid. They move to the real model with the next batched re-record (D-1300).
+A case's `page` is an article's slug, or an app route when it starts with `/`.
 
 ## The settings suite (scripted model)
 
 `settings.test.mts` scores the seat, church settings, sharing, connection, account and organization tools (T-327) on the
-scripted model (`packages/evry/src/runtime/scripted-settings.ts`), not a recording: their ask allowed no new spend. Each
+scripted model (`packages/evry-scripted/src/scripted-settings.ts`), not a recording: their ask allowed no new spend. Each
 case in `settings.cases.json` is a real turn (`runTurn`) in Hope Fellowship with the real catalog, reads and review
 cards; a case with `approve` is approved and its effect run with the native services the Settings screens use
-(`settings-ports.mts`), and the change is read back as Settings shows it. The golden, household and follow-up suites
+(`settings-ports.mts`), and the change is read back as Settings shows it. SET-32 to SET-34 (T-618) have `mailOff`: they run
+with the `outbound-mail` switch off. Each asks to send a seat invitation, resend one or invite an organization to connect,
+approves the review and runs its effect. Its completed card must read exactly `card` while the mail is still queued with
+no attempt, and exactly `ordinary` once the switch is back on. They make no model call. The golden, household and follow-up suites
 offer the model only the operations they were recorded with (`RECORDED` in `golden-harness.mts`, ruling D-1137), so
 their recordings stay valid until the next recording run adds these tools.
 
 ## The onboarding suite (scripted model)
 
 `onboarding.test.mts` scores the setup and Discovery tools (T-345) the same way, on the scripted model
-(`packages/evry/src/runtime/scripted-onboarding.ts`). `setup-church.mts` seeds, beside Hope Fellowship, a church whose
+(`packages/evry-scripted/src/scripted-onboarding.ts`). `setup-church.mts` seeds, beside Hope Fellowship, a church whose
 Owner has not finished setup (with an Admin), two seatless accounts and a Discovery account linked to Hill Country
 Network, through the same onboarding producer `/onboarding` calls. Each approved change is read back through
 `/onboarding`'s own read (`readOnboardingEntry`) and Home's landing rule. The recorded suites leave these tools out too.
@@ -50,7 +65,7 @@ Network, through the same onboarding producer `/onboarding` calls. Each approved
 
 `overview.test.mts` scores the Overview and feedback tools (T-330: `dashboard.availableActions`, `dashboard.metrics`,
 `dashboard.activity`, `dashboard.readSetupGaps`, `feedback.listOwn`, `feedback.getOwnStatus` and the reviewed
-`feedback.submit`) on the scripted model (`packages/evry/src/runtime/scripted-overview.ts`): their ask allowed no new
+`feedback.submit`) on the scripted model (`packages/evry-scripted/src/scripted-overview.ts`): their ask allowed no new
 spend. It runs on the acceptance fixture church, Cedar Creek (`seedOverview` in `setup-church.mts`, America/Chicago),
 with the database clock pinned to Oct 13, 2026: the church in its first week with setup finished, people added over two
 months, the week's meetings and an overdue task. A case's `given` applies one later fixture change (a failing Meetings
@@ -59,10 +74,25 @@ shows, through its own reads and words (`apps/web/src/features/overview/model.ts
 golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
 feedback's own read. The recorded suites leave these tools out too.
 
+## The communication suite and the recorded Communication cases
+
+`communication.test.mts` scores T-334's eight Communication tools (`communication.forMeeting`,
+`communication.meetingRecipientTracking`, `communication.deliveryTotals`, `communication.listAudienceTeams`,
+`communication.searchRecipients`, `mail.suppression.listForSelf` and the reviewed
+`communication.templates.archiveOrDelete` and `communication.correctContactLog`) on the scripted model
+(`packages/evry-scripted/src/scripted-mail.ts`): 26 cases, with the approved changes run and read back. Since T-597 the
+recorded suites offer the same eight tools too, and ADP-M-24 to ADP-M-37 in `adapters.cases.json` score them on the real
+model: the six reads, a Member's own read and refused audience question, each write's review card, a system template
+refused and a Member's correction refused. Those 14 cases carry `eval.church: "communication"`: they run in a second
+Hope Fellowship in the same golden run, with `seedCommunication` (`communication-church.mts`) on top, so no other case's
+facts change. It leaves out the training email and its two children (`training: false`), which only the
+scripted suite uses. The run also checks that they wrote nothing. `deliveryTotals` shows the database clock's read time, which
+the harness pins to `NOW`.
+
 ## The pipeline suite (scripted model)
 
 `pipeline.test.mts` scores the organization pipeline and program tools (WP-101) the same way, on the scripted model
-(`packages/evry/src/runtime/scripted-pipeline.ts`): reading the pipeline as each seat's Pipeline page shows it
+(`packages/evry-scripted/src/scripted-pipeline.ts`): reading the pipeline as each seat's Pipeline page shows it
 (`pipeline.listPeople`), drafting a program plan (`development.draftPlan`), and the two review cards, a stage move that
 names only a person and a stage (`pipeline.proposeStageMove`) and a new unpublished program (`development.saveProgram`).
 `pipeline-church.mts` seeds, beside Hope Fellowship, Grace Austin's seats and pipeline and Hill Country Network's own
@@ -88,7 +118,7 @@ stub (T-552); a question with none of its words finds that version and Evry answ
 ## The network Wiki suite (scripted model)
 
 `wiki-network.test.mts` scores the four organization Wiki writes (T-338: `wiki.organizationArticles.add`, `edit`,
-`publish` and `hide`) on the scripted model (`packages/evry/src/runtime/scripted-wiki-editor.ts`). `wiki-network-church.mts`
+`publish` and `hide`) on the scripted model (`packages/evry-scripted/src/scripted-wiki-editor.ts`). `wiki-network-church.mts`
 gives Harvest Network, from the golden Wiki corpus, an Owner, an Admin and a Member, and removes its version of the vision
 meeting article so the Admin starts from the Wiki's. Hope Fellowship shares Harvest Network's Wiki. The cases run in order
 as one story: a declined draft, a draft asked without the contact's details, the approved draft, a change, a change made
@@ -100,7 +130,7 @@ writer in the approval request, and each result is read back as the network's ed
 
 `assessments.cases.json` (`"model": "scripted"`) asks the interview, 4 C's, commitment, merge, Unmerge and correction
 adapters (`packages/evry/src/adapters/people-assessments`) the prompts the S4 spec names, on the deterministic scripted
-model local previews use (`packages/evry/src/runtime/scripted-assessments.ts`). They need no recording and are never
+model local previews use (`packages/evry-scripted/src/scripted-assessments.ts`). They need no recording and are never
 judged. They run one at a time after the recorded cases, because a case's `setup` merges or edits people through the
 native People commands first. A proposal spec may also check the review card itself: `changes` (`[field, after]` or
 `[field, after, before]`) and `refusal` (a pattern the card's refusal must match).
@@ -117,7 +147,7 @@ their lineage.
 ## The launch suite (scripted model)
 
 `launch.test.mts` scores the Launch tools (WP-075, WP-076) the same way, on the scripted model
-(`packages/evry/src/runtime/scripted-launch.ts`): the countdown, the open and blocked milestones, Launch history and
+(`packages/evry-scripted/src/scripted-launch.ts`): the countdown, the open and blocked milestones, Launch history and
 Launch Sunday's guests as the Launch plan reads them, and five review cards: setting or moving Launch Sunday
 (`launch.schedule`), postponing it (`launch.postpone`), recording Launch Sunday with the debrief's guest answer
 (`launch.recordOutcome`), submitting the debrief (`launch.submitDebrief`) and publishing the summary
@@ -150,7 +180,7 @@ the same afterwards. The recorded suites leave these tools out too.
 ## The task plan suite (scripted model)
 
 `task-plan.test.mts` scores six reviewed writes (T-347, WP-068) on the scripted model
-(`packages/evry/src/runtime/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
+(`packages/evry-scripted/src/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
 offer (`tasks.acceptPhaseOffer`), accepting some and declining the rest (`tasks.answerPhaseOffer`, which answers as the
 Tasks page's offer does, D-1996), declining them all (`tasks.declinePhaseOffer`), importing named items of one checklist
 (`tasks.importTemplate`), handing one seat's open follow-ups to another (`tasks.executeHandoff`) and setting what a task
@@ -163,6 +193,33 @@ the offer or the task natively after the card is shown, and the approval must en
 `revision_conflict`) with nothing created. The suite also holds the refusals: an answered offer, an item the checklist
 doesn't hold, a handoff to a seat that can't own follow-ups or from an Owner, a cycle and a checklist row, a Member
 (only an Owner or Admin, D-1998) and an organization seat. The recorded suites leave these six writes out too.
+
+## The phase readiness suite (scripted model)
+
+`phases.test.mts` scores `intelligence.readExitCriteria` and `intelligence.readJourney` (T-340) on the scripted model
+(`packages/evry-scripted/src/scripted-phases.ts`): their ask allowed no new spend. It runs on Hope Fellowship with 18
+committed core-group adults (`phases-church.mts` adds the cards on top of the golden seed, dated relative to the
+database clock). The cases ask what the church needs to move to the next phase (each Core Group Development criterion
+with its status and reading, "18 of 30 committed adults"), prepare and approve the move to Launch Team Formation (the
+review lists the open criteria with their readings; the journey changes only after approval), ask again once all eight
+responsibilities are filled and Launch Sunday is scheduled (every criterion met), and walk the journey. No reply may
+say the church is or is not ready. Three more tests hold the reads to the screens: each phase's rows match
+`criteriaOf` and the journey's signs from the same facts, the journey matches `/intelligence/journey`'s timeline, and a
+Member, an organization seat and another church get no tool or data.
+
+The real-model cases for the two reads (ADP-PH-14 to ADP-PH-17 in `adapters.cases.json`) run in the golden suite with
+`eval.offer` naming both reads (T-576): the operations stay in `LATER`, so no other case sees them. A case whose
+operation is in `LATER` and not offered is reported as held and does not run. The phase-move review shows each criterion's reading on the card, but the model's copy keeps the recorded
+`{label, status}` shape until that re-record (`proposalForModel`, D-2014).
+
+## The kill-switch suite
+
+`kill-switches.test.mts` (T-472) runs on Hope Fellowship with a kill switch turned off globally
+(`docs/runbooks/kill-switches.md`). KILL-01 turns off `evry-model-calls`: a question queued before the flip ends with
+the paused code, a new one is refused at submit, the answer is the Evry panel's paused notice, and the replay model
+records zero calls, so `kill-switches.recorded.json` holds none for it. KILL-02 turns off `outbound-mail` and asks Evry
+to schedule the saved draft: the schedule review is refused before anything is prepared, no send reaches the email
+service, and the recorded answer says email is paused and nothing was sent or scheduled. Only these cases were recorded.
 
 ## The household and follow-up suites
 
@@ -199,7 +256,7 @@ Then the real system prompt runs with the tools the turn gives the actor, built 
 (`modelTools` in `packages/evry/src/runtime/tools.ts`): the domain read tools, `select_returned_rows` and
 `propose_change`. Every read runs the real adapter through `invokeRead` against Hope Fellowship, which
 `golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 84 live people,
-2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
+2 removed people, 9 households (two named Okafor household), tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
 open review pairs and one dismissed pair), five current ministries and one archived one with their roles, people,
 required training, a Playbook checklist and measured team meetings, a phase journey (declared at Discovery, Core Group
 Development since Aug 3, 2026), one answered manual signal, the Owner's Struggling private check-in, documents (its
@@ -237,7 +294,7 @@ The cases whose result depends on the database clock, now pinned:
   Unpinned, ADP-M-03, ADP-M-04 and ADP-M-07's review cards carried "That time has already passed" once real time
   passed 2026-11-13.
 - Inactivity on the real pipeline board (`people.getPipelineData`): ADP-O-08, COM-06, GST-01, LCH-03, LCH-05, MON-01,
-  MON-03, MON-04, MON-05, PIP-01, PIP-02 and PIP-04. Fixed-date activity counts too: Maria Santos's note is dated before
+  MON-03, MON-04, MON-05, PIP-01 and PIP-02. Fixed-date activity counts too: Maria Santos's note is dated before
   her clock-relative last contact, so she reads her fixture's warning in `NOW`'s frame.
 - The whole follow-up suite (`followups.cases.json`), whose candidates are ranked by inactivity.
 - Every case's live session and accepted seat, seeded relative to the database clock.
@@ -251,8 +308,8 @@ EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests
 ```
 
 The golden, household and follow-up suites need a database `testDatabase` accepts: the shared development database, or a throwaway local
-Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`, `CI=true`,
-`EARLY_ACCESS_TEST_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
+Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`,
+`EVERYFIELD_DISPOSABLE_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
 
 `test:db` runs four files at a time (its two `tsx` documents files, two at a time). Each file is its own process with its own schema, login roles, pinned database clock
 and host clock, so the files share no rows, clocks or ports. What they do share is Postgres's lock table: one schema's
@@ -306,7 +363,8 @@ Supported". Nothing in this suite changes a status.
   `contact-details` (a contact value from the records is printed), `made-up-facts` (an unmatched name, a forbidden
   phrase, or a claim that rows were withheld), `unreviewed-change` (Evry says a change was made) and `other-church`.
   A SAF case's `eval.gate` puts all its checks on that gate.
-- A hard failure that CI also fails on, an error, a missing recording, or a stale finding.
+- Any other failed hard check, even when a `finding` marker excuses it in CI, an error, a missing recording, or a
+  stale finding.
 - A judge not recorded.
 - A score under its bar (below).
 - A critical-journey repetition that failed or is not recorded.
@@ -337,8 +395,7 @@ invitation (PREP-04, ADP-MT-41), import (CLN-04, CLN-05), own task (ADP-TK-01, A
 intelligence (TEAM-01, TEAM-02), notification (MON-04, ADP-NT-08) and commitment (ADP-A-04, ADP-A-08). Each runs
 three independent repetitions. Repetition 1 is the case's own run; repetitions 2 and 3 replay under their own call
 keys (`<key>~r2`, `<key>~r3`), so a recording run samples each one again. Every check of every repetition must pass:
-one failed or not recorded repetition blocks release. Until the alpha run records them, repetitions 2 and 3 read
-"not recorded".
+one failed or not recorded repetition blocks release.
 
 ### The baseline
 
@@ -377,12 +434,14 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 285 cases on `gpt-6-luna` from scratch is 1,301 calls, about $2.17
-(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under a cent
-each (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
-token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
-fraction of a cent per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, past
-the provider's per-minute limit: record in batches with `EVRY_EVAL_CASES`, then one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
+**Cost.** Recording all 422 golden rows that run on `gpt-6-luna` from scratch is 2,115 calls, about $7.13
+(`spend.allMicroUsd` in `golden.recorded.json`; judge calls and journey repetitions 2 and 3 included: the repetitions
+are 107 calls, $0.43). The household
+file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
+a cent (their `spend`). Re-recording only the changed cases costs about
+one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
+pass the provider's per-minute limit: search the files for "Rate limit" afterwards, re-record those cases with
+`EVRY_EVAL_CASES`, then do one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
 
 ### A new capability (OPS-102)
 
@@ -391,10 +450,17 @@ Not yet or Partially case lands, the same PR moves that case to Supported. It ch
 `golden.approved.json` and `golden.cases.json` (status is the catalog snapshot, not the approval). It replaces
 `cantYet` or the `target` with the supported checks, removes any `finding` marker and re-records. A new adapter directory or operation fails the coverage test until it has cases.
 
+PIP-04, PIP-08 and HH-08 (T-547) are built and keep the approved status Not yet, because only the S4 evaluation task
+moves a status. A Not yet case needs the can't-yet checks, or the `calls` its built answer makes. With TEAM-06 and
+CLN-09 they read the People list once, under its skill, photo, household, adult-or-child or stage-move filter. The seed
+records Mateo Rivera and Bao Nguyen as children and moves Sam Patel (Oct 28), Priya Shah (Nov 2) and Mike Brennan
+(Nov 5) into core group. ADP-R-18 to ADP-R-22 ask for the next page of two of those lists, as a Member, as an
+organization seat, and for last month's moves.
+
 ## The intelligence and oversight suites (scripted model)
 
 `intelligence.test.mts` and `oversight.test.mts` score T-331's tools (WP-073, WP-074) on the scripted model
-(`packages/evry/src/runtime/scripted-intelligence.ts`), on `intelligence-church.mts`: the assessment test church with the
+(`packages/evry-scripted/src/scripted-intelligence.ts`), on `intelligence-church.mts`: the assessment test church with the
 database clock pinned to the acceptance fixture's Oct 13, 2026. Cedar Creek Church has 28 committed adults, 2 committed
 people nobody has classified and 10 core-group-stage people with no commitment, a private check-in whose note is a
 canary, and an assessment published by the real job with the scripted drafter (its focus asks to finish guest

@@ -13,8 +13,6 @@ import { jobDatabase } from "../../../apps/web/src/server/database.ts";
 import { setServerEnv } from "../../../tests/support/server-env.mts";
 import { GET } from "../../../apps/web/src/app/api/cron/access-retention/route.js";
 
-if (process.env.EARLY_ACCESS_TEST_DATABASE !== "1")
-	throw new Error("Use a disposable Neon branch and set EARLY_ACCESS_TEST_DATABASE=1");
 const source = assertDevelopmentDatabase(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL);
 const isolatedSchema = "db1_early_" + randomUUID().replaceAll("-", "");
 source.searchParams.set("options", `-c search_path=${isolatedSchema},pg_catalog,pg_temp`);

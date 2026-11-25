@@ -13,13 +13,18 @@ Use Node 24 and the pnpm version in the root `package.json`. Run commands from t
 Next loads `apps/web/.env.local`; values already set in the shell take precedence. Keep values out of Git, logs and
 chat. This list names every variable `src/` reads, never a value.
 
+The server refuses to start when any of the seven `IDENTITY_*` settings below is unset, empty or malformed. It logs one
+`settings_missing` line naming the unset or empty keys and one `settings_malformed` line naming the malformed ones,
+never a value. To recover, set or correct the named keys and start it again
+(`docs/runbooks/production-identity.md`).
+
 - `IDENTITY_DATABASE_URL`: the app's Postgres connection, for product reads and writes and the job runner's pool.
 - `IDENTITY_AUTH_DATABASE_URL`: the separate Postgres connection the sign-in layer uses.
-- `IDENTITY_ORIGIN`: the app's public origin, used to build links in mail and invitations.
+- `IDENTITY_ORIGIN`: the app's public origin, a URL with its scheme, used to build links in mail and invitations.
 - `IDENTITY_SECRET`: the session signing secret, at least 32 characters.
-- `IDENTITY_MAIL_KEY`: 64 hex characters; encrypts stored mail payloads.
-- `IDENTITY_ADDRESS_KEY`: 64 hex characters; keys the hash that matches email addresses.
-- `IDENTITY_MAIL_FROM`: the sender address for product mail.
+- `IDENTITY_MAIL_KEY`: 64 lowercase hex characters; encrypts stored mail payloads.
+- `IDENTITY_ADDRESS_KEY`: 64 lowercase hex characters; keys the hash that matches email addresses.
+- `IDENTITY_MAIL_FROM`: the sender address for product mail, a bare address with no display name.
 - `RESEND_API_KEY`: Resend send permission. Without it, mail outside production is captured to the dev outbox.
 - `RESEND_WEBHOOK_SECRET`: verifies Resend delivery webhooks at `/api/webhooks/resend`.
 - `NOTIFICATION_OPT_OUT_KEYS`: the key ring that seals email opt-out and unsubscribe links.
@@ -88,6 +93,7 @@ Portless uses HTTPS by default. Trust its CA before browser review, in the brows
 skill describes the CA setup and a disposable HTTP test supervisor. Never shut down another agent's supervisor.
 
 Preview startup runs no database creation, migration, seed, email or provider setup. Marketing pages render without
-provider credentials. For product work, supply the shared development database's settings in the shell or this
+provider credentials: `bin/dev stack up` and verify-preview's `preview.mjs` give a preview throwaway values for any
+`IDENTITY_*` setting its env lacks, with the database on an unreachable port, so it boots and sign-in stays off. For product work, supply the shared development database's settings in the shell or this
 worktree's ignored `apps/web/.env.local`; production snapshots do not copy ignored env files. Never copy production
 settings into a preview or print secrets. Portless isolates processes and dependencies, not the shared database.

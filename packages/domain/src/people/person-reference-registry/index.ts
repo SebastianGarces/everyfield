@@ -14,6 +14,7 @@ export type Registration = {
 	key: "id" | "tag_id";
 	revision: boolean;
 	treatment: Treatment;
+	moves?: (row: SQL) => SQL;
 };
 const r = (
 	kind: Kind,
@@ -23,7 +24,10 @@ const r = (
 	treatment: Treatment,
 	key: Registration["key"] = "id",
 	revision = true,
-): Registration => ({ kind, table, column, owner, key, revision, treatment });
+	moves?: Registration["moves"],
+): Registration => ({ kind, table, column, owner, key, revision, treatment, moves });
+const unsentMail = (m: SQL) => sql`(${m}.state IN ('pending','scheduled')
+ OR coalesce(${m}.state='accepted' AND ${m}.sent_at IS NULL AND ${m}.scheduled_at>clock_timestamp(),false))`;
 
 export const registry: readonly Registration[] = [
 	r("tag", "person_tag", "person_id", "plant_id", "deduplicate", "tag_id", false),
@@ -44,36 +48,38 @@ export const registry: readonly Registration[] = [
 	r("duplicate_dismissal", "person_duplicate_dismissal", "person_id", "plant_id", "keep", "id", false),
 	r("duplicate_dismissal", "person_duplicate_dismissal", "with_person_id", "plant_id", "keep", "id", false),
 	r("launch_guest", "launch_guest", "person_id", "plant_id", "move"),
-	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "block"),
+	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "move"),
 	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "move"),
-	r("invitation", "invitation", "resident_person_id", "tenant_id", "block"),
-	r("mail", "mail", "recipient_person_id", "tenant_id", "block"),
-	r("meeting_kit_item", "meeting_kit_item", "assignee_person_id", "plant_id", "block"),
-	r("obligation", "obligation", "person_id", "plant_id", "block"),
-	r("participation", "participation", "person_id", "plant_id", "block"),
-	r("participation_inviter", "participation", "inviter_person_id", "plant_id", "block"),
+	r("invitation", "invitation", "resident_person_id", "tenant_id", "move"),
+	r("mail", "mail", "recipient_person_id", "tenant_id", "move", "id", true, unsentMail),
+	r("meeting_kit_item", "meeting_kit_item", "assignee_person_id", "plant_id", "move"),
+	r("obligation", "obligation", "person_id", "plant_id", "move"),
+	r("participation", "participation", "person_id", "plant_id", "move"),
+	r("participation_inviter", "participation", "inviter_person_id", "plant_id", "move"),
 	r("pipeline_person", "pipeline_person", "person_id", "organization_id", "keep"),
 	r("residency_link", "residency_link", "person_id", "organization_id", "keep"),
 	r("answer_review", "answer_review", "person_id", "organization_id", "keep", "id", false),
-	r("task", "task", "person_id", "plant_id", "block"),
-	r("team_leader", "team", "leader_person_id", "plant_id", "block"),
-	r("team_tenure", "team_tenure", "person_id", "plant_id", "block"),
+	r("guardian_contact", "guardian_contact", "child_person_id", "plant_id", "keep", "id", false),
+	r("guardian_contact", "guardian_contact", "guardian_person_id", "plant_id", "keep", "id", false),
+	r("task", "task", "person_id", "plant_id", "move"),
+	r("team_leader", "team", "leader_person_id", "plant_id", "move"),
+	r("team_tenure", "team_tenure", "person_id", "plant_id", "move"),
 	r("training_assignment", "training_assignment", "person_id", "plant_id", "move"),
 	r("training_credit", "training_credit", "person_id", "plant_id", "keep", "id", false),
 ];
 const tracked = registry.filter((e) => e.treatment !== "keep");
 
-const referenceRow = z.object({ k: z.string(), id: z.uuid(), r: z.string().nullable() });
-export type Reference = { kind: Kind; id: string; revision: string | null };
+const referenceRow = z.object({ k: z.string(), id: z.uuid(), r: z.string().nullable(), m: z.boolean() });
+export type Reference = { kind: Kind; id: string; revision: string | null; moves: boolean };
 const kindOf = new Map(tracked.map((e) => [`${e.table}.${e.column}`, e.kind]));
 
 export function referencesOf(person: SQL, owner: string | SQL): SQL {
 	const parts = tracked.map(
 		(e) =>
-			sql`SELECT ${`${e.table}.${e.column}`}::text AS k,x.${sql.identifier(e.key)} AS id,${e.revision ? sql`x.revision::text` : sql`NULL::text`} AS r
- FROM ${sql.identifier(e.table)} x WHERE x.${sql.identifier(e.column)}=${person} AND x.${sql.identifier(e.owner)}=${owner}::uuid`,
+			sql`SELECT ${`${e.table}.${e.column}`}::text AS k,x.${sql.identifier(e.key)} AS id,${e.revision ? sql`x.revision::text` : sql`NULL::text`} AS r,
+ ${e.moves ? e.moves(sql`x`) : sql`true`} AS m FROM ${sql.identifier(e.table)} x WHERE x.${sql.identifier(e.column)}=${person} AND x.${sql.identifier(e.owner)}=${owner}::uuid`,
 	);
-	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('k',u.k,'id',u.id,'r',u.r) ORDER BY u.k,u.id),'[]') FROM (${sql.join(parts, sql` UNION ALL `)}) u)`;
+	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('k',u.k,'id',u.id,'r',u.r,'m',u.m) ORDER BY u.k,u.id),'[]') FROM (${sql.join(parts, sql` UNION ALL `)}) u)`;
 }
 export function parseReferences(raw: unknown): Reference[] {
 	return z
@@ -82,7 +88,7 @@ export function parseReferences(raw: unknown): Reference[] {
 		.map((x) => {
 			const kind = kindOf.get(x.k);
 			if (!kind) throw Error(`Reference column ${x.k} is not registered`);
-			return { kind, id: x.id, revision: x.r };
+			return { kind, id: x.id, revision: x.r, moves: x.m };
 		});
 }
 export function registrationOf(kind: Kind) {

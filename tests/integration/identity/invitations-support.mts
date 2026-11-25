@@ -14,7 +14,11 @@ import { accountPersonProducer } from "../../../packages/domain/src/people/index
 import { addressSuppressed, createMailService, type MailTransport } from "../../../packages/domain/src/jobs/mail.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { deny } from "../../../packages/domain/src/identity/invitation-core.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { accountId, sessionId, tenantId } from "../../../packages/contracts/src/common/index.ts";
+import {
+	residentInvitationDecisionResult,
+	seatInvitationAcceptedResult,
+} from "../../../packages/contracts/src/identity/index.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 export const key = randomUUID;
@@ -52,7 +56,7 @@ export async function fixture({
 		if (!(a instanceof RequestActor)) deny("invitation_unavailable");
 		return a;
 	}
-	const invitations = createInvitationService({
+	const service = createInvitationService({
 		db,
 		origin: "http://invitation.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
@@ -77,16 +81,23 @@ export async function fixture({
 			);
 		},
 	});
+	const invitations = {
+		...service,
+		accept: async (session: string, command: unknown) =>
+			seatInvitationAcceptedResult.parse(await service.accept(session, command)),
+		respondResident: async (session: string, command: unknown) =>
+			residentInvitationDecisionResult.parse(await service.respondResident(session, command)),
+	};
 	const identitySecret = randomBytes(32).toString("hex");
 	function native(mode: "open" | "invitation_only" | "closed" = "open") {
-		const service = createIdentityService({
+		const identity = createIdentityService({
 			db,
 			authDb: admin,
 			admissionDb: db,
 			origin: "http://invitation.example.test",
 			secret: identitySecret,
 			registrationMode: mode,
-			invitations,
+			invitations: service,
 			scheduleDelivery: () => {},
 			trustedIp: (request) => request.headers.get("x-test-ip") ?? "127.0.0.1",
 			enqueueMail: async () => {
@@ -95,7 +106,7 @@ export async function fixture({
 			diagnostic: () => {},
 		});
 		const call = (path: string, body?: unknown, cookie?: string, headers: Record<string, string> = {}) =>
-			service.handle(
+			identity.handle(
 				new Request("http://invitation.example.test/api/auth/" + path, {
 					method: body === undefined ? "GET" : "POST",
 					headers: {
@@ -108,7 +119,7 @@ export async function fixture({
 					...(body === undefined ? {} : { body: JSON.stringify(body) }),
 				}),
 			);
-		return Object.assign(call, { auth: service.auth });
+		return Object.assign(call, { auth: identity.auth });
 	}
 	async function dispatch() {
 		for (let claims = await claimDue(db, ["mail"], 100); claims.length; claims = await claimDue(db, ["mail"], 100))
@@ -141,11 +152,17 @@ export async function fixture({
 			user: { name: "Synthetic person" },
 			account: { registration_state: state },
 		});
-		return { id: a.id, user: a.user, session: a.session, email: address };
+		return { id: accountId.parse(a.id), user: a.user, session: a.session, email: address };
 	}
-	async function workspace(kind: "plant" | "sending_church" | "sending_network" = "plant"): Promise<Workspace> {
-		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC" });
-		return seed.organization(kind, { name: "Synthetic organization" });
+	async function workspace(
+		kind: "plant" | "sending_church" | "sending_network" = "plant",
+		columns: Record<string, unknown> = {},
+	) {
+		const w: Workspace =
+			kind === "plant"
+				? await seed.plant({ name: "Synthetic plant", timezone: "UTC", ...columns })
+				: await seed.organization(kind, { name: "Synthetic organization" });
+		return { ...w, id: tenantId.parse(w.id) };
 	}
 	async function seat(a: { id: string }, w: Workspace, role: "owner" | "admin" | "member" = "owner") {
 		return seed.seat(a, w, role);
@@ -224,6 +241,20 @@ export async function fixture({
 		},
 	};
 }
+
+export type Fixture = Awaited<ReturnType<typeof fixture>>;
+export const outcome = <V,>(p: Promise<V>): Promise<{ value?: V; error?: unknown }> =>
+	p.then(
+		(value) => ({ value }),
+		(error: unknown) => ({ error }),
+	);
+export const statementText = (query: unknown) =>
+	typeof query === "string"
+		? query
+		: query && typeof query === "object" && "text" in query && typeof query.text === "string"
+			? query.text
+			: "";
+export const codeOf = (error: unknown) => (error instanceof Error && "code" in error ? error.code : undefined);
 
 export const noReminders = async () => {
 	throw Error("unexpected task reminder replan");

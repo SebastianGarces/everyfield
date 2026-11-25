@@ -7,17 +7,19 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import * as c from "../../../packages/contracts/src/intelligence/index.ts";
 import {
 	ASSESSMENT_TIMING,
+	captureFacts,
 	createAssessmentJob,
 	createAssessments,
 	createPrivateCare,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
+import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
-import { ok } from "../../support/fixture.mts";
-import { church, type Church } from "./assessment-church.mts";
+import { ok, waitingOnLock } from "../../support/fixture.mts";
+import { church, type Church, type StoredRun } from "./assessment-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const DAY = 86_400_000;
@@ -26,7 +28,6 @@ let clockMs = Date.now();
 const clock = { now: () => new Date(clockMs).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
-const secret = "cron-" + randomUUID();
 const scripted = (options: Parameters<typeof scriptedAssessmentDrafter>[0] = {}) =>
 	scriptedAssessmentDrafter(options.during ? { ...options, during: AsyncResource.bind(options.during) } : options);
 
@@ -41,26 +42,28 @@ async function tick(drafter = scripted()) {
 		db: c0.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		assessments: { drafter },
 		now: () => new Date(clockMs),
 	});
-	const response = await run(
-		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-	);
+	const response = await run();
 	const body = await response.json();
 	assert.equal(body.steps.assessment.status, "ok", JSON.stringify(body.steps));
 	return body;
 }
 const view = async (p: { actor: RequestActor }) => ok(await assessments.readAssessment(c0.db, p.actor, {}));
 const runs = (p: { id: string }) =>
-	c0.rows(sql`SELECT id,outcome,reason,demand,demand_key,as_of,source_revision,reference_activation,result,facts,
+	c0.rows<
+		StoredRun & { retry_at: string | null; deadline_at: string }
+	>(sql`SELECT id,outcome,reason,demand,demand_key,as_of,source_revision,reference_activation,result,facts,
 		model_input,attempts,input_tokens,output_tokens,pending_attempts,drafts,retry_at,deadline_at,delta
 		FROM assessment_run WHERE plant_id=${p.id} ORDER BY captured_at,id`);
 const jobs = (p: { id: string }) =>
-	c0.rows(sql`SELECT producer_key,state,error_code,next_attempt_at FROM job WHERE kind='assessment'
+	c0.rows<{
+		producer_key: string;
+	}>(sql`SELECT producer_key,state,error_code,next_attempt_at FROM job WHERE kind='assessment'
 		AND subject_record_id=${p.id} ORDER BY eligible_at,id`);
 const iso = (ms: number) => new Date(ms).toISOString();
 async function assessed(name: string, options = {}) {
@@ -98,14 +101,14 @@ test("a never-assessed plant: the next tick queues its first assessment unasked;
 	assert.equal(v.current!.asOf, iso(clockMs));
 	assert.equal(v.current!.measuredOn, c0.today);
 	assert.equal(v.current!.ageDays, 0);
-	const [run] = await runs(p);
+	const run = (await runs(p))[0]!;
 	assert.deepEqual([run.outcome, run.demand], ["published", "time"]);
 	assert.equal((await c0.one(sql`SELECT count(*)::int AS n FROM notice WHERE tenant_id=${p.id}`)).n, 0, "no notice");
 });
 
 test("a new committed adult publishes a new assessment dated after the change; the earlier one is unchanged; a failed write, an exact retry, a no-op and an unrelated field queue no run", async () => {
 	const p = await assessed("Cedar Hill");
-	const [first] = await runs(p);
+	const first = (await runs(p))[0]!;
 	const before = JSON.stringify(first);
 	clockMs += 60_000;
 	const who = await c0.committed(p, "Newest Adult", 1);
@@ -114,9 +117,9 @@ test("a new committed adult publishes a new assessment dated after the change; t
 	const after = await runs(p);
 	assert.equal(after.length, 2);
 	assert.equal(JSON.stringify(after[0]), before, "the earlier run stays exactly as it was");
-	assert.deepEqual([after[1].outcome, after[1].demand], ["published", "change"]);
+	assert.deepEqual([after[1]!.outcome, after[1]!.demand], ["published", "change"]);
 	const v = await view(p);
-	assert.equal(v.current!.runId, after[1].id);
+	assert.equal(v.current!.runId, after[1]!.id);
 	assert.ok(Date.parse(v.current!.asOf) > Date.parse(first.as_of));
 	assert.equal(v.current!.delta!.previousRunId, first.id);
 	assert.deepEqual(
@@ -200,8 +203,8 @@ test("an Owner's or Admin's fresh-assessment request reads being prepared and th
 			["manual", "published"],
 		],
 	);
-	assert.equal((await view(p)).current!.runId, all[1].id);
-	const requester = await c0.one(sql`SELECT requested_by FROM assessment_run WHERE id=${all[1].id}`);
+	assert.equal((await view(p)).current!.runId, all[1]!.id);
+	const requester = await c0.one(sql`SELECT requested_by FROM assessment_run WHERE id=${all[1]!.id}`);
 	assert.equal(requester.requested_by, p.owner.id);
 
 	const admin = await c0.database.actor(p, "admin");
@@ -260,7 +263,10 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 	v = await view(p);
 	assert.equal(v.current!.runId, prior.runId);
 	assert.deepEqual(v.newest, { state: "deferred", retryAt, grounding: "grounded" });
-	const waiting = await c0.one(sql`SELECT j.state,j.next_attempt_at FROM job j JOIN assessment_run r
+	const waiting = await c0.one<{
+		state: string;
+		next_attempt_at: string;
+	}>(sql`SELECT j.state,j.next_attempt_at FROM job j JOIN assessment_run r
 		ON j.kind='assessment' AND j.subject_record_id=r.plant_id AND j.producer_key=r.demand_key
 		WHERE r.plant_id=${p.id} AND r.outcome='deferred'`);
 	assert.deepEqual([waiting.state, new Date(waiting.next_attempt_at).toISOString()], ["retry_wait", retryAt]);
@@ -319,14 +325,148 @@ test("AC:ASMT-003 a record changed while the draft is in flight supersedes that 
 	});
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(job, c0.db, racing, 1);
-	const [, raced] = await runs(p);
+	const raced = (await runs(p))[1]!;
 	assert.deepEqual([raced.outcome, raced.reason, raced.result], ["superseded", "changed_input", null]);
 	assert.equal((await view(p)).current!.runId, before.runId, "the superseded run is never current");
 	await runAssessmentBatch(job, c0.db, scripted(), 1);
 	const newer = (await runs(p)).at(-1)!;
 	assert.deepEqual([newer.outcome, newer.demand], ["published", "followup"]);
 	assert.equal(newer.facts.committedAdults.exact, 31);
-	assert.deepEqual(newer.model_input.facts, c.factCatalog(newer.facts), "every fact from the one captured snapshot");
+	assert.deepEqual(newer.model_input!.facts, c.factCatalog(newer.facts), "every fact from the one captured snapshot");
+});
+
+test("AC:ASMT-002 INV-freshness: a correction that commits after capture, its wake-up lost, settles the run superseded and keeps the earlier result; the next sweep queues the new source state", async () => {
+	const p = await assessed("Paused Outbox");
+	const prior = (await view(p)).current!;
+	clockMs += 1000;
+	const card = await c0.one<{ id: string; person_id: string; revision: string }>(sql`SELECT id,person_id,revision::text
+		FROM commitment WHERE plant_id=${p.id} ORDER BY id LIMIT 1`);
+	let corrected = false;
+	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
+	await runAssessmentBatch(
+		job,
+		c0.db,
+		scripted({
+			during: async () => {
+				if (corrected) return;
+				corrected = true;
+				ok(
+					await gatedTransaction(c0.db, (t) =>
+						commitments.correctCommitmentLifecycle(t, p.ctx as never, {
+							requestKey: randomUUID(),
+							expectedRevision: card.revision,
+							input: {
+								commitmentId: card.id,
+								correction: { action: "correct", occurredOn: c0.day(-45) },
+								reason: "Read the card again",
+							},
+						}),
+					),
+				);
+			},
+		}),
+		1,
+	);
+	const paused = (await runs(p)).at(-1)!;
+	assert.deepEqual([paused.outcome, paused.reason, paused.result], ["superseded", "changed_input", null]);
+	assert.equal((await view(p)).current!.runId, prior.runId, "the earlier result stays current");
+
+	await c0.admin.execute(sql`DELETE FROM job WHERE kind='assessment' AND subject_record_id=${p.id}
+		AND producer_key=${"followup/" + paused.id}`);
+	assert.deepEqual(
+		(await jobs(p)).filter((x) => x.producer_key.startsWith("followup/")),
+		[],
+		"the wake-up is lost",
+	);
+	clockMs = Date.now() + 1000;
+	const source = (await captureFacts(c0.db, p.id, iso(clockMs)))!.sourceRevision;
+	assert.notEqual(source, paused.source_revision);
+	await job.scheduleAssessments(c0.db, 500);
+	const swept = (
+		await c0.rows<{ producer_key: string; state: string }>(sql`SELECT producer_key,state FROM job
+		WHERE kind='assessment' AND subject_record_id=${p.id} AND state='ready'`)
+	).map((x) => x.producer_key.split("/")[0]);
+	assert.deepEqual(swept, ["change"]);
+	await drain();
+	const next = (await runs(p)).at(-1)!;
+	assert.deepEqual([next.outcome, next.demand, next.source_revision], ["published", "change", source]);
+	clockMs = Date.now();
+});
+
+test("AC:ASMT-009 INV-freshness: two connections commit people, attendance and training changes while a capture waits with its snapshot open; the run holds one snapshot, never a mix of old and new", async () => {
+	const p = await assessed("One Snapshot");
+	const held = await c0.one<{ id: string }>(sql`SELECT id FROM meeting WHERE plant_id=${p.id}`);
+	const trainee = await c0.committed(p, "Trainee", 20);
+	const newcomer = await c0.person(p, "Newcomer");
+	const program = (
+		await c0.one<{ id: string }>(sql`INSERT INTO training_program(plant_id,name,required)
+			VALUES(${p.id},'Snapshot course',true) RETURNING id`)
+	).id;
+	await c0.admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+		VALUES(${p.id},${program},${trainee.id},1,'active',${c0.day(-5)})`);
+	clockMs = Date.now() + 1000;
+	const old = (await captureFacts(c0.db, p.id, iso(clockMs)))!;
+	const attendance = createAttendanceWriter({
+		reminders: async () => {
+			throw Error("unexpected task reminder replan");
+		},
+	});
+	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
+
+	const written = Promise.withResolvers<void>();
+	const go = Promise.withResolvers<void>();
+	const locked = Promise.withResolvers<number>();
+	const release = Promise.withResolvers<void>();
+	const gate = c0.admin.transaction(async (tx) => {
+		await tx.execute(sql`LOCK TABLE four_cs IN ACCESS EXCLUSIVE MODE`);
+		locked.resolve((await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`)).rows[0]!.pid);
+		await release.promise;
+	});
+	const blocker = await locked.promise;
+	const firstConnection = gatedTransaction(c0.db, async (tx) => {
+		const signed = ok(
+			await commitments.createCommitment(tx, p.ctx as never, {
+				requestKey: randomUUID(),
+				input: { personId: newcomer.id, kind: "core_group", occurredOn: c0.day(-1) },
+			}),
+		);
+		await tx.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
+			VALUES(${p.id},${trainee.id},${program},'earned',1,${c0.day(-1)})`);
+		written.resolve();
+		await go.promise;
+		return signed;
+	});
+	await written.promise;
+	const secondConnection = withMeetingsWrite(c0.db, p.actor, (tx, ctx) =>
+		attendance.checkIn(tx, ctx, { requestKey: randomUUID(), input: { meetingId: held.id, personId: trainee.id } }),
+	);
+	const capture = runAssessmentBatch(job, c0.db, scripted(), 1);
+	try {
+		await waitingOnLock(c0.admin, { blockedBy: blocker });
+		go.resolve();
+		await firstConnection;
+		ok(await secondConnection);
+	} finally {
+		go.resolve();
+		release.resolve();
+		await gate;
+	}
+	await capture;
+	const raced = (await runs(p)).at(-1)!;
+	const now = (await captureFacts(c0.db, p.id, new Date(raced.as_of).toISOString()))!;
+	assert.equal(raced.source_revision, now.sourceRevision, "all three changes, in one snapshot");
+	assert.notEqual(now.sourceRevision, old.sourceRevision);
+	assert.deepEqual(
+		[
+			raced.facts.committedAdults.known + raced.facts.committedAdults.needsClassifying.length,
+			raced.facts.vision.lastAttendance,
+			raced.facts.training.complete,
+		],
+		[old.committedAdults.known + 1, [old.vision.lastAttendance[0]! + 1], old.training.complete + 1],
+	);
+	assert.deepEqual(raced.model_input!.facts, c.factCatalog(raced.facts), "every model fact comes from it");
+	assert.deepEqual([raced.outcome, (await runs(p)).length], ["published", 2], "the raced attempt left no run");
+	clockMs = Date.now();
 });
 
 test("AC:ASMT-004 a worker whose claim expired and was taken over cannot publish, even with matching data; the new owner resumes the same run and budget", async () => {
@@ -347,7 +487,7 @@ test("AC:ASMT-004 a worker whose claim expired and was taken over cannot publish
 	const run = all.at(-1)!;
 	assert.equal(all.length, 2, "one run for the demand");
 	assert.deepEqual([run.outcome, run.attempts], ["published", 2]);
-	const points = 3 + run.result.draft.positives.length;
+	const points = 3 + run.result!.draft.positives.length;
 	assert.equal((await c0.rows(sql`SELECT 1 FROM assessment_insight WHERE run_id=${run.id}`)).length, points);
 	const audits = await c0.rows(sql`SELECT 1 FROM audit_event WHERE event_key=${"assessment:" + run.id}`);
 	assert.equal(audits.length, 1, "published once");
@@ -357,8 +497,10 @@ test("AC:ASMT-004 a worker whose claim expired and was taken over cannot publish
 
 test("AC:ASMT-007 a reference activation during drafting refuses publication, and so does a rollback to an earlier release under a new activation", async () => {
 	const p = await assessed("Hill Top");
-	const first = (await c0.rows(sql`SELECT id FROM reference_release WHERE release_key='methodology-2026.10'`))[0]!;
-	const activation = (await runs(p))[0].reference_activation;
+	const first = (
+		await c0.rows<{ id: string }>(sql`SELECT id FROM reference_release WHERE release_key='methodology-2026.10'`)
+	)[0]!;
+	const activation = (await runs(p))[0]!.reference_activation;
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	let activated = false;
 	await runAssessmentBatch(
@@ -456,11 +598,24 @@ test("AC:PI-CASE-028 three scheduled failures in a row hold the plant for review
 	const list = ok(await assessments.listRunsForReview(c0.db, asOperator, {}));
 	const held = list.find((r) => r.plantName === "Stone Bridge")!;
 	assert.deepEqual([held.cause, held.drafts, held.streak.length], ["output_check", 3, 3]);
+	assert.deepEqual(Object.keys(held).sort(), [
+		"asOf",
+		"cause",
+		"demand",
+		"drafts",
+		"outcome",
+		"plantName",
+		"runId",
+		"settledAt",
+		"streak",
+		"usage",
+		"violations",
+	]);
 	const last = failed
 		.at(-1)!
-		.drafts.at(-1)
-		.violations.map((v: c.Violation) => ({ rule: v.rule, where: v.where }));
-	assert.ok(last.some((v: { rule: string }) => v.rule === "missing_citation"));
+		.drafts.at(-1)!
+		.violations.map((v) => ({ rule: v.rule, where: v.where }));
+	assert.ok(last.some((v) => v.rule === "missing_citation"));
 	assert.deepEqual(held.violations, last, "the final draft's own violations");
 	const detail = ok(await assessments.describeRunFailure(c0.db, asOperator, { runId: held.runId }));
 	assert.deepEqual(detail, held);
@@ -565,7 +720,7 @@ test("publication writes the result, its insights by severity, the delta and the
 	);
 	assert.deepEqual(stored[0], {
 		role: "focus",
-		severity: c.SEVERITY[(await runs(p)).at(-1)!.result.draft.focus.urgency as c.Urgency],
+		severity: c.SEVERITY[(await runs(p)).at(-1)!.result!.draft.focus.urgency],
 	});
-	assert.equal(stored[1].severity, "high");
+	assert.equal(stored[1]!.severity, "high");
 });

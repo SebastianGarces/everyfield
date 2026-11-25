@@ -13,13 +13,13 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type MailPort,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
@@ -89,6 +89,7 @@ const mail: MailPort = {
 		origin: "https://app.example.test",
 	},
 	transport: {
+		paused: false,
 		async send(batch) {
 			sent.push({
 				to: batch.messages.map((m) => m.to),
@@ -112,7 +113,7 @@ let admin: Database;
 let plant: string;
 let people: Record<string, string>;
 const native: NativePorts = nativePorts();
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const shift = TODAY.getTime() - Date.now();
 const now = () => new Date(Date.now() + shift);
 const freshActor = async (session: string) => {
@@ -160,7 +161,7 @@ async function ask(actor: EvryActor, text: string, conversation?: string) {
 	return { conversationId, reads, answer, proposals, steps };
 }
 
-async function approveAndRun(actor: EvryActor, proposal: Proposal) {
+async function approveAndRun(actor: EvryActor, proposal: Proposal, port: MailPort = mail) {
 	await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim, "the effect is queued");
@@ -170,7 +171,7 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 		leaseOwner: claim.lease_owner,
 		generation: claim.claim_generation,
 	};
-	const outcome = await executeProposal(db, lease, ports, mail, native);
+	const outcome = await executeProposal(db, lease, ports, port, native);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
 }
@@ -218,6 +219,9 @@ before(async () => {
 	admin = database.admin;
 	await seedHope(admin, { seatNames: true });
 	plant = (await seedSetup(admin, db, native, { team: false })).plant;
+	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', city='Austin', country='United States' WHERE id=${plant}`,
+	);
 	const overview = await seedOverview(admin, db, native, plant);
 	await seatMember(admin, plant);
 	const seeded = await seedInvitations(admin, db, plant, overview.people);
@@ -381,4 +385,23 @@ test("INV-evry-recipes: a reused invitation whose audience changed after its rev
 	const card = await readReview(db, owner, p.id);
 	assert.deepEqual([card.outcome, card.receipt?.code], ["refused", "stale_review"]);
 	assert.deepEqual(await effects(), before, "nothing is added or sent");
+});
+
+test("an invitation approved before outbound mail is paused creates no meeting, guest or message and sends nothing", async () => {
+	const owner = await actorOf("owner");
+	const asked = await ask(owner, "invite the core group to the next vision meeting");
+	assert.equal(asked.proposals.length, 1, asked.answer);
+	const proposal = asked.proposals[0]!;
+	const before = await effects();
+	const write = console.error;
+	console.error = () => undefined;
+	try {
+		assert.equal(
+			await approveAndRun(owner, proposal, { ...mail, transport: { ...mail.transport, paused: true } }),
+			"refused",
+		);
+	} finally {
+		console.error = write;
+	}
+	assert.deepEqual(await effects(), before);
 });

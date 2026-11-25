@@ -1,3 +1,4 @@
+import { accountAvatarPath, counted, countWord, dayText, personPhotoPath } from "@everyfield/contracts/common";
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
@@ -22,6 +23,10 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| "people.restorePerson"
+	| "people.recordAdultClassification"
+	| "people.correctAdultClassification"
+	| "people.reorderPipeline"
 	| "people.createInterview"
 	| "people.createAssessment"
 	| "people.createCommitment"
@@ -45,6 +50,7 @@ export type Operation =
 	| "communication.templates.create"
 	| "communication.templates.fork"
 	| "communication.templates.update"
+	| "communication.templates.archiveOrDelete"
 	| InvitationOperation
 	| "meetings.schedule"
 	| "meetings.edit"
@@ -123,7 +129,10 @@ export type LaunchOperation =
 	| "launch.completeMilestone"
 	| "launch.reopenMilestone"
 	| "launch.addGuestAttendance"
-	| "launch.correctOutcome";
+	| "launch.correctOutcome"
+	| "launch.saveDebriefDraft"
+	| "launch.saveDebriefSummaryDraft"
+	| "launch.correctGuestAttendance";
 export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 export type PipelineOperation =
@@ -166,7 +175,8 @@ type TaskOperation =
 	| "tasks.executeHandoff"
 	| "tasks.replacePrerequisites"
 	| "followups.recordOutcome"
-	| "followups.correctOutcome";
+	| "followups.correctOutcome"
+	| "communication.correctContactLog";
 
 const TEAMS_TITLE = {
 	"teams.create": "Add a ministry",
@@ -272,6 +282,7 @@ export type Review = {
 		target: {
 			kind:
 				| "person"
+				| "retired_person"
 				| "message"
 				| "task"
 				| "team"
@@ -303,6 +314,7 @@ export type Review = {
 		rows?: ReviewedRow[];
 		notes?: string[];
 		refusal?: string;
+		earlier?: Change[];
 		withheld?: true;
 	};
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
@@ -317,7 +329,8 @@ export type Review = {
 		import?: ImportOutcome;
 		current?: { id: string; label: string; value: string | null }[];
 	} | null;
-	stale: boolean;
+	stale: "message" | "merge" | null;
+	mailDelayed?: true;
 	now: string;
 };
 
@@ -379,6 +392,8 @@ const FIELD_LABEL: Record<string, string> = {
 	birthDate: "Birth date",
 	stage: "Stage",
 	adultClassification: "Age group",
+	columnPlace: "Place in column",
+	guestsNamed: "Guests named",
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
@@ -400,9 +415,14 @@ const FIELD_LABEL: Record<string, string> = {
 	moves: "Moves over",
 	keptDetails: "Kept as is",
 	staysWithMergedRecord: "Stays behind",
+	attendanceChanges: "Attendance",
+	openTasks: "Open tasks",
+	openKitItems: "Kit items",
 	comesBack: "Comes back",
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
+	attendanceGoesBack: "Attendance back",
+	staysWithKept: "Stays",
 	bookmarked: "Bookmark",
 	addedText: "Added text",
 	articleText: "Text",
@@ -583,12 +603,6 @@ const DATE_FIELDS = new Set([
 
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
-const dateFormat = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
 
 const TASK_STATUS: Record<string, string> = {
 	not_started: "Not started",
@@ -690,7 +704,7 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "category" && String(value) in CATEGORY) return CATEGORY[String(value)] ?? String(value);
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
-		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+		return dayText(value, { locale: "viewer" });
 	if (field === "status" || field === "followUp") return TASK_STATUS[String(value)] ?? String(value);
 	if (field === "outcome") return OUTCOME[String(value)] ?? String(value);
 	if (field === "channel") return CHANNEL[String(value)] ?? String(value);
@@ -709,10 +723,12 @@ const SHARED = new Set<string>(SHARING_CATEGORIES);
 const WORDS: Record<string, Record<string, string>> = {
 	role: ROLE_LABEL,
 	access: { ...ROLE_LABEL, removed: "Removed" },
-	invitation: { pending: "Waiting", sent_again: "Sent again", revoked: "Revoked" },
+	invitation: { pending: "Waiting", sent_again: "Sent again", new_link: "New link", revoked: "Revoked" },
 	connection: {
 		connected: "Connected",
 		ended: "Ended",
+		requested_church: "Sending church",
+		requested_network: "Network",
 		"sending church": "Asked to be your sending church",
 		network: "Asked to connect as your network",
 	},
@@ -738,7 +754,7 @@ export function settingsLink(operation: SettingsOperation): { href: string; labe
 export const isPhoto = (operation: Operation) =>
 	operation === "people.setPersonPhoto" || operation === "account.finalizeAvatar";
 export const savedPhotoSrc = (target: { kind: string; id: string }, version: string) =>
-	target.kind === "account" ? `/api/accounts/${target.id}/avatar/${version}` : `/people/${target.id}/photo/${version}`;
+	target.kind === "account" ? accountAvatarPath(target.id, version) : personPhotoPath(target.id, version);
 
 const ITEM_FIELD: Partial<Record<Operation, string>> = {
 	"tasks.bulkComplete": "status",
@@ -770,7 +786,10 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 			review.operation === "development.draftNextVersion") &&
 		(change.before === null || change.before === undefined)
 	) &&
-	!(isDocument(review.operation) && change.before === null) &&
+	!(
+		(isDocument(review.operation) || review.operation === "communication.correctContactLog") &&
+		change.before === null
+	) &&
 	!(
 		isIntelligence(review.operation) &&
 		(change.before === null || JSON.stringify(change.before) === JSON.stringify(change.after))
@@ -793,14 +812,79 @@ export function subjectName(review: Review): string {
 	if (review.operation === "documents.importTextOrWord")
 		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
-	if (review.operation === "tasks.assignFollowUp")
-		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
-	return `${n.toLocaleString()} ${n === 1 ? "task" : "tasks"}`;
+	if (review.operation === "tasks.assignFollowUp") return counted(n, "follow-up");
+	return counted(n, "task");
 }
 
+export function delayedText(review: Review): string | null {
+	if (!review.mailDelayed || review.outcome !== "completed") return null;
+	const who = review.review.target?.label;
+	switch (review.operation) {
+		case "seats.invite":
+			return `The invitation to ${String(review.review.changes.find((c) => c.field === "invitation")?.after ?? who)} is saved, but its email is delayed. You do not need to send it again unless it expires.`;
+		case "seats.resendInvitation":
+			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
+		case "associations.invite":
+			return `The invitation to ${who} is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.`;
+		default:
+			return null;
+	}
+}
+
+const DELAYED_VALUE: Record<string, string> = {
+	sent_again: "new_link",
+	"sending church": "requested_church",
+	network: "requested_network",
+};
+const delayedChange = (c: Change): Change => ({
+	...c,
+	field: c.field === "recipientEmail" ? "email" : c.field,
+	after: c.field === "invitation" || c.field === "connection" ? (DELAYED_VALUE[String(c.after)] ?? c.after) : c.after,
+});
+
+export type DraftRow = {
+	field: string;
+	prepared: unknown;
+	saved: unknown;
+	draft: unknown;
+	changed: boolean;
+	already: boolean;
+};
+const HANDED_BACK = "openTasksNeedingOwner";
+export function draftRows(review: Review): DraftRow[] | null {
+	const { earlier, changes } = review.review;
+	if (!earlier) return null;
+	const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+	const fields = [...new Set([...earlier, ...changes].map((c) => c.field))].filter(
+		(field) => field !== HANDED_BACK || changes.some((c) => c.field === HANDED_BACK),
+	);
+	return fields.map((field) => {
+		const was = earlier.find((c) => c.field === field);
+		const now = changes.find((c) => c.field === field);
+		const saved = now ? now.before : was?.after;
+		const draft = now ? now.after : was?.after;
+		return {
+			field,
+			prepared: was ? was.before : undefined,
+			saved,
+			draft,
+			changed: was ? !same(was.before, saved) : true,
+			already: same(saved, draft),
+		};
+	});
+}
+
+export const shownNotes = (review: Review): string[] =>
+	delayedText(review) !== null && review.operation.startsWith("seats.") ? [] : (review.review.notes ?? []);
+
 export function savedText(review: Review): string {
+	const delayed = delayedText(review);
+	if (delayed !== null) return delayed;
 	const who = review.review.target?.label;
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
+	if (review.operation === "people.restorePerson") return `Saved. ${who ?? "This person"} is back in People.`;
+	if (review.operation === "launch.saveDebriefDraft" || review.operation === "launch.saveDebriefSummaryDraft")
+		return "Saved as a draft. Nothing is submitted, published or shared.";
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
 	const name = subjectName(review);
 	const status = review.review.changes.find((c) => c.field === "status")?.after;
@@ -820,9 +904,9 @@ export function savedText(review: Review): string {
 		case "tasks.delete":
 			return `Saved. ${name} is deleted.`;
 		case "tasks.bulkComplete":
-			return `Saved. ${name} ${review.review.changes.length === 1 ? "is" : "are"} complete.`;
+			return `Saved. ${name} ${countWord(review.review.changes.length, "is", "are")} complete.`;
 		case "tasks.bulkReschedule":
-			return `Saved. ${name} ${review.review.changes.length === 1 ? "has" : "have"} a new due date.`;
+			return `Saved. ${name} ${countWord(review.review.changes.length, "has", "have")} a new due date.`;
 		case "tasks.createSubtask":
 		case "tasks.setSubtaskCompletion":
 		case "tasks.removeSubtask":
@@ -847,6 +931,7 @@ export function savedText(review: Review): string {
 		case "followups.recordOutcome":
 			return `Saved. The contact with ${name} is logged.`;
 		case "followups.correctOutcome":
+		case "communication.correctContactLog":
 			return `Saved. The contact log of ${name} is corrected.`;
 		default:
 			return `Saved. ${name} is updated.`;
@@ -869,7 +954,7 @@ export function openAfter(review: Review): { href: string; label: string } | nul
 	if (review.review.withheld || isMail(review.operation)) return null;
 	if (isWikiEditor(review.operation)) return who?.href ? { href: who.href, label: "Open the Wiki editor" } : null;
 	if (!isTasks(review.operation))
-		return who?.kind === "person" && review.operation !== "people.deletePerson"
+		return (who?.kind === "person" || who?.kind === "retired_person") && review.operation !== "people.deletePerson"
 			? { href: targetHref(who), label: `Open ${who.label}` }
 			: null;
 	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
@@ -894,13 +979,12 @@ export function emptyText(field: string, after: boolean) {
 
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
-const handedBack = (changes: readonly Change[]) =>
-	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
+const handedBack = (changes: readonly Change[]) => Number(changes.find((c) => c.field === HANDED_BACK)?.after ?? 0);
 
-export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
-	review.review.changes.filter(
+export const shownChanges = (review: Review) =>
+	(delayedText(review) === null ? review.review.changes : review.review.changes.map(delayedChange)).filter(
 		(c) =>
-			c.field !== "openTasksNeedingOwner" &&
+			c.field !== HANDED_BACK &&
 			c.field !== "createTag" &&
 			!(c.field === "tag" && (review.operation === "people.assignTag" || review.operation === "people.removeTag")),
 	);
@@ -921,10 +1005,15 @@ const TITLE: Record<Operation, string> = {
 	"communication.templates.create": "Save an email template",
 	"communication.templates.fork": "Copy a system template",
 	"communication.templates.update": "Change an email template",
+	"communication.templates.archiveOrDelete": "Remove an email template",
 	"people.createPerson": "Add a person",
 	"people.updatePerson": "Update a person",
 	"people.changeStatus": "Change a stage",
 	"people.deletePerson": "Remove a person",
+	"people.restorePerson": "Bring a person back",
+	"people.recordAdultClassification": "Record adult or child",
+	"people.correctAdultClassification": "Correct adult or child",
+	"people.reorderPipeline": "Change the order in a column",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
 	"tasks.create": "Create a task",
@@ -952,6 +1041,7 @@ const TITLE: Record<Operation, string> = {
 	"tasks.replacePrerequisites": "Set what a task waits on",
 	"followups.recordOutcome": "Log a contact",
 	"followups.correctOutcome": "Correct a contact log entry",
+	"communication.correctContactLog": "Correct a contact log entry",
 	"people.createInterview": "Record an interview",
 	"people.createAssessment": "Record a 4 C's assessment",
 	"people.createCommitment": "Record a commitment",
@@ -992,6 +1082,9 @@ const TITLE: Record<Operation, string> = {
 	"launch.reopenMilestone": "Reopen a launch milestone",
 	"launch.addGuestAttendance": "Name a Launch Sunday guest",
 	"launch.correctOutcome": "Correct Launch Sunday",
+	"launch.saveDebriefDraft": "Save the Launch debrief draft",
+	"launch.saveDebriefSummaryDraft": "Save the Launch summary draft",
+	"launch.correctGuestAttendance": "Correct a Launch Sunday guest",
 	"intelligence.requestRefresh": "Refresh Plant Intelligence",
 	"intelligence.submitFeedback": "Rate a finding",
 	"development.draftNextVersion": "Draft the next version",
@@ -1078,12 +1171,21 @@ const MERGE_FACTS = new Set([
 	"mergesIn",
 	"moves",
 	"staysWithMergedRecord",
+	"attendanceChanges",
+	"openTasks",
+	"openKitItems",
 	"comesBack",
 	"movesBack",
 	"detailsGoBack",
+	"attendanceGoesBack",
+	"staysWithKept",
 ]);
+const CLASSIFIES = new Set<Operation>(["people.recordAdultClassification", "people.correctAdultClassification"]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
-	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
+	field === "reason" ||
+	(field === "occurredOn" && CLASSIFIES.has(review.operation)) ||
+	MERGE_FACTS.has(field) ||
+	(ADDS.has(review.operation) && field !== "stage");
 export const isIntelligence = (operation: Operation) => /^(phases|signals)\./.test(operation);
 export const intelligencePage = (operation: Operation) =>
 	operation.startsWith("phases.")
@@ -1091,11 +1193,12 @@ export const intelligencePage = (operation: Operation) =>
 		: { href: "/intelligence/attestations", label: "Open attestations" };
 export const openCriteria = (review: Review) => {
 	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
-	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
+	return Array.isArray(value) ? (value as { label: string; status: string; reading?: string | null }[]) : null;
 };
 
-export type MailOperation = Extract<Operation, `communication.${string}`>;
-export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
+export type MailOperation = Exclude<Extract<Operation, `communication.${string}`>, "communication.correctContactLog">;
+export const isMail = (operation: Operation): operation is MailOperation =>
+	operation.startsWith("communication.") && operation !== "communication.correctContactLog";
 export type InvitationOperation = "evry.prepareMeetingInvitation" | "evry.reuseRecipe";
 export const isInvitation = (operation: Operation): operation is InvitationOperation =>
 	operation === "evry.prepareMeetingInvitation" || operation === "evry.reuseRecipe";
@@ -1181,8 +1284,8 @@ export function audienceText(value: unknown) {
 	if (!a) return null;
 	const who = [
 		...a.groups.map((g) => GROUP_LABEL[g] ?? g),
-		...(a.teamIds.length ? [`${a.teamIds.length} ${a.teamIds.length === 1 ? "team" : "teams"}`] : []),
-		...(a.personIds.length ? [`${a.personIds.length} ${a.personIds.length === 1 ? "person" : "people"}`] : []),
+		...(a.teamIds.length ? [counted(a.teamIds.length, "team")] : []),
+		...(a.personIds.length ? [counted(a.personIds.length, "person", "people")] : []),
 	].join(", ");
 	const count = `${a.recipients} with an email address`;
 	return [who || "Nobody chosen", count, a.noAddress ? `${a.noAddress} with no email address` : null]
@@ -1222,6 +1325,7 @@ const MAIL_PENDING: Record<MailOperation, string> = {
 	"communication.templates.create": "Review the new template",
 	"communication.templates.fork": "Review the copy",
 	"communication.templates.update": "Review the template change",
+	"communication.templates.archiveOrDelete": "Review before removing",
 };
 const MAIL_REFUSED: Record<string, string> = {
 	"communication.scheduleReviewed": "Can't schedule this email",
@@ -1246,14 +1350,21 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.templates.create": "You closed this review. No template was saved.",
 	"communication.templates.fork": "You closed this review. No copy was made.",
 	"communication.templates.update": "You closed this review. The template stays as it was.",
+	"communication.templates.archiveOrDelete": "You closed this review. The template stays as it was.",
 };
+const removedTitle = (review: Review) =>
+	review.review.changes.find((c) => c.field === "template")?.after === "deleted"
+		? "Template deleted"
+		: "Template archived";
 const LOCAL_ONLY = new Set<Operation>([
 	"communication.saveDraft",
 	"communication.deleteDraft",
 	"communication.templates.create",
 	"communication.templates.fork",
 	"communication.templates.update",
+	"communication.templates.archiveOrDelete",
 ]);
+const MERGED_TITLE = "Someone was merged or unmerged";
 export function mailHead(
 	review: Review,
 	phase: string,
@@ -1261,7 +1372,11 @@ export function mailHead(
 	if (isInvitation(review.operation)) {
 		if (phase === "pending")
 			return {
-				title: review.review.refusal ? "Can't prepare this invitation" : "Review every step before approving",
+				title: review.review.refusal
+					? "Can't prepare this invitation"
+					: review.stale === "merge"
+						? MERGED_TITLE
+						: "Review every step before approving",
 				tone: "amber",
 			};
 		if (phase === "completed" && review.receipt?.report?.confirmation === "confirmed")
@@ -1270,19 +1385,23 @@ export function mailHead(
 	if (!sendsMail(review.operation)) return null;
 	if (phase === "pending" && isMail(review.operation))
 		return {
-			title: review.stale
-				? "Message changed"
-				: review.review.refusal
-					? (MAIL_REFUSED[review.operation] ?? "Can't do this")
-					: MAIL_PENDING[review.operation],
+			title:
+				review.stale === "merge" && !review.review.refusal
+					? MERGED_TITLE
+					: review.stale
+						? "Message changed"
+						: review.review.refusal
+							? (MAIL_REFUSED[review.operation] ?? "Can't do this")
+							: MAIL_PENDING[review.operation],
 			tone: "amber",
 		};
 	if (phase === "running")
 		return {
 			title: !LOCAL_ONLY.has(review.operation)
 				? "Working with the email service…"
-				: review.operation === "communication.deleteDraft"
-					? "Deleting…"
+				: review.operation === "communication.deleteDraft" ||
+					  review.operation === "communication.templates.archiveOrDelete"
+					? "Removing…"
 					: "Saving…",
 			tone: "amber",
 		};
@@ -1295,9 +1414,11 @@ export function mailHead(
 			title:
 				review.operation === "communication.deleteDraft"
 					? "Draft deleted"
-					: review.operation.startsWith("communication.templates.")
-						? "Template saved"
-						: "Saved",
+					: review.operation === "communication.templates.archiveOrDelete"
+						? removedTitle(review)
+						: review.operation.startsWith("communication.templates.")
+							? "Template saved"
+							: "Saved",
 			tone: "green",
 		};
 	switch (report.kind) {
@@ -1387,6 +1508,8 @@ export function documentRefusalText(code: string | undefined): string {
 			return "Your seat no longer allows this change, so nothing was saved.";
 		case "render_failed":
 			return "The file could not be made, so nothing was saved. Try again later.";
+		case "exports_paused":
+			return "Saving exports is paused for now, so nothing was saved. Ask Evry to prepare it again later.";
 		case "attachment_gone":
 			return "The attached file is no longer available, so nothing was saved. Attach it again and ask Evry.";
 		case "file_changed":
@@ -1401,8 +1524,7 @@ export function consequence(review: Review): string | null {
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
-	const owner =
-		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	const owner = tasks > 0 ? `${counted(tasks, "open task")} will need a new owner.` : null;
 	switch (review.operation) {
 		case "people.createAssessment":
 		case "people.withdrawCommitment":
@@ -1418,6 +1540,7 @@ export function consequence(review: Review): string | null {
 	if (review.operation === "meetings.delete") return "It leaves Meetings. Its history stays.";
 	if (review.operation === "meetings.finalizeAttendance")
 		return "Approving finalizes attendance and creates exactly the tasks listed.";
+	if (review.operation === "people.changeStatus") return null;
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
 	const direction = review.review.changes.find((c) => c.field === "direction")?.after;
@@ -1443,12 +1566,11 @@ export function consequence(review: Review): string | null {
 
 export function importSummary(rows: readonly ReviewedRow[]) {
 	const n = (outcome: ReviewedRow["outcome"][]) => rows.filter((r) => outcome.includes(r.outcome)).length;
-	const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 	const add = n(["create", "create_and_review"]);
 	return [
-		`${plural(add, "person", "people")} will be added`,
-		n(["skip"]) ? `${plural(n(["skip"]), "row", "rows")} skipped` : null,
-		n(["fail"]) ? `${plural(n(["fail"]), "row fails", "rows fail")}` : null,
+		`${counted(add, "person", "people")} will be added`,
+		n(["skip"]) ? `${counted(n(["skip"]), "row")} skipped` : null,
+		n(["fail"]) ? `${counted(n(["fail"]), "row fails", "rows fail")}` : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
@@ -1586,6 +1708,12 @@ export const editableChanges = (review: Review) =>
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
 	if (!REVISABLE.has(review.operation) && !isMail(review.operation)) return null;
 	const { target, changes } = review.review;
+	if (
+		review.stale === "merge" &&
+		isMail(review.operation) &&
+		changes.some((c) => audienceOf(c.after)?.personIds.length)
+	)
+		return null;
 	const value = (c: Change) => {
 		const edited = edits[c.field];
 		if (edited === undefined) return c.after;
@@ -1761,6 +1889,8 @@ export function launchRefusalText(code: string | undefined): string {
 			return "This milestone's prep tasks changed after Evry prepared this, so nothing was saved. This is how they are now. Ask Evry to prepare it again.";
 		case "revision_conflict":
 			return "The Launch plan changed after Evry prepared this, so nothing was saved. This is how it is now. Ask Evry to prepare it again.";
+		case "already_guest":
+			return "That Person is already named as a Launch Sunday guest, so nothing was saved. Ask Evry to prepare it again.";
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
 		case "access_denied":
@@ -1794,13 +1924,19 @@ export function refusalText(code: string | undefined, target: string | null, ope
 				return "Your seat no longer allows this change, so nothing was saved.";
 			case "status_transition":
 				return "The meeting's status no longer allows this change, so nothing was saved.";
+			case "practice_cancelled":
+				return "A cancelled practice can't be corrected, so nothing was saved.";
 			case "not_found":
 			case "source_unavailable":
 				return `${who} is no longer in Meetings, so nothing was saved.`;
 			default:
 				return "Meetings refused this change, so nothing was saved.";
 		}
+	if (operation === "people.reorderPipeline" && (code === "revision_conflict" || code === "conflict"))
+		return "This pipeline column changed after Evry prepared this, so nothing moved. Ask Evry to prepare it again.";
 	switch (code) {
+		case "use_reviewed_unmerge":
+			return `${who} was merged into another person, so nothing was restored. Use Unmerge on that person's page.`;
 		case "revision_conflict":
 		case "conflict":
 			return `${who}'s record changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
@@ -1853,6 +1989,8 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 			return "An Owner's follow-ups can't be handed off this way, so nothing was moved.";
 		case "handoff_target_ineligible":
 			return "That person can no longer own follow-ups, so nothing was moved. Ask Evry to prepare it again.";
+		case "combined_follow_up":
+			return "Two people were merged, so this follow-up became one with the other from the same meeting. Nothing was saved. Use the one that is left.";
 		case "protected_source":
 			return "A meeting made this task, so it can't be changed this way. Nothing was saved.";
 		case "nonexistent_local_time":
@@ -1920,10 +2058,14 @@ export function mailRefusalText(code: string | undefined): string {
 			return "Your seat no longer allows email changes, so nothing was done.";
 		case "mail_unavailable":
 			return "This server cannot reach the email service, so nothing was done.";
+		case "mail_paused":
+			return "Sending email was paused before this went out, so nothing was sent. Ask Evry to prepare it again later.";
 		case "not_found":
 			return "This message is no longer in Messages, so nothing was done.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link and no open meeting, so nothing was done.";
+		case "mailing_address_missing":
+			return "Sending is held until your church has a mailing address, so nothing was sent. Add it in Church profile.";
 		default:
 			return "Messages refused this change, so nothing was done.";
 	}
@@ -1937,6 +2079,8 @@ export function stoppedReason(code: string | undefined): string {
 			return "The send time is no longer within the next 30 days.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link, and its meeting is no longer open.";
+		case "mailing_address_missing":
+			return "Your church has no mailing address in Church profile yet.";
 		case "access_denied":
 			return "Your seat no longer allows email changes.";
 		case "provider_refused":
@@ -1958,6 +2102,8 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 			return "This review is already closed.";
 		case "photo_unavailable":
 			return "The uploaded photo is no longer available, so nothing was saved.";
+		case "mail_paused":
+			return "Sending email is paused for now, so nothing was sent. This change is still waiting. Approve it again later.";
 		case "not_assigned":
 		case "owner_ineligible":
 		case "assignee_ineligible":

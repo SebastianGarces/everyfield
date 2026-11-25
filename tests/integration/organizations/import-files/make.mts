@@ -1,7 +1,13 @@
 import { writeFileSync } from "node:fs";
-import ExcelJS from "../../../../packages/domain/node_modules/exceljs/excel.js";
+import { createRequire } from "node:module";
 import { APPLICATIONS, csvOf, V2_ORDER } from "./data.mts";
 
+const ExcelJS: {
+	Workbook: new () => {
+		addWorksheet(name: string): { addRow(cells: unknown[]): void };
+		xlsx: { writeBuffer(): Promise<ArrayBuffer> };
+	};
+} = createRequire(import.meta.url)("../../../../packages/domain/node_modules/exceljs/excel.js");
 const dir = new URL(".", import.meta.url);
 async function xlsx(name: string, order: number[]) {
 	const book = new ExcelJS.Workbook();

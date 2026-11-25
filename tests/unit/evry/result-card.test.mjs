@@ -142,6 +142,42 @@ test("a message read is a Messages card with the send time, no person wording an
 	assert.deepEqual(none.facts.slice(0, 1), ["No draft or scheduled message in this church matches."]);
 });
 
+test("INV-communication-child-card: the email cards word a left-out child and a routed child as the Messages record does", () => {
+	const children = [
+		["marked as a child", "Not sent: marked as a child"],
+		["sent to a parent or guardian instead", "Sent to a parent or guardian instead"],
+	];
+	for (const [operation, title] of [
+		["communication.get", "Email results"],
+		["communication.meetingRecipientTracking", "Who got the meeting's emails"],
+	]) {
+		const people = children.map(([value], i) => ({
+			kind: "person",
+			id: [P1, P2][i],
+			label: `Child ${i}`,
+			fields: { result: value, deliveredAt: null, openedAt: null },
+		}));
+		const view = cardView(operation, result(operation, people), null);
+		assert.equal(view.title, title);
+		assert.deepEqual(
+			view.rows.map((r) => r.line),
+			children.map(([, line]) => line),
+		);
+	}
+	const emails = children.map(([value], i) => ({
+		kind: "message",
+		id: [P1, P2][i],
+		label: "Family night",
+		fields: { result: value, sentAt: "Mon 2026-11-09 08:00", deliveredAt: null, openedAt: null },
+	}));
+	const view = cardView("communication.forPerson", result("communication.forPerson", emails), null);
+	assert.equal(view.title, "Emails");
+	assert.deepEqual(
+		view.rows.map((r) => r.line),
+		children.map(([, line]) => `${line} · Mon 2026-11-09 08:00`),
+	);
+});
+
 const T1 = "44444444-4444-4444-8444-444444444441";
 const T2 = "44444444-4444-4444-8444-444444444442";
 const T3 = "44444444-4444-4444-8444-444444444443";
@@ -625,6 +661,67 @@ test("INV-result-card-phases: the journey names the current phase and its start,
 			["Core Group Development", "Before Launch Team Formation"],
 			["30 committed adults", "No data yet"],
 			["Worship leader identified", "Met"],
+		],
+	);
+
+	const criteria = cardView(
+		"intelligence.readExitCriteria",
+		result("intelligence.readExitCriteria", [
+			{ kind: "phase", id: "1", label: "Core Group Development", fields: { next: "Launch Team Formation" } },
+			{
+				kind: "criterion",
+				id: "committed_adults",
+				label: "30 committed adults",
+				fields: { status: "not met", reading: "18 of 30 committed adults" },
+			},
+			{
+				kind: "criterion",
+				id: "geographic_area",
+				label: "Geographic area set",
+				fields: { status: "no data yet", reading: null },
+			},
+		]),
+		null,
+	);
+	assert.deepEqual(
+		criteria.rows.map((r) => [r.name, r.line]),
+		[
+			["Core Group Development", "Before Launch Team Formation"],
+			["30 committed adults", "Not met · 18 of 30 committed adults"],
+			["Geographic area set", "No data yet"],
+		],
+	);
+
+	const steps = cardView(
+		"intelligence.readJourney",
+		result("intelligence.readJourney", [
+			{
+				kind: "phase",
+				id: "d1",
+				label: "Launch Sunday scheduled",
+				fields: {
+					entry: "launch_date",
+					fromDate: null,
+					toDate: "2027-03-07",
+					reason: null,
+					by: "Nate",
+					on: "2026-10-01",
+				},
+			},
+			{
+				kind: "phase",
+				id: "m1",
+				label: "Core Group Development",
+				fields: { entry: "movement", direction: "forward", reason: "Weekly meetings", by: "Nate", on: "2026-08-03" },
+			},
+		]),
+		null,
+	);
+	assert.deepEqual(
+		steps.rows.map((r) => [r.name, r.line]),
+		[
+			["Launch Sunday scheduled", "to Mar 7, 2027 · Nate · Oct 1, 2026"],
+			["Moved to Core Group Development", "Weekly meetings · Nate · Aug 3, 2026"],
 		],
 	);
 });

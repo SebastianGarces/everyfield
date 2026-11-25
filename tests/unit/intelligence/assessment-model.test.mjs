@@ -1,10 +1,14 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import {
 	coldStartTitle,
 	factText,
 	newestText,
 	nextSteps,
+	refreshProblem,
 	trendText,
 } from "../../../apps/web/src/features/intelligence/assessment-model.ts";
 import { facts } from "./views-fixture.mjs";
@@ -35,13 +39,48 @@ test("AC:ASMT-005 a newer run that is pending or failed is its own line, and the
 	assert.match(newestText({ state: "needs_review", retryAt: null, grounding: "grounded" }, true), /Everyfield team/);
 });
 
+test("INV-freshness: a refresh that failed says so plainly and never claims a new assessment was requested", () => {
+	assert.equal(refreshProblem({ status: "ok", value: null }), null);
+	assert.match(refreshProblem({ status: "lost" }), /couldn't request .*unchanged\. Try again/);
+	assert.match(refreshProblem({ status: "signed_out" }), /nothing was requested/);
+	assert.match(
+		refreshProblem({ status: "refused", code: "access_denied", error: { code: "access_denied" } }),
+		/You can't request a new assessment/,
+	);
+});
+
 test("next steps name only gaps the measured facts show", () => {
 	assert.deepEqual(
 		nextSteps(facts).map((s) => s.href),
-		["/follow-ups", "/ministries", "/intelligence/attestations"],
+		["/tasks/follow-ups", "/ministries", "/intelligence/attestations"],
 	);
 	assert.match(nextSteps(facts)[1].detail, /^2 of 8 have someone assigned\.$/);
 	assert.match(nextSteps(facts)[2].title, /^Answer 6 attestations$/);
+});
+
+const appDir = fileURLToPath(new URL("../../../apps/web/src/app/", import.meta.url));
+const staticPages = new Set(
+	readdirSync(appDir, { recursive: true })
+		.filter((f) => f.endsWith("page.tsx") && !f.includes("["))
+		.map(
+			(f) =>
+				`/${f
+					.split("/")
+					.slice(0, -1)
+					.filter((s) => !s.startsWith("("))
+					.join("/")}`,
+		),
+);
+
+test("every next step opens a page that exists, and follow-ups open the follow-ups list", () => {
+	const all = nextSteps({
+		...facts,
+		committedAdults: { ...facts.committedAdults, status: "not_met", needsClassifying: [{ id: "p", name: "P" }] },
+		vision: { ...facts.vision, status: "unknown" },
+	});
+	assert.equal(all.length, 6);
+	for (const s of all) assert.ok(staticPages.has(s.href), `${s.title} links to ${s.href}, which has no page`);
+	assert.equal(all.find((s) => s.title === "Track follow-ups after meetings")?.href, "/tasks/follow-ups");
 });
 
 test("fact values and trend cells read as words, Unknown and Not measured never as zero", () => {

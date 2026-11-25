@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 
 async function firstRead(text: string) {
 	const reply = await scriptedModel().doGenerate({
@@ -116,4 +116,48 @@ test("INV-scripted-model: a seat whose propose tool offers only notification cha
 	const call = owner.content.find((c) => c.type === "tool-call");
 	assert.ok(call && call.type === "tool-call");
 	assert.deepEqual(JSON.parse(call.input), { operation: "communication.get", input: { subject: "welcome email" } });
+});
+
+test("INV-scripted-model: the stream sends the reply's text word by word, then its tool calls and the finish, with no timer", async () => {
+	const tools = [{ type: "function", name: "people_read", inputSchema: {} }];
+	const options = (text: string, abortSignal?: AbortSignal) =>
+		({ prompt: [{ role: "user", content: [{ type: "text", text }] }], tools, abortSignal }) as never;
+	const plain = (part: Record<string, unknown>) => {
+		const { id: _id, toolCallId: _call, ...rest } = part;
+		return rest;
+	};
+	const timers = { setTimeout, setInterval, setImmediate };
+	const refuse = () => {
+		throw new Error("the scripted stream started a timer");
+	};
+	for (const ask of ["formatting demo", "Which people should I call?"]) {
+		const generated = await scriptedModel().doGenerate(options(ask));
+		Object.assign(globalThis, { setTimeout: refuse, setInterval: refuse, setImmediate: refuse });
+		try {
+			const { stream } = await scriptedModel().doStream(options(ask));
+			const parts = (await Array.fromAsync(stream)) as Record<string, unknown>[];
+			const expected = [
+				{ type: "stream-start", warnings: [] },
+				...generated.content.flatMap((c) =>
+					c.type === "text"
+						? [
+								{ type: "text-start" },
+								...(c.text.match(/\S+\s*/g) ?? []).map((delta) => ({ type: "text-delta", delta })),
+								{ type: "text-end" },
+							]
+						: [c],
+				),
+				{ type: "finish", finishReason: generated.finishReason, usage: generated.usage },
+			];
+			assert.deepEqual(parts.map(plain), expected.map(plain), ask);
+		} finally {
+			Object.assign(globalThis, timers);
+		}
+	}
+	const words = await scriptedModel().doGenerate(options("formatting demo"));
+	assert.ok(words.content.some((c) => c.type === "text" && c.text.split(/\s+/).length > 10));
+	const aborted = new AbortController();
+	aborted.abort();
+	const { stream } = await scriptedModel().doStream(options("formatting demo", aborted.signal));
+	assert.deepEqual(await Array.fromAsync(stream), []);
 });

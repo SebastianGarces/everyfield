@@ -5,7 +5,7 @@ import type { EvryActor } from "../context/actor.ts";
 import { liveAuthority } from "../context/authority.ts";
 import { LIMITS } from "../context/limits.ts";
 import { retainedEvents } from "../conversations/retained.ts";
-import { eventRow, reference, type ConversationEvent } from "../conversations/store.ts";
+import { eventRow, userMessageBody, type ConversationEvent } from "../conversations/store.ts";
 
 export type RunLease = { turnId: string; tenantId: string; leaseOwner: string; generation: string };
 
@@ -13,14 +13,14 @@ export const fence = (lease: RunLease) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${lease.turnId}::uuid AND j.tenant_id=${lease.tenantId}::uuid AND j.state='claimed'
 		AND j.lease_owner=${lease.leaseOwner} AND j.claim_generation=${lease.generation}::bigint AND j.lease_until>clock_timestamp())`;
 
-const turnRow = z.object({
+const turnRow = z.strictObject({
 	conversation_id: z.uuid(),
 	tenant_id: z.uuid(),
 	account_id: z.uuid(),
 	session_id: z.uuid().nullable(),
-	message: z.object({
+	message: z.strictObject({
 		sequence: z.coerce.number(),
-		body: z.object({ text: z.string(), references: z.array(reference).default([]) }),
+		body: userMessageBody,
 		createdAt: z.coerce.date(),
 	}),
 });
@@ -55,7 +55,7 @@ export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | nu
 }
 
 export async function appendEvent(
-	db: Database,
+	db: Pick<Database, "execute">,
 	lease: RunLease,
 	conversationId: string,
 	kind: Exclude<ConversationEvent["kind"], "user_message">,

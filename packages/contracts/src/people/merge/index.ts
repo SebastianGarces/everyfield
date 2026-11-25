@@ -5,24 +5,10 @@ import { commandEnvelope } from "../../common/writes.ts";
 import { criterionRating, interviewResult } from "../assessments/index.ts";
 import { actorAttribution } from "../results.ts";
 import { pageInput, stage } from "../values.ts";
-import { inverseConflict, mergeBlocker, referenceKind, referenceTreatment } from "./errors.ts";
+import { blockers, inverseConflict, mergeField, referenceKind, referenceTreatment, unmergeField } from "./errors.ts";
 
 export * from "./errors.ts";
 
-export const mergeField = z.enum([
-	"displayName",
-	"firstName",
-	"lastName",
-	"email",
-	"phone",
-	"address",
-	"source",
-	"summaryNotes",
-	"birthDate",
-	"adultClassification",
-	"household",
-	"photo",
-]);
 export const plantOnlyMergeFields = ["source", "adultClassification", "household", "photo", "birthDate"] as const;
 export const mergeSide = z.enum(["source", "survivor"]);
 
@@ -31,6 +17,22 @@ const distinct = (v: { sourceId: string; survivorId: string }) => v.sourceId !==
 
 export const mergeReviewRequest = z.strictObject(pair).refine(distinct);
 const side = z.strictObject({ personId, revision, displayName: z.string(), linkedAccount: z.boolean() });
+const meeting = z.string().min(1).max(300);
+export const attendanceChange = z.discriminatedUnion("change", [
+	z.strictObject({ change: z.literal("combined"), meeting, presence: z.enum(["attended", "excused", "absent"]) }),
+	z.strictObject({
+		change: z.literal("rsvp_replaced"),
+		meeting,
+		pendingPersonId: personId,
+		answer: z.enum(["confirmed", "declined"]),
+	}),
+	z.strictObject({ change: z.literal("inviter_cleared"), meeting, inviterPersonId: personId }),
+	z.strictObject({
+		change: z.literal("follow_up_combined"),
+		meeting,
+		state: z.enum(["open", "complete", "no_longer_needed"]),
+	}),
+]);
 export const mergeReview = z.strictObject({
 	source: side,
 	survivor: side,
@@ -47,10 +49,11 @@ export const mergeReview = z.strictObject({
 	references: z
 		.array(z.strictObject({ kind: referenceKind, count: z.int().min(1), treatment: referenceTreatment }))
 		.max(referenceKind.options.length),
-	blockers: z.strictObject({
-		causes: z.array(mergeBlocker).max(3),
-		references: z.array(referenceKind).max(referenceKind.options.length),
-	}),
+	blockers: z.strictObject(blockers),
+	openFollowUps: z.array(z.strictObject({ personId, meeting: z.string(), dueDate: localDate })).max(200),
+	attendance: z.array(attendanceChange).max(600),
+	openTasks: z.array(z.strictObject({ title: z.string(), dueDate: localDate.nullable() })).max(200),
+	openKitItems: z.array(z.strictObject({ meeting, text: z.string() })).max(200),
 	reviewDigest: digest,
 });
 
@@ -92,7 +95,12 @@ export const unmergePreview = z.strictObject({
 	state: z.enum(["merged", "unmerged"]),
 	restores: moved,
 	fields: z.array(mergeField).max(mergeField.options.length),
-	conflicts: z.array(inverseConflict).max(3),
+	conflicts: z.array(inverseConflict).max(inverseConflict.options.length),
+	changed: z.array(referenceKind).max(referenceKind.options.length),
+	changedFields: z.array(unmergeField).max(unmergeField.options.length),
+	stays: moved,
+	staysFields: z.array(unmergeField).max(unmergeField.options.length),
+	attendance: z.array(attendanceChange).max(600),
 	reviewRevision: revision,
 });
 export const unmergePeopleRequest = commandEnvelope(z.strictObject({ mergeId: recordId }));

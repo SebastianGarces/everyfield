@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { authorityOf } from "../people/people-support.mts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -20,14 +20,13 @@ const { admin } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
-type Actor = { id: string; session: string };
 type Goals = Extract<Awaited<ReturnType<typeof readPipelineGoals>>, { status: "ok" }>["value"];
-let grace: { kind: "organization"; id: string };
-let hill: { kind: "organization"; id: string };
+let grace: Workspace & { kind: "organization" };
+let hill: Workspace & { kind: "organization" };
 let dana: Actor, luis: Actor, ana: Actor, ben: Actor, hillOwner: Actor;
 let anaSeat: string, benSeat: string;
 
-const authority = (a: Actor) => RequestActor.resolve(db, a.session as never);
+const authority = (a: Actor) => authorityOf(db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -41,7 +40,7 @@ const refusedWith = (
 	assert.equal(r.refusal?.code, code);
 	if (field) assert.equal(r.refusal?.field, field);
 };
-const goals = async (a: Actor) => ok(await readPipelineGoals(db, await authority(a))) as Goals;
+const goals = async (a: Actor) => ok(await readPipelineGoals(db, await authority(a)));
 const board = async (a: Actor, query: object = {}) => ok(await readPipelineBoard(db, await authority(a), query));
 const record = async (a: Actor, personId: string) => readPipelinePersonRecord(db, await authority(a), { personId });
 const kinds = (g: Goals) => Object.fromEntries(g.kinds.map((k) => [k.kind, k.count]));
@@ -81,19 +80,19 @@ const snapshot = async () => ({
 });
 
 before(async () => {
-	grace = (await database.organization("sending_church", {
+	grace = await database.organization("sending_church", {
 		name: "Grace Austin",
 		timezone: "America/Chicago",
-	})) as never;
-	hill = (await database.organization("sending_network", {
+	});
+	hill = await database.organization("sending_network", {
 		name: "Hill Country Network",
 		timezone: "Pacific/Kiritimati",
-	})) as never;
-	dana = await database.actor(grace as never, "owner", { user: { name: "Dana" } });
-	luis = await database.actor(grace as never, "admin", { user: { name: "Luis" } });
-	ana = await database.actor(grace as never, "member", { user: { name: "Ana" } });
-	ben = await database.actor(grace as never, "member", { user: { name: "Ben" } });
-	hillOwner = await database.actor(hill as never, "owner", { user: { name: "Hana" } });
+	});
+	dana = await database.actor(grace, "owner", { user: { name: "Dana" } });
+	luis = await database.actor(grace, "admin", { user: { name: "Luis" } });
+	ana = await database.actor(grace, "member", { user: { name: "Ana" } });
+	ben = await database.actor(grace, "member", { user: { name: "Ben" } });
+	hillOwner = await database.actor(hill, "owner", { user: { name: "Hana" } });
 	anaSeat = await seatOf(ana.id, grace.id);
 	benSeat = await seatOf(ben.id, grace.id);
 
@@ -201,7 +200,7 @@ test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; s
 		revision: "1",
 		outcome: "changed",
 	});
-	assert.equal((ok(await saveGoal(db, await authority(dana), goal)) as { outcome: string }).outcome, "noop");
+	assert.equal(ok(await saveGoal(db, await authority(dana), goal)).outcome, "noop");
 	const second = randomUUID();
 	ok(
 		await saveGoal(db, await authority(luis), {
@@ -395,7 +394,7 @@ test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a no
 	const word = "east side group";
 	const noteOf = async (a: Actor) => {
 		const r = await record(a, casey);
-		return r.status === "ok" ? (r.value as { conversations: { note: string | null }[] }).conversations[0]?.note : null;
+		return r.status === "ok" ? r.value.conversations[0]?.note : null;
 	};
 	for (const who of [dana, luis, ana]) assert.match((await noteOf(who)) ?? "", /east side group/);
 	refusedWith(await record(ben, casey), "unavailable");
@@ -405,8 +404,7 @@ test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a no
 	assert.equal(searched.query.q, "");
 	assert.equal(JSON.stringify(searched).includes("east"), false);
 
-	const c = (ok(await record(ana, casey)) as { conversations: { id: string; revision: string; on: string }[] })
-		.conversations[0]!;
+	const c = ok(await record(ana, casey)).conversations[0]!;
 	const earlier = await day("America/Chicago", `'${c.on}'::date - 1`);
 	ok(
 		await correctConversation(db, await authority(ana), {
@@ -485,10 +483,10 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 		timezone: "America/Chicago",
 	});
 	const church = await database.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" });
-	const hana = await database.actor(net as never, "owner", { user: { name: "Hana" } });
-	const hugo = await database.actor(net as never, "admin", { user: { name: "Hugo" } });
-	const mia = await database.actor(net as never, "member", { user: { name: "Mia" } });
-	const gracie = await database.actor(church as never, "owner", { user: { name: "Gina" } });
+	const hana = await database.actor(net, "owner", { user: { name: "Hana" } });
+	const hugo = await database.actor(net, "admin", { user: { name: "Hugo" } });
+	const mia = await database.actor(net, "member", { user: { name: "Mia" } });
+	const gracie = await database.actor(church, "owner", { user: { name: "Gina" } });
 	const link = randomUUID();
 	await admin.execute(sql`INSERT INTO affiliation (id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,
 	 share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)

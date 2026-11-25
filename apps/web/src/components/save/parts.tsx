@@ -83,7 +83,8 @@ const FOCUSABLE =
 	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 function firstProblem(root: HTMLElement): HTMLElement | null {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-	return (bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE)) ?? null;
+	if (!bad || bad.matches("input, textarea, button, select")) return bad;
+	return bad.querySelector<HTMLElement>(FOCUSABLE) ?? bad.querySelector<HTMLElement>('[role="radio"]:not([disabled])');
 }
 
 export function RecordDialog({
@@ -93,6 +94,7 @@ export function RecordDialog({
 	description,
 	action,
 	problem,
+	conflict,
 	size = "md",
 	wait = null,
 	disabled = false,
@@ -106,6 +108,7 @@ export function RecordDialog({
 	description?: ReactNode;
 	action: string;
 	problem?: string;
+	conflict?: ReactNode;
 	size?: "sm" | "md" | "lg";
 	wait?: Wait;
 	disabled?: boolean;
@@ -123,9 +126,9 @@ export function RecordDialog({
 				onOpenAutoFocus={(e) => {
 					const root = fields.current;
 					if (!root) return;
-					const target = alert.current
-						? (firstProblem(root) ?? alert.current)
-						: root.querySelector<HTMLElement>(FOCUSABLE);
+					const target =
+						root.parentElement?.querySelector<HTMLElement>("[data-conflict]") ??
+						(alert.current ? (firstProblem(root) ?? alert.current) : root.querySelector<HTMLElement>(FOCUSABLE));
 					if (!target) return;
 					e.preventDefault();
 					target.focus();
@@ -149,6 +152,7 @@ export function RecordDialog({
 								{problem}
 							</Alert>
 						) : null}
+						{conflict}
 						<div ref={fields} className="contents">
 							{children}
 						</div>

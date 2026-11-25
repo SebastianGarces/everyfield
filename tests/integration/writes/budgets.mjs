@@ -182,6 +182,13 @@ function measure(rows, limits) {
 			if (!budget.repeats?.trim()) repeated.set(key, Math.max(count, repeated.get(key) ?? 0));
 		}
 	}
+	for (const row of rows) {
+		const budget = row.kind === "sample" ? limits[budgetName(limits, row.name)] : undefined;
+		if (budget?.writes !== undefined && row.writes > budget.writes)
+			problems.push(
+				`${row.name}: ${row.writes} writes, budget ${budget.writes}${row.status === "threw" ? " (threw)" : ""} (${kindsText(row.kinds)})`,
+			);
+	}
 	for (const [key, count] of repeated) {
 		const [name, shape] = key.split("\0");
 		problems.push(

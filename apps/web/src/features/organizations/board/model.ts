@@ -1,5 +1,7 @@
+import { counted } from "@everyfield/contracts/common";
 import type { Lost } from "@everyfield/contracts/common";
 import { STARTER_STAGES, type PipelineBoardQuery, type PipelineRefusal } from "@everyfield/contracts/organizations";
+import { MONTHS } from "../../../components/dates.ts";
 
 export const PIPELINE_PATH = "/organization/pipeline";
 
@@ -52,7 +54,7 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 				FIELD_PROBLEM[(r.field ?? "").replace(/\.\d+(?=\.|$)/g, "")] ?? "Check the highlighted fields and try again."
 			);
 		case "stage_occupied":
-			return `This stage still has ${r.people === 1 ? "1 person" : `${r.people} people`} in it. Move them to another stage first.`;
+			return `This stage still has ${counted(r.people, "person", "people")} in it. Move them to another stage first.`;
 		default:
 			return "You don’t have access to make this change.";
 	}
@@ -60,8 +62,6 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 
 export const changedText = (name: string, stage: string) =>
 	`Someone else changed ${name} while you were working. ${name} is now in ${stage}. Nothing was saved, so check the record, then try again.`;
-
-export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
 export function stageChanges(
 	saved: readonly { id: string; label: string }[],
@@ -84,14 +84,14 @@ export function stageChanges(
 }
 
 export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; targetYear: number }) {
-	const leaders = goal.leaderTarget ? `Develop ${plural(goal.leaderTarget, "leader")}` : "";
-	const plants = goal.plantTarget ? `plant ${plural(goal.plantTarget, "church", "churches")}` : "";
+	const leaders = goal.leaderTarget ? `Develop ${counted(goal.leaderTarget, "leader")}` : "";
+	const plants = goal.plantTarget ? `plant ${counted(goal.plantTarget, "church", "churches")}` : "";
 	const aim = leaders && plants ? `${leaders} to ${plants}` : leaders || plants.replace(/^p/, "P");
 	return aim ? `${aim} by ${goal.targetYear}` : `Goal for ${goal.targetYear}`;
 }
 
-const monthName = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
 export const monthLabel = (month: string) => {
-	const name = monthName.format(new Date(`${month}-01T00:00:00Z`));
+	const name = MONTHS[Number(month.slice(5, 7)) - 1];
+	if (!name) throw new RangeError(`Not a month: ${month}`);
 	return month.endsWith("-01") ? `${name} ${month.slice(0, 4)}` : name;
 };

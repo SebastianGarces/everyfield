@@ -41,7 +41,7 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { recordId } from "../ids.ts";
-import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
+import { savedRevision, type EffectResult, type ReviewContext, type ReviewedWrite } from "../../../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 type TeamsContext = Parameters<typeof teamsWriter.create>[1];
@@ -87,6 +87,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 	input: z.ZodType<I>;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	request: R;
+	again?(args: unknown): I;
 	run(tx: WriteTx, context: TeamsContext, request: z.output<R>): Promise<TeamsReply<unknown>>;
 }): ReviewedWrite<I> {
 	return {
@@ -95,8 +96,9 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: admin,
 		review: spec.review,
+		...(spec.again && { again: spec.again }),
 		async execute(tx, context, args, effectKey): Promise<EffectResult> {
-			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
+			const request = spec.request.parse({ ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			const reply = await spec.run(tx, context, request);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return receipt(reply.value as Record<string, unknown>);
@@ -160,15 +162,17 @@ const create = reviewed({
 	run: (tx, c, r) => teamsWriter.create(tx, c, r),
 });
 
+const editInput = z
+	.strictObject({ teamId, name: name.optional(), ...teamFacts, reason: z.string().trim().max(500).optional() })
+	.refine((v) => v.name !== undefined || v.description !== undefined || v.state !== undefined, "nothing to change");
 const edit = reviewed({
 	operation: "teams.edit",
 	description: `Propose renaming a ministry or changing its description or state (forming, active, paused), with an optional reason.`,
-	input: z
-		.strictObject({ teamId, name: name.optional(), ...teamFacts, reason: z.string().trim().max(500).optional() })
-		.refine((v) => v.name !== undefined || v.description !== undefined || v.state !== undefined, "nothing to change"),
+	input: editInput,
 	review: (actor, value) =>
 		sql`SELECT ${review(teamTarget, changes(...teamFields(value, column("t"))))} AS review,
 			${args(sql`t.revision`, json(value))} AS args ${ministry(actor, value.teamId)}`,
+	again: (args) => editInput.parse(savedRevision.parse(args).input),
 	request: editTeamRequest,
 	run: (tx, c, r) => teamsWriter.edit(tx, c, r),
 });

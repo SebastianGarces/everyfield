@@ -1,12 +1,13 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { fixture, key, noReminders } from "./invitations-support.mts";
+import { codeOf, fixture, key, noReminders, outcome, statementText, type Fixture } from "./invitations-support.mts";
 import { waitingOnLock } from "../../support/fixture.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, insertTasks } from "../task-assignees.mts";
-import { currentActor, readViewer, RequestActor } from "../../../packages/domain/src/access/index.ts";
-import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { currentActor, readViewer, RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
+import { owner, personId, sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import {
 	PeopleReadContext,
 	peopleViewer,
@@ -17,25 +18,20 @@ import { readPeoplePage, readPersonPage } from "../../../apps/web/src/features/p
 import { parseQuery } from "../../../apps/web/src/features/people/model.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { invitationRefusals } from "../../../packages/domain/src/identity/index.ts";
-let f;
+let f: Fixture;
 before(async () => {
 	f = await fixture({ lockTimeout: "1s" });
 });
 after(async () => {
 	await f?.close();
 });
-const outcome = (p) =>
-	p.then(
-		(value) => ({ value }),
-		(error) => ({ error }),
-	);
 
 test("BUG-PR124: People membership read takes no account write lock", async () => {
 	const s = await f.setup();
 	await gatedTransaction(f.admin, async (tx) => {
 		await tx.select().from(t.account).where(eq(t.account.id, s.sender.id)).for("share");
 		const member = await f.seats.readCurrentMembership(s.sender.session);
-		assert.equal(member.status, "active");
+		assert.ok(member.status === "active");
 		const page = await gatedTransaction(f.db, (tx) =>
 			peopleReader.listPeople(
 				tx,
@@ -43,10 +39,10 @@ test("BUG-PR124: People membership read takes no account write lock", async () =
 					session: s.sender.session,
 					selected: member.workspace,
 				},
-				{ search: "No matching person" },
+				listPeopleRequest.parse({ search: "No matching person" }),
 			),
 		);
-		assert.equal(page.status, "ok");
+		assert.ok(page.status === "ok");
 		assert.equal(page.value.total, 0);
 	});
 });
@@ -56,8 +52,8 @@ test("BUG-PR124: a held account write returns a retryable refusal and the read r
 	await f.admin.transaction(async (tx) => {
 		await tx.update(t.account).set({ revision: "2" }).where(eq(t.account.id, s.sender.id));
 		await assert.rejects(f.seats.readCurrentMembership(s.sender.session), (error) => {
-			assert.equal(error.code, "temporary");
-			assert.equal(invitationRefusals.refusalOf(error).error.retry, "same_request");
+			assert.equal(codeOf(error), "temporary");
+			assert.equal(invitationRefusals.refusalOf(error)?.error.retry, "same_request");
 			return true;
 		});
 	});
@@ -108,36 +104,75 @@ test("BUG-PR127: resend during a 250-duty removal completes or safely retries", 
 		},
 	};
 	const resend = { requestKey: key(), expectedRevision: "1", input: { invitationId: pending.invitation.invitationId } };
-	let removal, concurrent;
+	const running: {
+		removal?: ReturnType<typeof outcome<Awaited<ReturnType<Fixture["seats"]["remove"]>>>>;
+		concurrent?: ReturnType<typeof outcome<Awaited<ReturnType<Fixture["invitations"]["resend"]>>>>;
+	} = {};
 	try {
 		await f.admin.transaction(async (tx) => {
-			await tx.select().from(t.task).where(eq(t.task.id, ids[0])).for("update");
-			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
-			removal = outcome(f.seats.remove(authority, s.w, command, noReminders));
-			await waitingOnLock(f.admin, { blockedBy: r.rows[0].pid });
-			concurrent = outcome(f.invitations.resend(authority, resend));
+			await tx.select().from(t.task).where(eq(t.task.id, ids[0]!)).for("update");
+			const r = await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`);
+			running.removal = outcome(f.seats.remove(authority, s.w, command, noReminders));
+			await waitingOnLock(f.admin, { blockedBy: r.rows[0]!.pid });
+			running.concurrent = outcome(f.invitations.resend(authority, resend));
 		});
 	} finally {
-		if (removal) await removal;
-		if (concurrent) await concurrent;
+		await running.removal;
+		await running.concurrent;
 	}
-	const removed = await removal,
-		sent = await concurrent;
+	const removed = await running.removal!,
+		sent = await running.concurrent!;
 	assert.equal(removed.error, undefined, "Removal must complete atomically");
-	assert.equal(removed.value.duties.length, 250);
+	assert.equal(removed.value!.duties.length, 250);
 	if (sent.error) {
-		assert.equal(sent.error.code, "temporary");
-		assert.equal(invitationRefusals.refusalOf(sent.error).error.retry, "same_request");
+		assert.equal(codeOf(sent.error), "temporary");
+		assert.equal(invitationRefusals.refusalOf(sent.error)?.error.retry, "same_request");
 	}
 	const result = sent.value ?? (await f.invitations.resend(authority, resend));
+	assert.ok("invitation" in result);
 	assert.equal(result.invitation.revision, "2");
 	assert.deepEqual(await f.seats.remove(authority, s.w, command, noReminders), removed.value);
-	const [{ n }] = await f.admin
-		.select({ n: sql`count(*)::int` })
-		.from(t.task)
-		.innerJoin(t.task_assignee, eq(t.task_assignee.task_id, t.task.id))
-		.where(and(eq(t.task.plant_id, s.w.id), eq(t.task_assignee.account_id, s.sender.id), eq(t.task.revision, "2")));
+	const { n } = (
+		await f.admin
+			.select({ n: sql`count(*)::int` })
+			.from(t.task)
+			.innerJoin(t.task_assignee, eq(t.task_assignee.task_id, t.task.id))
+			.where(and(eq(t.task.plant_id, s.w.id), eq(t.task_assignee.account_id, s.sender.id), eq(t.task.revision, "2")))
+	)[0]!;
 	assert.equal(n, 250);
+});
+
+test("INV-identity: a role change locks the member's account before their seat and sees the removal that held it", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s),
+		a = await f.invitations.accept(s.recipient.session, i.claim);
+	const authority = await f.actor(s.sender.session);
+	const cmd = {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { seatId: a.seat.seatId, expectedRole: "member", to: "admin" },
+	};
+	const running: { change?: ReturnType<typeof outcome<unknown>> } = {};
+	try {
+		await f.admin.transaction(async (tx) => {
+			await tx.select().from(t.account).where(eq(t.account.id, s.recipient.id)).for("update");
+			const r = await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`);
+			running.change = outcome<unknown>(f.seats.appointAdmin(authority, s.w, cmd));
+			await waitingOnLock(f.admin, { blockedBy: r.rows[0]!.pid });
+			const seat = await f.admin.execute(sql`SELECT id FROM seat WHERE id=${a.seat.seatId}::uuid FOR UPDATE NOWAIT`);
+			assert.equal(seat.rows.length, 1);
+			await tx
+				.update(t.seat)
+				.set({ ended_at: sql`clock_timestamp()`, revision: "2" })
+				.where(eq(t.seat.id, a.seat.seatId));
+		});
+	} finally {
+		await running.change;
+	}
+	const { error } = await running.change!;
+	assert.equal(codeOf(error), "invitation_unavailable");
+	const seat = (await f.admin.select().from(t.seat).where(eq(t.seat.id, a.seat.seatId)))[0]!;
+	assert.equal(seat.role, "member");
 });
 
 test("BUG-PR124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
@@ -155,9 +190,9 @@ test("BUG-PR124: HTTP resume returns 503 temporary after lock timeout, with the 
 		invitationProof: invitation.proof,
 		requestKey: key(),
 	});
-	const [user] = await f.admin.select().from(t.auth_user).where(eq(t.auth_user.email, email));
+	const user = (await f.admin.select().from(t.auth_user).where(eq(t.auth_user.email, email)))[0]!;
 	await f.admin.update(t.auth_user).set({ email_verified: true }).where(eq(t.auth_user.id, user.id));
-	const [account] = await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, user.id));
+	const account = (await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, user.id)))[0]!;
 	const login = await native("sign-in/email", { email, password });
 	assert.equal(login.status, 200);
 	const cookie = login.headers
@@ -175,7 +210,7 @@ test("BUG-PR124: HTTP resume returns 503 temporary after lock timeout, with the 
 		assert.equal(
 			(
 				await f.admin.select().from(t.invitation).where(eq(t.invitation.id, invitation.result.invitation.invitationId))
-			)[0].state,
+			)[0]!.state,
 			"pending",
 		);
 	});
@@ -221,29 +256,33 @@ test("BUG-PR127: statement timeout rolls back every handoff and permits exact re
 	);
 	try {
 		await f.admin.transaction(async (gate) => {
-			const [{ pid }] = (await gate.execute(sql`SELECT pg_backend_pid() AS pid FROM stall_gate FOR UPDATE`)).rows;
+			const { pid } = (
+				await gate.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid FROM stall_gate FOR UPDATE`)
+			).rows[0]!;
 			const removal = outcome(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders));
 			await waitingOnLock(f.admin, { blockedBy: pid });
 			await gate.execute(
 				sql`SELECT pg_cancel_backend(a.pid) FROM pg_stat_activity a WHERE ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
 			);
 			const { error } = await removal;
-			assert.equal(error?.code, "temporary", String(error));
-			assert.equal(invitationRefusals.refusalOf(error).error.retry, "same_request");
+			assert.equal(codeOf(error), "temporary", String(error));
+			assert.equal(invitationRefusals.refusalOf(error)?.error.retry, "same_request");
 		});
 	} finally {
 		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);
 		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
 		await f.admin.execute(sql`DROP TABLE stall_gate`);
 	}
-	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
+	const task = (await f.admin.select().from(t.task).where(eq(t.task.id, duty)))[0]!;
 	assert.deepEqual(await assigneesOf(f.admin, duty), [s.recipient.id]);
 	assert.equal(task.revision, "1");
 	assert.equal((await f.seats.readCurrentMembership(s.recipient.session)).status, "active");
-	const [{ n }] = await f.admin
-		.select({ n: sql`count(*)::int` })
-		.from(t.audit_event)
-		.where(eq(t.audit_event.request_key, command.requestKey));
+	const { n } = (
+		await f.admin
+			.select({ n: sql`count(*)::int` })
+			.from(t.audit_event)
+			.where(eq(t.audit_event.request_key, command.requestKey))
+	)[0]!;
 	assert.equal(n, 0);
 	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: duty, recipientAccountId: s.sender.id }]);
@@ -254,12 +293,12 @@ test("INV-identity: current actor preserves authority in one database round trip
 	test.after(() => f.close());
 	const plant = await f.workspace();
 	const organization = await f.workspace("sending_network");
-	const cases = [];
+	const cases: { name: string; account: { session: string }; selected: unknown; expected: object }[] = [];
 	for (const [name, workspace, role] of [
 		["owner", plant, "owner"],
 		["member", plant, "member"],
 		["organization seat", organization, "admin"],
-	]) {
+	] as const) {
 		const account = await f.account();
 		const seatId = await f.seat(account, workspace, role);
 		cases.push({
@@ -317,20 +356,20 @@ test("INV-identity: current actor preserves authority in one database round trip
 		expected: { status: "unavailable" },
 	});
 	let recording = false;
-	let statements = [];
-	const instrumented = new WeakSet();
+	let statements: string[] = [];
+	const instrumented = new WeakSet<object>();
 	f.db.$client.on("acquire", (client) => {
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		test.mock.method(client, "query", function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
-			return query.apply(this, args);
+		test.mock.method(client, "query", function (this: typeof client, ...args: unknown[]) {
+			if (recording) statements.push(statementText(args[0]));
+			return Reflect.apply(query, this, args);
 		});
 	});
 	for (const c of cases) {
 		await test.test(`INV-identity: ${c.name}`, async () => {
-			const trips = [];
+			const trips: number[] = [];
 			for (let n = 0; n < 3; n++) {
 				await gatedTransaction(f.db, async (tx) => {
 					statements = [];
@@ -377,14 +416,15 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 		.map((v) => v.split(";")[0])
 		.join("; ");
 	const session = await native.auth.api.getSession({ headers: new Headers({ cookie }) });
+	assert.ok(session);
 	assert.equal(session.user.email, email);
-	const [account] = await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, session.user.id));
+	const account = (await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, session.user.id)))[0]!;
 	await f.admin.update(t.account).set({ registration_state: "active" }).where(eq(t.account.id, account.id));
 	const workspace = await f.workspace();
 	const seat = await f.seat(account, workspace);
 	const ids = Array.from({ length: 25 }, () => key());
 	await f.admin.insert(t.person).values(
-		ids.map((id, n) => ({
+		ids.map((id, n): typeof t.person.$inferInsert => ({
 			id,
 			tenant_id: workspace.id,
 			plant_id: workspace.id,
@@ -399,42 +439,43 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 			linked_account_id: n === 0 ? account.id : null,
 		})),
 	);
-	let viewer;
-	const readPeople = async (id) => {
+	const readPeople = async (id: string) => {
 		const v = await readViewer(f.db, sessionId.parse(id));
 		return v?.authority ? peopleViewer(v.authority, v.person) : null;
 	};
-	async function pageRead(page) {
+	async function pageRead<V>(page: (tx: WriteTx, context: PeopleReadContext) => Promise<V>) {
 		const session = await native.auth.api.getSession({ headers: new Headers({ cookie }) });
-		viewer = await readPeople(session.session.id);
+		const viewer = await readPeople(session!.session.id);
 		assert.ok(viewer);
 		assert.equal(viewer.displayName, "Request Person 00");
 		assert.equal(viewer.ownPersonId, ids[0]);
-		return gatedTransaction(f.db, (tx) => page(tx, new PeopleReadContext(viewer.authority)));
+		const context = new PeopleReadContext(viewer.authority);
+		return { context, read: await gatedTransaction(f.db, (tx) => page(tx, context)) };
 	}
-	const list = await pageRead((tx, ctx) =>
+	const { read: list } = await pageRead((tx, ctx) =>
 		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("search=Request+Person"))),
 	);
-	assert.equal(list.data.kind, "list");
+	assert.ok(list.data.kind === "list");
 	assert.deepEqual(
 		list.data.page.items.map((p) => p.id),
 		ids.slice(0, 24),
 	);
 	assert.equal(list.data.page.total, 25);
-	const beyond = await pageRead((tx, ctx) =>
+	const { read: beyond } = await pageRead((tx, ctx) =>
 		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("q=Request+Person&page=9999"))),
 	);
-	assert.equal(beyond.data.kind, "list");
+	assert.ok(beyond.data.kind === "list");
 	assert.deepEqual(
 		[beyond.query.page, beyond.query.search, beyond.data.page.items.map((p) => p.id), beyond.data.page.next],
 		[2, "Request Person", [ids[24]], null],
 	);
-	const person = await pageRead((tx, ctx) => readPersonPage(tx, ctx, ids[0]));
-	assert.equal(person.status, "ok");
+	const { read: person, context } = await pageRead((tx, ctx) => readPersonPage(tx, ctx, personId.parse(ids[0])));
+	assert.ok(person.status === "ok");
+	assert.ok(person.value.found.status === "available");
 	assert.equal(person.value.found.person.displayName, "Request Person 00");
 	assert.deepEqual(person.value.link, { status: "ok", value: { status: "linked", personId: ids[0] } });
 	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, seat));
-	const stale = Object.assign(new PeopleReadContext(viewer.authority), {});
+	const stale = Object.assign(new PeopleReadContext(context.authority), {});
 	const changed = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.updatePerson(tx, stale, {
 			requestKey: key(),
@@ -442,10 +483,10 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 			input: { personId: ids[0], patch: { displayName: "Must refuse" } },
 		}),
 	);
-	assert.equal(changed.status, "refused");
+	assert.ok(changed.status === "refused");
 	assert.equal(changed.error.code, "unavailable");
 	assert.equal(
-		(await f.admin.select().from(t.person).where(eq(t.person.id, ids[0])))[0].display_name,
+		(await f.admin.select().from(t.person).where(eq(t.person.id, ids[0]!)))[0]!.display_name,
 		"Request Person 00",
 	);
 	assert.equal(await readPeople(session.session.id), null);

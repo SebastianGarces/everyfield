@@ -24,7 +24,9 @@ import * as tables from "@everyfield/db/tables";
 import { currentActor } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { MintedProof } from "../proofs.ts";
 import { canonical } from "../operations/canonical.ts";
+import { DomainRefusal } from "../operations/refusals.ts";
 import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export { currentActor, sameOwner };
@@ -42,13 +44,7 @@ export type OrganizationRefusalCode =
 	| "request_conflict"
 	| "resend_cooldown"
 	| "stale_revision";
-export class OrganizationRefusal extends Error {
-	readonly code: OrganizationRefusalCode;
-	constructor(code: OrganizationRefusalCode) {
-		super(code);
-		this.code = code;
-	}
-}
+export class OrganizationRefusal extends DomainRefusal<OrganizationRefusalCode> {}
 export function refuse(code: OrganizationRefusalCode = "unavailable"): never {
 	throw new OrganizationRefusal(code);
 }
@@ -100,7 +96,7 @@ export type Reader = Pick<Transaction, "select" | "execute">;
 const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
 const linkLive = <AName extends string>(a: SqlLiteral<AName>) => {
 	const c = <ColumnName extends string>(column: SqlLiteral<ColumnName>) => sql.raw(`${a}.${column}`);
-	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
+	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
 };
 export const linkActive = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql<boolean>`(${sql.raw(a)}.ended_at IS NULL AND ${sql.raw(a)}.accepted_at<=clock_timestamp() AND ${linkLive(a)})`;
@@ -123,6 +119,19 @@ export async function loadAffiliations(tx: Reader, predicate: SQL, write = false
 	const rows = await (write ? query.for("update", { of: tables.affiliation }) : query);
 	return rows.map((row) => affiliationSchema.parse(row));
 }
+export const affiliationJson = affiliationSchema.extend({
+	accepted_at: z.coerce.date(),
+	ended_at: z.coerce.date().nullable(),
+});
+export const lockingAffiliations = (predicate: SQL) =>
+	sql`SELECT l.id, l.plant_id, l.account_id, l.sending_church_id, l.organization_id, ro.name AS organization_name,
+ ro.kind AS organization_kind, so.kind AS subject_kind, l.accepted_at, l.ended_at, l.invitation_id,
+ l.revision::text AS revision, l.consent_revision::text AS consent_revision, l.share_people, l.share_meetings,
+ l.share_tasks, l.share_ministry_teams, l.share_wiki, l.share_activity, l.shared_findings,
+ ${linkLive("l")} AS live, ${linkActive("l")} AS active
+ FROM affiliation l JOIN organization ro ON ro.id=l.organization_id LEFT JOIN organization so ON so.id=l.sending_church_id
+ WHERE ${predicate} AND EXISTS(SELECT FROM organization o WHERE o.id=l.organization_id FOR NO KEY UPDATE)
+ ORDER BY l.id FOR UPDATE OF l`;
 export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
 	return (await loadAffiliations(tx, eq(tables.affiliation.id, id), write))[0] ?? null;
 }
@@ -167,7 +176,7 @@ export interface OrganizationEffects {
 			invitationId: string;
 			owner: Owner;
 			recipientEmail: string;
-			proof: string;
+			proof: MintedProof<"connection">;
 			inviterDescription: string;
 			expiresAt: string;
 			operationId: string;
@@ -251,7 +260,7 @@ export function invalidate(
 	);
 }
 export const witnessHides = (kind: "account" | "plant", id: SQL) =>
-	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
+	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state <> 'cancelled')`;
 export const discoveryOpen = (accountId: SQL) =>
 	sql<boolean>`EXISTS(SELECT FROM discovery d WHERE d.account_id=${accountId} AND d.converted_at IS NULL)`;
 export const seatless = (accountId: SQL) =>

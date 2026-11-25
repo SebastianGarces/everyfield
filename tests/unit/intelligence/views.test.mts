@@ -1,7 +1,9 @@
+import "../runs-in/domain.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readCatalog } from "../../../packages/domain/src/phases/catalog.ts";
-import { criteriaOf, lensesOf } from "../../../packages/domain/src/intelligence/views.ts";
+import { trendValue } from "../../../packages/contracts/src/intelligence/views.ts";
+import { criteriaOf, lensesOf, trendOf } from "../../../packages/domain/src/intelligence/views.ts";
 import { draft, facts } from "./views-fixture.mjs";
 
 test("AC:PI-CASE-019 eight tiles: measured where the snapshot counted, attested where only an answer stands, Unknown otherwise, and Unknown is never a pass", () => {
@@ -38,6 +40,41 @@ test("AC:PI-CASE-019 eight tiles: measured where the snapshot counted, attested 
 test("a snapshot from another formula reads nothing measured, never a made-up result", () => {
 	const tiles = lensesOf({ formulaVersion: "plant-facts/0" }, draft as never);
 	assert.ok(tiles.every((l) => l.quality === "unknown" && l.evidence.length === 0));
+	assert.ok(tiles.every((l) => l.standing !== "strength"));
+	assert.equal(tiles.find((l) => l.key === "critical_mass")!.standing, "attention", "a concern stays raised");
+});
+
+test("INV-lens-standing: a tile with nothing measured or attested never takes Strength from a going-well point that cites it", () => {
+	const positive = { title: "People keep coming", body: "Worth noticing.", urgency: "positive" };
+	const cite = { ...draft, positives: [{ ...positive, citations: ["cohesion.status"] }] };
+	const cohesion = (d: unknown, f: unknown = facts) => lensesOf(f, d as never).find((l) => l.key === "cohesion")!;
+	const { quality, standing, points } = cohesion(cite);
+	assert.deepEqual([quality, standing, points], ["unknown", "insufficient", [3]]);
+	const measured = { ...facts, cohesion: { status: "steady", reason: null, disengaged: [], committed: 30 } };
+	assert.deepEqual([cohesion(cite, measured).quality, cohesion(cite, measured).standing], ["measured", "strength"]);
+});
+
+test("INV-trends: a fact an older snapshot lacks is Not measured and an Unknown fact is Unknown, with no number", () => {
+	assert.deepEqual(
+		trendOf([
+			{ status: "not_met", value: 0 },
+			null,
+			{ status: "unknown", value: null },
+			{ status: "unknown", value: 0 },
+			{ status: "not_met", value: 0 },
+			{ status: "unknown", value: 0 },
+		]),
+		[
+			{ state: "measured", value: 0 },
+			{ state: "not_measured" },
+			{ state: "unknown" },
+			{ state: "unknown" },
+			{ state: "measured", value: 0 },
+			{ state: "unknown" },
+		],
+	);
+	for (const state of ["unknown", "not_measured"])
+		assert.equal(trendValue.safeParse({ state, value: 0 }).success, false, state);
 });
 
 test("AC:B01-005 the assessed phase's criteria as the snapshot measured them, with the facts behind each; Phase 6 has none", async () => {

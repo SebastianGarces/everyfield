@@ -5,7 +5,7 @@ import { organizationSeat } from "@/server/request-context";
 import { pipelineWrite } from "../pipeline-mount";
 import { invitationService } from "@/server/invitations";
 import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
-import { answer, refused, type Reply } from "../../identity/server";
+import { answer, answerSend, refused, type Reply } from "../../identity/server";
 
 export async function addPerson(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.addPerson(db, authority, input));
@@ -63,11 +63,11 @@ export async function runLinkInvitation(operation: unknown, command: unknown): P
 	if (operation === "invite") {
 		const invite = linkInvite.safeParse(command);
 		if (!invite.success) return refused("invalid_input");
-		return answer(() =>
+		return answerSend(() =>
 			service.inviteResident(authority, { ...invite.data, input: { ...invite.data.input, organization } }),
 		);
 	}
-	if (operation === "resend") return answer(() => service.resend(authority, command));
+	if (operation === "resend") return answerSend(() => service.resend(authority, command));
 	if (operation === "revoke") return answer(() => service.revoke(authority, command));
 	return refused("invalid_input");
 }

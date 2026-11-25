@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { countWord, dayText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, NativePorts, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
-import { launchDay } from "../reads/index.ts";
+import { day, id } from "../../tasks/values.ts";
 
 const reader = createLaunchReader();
 const writer = createLaunchWriter({ notices: async () => undefined });
@@ -36,7 +36,7 @@ const plannedText = (plan: c.Plan) =>
 	plan.launch?.status === "postponed"
 		? "Postponed"
 		: plan.launch?.targetDate
-			? launchDay(plan.launch.targetDate)
+			? dayText(plan.launch.targetDate, { weekday: "short" })
 			: null;
 const guestAnswer = (a: Pick<c.DebriefAnswers, "missingNames" | "missingCount">) =>
 	a.missingNames === "yes" ? `Yes, ${a.missingCount ?? "?"}` : a.missingNames === "no" ? "No" : null;
@@ -98,7 +98,7 @@ export const schedule = launchWrite({
 	operation: "launch.schedule",
 	description:
 		"Propose setting or moving Launch Sunday to a church-local date (YYYY-MM-DD), with the user's reason in their own words. Moving a scheduled date needs a reason (at most 2,000 characters). Prep task due dates, assignees and statuses and the church's phase never change. Nothing changes until the user approves",
-	input: z.strictObject({ date: localDate, reason: z.string().max(4000).nullable() }),
+	input: z.strictObject({ date: day, reason: z.string().max(4000).nullable() }),
 	prepare(plan, input) {
 		const status = plan.launch?.status ?? "planning";
 		const moving = status === "scheduled";
@@ -107,13 +107,13 @@ export const schedule = launchWrite({
 			status === "completed"
 				? "Launch Sunday is already recorded, so its date can't move."
 				: moving && plan.launch?.targetDate === input.date
-					? `Launch Sunday is already ${launchDay(input.date)}.`
+					? `Launch Sunday is already ${dayText(input.date, { weekday: "short" })}.`
 					: !note.ok
 						? NOTE_REFUSAL[note.problem]
 						: null;
 		return {
 			changes: [
-				{ field: "launchDate", before: plannedText(plan), after: launchDay(input.date) },
+				{ field: "launchDate", before: plannedText(plan), after: dayText(input.date, { weekday: "short" }) },
 				{ field: "reason", before: null, after: note.ok ? note.note : (input.reason ?? null) },
 			],
 			notes: [UNCHANGED],
@@ -173,7 +173,7 @@ const draftFence = (draft: { id: string; revision: string } | null | undefined) 
 });
 
 const outcomeInput = z.strictObject({
-	actualDate: localDate.optional(),
+	actualDate: day.optional(),
 	attendance: count.nullable(),
 	decisions: count.nullable().optional(),
 	guestsNotNamed: count.nullable().optional(),
@@ -202,7 +202,7 @@ export const recordOutcome = launchWrite({
 				? OUTCOME_REFUSAL[checked.problem]
 				: null;
 		const changes: Change[] = [
-			{ field: "actualDate", before: null, after: launchDay(actualDate) },
+			{ field: "actualDate", before: null, after: dayText(actualDate, { weekday: "short" }) },
 			{ field: "attendance", before: null, after: input.attendance },
 			...(input.decisions !== undefined ? [{ field: "decisions", before: null, after: input.decisions }] : []),
 			...(answers
@@ -225,10 +225,10 @@ export const recordOutcome = launchWrite({
 	},
 	async run(db, authority, args, key) {
 		const a = z
-			.object({
+			.strictObject({
 				record: z.record(z.string(), z.unknown()),
 				debrief: z
-					.object({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
+					.strictObject({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
 					.nullable(),
 			})
 			.parse(args);
@@ -292,6 +292,94 @@ export const submitDebrief = launchWrite({
 	},
 });
 
+const WRITTEN_LABEL: Record<(typeof c.WRITTEN_AREAS)[number], string> = {
+	wentWell: "What went well",
+	toChange: "What to change",
+	operations: "Operations",
+	followUpPlan: "Follow-up plan",
+	supportNeeded: "Support needed",
+};
+const NOT_SHARED = "Nothing is submitted, published or shared.";
+export const saveDebriefDraft = launchWrite({
+	operation: "launch.saveDebriefDraft",
+	description:
+		"Propose saving a half-done Launch debrief as its draft: only the written areas the user gives, in their own words (wentWell, toChange, operations, followUpPlan, supportNeeded; null clears one). Areas left out keep their draft text, and the last submitted debrief stays. It submits nothing. Nothing changes until the user approves",
+	input: z.strictObject({
+		wentWell: answer,
+		toChange: answer,
+		operations: answer,
+		followUpPlan: answer,
+		supportNeeded: answer,
+	}),
+	prepare(plan, input) {
+		const base = baseAnswers(plan);
+		const named = c.WRITTEN_AREAS.filter((k) => input[k] !== undefined);
+		const checked = c.checkDebrief({ ...base, ...Object.fromEntries(named.map((k) => [k, input[k] ?? null])) }, false);
+		const answers = checked.ok ? checked.answers : base;
+		const changed = named.filter((k) => answers[k] !== base[k]);
+		const kept = c.WRITTEN_AREAS.filter((k) => !named.includes(k) && base[k] !== null);
+		const refusal = !plan.outcome
+			? "Record Launch Sunday first: the debrief follows the recorded outcome."
+			: !named.length
+				? "Say what to save for at least one area of the debrief."
+				: !checked.ok
+					? DEBRIEF_REFUSAL[checked.problem]
+					: !changed.length && plan.debrief?.draft
+						? "The debrief draft already says this, so there's nothing to save."
+						: null;
+		return {
+			label: "Launch debrief",
+			changes: named.map((k) => ({ field: k, before: base[k], after: checked.ok ? answers[k] : (input[k] ?? null) })),
+			notes: [
+				`This saves a draft. ${NOT_SHARED}`,
+				...(kept.length ? [`Kept as they are: ${kept.map((k) => WRITTEN_LABEL[k]).join(", ")}.`] : []),
+				...(plan.debrief?.submitted
+					? [`The submitted debrief (version ${plan.debrief.submitted.version}) stays as it is.`]
+					: []),
+			],
+			refusal,
+			args: { ...draftFence(plan.debrief?.draft), answers },
+		};
+	},
+	async run(db, authority, args, key) {
+		const { expectedRevision, ...input } = args as { expectedRevision: string } & Record<string, unknown>;
+		return settled(await writer.saveDebriefDraft(db, authority, { requestKey: key, expectedRevision, input }));
+	},
+});
+
+export const saveDebriefSummaryDraft = launchWrite({
+	operation: "launch.saveDebriefSummaryDraft",
+	description: `Propose saving the Launch summary so far as a draft: body is the whole text (at most ${c.SUMMARY_MAX.toLocaleString("en-US")} characters). It needs a submitted debrief. It publishes nothing and shares nothing. Nothing changes until the user approves`,
+	input: z.strictObject({ body: z.string().max(c.SUMMARY_MAX * 2) }),
+	prepare(plan, input) {
+		const checked = c.checkSummary(input.body);
+		const body = checked.ok ? checked.body : input.body;
+		const draft = plan.summary?.draft ?? null;
+		const refusal = !plan.evidence.submittedAt
+			? "Submit the debrief first: the summary is written after it."
+			: !checked.ok
+				? checked.problem === "empty"
+					? "Write some of the summary before saving it."
+					: "Keep the summary to 4,000 characters or fewer."
+				: draft?.body === body
+					? "The summary draft already says this, so there's nothing to save."
+					: null;
+		return {
+			label: "Launch summary",
+			changes: [{ field: "summary", before: draft?.body ?? null, after: body }],
+			notes: [
+				"This saves a draft. Nothing is published or shared: your sending church and network see only a summary you publish.",
+			],
+			refusal,
+			args: { ...draftFence(draft), body },
+		};
+	},
+	async run(db, authority, args, key) {
+		const { expectedRevision, ...input } = args as { expectedRevision: string } & Record<string, unknown>;
+		return settled(await writer.saveDebriefSummaryDraft(db, authority, { requestKey: key, expectedRevision, input }));
+	},
+});
+
 export const publishDebriefSummary = launchWrite({
 	operation: "launch.publishDebriefSummary",
 	description: `Propose publishing the Launch summary for the church's sending church and network: body is the exact text they will see (at most ${c.SUMMARY_MAX.toLocaleString("en-US")} characters), published word for word as the next version. It needs a submitted debrief. Nothing is sent, and nothing changes until the user approves`,
@@ -339,7 +427,7 @@ const milestoneNow = (p: SQL) => sql`(SELECT jsonb_build_array(jsonb_build_objec
 	FROM launch_milestone m WHERE m.id=(${p}.input->'input'->>'milestoneId')::uuid AND m.plant_id=${p}.tenant_id)`;
 
 const milestoneInput = z.strictObject({
-	milestoneId: z.uuid(),
+	milestoneId: id,
 });
 type MilestoneInput = z.infer<typeof milestoneInput>;
 const KEPT_TASKS = "Its prep tasks' statuses, due dates and assignees stay as they are.";
@@ -359,7 +447,7 @@ export const completeMilestone = launchWrite({
 			changes: [{ field: "milestone", before: milestoneState(m), after: "Complete" }],
 			notes: [
 				open.length
-					? `${open.length} of its ${m.tasks.length} prep tasks ${open.length === 1 ? "is still open and stays" : "are still open and stay"} open: ${open.map((t) => t.title).join("; ")}.`
+					? `${open.length} of its ${m.tasks.length} prep tasks ${countWord(open.length, "is still open and stays", "are still open and stay")} open: ${open.map((t) => t.title).join("; ")}.`
 					: "Every prep task linked to it is done.",
 				...(earlier
 					? [
@@ -410,8 +498,15 @@ const KEPT_COUNTS = "Attendance, decisions and the debrief's guest answer stay a
 const NOT_RECORDED = "Launch Sunday isn't recorded yet. Record it first, then name its guests.";
 
 type Picked = { id: string; displayName: string; detail: string };
+async function pickedPerson(db: Database, actor: EvryActor, personId: string): Promise<Picked | null> {
+	const { rows } = await db.execute(sql`SELECT id,display_name,coalesce(email,phone,'') AS detail FROM person
+		WHERE id=${personId}::uuid AND tenant_id=${actor.owner.id}::uuid AND plant_id=${actor.owner.id}::uuid
+		AND state='live'`);
+	const r = rows[0];
+	return r ? { id: String(r.id), displayName: String(r.display_name), detail: String(r.detail) } : null;
+}
 const guestInput = z.union([
-	z.strictObject({ personId: z.uuid() }),
+	z.strictObject({ personId: id }),
 	z.strictObject({ displayName: z.string().max(c.GUEST_NAME_MAX * 4) }),
 ]);
 type GuestInput = z.infer<typeof guestInput>;
@@ -420,12 +515,7 @@ export const addGuestAttendance = launchWrite<GuestInput, Picked | undefined>({
 	description: `Propose naming one Launch Sunday first-time guest, after Launch Sunday is recorded: personId, a live Person the user picked from launch.readDebrief's guestName matches, or displayName, a new Person with only that name (at most ${c.GUEST_NAME_MAX} characters). A typed name never links to or merges with an existing Person: when the guestName read finds matches, list them and ask which one, or whether to add a new Person, and propose nothing for that name until the user says. One card per guest. Attendance, decisions and the debrief's guest answer never change. Nothing changes until the user approves`,
 	input: guestInput,
 	async lookup(db, actor, input) {
-		if (!("personId" in input)) return undefined;
-		const { rows } = await db.execute(sql`SELECT id,display_name,coalesce(email,phone,'') AS detail FROM person
-			WHERE id=${input.personId}::uuid AND tenant_id=${actor.owner.id}::uuid AND plant_id=${actor.owner.id}::uuid
-			AND state='live'`);
-		const r = rows[0];
-		return r ? { id: String(r.id), displayName: String(r.display_name), detail: String(r.detail) } : null;
+		return "personId" in input ? pickedPerson(db, actor, input.personId) : undefined;
 	},
 	prepare(plan, input, person) {
 		const recorded = plan.outcome !== null;
@@ -476,6 +566,60 @@ export const addGuestAttendance = launchWrite<GuestInput, Picked | undefined>({
 	},
 });
 
+const guestsNow = (
+	p: SQL,
+) => sql`(SELECT jsonb_build_array(jsonb_build_object('id',${p}.tenant_id,'label','Guests named',
+	'value',(SELECT count(*)::text FROM launch_guest g JOIN person pe ON pe.id=g.person_id AND pe.tenant_id=g.plant_id
+		AND pe.state='live' WHERE g.plant_id=${p}.tenant_id))))`;
+const correctGuestInput = z.strictObject({
+	personId: id.describe("The wrongly named guest, by its person row id from launch.readDebrief"),
+	correctPersonId: id.nullable().describe("The Person who was the guest, or null to take the name off the list"),
+});
+type CorrectGuest = z.infer<typeof correctGuestInput>;
+export const correctGuestAttendance = launchWrite<CorrectGuest, Picked | "void">({
+	operation: "launch.correctGuestAttendance",
+	description:
+		"Propose fixing a wrong named guest or named-guest count for Launch Sunday, one guest per card: correctPersonId is the live Person, picked by the user from launch.readDebrief's guestName matches, who was really the guest; null takes a wrong name off the list. Attendance, decisions, the debrief's guest answer and the Person's own record never change, and Launch history keeps the old and new guest and count. A wrong headcount is launch.correctOutcome's attendance instead. Nothing changes until the user approves",
+	input: correctGuestInput,
+	async lookup(db, actor, input) {
+		return input.correctPersonId === null ? "void" : pickedPerson(db, actor, input.correctPersonId);
+	},
+	prepare(plan, input, picked) {
+		const named = plan.guests.named ?? [];
+		const wrong = named.find((g) => g.personId === input.personId);
+		if (!wrong) return null;
+		const to = picked === "void" ? null : picked;
+		const already = to && named.find((g) => g.personId === to.id);
+		return {
+			label: wrong.displayName,
+			changes: [
+				{
+					field: "guest",
+					before: wrong.displayName,
+					after: to ? (to.detail ? `${to.displayName} · ${to.detail}` : to.displayName) : "Not a guest",
+				},
+				{ field: "guestsNamed", before: plan.guests.count, after: plan.guests.count - (to ? 0 : 1) },
+			],
+			notes: [
+				`${wrong.displayName} stays in People as they are.`,
+				KEPT_COUNTS,
+				"Launch history keeps the old and new guest and both numbers.",
+			],
+			refusal: !already
+				? null
+				: already.personId === wrong.personId
+					? `${wrong.displayName} is already this guest, so there's nothing to correct.`
+					: `${already.displayName} is already named as a Launch Sunday guest. To drop the extra name, take ${wrong.displayName} off the list.`,
+			args: { expectedRevision: wrong.revision, guestId: wrong.guestId, personId: to?.id ?? null },
+		};
+	},
+	async run(db, authority, args, key) {
+		const { expectedRevision, ...input } = args as { expectedRevision: string } & Record<string, unknown>;
+		return settled(await writer.correctGuestAttendance(db, authority, { requestKey: key, expectedRevision, input }));
+	},
+	current: guestsNow,
+});
+
 const OUTCOME_FIELDS = ["actualDate", "attendance", "decisions"] as const;
 type OutcomeField = (typeof OUTCOME_FIELDS)[number];
 const FIELD_WORDS: Record<OutcomeField, string> = {
@@ -484,7 +628,7 @@ const FIELD_WORDS: Record<OutcomeField, string> = {
 	decisions: "decisions",
 };
 const correctionInput = z.strictObject({
-	actualDate: localDate.optional(),
+	actualDate: day.optional(),
 	attendance: z.int().nullable().optional(),
 	decisions: z.int().nullable().optional(),
 	reason: z.string().max(4000),
@@ -519,7 +663,11 @@ export const correctOutcome = launchWrite({
 		const named = OUTCOME_FIELDS.filter((k) => input[k] !== undefined);
 		const changed = named.filter((k) => now[k] !== was[k]);
 		const shown = (k: OutcomeField, v: string | number | null) =>
-			k === "actualDate" ? (v === null ? null : launchDay(String(v))) : countShown(v as number | null);
+			k === "actualDate"
+				? v === null
+					? null
+					: dayText(String(v), { weekday: "short" })
+				: countShown(v as number | null);
 		const notInFuture = now.actualDate ?? plan.today;
 		const checked = o && c.checkOutcome({ ...now, actualDate: notInFuture, note: o.note }, plan.today);
 		const note = c.checkNote(input.reason, true);
@@ -575,4 +723,7 @@ export const LAUNCH_COMMANDS = {
 	"launch.reopenMilestone": reopenMilestone,
 	"launch.addGuestAttendance": addGuestAttendance,
 	"launch.correctOutcome": correctOutcome,
+	"launch.saveDebriefDraft": saveDebriefDraft,
+	"launch.saveDebriefSummaryDraft": saveDebriefSummaryDraft,
+	"launch.correctGuestAttendance": correctGuestAttendance,
 } as const;

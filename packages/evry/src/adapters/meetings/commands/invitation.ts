@@ -26,7 +26,14 @@ import {
 	scheduleNow,
 	sendNow,
 } from "../../communication/commands/index.ts";
-import { classifiedPeople, leftOutIds, leftOutPeople, recipientNames } from "../../communication/audience.ts";
+import {
+	audiencePerson,
+	classifiedPeople,
+	heldCount,
+	leftOutIds,
+	leftOutPeople,
+	recipientNames,
+} from "../../communication/audience.ts";
 import { day, id, meeting, ownerOrAdmin, value } from "../shared.ts";
 
 const GROUPS = ["core_group", "launch_team", "leaders", "prospects"] as const;
@@ -66,17 +73,21 @@ const reuseInput = z.strictObject({
 	meetingId: id.describe("This time's meeting from meetings.list"),
 });
 
-const savedPlan = z.object({
+const savedPlan = z.strictObject({
 	meeting: z.discriminatedUnion("kind", [
-		z.object({ kind: z.literal("existing"), meetingId: z.uuid(), revision: z.string() }),
-		z.object({ kind: z.literal("new"), input: z.record(z.string(), z.unknown()) }),
+		z.strictObject({ kind: z.literal("existing"), meetingId: z.uuid(), revision: z.string() }),
+		z.strictObject({ kind: z.literal("new"), input: z.record(z.string(), z.unknown()) }),
 	]),
-	audience: z.object({ groups: z.array(z.string()), householdIds: z.array(z.uuid()), personIds: z.array(z.uuid()) }),
-	custom: z.object({ subject: z.string().optional(), body: z.string().optional() }),
+	audience: z.strictObject({
+		groups: z.array(z.string()),
+		householdIds: z.array(z.uuid()),
+		personIds: z.array(z.uuid()),
+	}),
+	custom: z.strictObject({ subject: z.string().optional(), body: z.string().optional() }),
 	guestIds: z.array(z.uuid()),
 	newGuestIds: z.array(z.uuid()),
 	fingerprint: z.string(),
-	mail: z.object({
+	mail: z.strictObject({
 		subject: z.string(),
 		bodyHtml: z.string(),
 		leftOut: z.array(z.uuid()),
@@ -85,7 +96,6 @@ const savedPlan = z.object({
 	}),
 });
 type Saved = z.infer<typeof savedPlan>;
-const person = z.object({ id: z.uuid(), email: z.string().nullable(), optedOutAt: z.string().nullable() });
 
 type Reader = ReviewContext["db"] | WriteTx;
 async function members(db: Reader, plant: string, households: string[]) {
@@ -94,7 +104,7 @@ async function members(db: Reader, plant: string, households: string[]) {
 		await db.execute(sql`SELECT p.id::text FROM person p WHERE p.plant_id=${plant}::uuid AND p.tenant_id=${plant}::uuid
 		AND p.state='live' AND p.household_id=ANY(${sql.param(households)}::uuid[]) ORDER BY p.id`);
 	return z
-		.array(z.object({ id: z.uuid() }))
+		.array(z.strictObject({ id: z.uuid() }))
 		.parse(r.rows)
 		.map((p) => p.id);
 }
@@ -102,7 +112,7 @@ async function resolve(db: Reader, plant: string, a: Saved["audience"]) {
 	const personIds = [...new Set([...a.personIds, ...(await members(db, plant, a.householdIds))])];
 	const value = { groups: a.groups as Audience["groups"], teamIds: [], personIds };
 	const [row] = (await db.execute(sql`SELECT ${audiencePeople(plant, value)} AS people`)).rows;
-	const people = z.array(person).parse(row?.people ?? []);
+	const people = z.array(audiencePerson).parse(row?.people ?? []);
 	const fingerprint = createHash("sha256")
 		.update(
 			JSON.stringify(
@@ -158,10 +168,10 @@ async function meetingFacts(actor: EvryActor, plan: Plan, context: ReviewContext
 const standardBody = (s: Shown) =>
 	`Hi {{name}},\n\nYou're invited to ${s.title} on ${s.when}${s.venue ? ` at ${s.venue}` : ""}. We'd love to see you there.`;
 
-const classifiedRow = z.object({
-	guests: z.array(z.object({ id: z.uuid(), name: z.string() })),
-	recipients: z.array(z.object({ name: z.string() })),
-	left_out: z.array(z.object({ name: z.string(), reason: z.string() })),
+const classifiedRow = z.strictObject({
+	guests: z.array(z.strictObject({ id: z.uuid(), name: z.string() })),
+	recipients: z.array(z.strictObject({ name: z.string() })),
+	left_out: z.array(z.strictObject({ name: z.string(), reason: z.string() })),
 	left_out_ids: z.array(z.uuid()),
 	held: z.int(),
 	first_name: z.string(),
@@ -186,7 +196,7 @@ async function review(
 		await context.db.execute(sql`WITH ${classifiedPeople(plant, resolved.value, mail.hashes)}
 			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',"displayName") ORDER BY lower("displayName") COLLATE "C",id) FROM people),'[]'::jsonb) AS guests,
 				${recipientNames} AS recipients, ${leftOutPeople} AS left_out, ${leftOutIds} AS left_out_ids,
-				(SELECT count(*)::int FROM classified WHERE reason IS NOT NULL AND reason NOT IN ('no_address','duplicate_address')) AS held,
+				${heldCount} AS held,
 				coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY lower(name) COLLATE "C",id LIMIT 1),'') AS first_name`)
 	).rows;
 	const r = classifiedRow.parse(raw);
@@ -301,8 +311,9 @@ async function execute(
 	}
 }
 
-const sends: Pick<ReviewedWrite<unknown>, "allowed" | "recheck" | "execute" | "reach" | "check"> = {
+const sends: Pick<ReviewedWrite<unknown>, "allowed" | "sendsMail" | "recheck" | "execute" | "reach" | "check"> = {
 	allowed: ownerOrAdmin,
+	sendsMail: true,
 	recheck,
 	execute,
 	reach: (db, authority, args, effectKey, first, mail) => {
@@ -332,7 +343,12 @@ export const prepareMeetingInvitation: ReviewedWrite<Plan> = {
 		}),
 };
 
-const recipeRow = z.object({ input: z.unknown(), approved: z.string(), title: z.string() });
+const recipeRow = z.strictObject({
+	audience: savedPlan.shape.audience,
+	custom: savedPlan.shape.custom,
+	approved: z.string(),
+	title: z.string(),
+});
 export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 	operation: "evry.reuseRecipe",
 	description:
@@ -341,7 +357,7 @@ export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 	...sends,
 	async review(actor, input, context) {
 		const r = await context.db.execute(sql`
-			SELECT p.input, to_char(p.approved_at AT TIME ZONE pl.timezone,'Mon FMDD') AS approved,
+			SELECT p.input->'audience' AS audience, p.input->'custom' AS custom, to_char(p.approved_at AT TIME ZONE pl.timezone,'Mon FMDD') AS approved,
 				coalesce(p.review->'changes'->0->'after'->>'title','a meeting') AS title
 			FROM proposal p JOIN plant pl ON pl.id=p.tenant_id
 				JOIN meeting old ON old.id=(p.receipt->>'meetingId')::uuid AND old.plant_id=p.tenant_id
@@ -352,9 +368,8 @@ export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 			ORDER BY old.starts_at DESC, p.approved_at DESC, p.id LIMIT 1`);
 		if (!r.rows.length) return null;
 		const row = recipeRow.parse(r.rows[0]);
-		const old = savedPlan.pick({ audience: true, custom: true }).parse(row.input);
-		const plan: Plan = { meetingId: input.meetingId, audience: old.audience as Audience };
-		return review(actor, plan, context, { approvedAt: row.approved, title: row.title }, old.custom);
+		const plan: Plan = { meetingId: input.meetingId, audience: row.audience as Audience };
+		return review(actor, plan, context, { approvedAt: row.approved, title: row.title }, row.custom);
 	},
 };
 

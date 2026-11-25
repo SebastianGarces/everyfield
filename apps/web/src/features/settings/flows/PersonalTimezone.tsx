@@ -116,7 +116,7 @@ function PersonalTimezoneDialog({
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog drawer open={open} onOpenChange={onOpenChange}>
 			<DialogContent size="sm">
 				<DialogHeader
 					icon={Clock01Icon}

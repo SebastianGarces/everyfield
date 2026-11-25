@@ -75,7 +75,7 @@ jobs:
           --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
-      EARLY_ACCESS_TEST_DATABASE: "1"
+      EVERYFIELD_DISPOSABLE_DATABASE: "1"
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - name: tests/ui directory
@@ -91,7 +91,7 @@ jobs:
       - name: nightly.localhost on the loopback (the seeds accept only a *.localhost origin)
         run: echo "127.0.0.1 nightly.localhost" | sudo tee -a /etc/hosts
       - name: Production build
-        run: pnpm build
+        run: node scripts/nightly-ui.ts build "$UI_DIR"
       - name: Seed tests/ui and serve the build
         id: up
         run: node scripts/nightly-ui.ts up "$UI_DIR"
@@ -134,7 +134,7 @@ jobs:
           --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
-      EARLY_ACCESS_TEST_DATABASE: "1"
+      EVERYFIELD_DISPOSABLE_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
       - name: Shared setup (Node, pnpm, node_modules)
@@ -157,4 +157,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Release flags on for everyone for 14 or more days, with the evf task new command for each
+        env:
+          FLAG_READER_DATABASE_URL: ${{ secrets.FLAG_READER_DATABASE_URL }}
         run: bin/flag stale

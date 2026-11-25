@@ -4,6 +4,7 @@ import { eq, and, sql } from "@everyfield/db/query";
 import {
 	processBrandAsset,
 	putPrivateObject,
+	toUploadKey,
 	readAuthorizedObject,
 	readAuthorizedObjectIfChanged,
 	type PrivateStorage,
@@ -92,7 +93,7 @@ export async function uploadBrandAsset(
 			purpose: "brand_asset",
 			mediaType: processed.mediaType,
 			bytes: processed.bytes,
-			uploadKey: file.uploadKey,
+			uploadKey: toUploadKey(file.uploadKey),
 		}).catch(() => deny("unavailable"));
 		return c.uploadedAsset.parse({ uploadId, byteCount: processed.bytes.length, sha256 });
 	});

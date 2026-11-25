@@ -79,17 +79,27 @@ const SEATING = ["onboarding.createPlant", "discovery.convertToPlant"];
 const ownSeating = (actor: EvryActor) =>
 	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.accountId}::uuid AND p.operation=ANY(${sql.param(SEATING)}::text[])
 		AND ${liveRead({ session: actor.session, owner: { kind: "account", id: actor.accountId } as never })}`;
+export const REVIEW_MINUTES = 15;
 export const staleMessage = (alias: string) =>
 	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
 		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint
 		AND ${untouchedMail("t")}=(${alias}.input->>'untouched')::int),false)`;
+export const staleMerge = (alias: string) =>
+	`EXISTS(SELECT FROM person_merge pm WHERE pm.tenant_id=${alias}.tenant_id
+		AND greatest(pm.merged_at,pm.unmerged_at)>${alias}.expires_at-interval '${REVIEW_MINUTES} minutes'
+		AND (strpos(${alias}.input::text,pm.source_id::text)>0 OR strpos(${alias}.input::text,pm.survivor_id::text)>0
+			OR ${alias}.review->'target'->>'id' IN (pm.source_id::text,pm.survivor_id::text)))`;
+export const stale = (alias: string) => `(${staleMessage(alias)} OR ${staleMerge(alias)})`;
+const staleCause = (alias: string) =>
+	`CASE WHEN ${alias}.state='pending' THEN CASE WHEN ${staleMessage(alias)} THEN 'message' WHEN ${staleMerge(alias)} THEN 'merge' END END`;
 export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
-			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility','household','tag')
+			OR ${alias}.review->'target'->>'kind' NOT IN ('person','retired_person','message','team','role','training','responsibility','household','tag')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
+			OR (${alias}.review->'target'->>'kind'='retired_person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
@@ -111,11 +121,12 @@ export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName
 			AND ${alias}.approved_at<clock_timestamp()-interval '2 minutes' THEN 'unknown' END),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
-		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
+		'stale',${staleCause(alias)},
 		'receipt',${alias}.receipt,'now',clock_timestamp())`)}`;
 
 const targetKind = z.enum([
 	"person",
+	"retired_person",
 	"message",
 	"task",
 	"team",
@@ -138,22 +149,22 @@ const targetKind = z.enum([
 	"template",
 	"program",
 ]);
-const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
-export const reviewedPerson = z.object({
+export const change = z.strictObject({ field: z.string(), before: z.unknown(), after: z.unknown() });
+export const reviewedPerson = z.strictObject({
 	id: z.uuid(),
 	label: z.string(),
 	changes: z.array(change),
 	unchanged: z.string().optional(),
 });
-export const reviewedRow = z.object({
+export const reviewedRow = z.strictObject({
 	row: z.int(),
 	outcome: z.enum(["create", "create_and_review", "skip", "fail"]),
 	label: z.string().nullable(),
 	reason: z.string().nullable(),
 });
-const review = z.object({
+const review = z.strictObject({
 	target: z
-		.object({
+		.strictObject({
 			kind: targetKind,
 			id: z.string(),
 			label: z.string(),
@@ -165,10 +176,11 @@ const review = z.object({
 	people: z.array(reviewedPerson).optional(),
 	rows: z.array(reviewedRow).optional(),
 	notes: z.array(z.string()).optional(),
+	earlier: z.array(change).optional(),
 	refusal: z.string().optional(),
 	withheld: z.literal(true).optional(),
 });
-export const proposalRow = z.object({
+export const proposalRow = z.strictObject({
 	id: z.uuid(),
 	conversationId: z.uuid(),
 	operation,
@@ -180,9 +192,9 @@ export const proposalRow = z.object({
 	review,
 	outcome: z.enum(["completed", "failed", "refused", "unknown"]).nullable(),
 	executing: z.boolean(),
-	stale: z.boolean(),
+	stale: z.enum(["message", "merge"]).nullable(),
 	receipt: z
-		.object({
+		.strictObject({
 			receiptId: z.uuid().optional(),
 			meetingId: z.uuid().optional(),
 			revision: z.string().optional(),
@@ -191,6 +203,8 @@ export const proposalRow = z.object({
 			people: z.array(personOutcome).optional(),
 			import: importOutcome.optional(),
 			current: z.array(currentPerson).optional(),
+			reached: z.literal(true).optional(),
+			own: z.literal(true).optional(),
 		})
 		.nullable(),
 	now: z.coerce.date(),

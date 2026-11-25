@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture } from "../../support/fixture.mts";
-import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { owner as ownerSchema } from "../../../packages/contracts/src/common/index.ts";
+import { authorityOf } from "../people/people-support.mts";
+import { type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import {
 	pipelineWriter,
@@ -15,6 +17,7 @@ import {
 import { programWriter, readProgram } from "../../../packages/domain/src/organizations/programs.ts";
 import { pipelineDataWriter, readPipelineExport } from "../../../packages/domain/src/organizations/data.ts";
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
+import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleUnmerge } from "../../../packages/domain/src/people/unmerge/index.ts";
 import { listOrganizationDuplicatePairs } from "../../../packages/domain/src/people/duplicates.ts";
 
@@ -23,8 +26,7 @@ const { admin } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
-type Actor = { id: string; session: string };
-let grace: { kind: "organization"; id: string; organizationKind: "sending_church" };
+let grace: Workspace & { kind: "organization" };
 let dana: Actor, ana: Actor, ben: Actor, caseyAccount: Actor, other: Actor;
 let anaSeat: string;
 let today: string;
@@ -38,8 +40,8 @@ const residency = randomUUID(),
 	apprenticeship = randomUUID();
 const enrollments = { casey: randomUUID(), jordan: randomUUID(), jordanApprentice: randomUUID(), caseyL: randomUUID() };
 
-const authority = (a: Actor) => RequestActor.resolve(db, a.session as never);
-const ctx = (a: Actor) => ({ session: a.session, selected: grace });
+const authority = (a: Actor) => authorityOf(db, a);
+const ctx = (a: Actor, selected = grace) => ({ session: a.session, selected: ownerSchema.parse(selected) });
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown; error?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -63,13 +65,13 @@ function table(text: string) {
 }
 
 before(async () => {
-	grace = (await database.organization("sending_church", {
+	grace = await database.organization("sending_church", {
 		name: "Grace Austin",
 		timezone: "America/Chicago",
-	})) as never;
-	dana = await database.actor(grace as never, "owner", { user: { name: "Dana" } });
-	ana = await database.actor(grace as never, "member", { user: { name: "Ana" } });
-	ben = await database.actor(grace as never, "member", { user: { name: "Ben" } });
+	});
+	dana = await database.actor(grace, "owner", { user: { name: "Dana" } });
+	ana = await database.actor(grace, "member", { user: { name: "Ana" } });
+	ben = await database.actor(grace, "member", { user: { name: "Ben" } });
 	caseyAccount = await database.actor(null, "owner", {
 		email: "casey.own.account@example.test",
 		user: { name: "Casey Own Account" },
@@ -293,19 +295,18 @@ test("INV-tenancy: a Member with no duty and a program director are refused expo
 			await pipelineDataWriter.removePerson(db, await authority(who), { personId: jordan, expectedRevision: "1" }),
 			"unavailable",
 		);
-		assert.equal((await tx((t) => listOrganizationDuplicatePairs(t, ctx(who) as never))).status, "refused");
+		assert.equal((await tx((t) => listOrganizationDuplicatePairs(t, ctx(who)))).status, "refused");
 		assert.equal(
-			(await tx((t) => peopleMerge.getMergeReview(t, ctx(who) as never, { sourceId: caseyL, survivorId: casey })))
-				.status,
+			(await tx((t) => peopleMerge.getMergeReview(t, ctx(who), { sourceId: caseyL, survivorId: casey }))).status,
 			"refused",
 		);
 		const review = ok(
-			await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, { sourceId: caseyL, survivorId: casey })),
+			await tx((t) => peopleMerge.getMergeReview(t, ctx(dana), { sourceId: caseyL, survivorId: casey })),
 		);
 		assert.equal(
 			(
 				await tx((t) =>
-					peopleMerge.mergePeople(t, ctx(who) as never, {
+					peopleMerge.mergePeople(t, ctx(who), {
 						requestKey: randomUUID(),
 						input: { sourceId: caseyL, survivorId: casey, reviewDigest: review.reviewDigest, fieldChoices: {} },
 					}),
@@ -319,13 +320,13 @@ test("INV-tenancy: a Member with no duty and a program director are refused expo
 
 test("INV-tenancy: another organization's Owner exports, lists pairs and removes none of Grace Austin's people", async () => {
 	const hope = await database.organization("sending_church", { name: "Hope Dallas", timezone: "America/Chicago" });
-	const owner = await database.actor(hope as never, "owner", { user: { name: "Hope Owner" } });
+	const owner = await database.actor(hope, "owner", { user: { name: "Hope Owner" } });
 	const text = ok(await readPipelineExport(db, await authority(owner))).text;
 	for (const value of [casey, jordan, caseyL, "Casey", "Jordan", "Grace Austin"])
 		assert.ok(!text.includes(value), value);
-	const own = { session: owner.session, selected: hope };
-	assert.deepEqual(ok(await tx((t) => listOrganizationDuplicatePairs(t, own as never))).items, []);
-	assert.equal((await tx((t) => listOrganizationDuplicatePairs(t, ctx(owner) as never))).status, "refused");
+	const own = ctx(owner, hope);
+	assert.deepEqual(ok(await tx((t) => listOrganizationDuplicatePairs(t, own))).items, []);
+	assert.equal((await tx((t) => listOrganizationDuplicatePairs(t, ctx(owner)))).status, "refused");
 	refusedWith(
 		await pipelineDataWriter.removePerson(db, await authority(owner), { personId: jordan, expectedRevision: "1" }),
 		"unavailable",
@@ -354,17 +355,17 @@ async function snapshot() {
 }
 
 test("AC:ADR1-017 Casey Lee and Casey L. are suggested by email; collisions refuse; merge joins them and undo restores both", async () => {
-	const pairs = ok(await tx((t) => listOrganizationDuplicatePairs(t, ctx(dana) as never)));
+	const pairs = ok(await tx((t) => listOrganizationDuplicatePairs(t, ctx(dana))));
 	assert.deepEqual(
 		pairs.items.map((p) => [[p.person.displayName, p.with.displayName].sort(), p.shared]),
 		[[["Casey L.", "Casey Lee"], ["email"]]],
 	);
 	const original = await snapshot();
 	const review = async () =>
-		ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, { sourceId: caseyL, survivorId: casey })));
+		ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana), { sourceId: caseyL, survivorId: casey })));
 	const merge = async (reviewDigest: string, fieldChoices = {}) =>
 		tx((t) =>
-			peopleMerge.mergePeople(t, ctx(dana) as never, {
+			peopleMerge.mergePeople(t, ctx(dana), {
 				requestKey: randomUUID(),
 				input: { sourceId: caseyL, survivorId: casey, reviewDigest, fieldChoices },
 			}),
@@ -409,10 +410,10 @@ test("AC:ADR1-017 Casey Lee and Casey L. are suggested by email; collisions refu
 		0,
 	);
 
-	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(dana) as never, { mergeId: merged.mergeId })));
+	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(dana), { mergeId: merged.mergeId })));
 	ok(
 		await tx((t) =>
-			peopleUnmerge.unmergePeople(t, ctx(dana) as never, {
+			peopleUnmerge.unmergePeople(t, ctx(dana), {
 				requestKey: randomUUID(),
 				expectedRevision: preview.reviewRevision,
 				input: { mergeId: merged.mergeId },
@@ -564,12 +565,10 @@ test("AC:ADR1-005 AC:ADR1-017 INV-privacy: removing a person also removes the du
 			note: "MERGED-CONVERSATION-SECRET",
 		}),
 	);
-	const review = ok(
-		await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, { sourceId: rileyP, survivorId: riley })),
-	);
+	const review = ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana), { sourceId: rileyP, survivorId: riley })));
 	ok(
 		await tx((t) =>
-			peopleMerge.mergePeople(t, ctx(dana) as never, {
+			peopleMerge.mergePeople(t, ctx(dana), {
 				requestKey: randomUUID(),
 				input: {
 					sourceId: rileyP,
@@ -620,7 +619,7 @@ test("AC:ADR1-005 AC:ADR1-017 INV-privacy: removing a person also removes the du
 		ok(await readPipelineBoard(db, await authority(dana), { q: "riley" })).stages.flatMap((s) => s.people).length,
 		0,
 	);
-	const pairs = ok(await tx((t) => listOrganizationDuplicatePairs(t, ctx(dana) as never)));
+	const pairs = ok(await tx((t) => listOrganizationDuplicatePairs(t, ctx(dana))));
 	assert.equal(
 		pairs.items.some((p) => [p.person.id, p.with.id].some((id) => id === riley || id === rileyP)),
 		false,
@@ -645,17 +644,17 @@ test("INV-concurrency: undo merge sends the survivor revision from the merge res
 		return personId;
 	};
 	const merge = async (sourceId: string, survivorId: string) => {
-		const review = ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, { sourceId, survivorId })));
+		const review = ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana), { sourceId, survivorId })));
 		return ok(
 			await tx((t) =>
-				peopleMerge.mergePeople(t, ctx(dana) as never, {
+				peopleMerge.mergePeople(t, ctx(dana), {
 					requestKey: randomUUID(),
 					input: { sourceId, survivorId, reviewDigest: review.reviewDigest, fieldChoices: { displayName: "survivor" } },
 				}),
 			),
-		) as { mergeId: string; survivorRevision: string };
+		);
 	};
-	const undo = (request: unknown) => tx((t) => peopleUnmerge.unmergePeople(t, ctx(dana) as never, request));
+	const undo = (request: unknown) => tx((t) => peopleUnmerge.unmergePeople(t, ctx(dana), request));
 	const state = (ids: string[]) =>
 		rows(sql`SELECT p.display_name AS name, p.merged_into_person_id AS into, m.unmerged_at IS NOT NULL AS unmerged
 		 FROM person p LEFT JOIN person_merge m ON m.source_id=p.id WHERE p.id IN (${ids[0]},${ids[1]}) ORDER BY p.display_name`);
@@ -705,4 +704,94 @@ test("INV-concurrency: undo merge sends the survivor revision from the merge res
 	]);
 	assert.deepEqual(await undo(request), first);
 	assert.deepEqual(await state([quinn, quinnA]), undone);
+});
+
+test("INV-concurrency: a seat removed or lowered after its actor was read, or lowered before a re-read, removes, merges and undoes nothing, exports nothing and lists no pairs", async () => {
+	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
+	const stage = board.stages.find((s) => s.label === "Potential leader")!.id;
+	const add = async (displayName: string) => {
+		const personId = randomUUID();
+		ok(
+			await pipelineWriter.addPerson(db, await authority(dana), {
+				personId,
+				displayName,
+				email: "stale.seat@example.test",
+				responsibleSeatId: null,
+				stageId: stage,
+			}),
+		);
+		return personId;
+	};
+	const [survivor, source, mergedInto, mergedSource] = [
+		await add("Sam Cole"),
+		await add("Sam C."),
+		await add("Terry Dunn"),
+		await add("Terry D."),
+	];
+	const pair = { sourceId: source, survivorId: survivor };
+	const reviewOf = async (input: typeof pair) =>
+		ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana), input))).reviewDigest;
+	const merge = (input: typeof pair, reviewDigest: string) => ({
+		requestKey: randomUUID(),
+		input: { ...input, reviewDigest, fieldChoices: { displayName: "survivor" } },
+	});
+	const earlier = { sourceId: mergedSource, survivorId: mergedInto };
+	const earlierMerge = merge(earlier, await reviewOf(earlier));
+	const merged = ok(
+		await withPeopleWrite(db, await authority(dana), (t, c) => peopleMerge.mergePeople(t, c, earlierMerge)),
+	);
+	const digest = await reviewOf(pair);
+	const revision = (await record(survivor)).revision;
+	const state = async () => ({
+		people: await rows(sql`SELECT id,display_name,state,revision::text,merged_into_person_id FROM person
+		 WHERE id IN (${survivor},${source},${mergedInto},${mergedSource}) ORDER BY id`),
+		merges: await rows(sql`SELECT id,unmerged_at FROM person_merge WHERE tenant_id=${grace.id}::uuid ORDER BY id`),
+		audits: await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid`),
+	});
+	const before = await state();
+
+	const losses = {
+		lowered: sql`UPDATE seat SET role='member',revision=revision+1`,
+		removed: sql`UPDATE seat SET ended_at=clock_timestamp(),revision=revision+1`,
+	};
+	for (const [loss, change] of Object.entries(losses)) {
+		const lost = await database.actor(grace, "admin", { user: { name: `Seat ${loss}` } });
+		const stale = await authority(lost);
+		await admin.execute(sql`${change} WHERE account_id=${lost.id}::uuid AND organization_id=${grace.id}::uuid`);
+
+		for (const held of loss === "lowered" ? [stale, await authority(lost)] : [stale]) {
+			refusedWith(
+				await pipelineDataWriter.removePerson(db, held, { personId: survivor, expectedRevision: revision }),
+				"unavailable",
+			);
+			refusedWith(
+				await withPeopleWrite(db, held, (t, c) => peopleMerge.mergePeople(t, c, merge(pair, digest))),
+				"unavailable",
+			);
+			refusedWith(
+				await withPeopleWrite(db, held, (t, c) =>
+					peopleUnmerge.unmergePeople(t, c, {
+						requestKey: randomUUID(),
+						expectedRevision: merged.survivorRevision,
+						input: { mergeId: merged.mergeId },
+					}),
+				),
+				"unavailable",
+			);
+			refusedWith(await readPipelineExport(db, held), "unavailable");
+			refusedWith(await tx((t) => listOrganizationDuplicatePairs(t, new PeopleReadContext(held))), "unavailable");
+		}
+		assert.deepEqual(await state(), before, loss);
+	}
+
+	ok(await withPeopleWrite(db, await authority(dana), (t, c) => peopleMerge.mergePeople(t, c, merge(pair, digest))));
+	ok(
+		await withPeopleWrite(db, await authority(dana), (t, c) =>
+			peopleUnmerge.unmergePeople(t, c, {
+				requestKey: randomUUID(),
+				expectedRevision: merged.survivorRevision,
+				input: { mergeId: merged.mergeId },
+			}),
+		),
+	);
 });

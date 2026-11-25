@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,7 +7,7 @@ import { afterEach, before, test } from "node:test";
 import { setServerEnv } from "../../support/server-env.mts";
 import { isTestDeployment } from "../../../packages/db/src/deployment.ts";
 import type { ProviderKey } from "../../../packages/contracts/src/common/values.ts";
-import type { Captured } from "../../../apps/web/src/server/mail/capture.ts";
+import { capture as record, type Captured } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
@@ -100,6 +101,24 @@ test("AC:CASE-COM-003 production sending posts to the provider unchanged", async
 	assert.deepEqual(calls, ["https://api.resend.com/emails/batch"]);
 	assert.deepEqual(result, { outcome: "ids", ids: ["provider-1"] });
 	assert.equal((await readOutbox(outbox)).length, before);
+});
+
+test("INV-idempotency: one capture key always names one capture: a repeat is not fresh and leaves the first file unchanged, another key names another", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "outbox-key-"));
+	const message = (subject: string) => ({ from: "f@x.test", to: "t@x.test", subject, html: "h", text: "t" });
+	const file = (id: string) => readFile(join(dir, `${id}.json`), "utf8");
+	const first = await record(message("first"), null, "key-a", dir);
+	assert.equal(first.fresh, true);
+	const stored = await file(first.id);
+	assert.deepEqual(await record(message("second"), "2026-12-01T10:00:00.000Z", "key-a", dir), {
+		id: first.id,
+		fresh: false,
+	});
+	assert.equal(await file(first.id), stored);
+	const other = await record(message("first"), null, "key-b", dir);
+	assert.equal(other.fresh, true);
+	assert.notEqual(other.id, first.id);
+	assert.equal((await readOutbox(dir)).length, 2);
 });
 
 test("INV-communication-outbox: the outbox lists newest first", async () => {

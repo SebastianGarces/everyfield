@@ -1,10 +1,10 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import {
 	addressAad,
 	openText,
@@ -16,8 +16,23 @@ import {
 import { atSendTime } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
+import {
+	deliverAs,
+	firstRow,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type DeliveryOp,
+	type Fixture,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, plant, owner;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -29,13 +44,12 @@ const onTheHour = (ms: number) => new Date(Math.ceil(ms / 3_600_000) * 3_600_000
 const AT = onTheHour(Date.now() + 7 * DAY);
 const LATER = onTheHour(Date.now() + 8 * DAY);
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
-const write = (op, input) =>
-	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
+const write = <K extends WriteOp>(op: K, input: unknown) => writeAs(f.db, owner.actor, op, input);
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
@@ -43,14 +57,15 @@ before(async () => {
 after(() => f?.close());
 
 async function message(n: number, tag = "Batch") {
-	const created =
-		await rows(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
+	const created = await rows<{
+		id: string;
+	}>(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at)
 		SELECT gen_random_uuid(), ${plant.id}, ${plant.id}, ${tag} || ' ' || i, ${tag.toLowerCase()} || '-' || i || '-' || ${key().slice(0, 8)} || '@example.test',
 			'other', 'prospect', 'unknown', 'unknown', 0, 'live', clock_timestamp()
 		FROM generate_series(1, ${n}::int) i
 		RETURNING id`);
-	const ids = created.map((row) => row.id as string);
+	const ids = created.map((row) => row.id);
 	const saved = ok(
 		await write("saveDraft", {
 			requestKey: key(),
@@ -68,7 +83,7 @@ async function message(n: number, tag = "Batch") {
 			input: { communicationId: saved.communicationId, scheduledAt: AT },
 		}),
 	);
-	return { id: saved.communicationId as string, revision: scheduled.revision as string, people: ids.sort() };
+	return { id: saved.communicationId, revision: scheduled.revision, people: ids.sort() };
 }
 
 type Sent = { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null };
@@ -96,6 +111,7 @@ function carrier(answer?: (call: number, batch: Sent) => DeliveryBatch | Promise
 			cancels.push([...providerIds]);
 			return providerIds.map((id) => transport.cancelAnswer?.(id) ?? { outcome: "done" });
 		},
+		paused: false,
 		async reschedule(providerIds) {
 			reschedules.push([...providerIds]);
 			return providerIds.map(() => ({ outcome: "done" }));
@@ -109,11 +125,19 @@ const request = (communicationId: string, revision: string) => ({
 	expectedRevision: revision,
 	input: { communicationId },
 });
-const sendNow = (m, transport, op = "sendReviewed") =>
-	communicationWriter[op](f.db, owner.actor, request(m.id, m.revision), transport, keys);
+type Scheduled = Awaited<ReturnType<typeof message>>;
+const sendNow = (m: Scheduled, transport: DeliveryTransport, op: DeliveryOp = "sendReviewed") =>
+	deliverAs(f.db, owner.actor, op, request(m.id, m.revision), transport, keys);
 
+type Member = { person: string; state: string; provider: string | null; refusal: string | null; id: string };
 async function batchesOf(communicationId: string) {
-	const found = await rows(sql`SELECT r.id, r.provider_key, r.request_hash, a.outcome AS attempt,
+	const found = await rows<{
+		id: string;
+		provider_key: string;
+		request_hash: string;
+		attempt: string;
+		members: string | Member[];
+	}>(sql`SELECT r.id, r.provider_key, r.request_hash, a.outcome AS attempt,
 		jsonb_agg(jsonb_build_object('person', m.recipient_person_id, 'state', m.state, 'provider', m.provider_message_id,
 			'refusal', m.refusal, 'id', m.id) ORDER BY mem.position) AS members
 		FROM mail m
@@ -125,18 +149,16 @@ async function batchesOf(communicationId: string) {
 		ORDER BY min(m.recipient_person_id::text)`);
 	return found.map((row) => ({
 		...row,
-		members: (typeof row.members === "string" ? JSON.parse(row.members) : row.members) as {
-			person: string;
-			state: string;
-			provider: string | null;
-			refusal: string | null;
-			id: string;
-		}[],
+		members: typeof row.members === "string" ? (JSON.parse(row.members) as Member[]) : row.members,
 	}));
 }
 async function frozenEmail(mailId: string) {
-	const [row] = await rows(
-		sql`SELECT tenant_id, frozen_payload, recipient_address_encrypted FROM mail WHERE id = ${mailId}`,
+	const row = firstRow(
+		await rows<{
+			tenant_id: string;
+			frozen_payload: { sealed: string };
+			recipient_address_encrypted: string;
+		}>(sql`SELECT tenant_id, frozen_payload, recipient_address_encrypted FROM mail WHERE id = ${mailId}`),
 	);
 	const body = JSON.parse(
 		openText(keys.encryptionKey, row.frozen_payload.sealed, `${row.tenant_id}/${mailId}/communication`)!,
@@ -146,14 +168,14 @@ async function frozenEmail(mailId: string) {
 		html: body.html,
 	};
 }
-async function stopAtSecondCall(m, fake: { transport: DeliveryTransport; sends: Sent[] }) {
+async function stopAtSecondCall(m: Scheduled, fake: { transport: DeliveryTransport; sends: Sent[] }) {
 	const run = sendNow(m, fake.transport).then((reply) => {
 		throw new Error(`the handoff finished without a second call: ${JSON.stringify(reply)}`);
 	});
 	const send = fake.transport.send.bind(fake.transport);
 	const second = new Promise<void>((resolve) => {
-		fake.transport.send = (batch) => {
-			const answer = send(batch);
+		fake.transport.send = (batch, signal) => {
+			const answer = send(batch, signal);
 			if (fake.sends.length >= 2) resolve();
 			return answer;
 		};
@@ -462,15 +484,15 @@ function counting(db: Database) {
 test("INV-message-batches: every delivery operation sends as many statements for 3 batches as for 1", async () => {
 	async function measure(n: number) {
 		const counts: Record<string, number> = {};
-		const run = async (name: string, call: (db: Database) => Promise<unknown>) => {
+		const run = async (name: string, call: (db: Database) => Promise<{ status: string }>) => {
 			const { db, counter } = counting(f.db);
 			ok(await call(db));
 			counts[name] = counter.n;
 		};
 		const now = await message(n, "Census");
 		const lost = carrier(() => ({ outcome: "unknown" }));
-		const call = (op: string, m) => (db: Database) =>
-			communicationWriter[op](db, owner.actor, request(m.id, m.revision), lost.transport, keys);
+		const call = (op: DeliveryOp, m: Scheduled) => (db: Database) =>
+			deliverAs(db, owner.actor, op, request(m.id, m.revision), lost.transport, keys);
 		await run("sendReviewed", call("sendReviewed", now));
 		await run("dispatchAttempt", call("dispatchAttempt", now));
 		await run("reconcileProviderOutcome", call("reconcileProviderOutcome", now));
@@ -487,7 +509,9 @@ test("INV-message-batches: every delivery operation sends as many statements for
 				lost.transport,
 			),
 		);
-		const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM communication WHERE id = ${held.id}`);
+		const { revision } = firstRow(
+			await rows<{ revision: string }>(sql`SELECT revision::text AS revision FROM communication WHERE id = ${held.id}`),
+		);
 		await run("cancelScheduledReviewed", (db) =>
 			communicationWriter.cancelScheduledReviewed(db, owner.actor, request(held.id, revision), lost.transport),
 		);
@@ -500,10 +524,10 @@ test("INV-message-batches: every delivery operation sends as many statements for
 	const three = await measure(250);
 	assert.deepEqual(three, one);
 	assert.deepEqual(one, {
-		sendReviewed: 4,
-		dispatchAttempt: 3,
-		reconcileProviderOutcome: 3,
-		handOffScheduled: 3,
+		sendReviewed: 3,
+		dispatchAttempt: 2,
+		reconcileProviderOutcome: 2,
+		handOffScheduled: 2,
 		rescheduleDispatched: 3,
 		cancelScheduledReviewed: 3,
 		replaceScheduledReviewed: 1,

@@ -6,11 +6,13 @@ import { migrate, migrationArtifact } from "../../packages/db/src/schema/migrate
 import type { Database } from "../../packages/db/src/client.ts";
 import { ManifestRefused, validateCandidate } from "./recovery.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
-const { z } = require("zod");
+const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 
 export const OPERATION = "maintenance.restoreWithCurrentManifest";
 const IDENTIFIER = /^[a-z][a-z0-9_]{0,62}$/;
 const HOUR = 3_600_000;
+export const FALLBACK_HOURS = 24;
+export const CLOSED_MARK = "everyfield isolated restore: closed";
 const TARGET = { lossHours: 1, restoreHours: 4 };
 
 const capability = z.strictObject({
@@ -22,7 +24,7 @@ const capability = z.strictObject({
 const count = z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform(BigInt);
 const witness = z.looseObject({
 	id: z.uuid(),
-	kind: z.enum(["account", "plant", "seat", "affiliation"]),
+	kind: z.enum(["account", "plant"]),
 	opaque_subject_id: z.uuid(),
 	state: z.enum(deletionMachine.states),
 	request_id: z.uuid().nullable(),
@@ -38,6 +40,12 @@ const currentManifest = z.strictObject({
 	mail: z.array(
 		z.strictObject({
 			id: z.uuid(),
+			tenant_id: z.uuid(),
+			purpose: z.string(),
+			logical_key: z.string(),
+			payload_hash: z.string(),
+			audience_hash: z.string(),
+			created_at: z.string(),
 			state: z.string(),
 			provider_message_id: z.string().nullable(),
 			accepted_at: z.string().nullable(),
@@ -98,6 +106,9 @@ export type RestoreResult = {
 	service_opened: false;
 	customer_data_gate: "blocked";
 	subjects: RestoreSubject[];
+	copy_age_hours: number | null;
+	daily_fallback_eligible: boolean;
+	guaranteed_disaster_RTO: null;
 	observed_loss_hours: number | null;
 	observed_restore_hours: number | null;
 	internal_target_met: boolean;
@@ -125,8 +136,9 @@ export async function readCurrentManifest(db: Database): Promise<unknown> {
  'version', 1,
  'checkpoint', (SELECT coalesce(sum(witness_checkpoint), 0)::text FROM lifecycle_witness),
  'witnesses', (SELECT coalesce(json_agg(w), '[]') FROM lifecycle_witness w),
- 'mail', (SELECT coalesce(json_agg(json_build_object('id', id, 'state', state, 'provider_message_id', provider_message_id,
-   'accepted_at', accepted_at, 'sent_at', sent_at)), '[]') FROM mail),
+ 'mail', (SELECT coalesce(json_agg(json_build_object('id', id, 'tenant_id', tenant_id, 'purpose', purpose,
+   'logical_key', logical_key, 'payload_hash', payload_hash, 'audience_hash', audience_hash, 'created_at', created_at,
+   'state', state, 'provider_message_id', provider_message_id, 'accepted_at', accepted_at, 'sent_at', sent_at)), '[]') FROM mail),
  'issues', (SELECT coalesce(json_agg(json_build_object('id', id, 'publication_state', publication_state,
    'held_reason', held_reason, 'publication_payload', publication_payload, 'publication_hash', publication_hash,
    'repository_id', repository_id, 'repository_name', repository_name, 'issue_number', issue_number,
@@ -148,6 +160,9 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 		service_opened: false,
 		customer_data_gate: "blocked",
 		subjects,
+		copy_age_hours: null,
+		daily_fallback_eligible: false,
+		guaranteed_disaster_RTO: null,
 		observed_loss_hours: null,
 		observed_restore_hours: null,
 		internal_target_met: false,
@@ -239,6 +254,7 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 			});
 		});
 		for (const file of files) await deps.objects.put(file.key, file.bytes);
+		await admin.execute(sql.raw(`COMMENT ON SCHEMA ${target} IS '${CLOSED_MARK}'`));
 	} catch (error) {
 		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${target} CASCADE`)).catch(() => {});
 		return error instanceof Refused ? refuse(error.code, error.file) : refuse("restore_failed");
@@ -246,12 +262,15 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 
 	const completedAt = deps.clock();
 	const loss = input.incidentAt ? (input.incidentAt.getTime() - Date.parse(manifest.createdAt)) / HOUR : null;
+	const age = (startedAt.getTime() - Date.parse(manifest.createdAt)) / HOUR;
 	const restore = input.incidentAt ? (completedAt.getTime() - input.incidentAt.getTime()) / HOUR : null;
 	return {
 		...refuse("restore_failed"),
 		restore_success: true,
 		refusal: null,
 		target,
+		copy_age_hours: age,
+		daily_fallback_eligible: age <= FALLBACK_HOURS,
 		observed_loss_hours: loss,
 		observed_restore_hours: restore,
 		internal_target_met:
@@ -301,16 +320,35 @@ async function load(tx: Tx, target: string, tables: Record<string, Record<string
 }
 
 async function reconcile(tx: Tx, current: ReturnType<typeof currentManifest.parse>) {
+	const receipts = sql`json_to_recordset(${JSON.stringify(current.mail)}::json) AS r(id uuid, tenant_id uuid, purpose text,
+		logical_key text, payload_hash text, audience_hash text, created_at timestamptz, state text, provider_message_id text,
+		accepted_at timestamptz, sent_at timestamptz)`;
 	await tx.execute(sql`UPDATE mail m SET state=r.state, provider_message_id=r.provider_message_id,
-		accepted_at=r.accepted_at, sent_at=r.sent_at
-		FROM json_to_recordset(${JSON.stringify(current.mail)}::json)
-			AS r(id uuid, state text, provider_message_id text, accepted_at timestamptz, sent_at timestamptz)
-		WHERE m.id=r.id AND m.state IN ${OPEN_MAIL}`);
+		accepted_at=r.accepted_at, sent_at=r.sent_at,
+		refusal=CASE WHEN r.state='refused' THEN m.refusal END,
+		guardian_mail_ids=CASE WHEN r.state='refused' THEN m.guardian_mail_ids END,
+		scheduled_at=CASE WHEN r.state='scheduled' AND r.provider_message_id IS NULL THEN m.scheduled_at END
+		FROM ${receipts} WHERE m.id=r.id AND (m.state, m.provider_message_id) IS DISTINCT FROM (r.state, r.provider_message_id)`);
+	await tx.execute(sql`WITH sent AS (
+		SELECT r.* FROM ${receipts} WHERE r.state NOT IN ('pending','refused','cancelled','failed')
+		AND EXISTS(SELECT FROM tenant t WHERE t.id=r.tenant_id) AND NOT EXISTS(SELECT FROM mail m WHERE m.id=r.id)
+	), recorded AS (
+		INSERT INTO record (id, kind, tenant_id) SELECT id, 'mail', tenant_id FROM sent ON CONFLICT DO NOTHING
+	) INSERT INTO mail (id, tenant_id, purpose, logical_key, payload_hash, audience_hash, state, provider_message_id,
+		accepted_at, sent_at, created_at)
+		SELECT id, tenant_id, purpose, logical_key, payload_hash, audience_hash,
+		CASE state WHEN 'dispatched' THEN 'unknown' ELSE state END, provider_message_id, accepted_at, sent_at, created_at FROM sent ON CONFLICT DO NOTHING`);
 	await tx.execute(sql`UPDATE feedback f SET publication_state=r.publication_state, held_reason=r.held_reason,
 		publication_payload=r.publication_payload, publication_hash=r.publication_hash, repository_id=r.repository_id,
 		repository_name=r.repository_name, issue_number=r.issue_number, issue_url=r.issue_url, published_at=r.published_at
 		FROM json_populate_recordset(NULL::feedback, ${JSON.stringify(current.issues)}::json) r
 		WHERE f.id=r.id AND f.publication_state IN ${OPEN_ISSUE}`);
+	await tx.execute(sql`UPDATE job j SET state='cancelled', error_code='stale', lease_owner=NULL, lease_until=NULL,
+		next_attempt_at=NULL, finished_at=pg_catalog.clock_timestamp()
+		WHERE j.state IN ('ready','claimed','retry_wait','reconcile') AND (
+			(j.kind='mail' AND EXISTS(SELECT FROM mail m WHERE m.id=j.subject_record_id AND m.state NOT IN ('pending','refused')))
+			OR (j.kind='feedback_publication' AND EXISTS(SELECT FROM feedback f
+				WHERE f.id=j.subject_record_id AND f.publication_state<>'pending')))`);
 }
 
 async function applyWitnesses(tx: Tx, witnesses: ReturnType<typeof witness.parse>[]) {

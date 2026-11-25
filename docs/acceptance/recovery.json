@@ -221,7 +221,10 @@
         "WP-050",
         "WP-095"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/backup-gate.test.mts"
+      ],
       "description": "Shared provider/account outage loses primary+backup versus surviving 24 hour-fresh complete daily copy.",
       "given": {
         "P": {
@@ -2435,7 +2438,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/backup-gate.test.mts"
+      ],
       "description": "Separate private backup bucket with actual restricted host/key/cost approval absent then configured tested.",
       "given": {
         "P": {

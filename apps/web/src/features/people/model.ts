@@ -1,4 +1,5 @@
-import { recordId } from "@everyfield/contracts/common";
+import { counted, recordId } from "@everyfield/contracts/common";
+export { STAGE_LABEL } from "@everyfield/contracts/people";
 import type { Outcome } from "../../components/save/model.ts";
 
 export const STAGES = [
@@ -43,15 +44,6 @@ export const STAGE_KEY = {
 	leader: "leader",
 } as const satisfies Record<StageValue, string>;
 
-export const STAGE_LABEL: Record<StageValue, string> = {
-	prospect: "Prospect",
-	attendee: "Attendee",
-	following_up: "Following up",
-	interviewed: "Interviewed",
-	core_group: "Core group",
-	launch_team: "Launch team",
-	leader: "Leader",
-};
 export const SOURCE_LABEL: Record<SourceValue, string> = {
 	personal_referral: "Personal referral",
 	social_media: "Social media",
@@ -67,16 +59,6 @@ export const CLASSIFICATION_LABEL: Record<ClassificationValue, string> = {
 	child: "Child",
 	unknown: "Not recorded",
 };
-
-export function skippedStages(from: StageValue, to: StageValue): StageValue[] {
-	const a = STAGES.indexOf(from),
-		b = STAGES.indexOf(to);
-	return b > a + 1 ? STAGES.slice(a + 1, b) : [];
-}
-const COMMITTED: readonly StageValue[] = ["core_group", "launch_team", "leader"];
-export function leavesCommitted(from: StageValue, to: StageValue): boolean {
-	return COMMITTED.includes(from) && !COMMITTED.includes(to);
-}
 
 export type PeopleQuery = {
 	view: ViewValue;
@@ -181,7 +163,7 @@ export function rangeText(q: PeopleQuery, shown: number, total: number | null): 
 	const first = (q.page - 1) * PAGE_SIZE + 1;
 	if (shown === 0) return "No people on this page";
 	const range = shown === 1 ? `${first}` : `${first}–${first + shown - 1}`;
-	return total === null ? `Showing ${range}` : `Showing ${range} of ${total} ${total === 1 ? "person" : "people"}`;
+	return total === null ? `Showing ${range}` : `Showing ${range} of ${counted(total, "person", "people")}`;
 }
 
 export type KeyedPayload = { key: string; body: string };

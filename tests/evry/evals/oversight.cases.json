@@ -1,7 +1,7 @@
 {
 	"suite": "oversight",
 	"model": "scripted",
-	"note": "T-331 (WP-073, WP-074): a sending network's oversight through Evry, asked on the scripted model with the real adapters, approvals and effect executor, as North Texas Network's Admin (director) and Member (networkMember) in intelligence-church.mts: Harvest Point (Fort Worth, TX), Redeemer Church (Dallas, TX) and Grace Tulsa (OK) share everything, Hill Country Church (Austin, TX) shares no Plant Intelligence findings. Database clock pinned to Oct 13, 2026. `criterion` is the T-331 Done criterion; criterion 15's region part follows D-1529 (a plant's region is its own). Cases run in this order; `setup` names the fixture step that runs before a case.",
+	"note": "T-331 (WP-073, WP-074): a sending network's oversight through Evry, asked on the scripted model with the real adapters, approvals and effect executor, as North Texas Network's Admin (director) and Member (networkMember) in intelligence-church.mts: Harvest Point (Fort Worth, TX), Redeemer Church (Dallas, TX) and Grace Tulsa (OK) share everything, Hill Country Church (Austin, TX) shares no Plant Intelligence findings. Database clock pinned to Oct 13, 2026. `criterion` is the T-331 Done criterion; criterion 15's region part follows D-1529 (a plant's region is its own). Cases run in this order; `setup` names the fixture step that runs before a case. OVS-12 onward follow T-389 (Network Intelligence by Region, state and country): `criterion` there is T-389's Done criterion. Prairie Network's Admin (otherDirector) has no link to these plants. `harvestRegionCorrected` saves Harvest Point's corrected location (Round Rock, TX, Region Austin-Round Rock-San Marcos) and runs Network Intelligence again. OVS-31 and OVS-32 are T-614: `meetingsHeld` gives Harvest Point three meetings (3 and 2 attended, the third not finalized) and Redeemer Church two that are not finalized.",
 	"cases": [
 		{
 			"id": "OVS-01",
@@ -130,6 +130,158 @@
 			"answer": ["- **Hill Country Church**: health Not shared. Launch: Not shared."]
 		},
 		{
+			"id": "OVS-12",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [1, 9, 11, 13],
+			"actor": "director",
+			"ask": "what patterns are there in the Dallas–Fort Worth region?",
+			"calls": ["organizationIntelligence.readHistory", "organizationIntelligence.readLocations"],
+			"answer": [
+				"**Dallas-Fort Worth-Arlington, TX (metro area)** (Region view): [Open it in Network Intelligence](/network/intelligence?level=region)",
+				"Only one plant here shares findings, and one plant alone isn't a pattern.",
+				"Regions from U.S. Census Bureau, delineation files for OMB Bulletin 23-01 (July 2023).",
+				"These plants have no Region set, so they aren't in any Region group."
+			],
+			"absent": ["Acquisition growth stalled", "Region unresolved", "Austin-Round Rock"]
+		},
+		{
+			"id": "OVS-13",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [2, 9, 11],
+			"actor": "director",
+			"ask": "where does the stalled growth pattern show up?",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": [
+				"**Acquisition growth stalled** holds in:",
+				"It doesn't hold in:",
+				"Only one plant here shares findings, and one plant alone isn't a pattern.",
+				"Each level groups the plants on its own, never by adding up smaller groups."
+			]
+		},
+		{
+			"id": "OVS-14",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [3, 9, 11],
+			"actor": "director",
+			"ask": "is there a pattern across all our plants?",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": [
+				"**Whole portfolio** (Whole portfolio view): [Open it in Network Intelligence](/network/intelligence?level=portfolio)",
+				"- **Acquisition growth stalled**:"
+			],
+			"absent": ["Texas", "United States"]
+		},
+		{
+			"id": "OVS-15",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [3, 9, 11],
+			"actor": "director",
+			"ask": "is there a pattern across all our plants in the US?",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": [
+				"**United States** (Country view): [Open it in Network Intelligence](/network/intelligence?level=country)",
+				"- **Acquisition growth stalled**:"
+			],
+			"absent": ["Texas", "Whole portfolio"]
+		},
+		{
+			"id": "OVS-16",
+			"operation": "organizationIntelligence.readLocations",
+			"criterion": [4, 9, 11, 13],
+			"actor": "director",
+			"ask": "where are our plants?",
+			"calls": ["organizationIntelligence.readLocations"],
+			"answer": [
+				"Here is where your 4 plants are placed for Network Intelligence:",
+				"Fort Worth, TX, US. Region: Dallas-Fort Worth-Arlington, TX (metro area).",
+				"Austin, TX, US. Region: No Region set. Findings: Not shared.",
+				"See how they group in [Network Intelligence's Region view](/network/intelligence?level=region)."
+			],
+			"absent": ["street", "latitude", "longitude"]
+		},
+		{
+			"id": "OVS-17",
+			"operation": "organizationIntelligence.readLocations",
+			"criterion": [4, 11],
+			"actor": "director",
+			"ask": "which region is Harvest Point in?",
+			"calls": ["organizationIntelligence.readLocations"],
+			"answer": ["is in Fort Worth, TX, US. Its reporting Region is Dallas-Fort Worth-Arlington, TX (metro area)."]
+		},
+		{
+			"id": "OVS-18",
+			"operation": "organizationIntelligence.readLocations",
+			"criterion": [5, 9, 11],
+			"actor": "director",
+			"ask": "which plants have no Region set?",
+			"calls": ["organizationIntelligence.readLocations"],
+			"answer": [
+				"These plants have no Region set:",
+				"A plant with no Region set still counts at the state, country and whole-portfolio levels."
+			],
+			"absent": ["Harvest Point"]
+		},
+		{
+			"id": "OVS-19",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [10],
+			"actor": "director",
+			"ask": "which state is doing best?",
+			"calls": [],
+			"answer": [
+				"Network Intelligence doesn't rank or score plants or places, so I can't say which one is doing best. I can show you the patterns it found instead"
+			],
+			"absent": ["On track", "Watch", "Harvest Point"]
+		},
+		{
+			"id": "OVS-20",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [10],
+			"actor": "director",
+			"ask": "rank our regions",
+			"calls": [],
+			"answer": ["Network Intelligence doesn't rank or score plants or places"],
+			"absent": ["Dallas", "Harvest Point"]
+		},
+		{
+			"id": "OVS-21",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [12],
+			"actor": "networkMember",
+			"ask": "what patterns are there in the Dallas–Fort Worth region?",
+			"calls": ["organizationIntelligence.readHistory", "organizationIntelligence.readLocations"],
+			"answer": []
+		},
+		{
+			"id": "OVS-22",
+			"operation": "organizationIntelligence.readLocations",
+			"criterion": [12],
+			"actor": "networkMember",
+			"ask": "where are our plants?",
+			"calls": ["organizationIntelligence.readLocations"],
+			"answer": []
+		},
+		{
+			"id": "OVS-23",
+			"operation": "organizationIntelligence.readLocations",
+			"criterion": [12],
+			"actor": "otherDirector",
+			"ask": "where are our plants?",
+			"calls": ["organizationIntelligence.readLocations"],
+			"answer": ["No plant is linked to this organization, so there are no plant locations to show."],
+			"absent": ["Harvest Point", "Redeemer", "Grace Tulsa", "Hill Country"]
+		},
+		{
+			"id": "OVS-24",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [12],
+			"actor": "otherDirector",
+			"ask": "what patterns are there in the Dallas–Fort Worth region?",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["Network Intelligence hasn't run yet, so there are no groups or patterns to show."],
+			"absent": ["Harvest Point", "Dallas"]
+		},
+		{
 			"id": "OVS-11",
 			"operation": "organizationIntelligence.read",
 			"criterion": 13,
@@ -141,6 +293,96 @@
 				"Network Intelligence shows no pattern across your Texas plants. A pattern needs two or more plants with the same finding, so one plant alone isn't a pattern."
 			],
 			"absent": ["Acquisition growth stalled"]
+		},
+		{
+			"id": "OVS-25",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [6, 9, 11],
+			"actor": "director",
+			"ask": "what did Network Intelligence show for Texas in the earlier run?",
+			"calls": ["organizationIntelligence.readHistory", "organizationIntelligence.readHistory"],
+			"answer": [
+				"Network Intelligence showed:",
+				"**Texas** (State view): [Open it in Network Intelligence](/network/intelligence?level=state&run=",
+				"- **Acquisition growth stalled**:"
+			]
+		},
+		{
+			"id": "OVS-26",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [7, 9, 11, 13],
+			"actor": "director",
+			"ask": "what changed in Texas since the last run?",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": [
+				"- Went away: **Acquisition growth stalled**. Plants: [Harvest Point](/network/plants/",
+				"Plants in this group now:"
+			],
+			"absent": ["Appeared", "score", "weight", "trend"]
+		},
+		{
+			"id": "OVS-27",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": [12],
+			"actor": "networkMember",
+			"ask": "what did Network Intelligence show for Texas in the earlier run?",
+			"calls": ["organizationIntelligence.readHistory", "organizationIntelligence.readHistory"],
+			"answer": []
+		},
+		{
+			"id": "OVS-28",
+			"operation": "organizationIntelligence.readLocationHistory",
+			"criterion": [8, 11],
+			"setup": "harvestRegionCorrected",
+			"actor": "director",
+			"ask": "has Harvest Point's region changed?",
+			"calls": ["organizationIntelligence.readLocations", "organizationIntelligence.readLocationHistory"],
+			"answer": [
+				"has 2 saved locations, newest first:",
+				"- Round Rock, TX, US, Region Austin-Round Rock-San Marcos, TX (metro area). Took effect",
+				"- Fort Worth, TX, US, Region Dallas-Fort Worth-Arlington, TX (metro area). Took effect",
+				"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one."
+			]
+		},
+		{
+			"id": "OVS-29",
+			"operation": "organizationIntelligence.readLocationHistory",
+			"criterion": [12],
+			"actor": "networkMember",
+			"ask": "has Harvest Point's region changed?",
+			"calls": ["organizationIntelligence.readLocations", "organizationIntelligence.readLocationHistory"],
+			"answer": []
+		},
+		{
+			"id": "OVS-30",
+			"operation": "organizationIntelligence.readLocationHistory",
+			"criterion": [12],
+			"actor": "otherDirector",
+			"ask": "has Harvest Point's region changed?",
+			"calls": ["organizationIntelligence.readLocations"],
+			"answer": ["No plant is linked to this organization, so there are no plant locations to show."],
+			"absent": ["Round Rock", "Fort Worth"]
+		},
+		{
+			"id": "OVS-31",
+			"operation": "oversight.getPlant",
+			"criterion": 7,
+			"setup": "meetingsHeld",
+			"actor": "director",
+			"ask": "how were meetings attended at Harvest Point?",
+			"calls": ["oversight.listPlants", "oversight.getPlant"],
+			"answer": ["**Harvest Point** meetings: 3 recent meetings, 5 attended at the 2 with attendance recorded."],
+			"absent": ["Harvest Person"]
+		},
+		{
+			"id": "OVS-32",
+			"operation": "oversight.getPlant",
+			"criterion": 7,
+			"actor": "director",
+			"ask": "how were meetings attended at Redeemer Church?",
+			"calls": ["oversight.listPlants", "oversight.getPlant"],
+			"answer": ["**Redeemer Church** meetings: 2 recent meetings, attendance unknown."],
+			"absent": ["0", "nobody", "no one", "attended", "Redeemer Person"]
 		}
 	]
 }

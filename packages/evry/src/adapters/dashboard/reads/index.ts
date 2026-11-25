@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import {
 	PROMPT_STEP,
 	PROMPTS,
@@ -73,12 +74,6 @@ function nextSteps(frame: OverviewFrame, plantId: string): SourceRow[] {
 function entryRow(e: ActivityEntry, zone: string, self: string | null): SourceRow {
 	const c = e.change;
 	const meeting = (m: { title: string | null; meetingType: string }) => m.title || TYPE_LABEL[m.meetingType];
-	const day = (d: string | null) =>
-		d
-			? new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(
-					new Date(`${d}T12:00:00Z`),
-				)
-			: null;
 	const [label, href, personId] = ((): [string, string, string | null] => {
 		switch (c.kind) {
 			case "person_added":
@@ -90,7 +85,7 @@ function entryRow(e: ActivityEntry, zone: string, self: string | null): SourceRo
 			case "task_completed":
 				return [`${c.title} completed`, `/tasks?task=${c.taskId}`, null];
 			case "launch_date": {
-				const on = day(c.date);
+				const on = c.date ? dayText(c.date, { year: "never" }) : null;
 				const text = {
 					scheduled: on ? `Launch Sunday set for ${on}` : "Launch Sunday set",
 					moved: on ? `Launch Sunday moved to ${on}` : "Launch Sunday moved",
@@ -100,7 +95,17 @@ function entryRow(e: ActivityEntry, zone: string, self: string | null): SourceRo
 				return [text, "/launch", null];
 			}
 			case "launch_recorded":
-				return [c.date ? `Launch Sunday recorded as held ${day(c.date)}` : "Launch Sunday recorded", "/launch", null];
+				return [
+					c.date ? `Launch Sunday recorded as held ${dayText(c.date, { year: "never" })}` : "Launch Sunday recorded",
+					"/launch",
+					null,
+				];
+			case "launch_corrected":
+				return [
+					c.date ? `Launch Sunday corrected to ${dayText(c.date, { year: "never" })}` : "Launch Sunday corrected",
+					"/launch",
+					null,
+				];
 			case "phase_changed":
 				return [`Phase saved as ${phaseText(c.phase)}`, "/intelligence", null];
 		}

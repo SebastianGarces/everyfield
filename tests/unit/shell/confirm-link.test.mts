@@ -1,3 +1,4 @@
+import "../runs-in/render.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -30,4 +31,44 @@ test("INV-link: an email-change link leaves the address and the sign-in return p
 	const signedOut = proxy(new NextRequest("https://everyfield.test/confirm-email"));
 	assert.equal(signedOut.headers.get("location"), "https://everyfield.test/signin?returnTo=%2Fconfirm-email");
 	assert.equal(signedOut.headers.get("set-cookie"), null);
+});
+
+test("INV-link: a reset or verify link leaves the address before the page, and its value is kept only for that page and its answer", () => {
+	for (const [page, name] of [
+		["/reset-password", "ef-reset-proof"],
+		["/verify-email", "ef-verify-proof"],
+	]) {
+		const arrival = `https://everyfield.test${page}?step=2&token=${token}`;
+		assert.equal(proxied(arrival), true);
+		const kept = proxy(new NextRequest(arrival));
+		assert.equal(kept.status, 307);
+		assert.equal(kept.headers.get("location"), `https://everyfield.test${page}?step=2`);
+		assert.deepEqual(kept.headers.getSetCookie(), [
+			`${name}=${token}; Path=${page}; Max-Age=3600; HttpOnly; SameSite=Lax; Secure`,
+			`${name}=${token}; Path=/api/auth${page}; Max-Age=3600; HttpOnly; SameSite=Lax; Secure`,
+		]);
+		const bare = proxy(new NextRequest(`https://everyfield.test${page}`));
+		assert.deepEqual([bare.status, bare.headers.get("location"), bare.headers.getSetCookie()], [200, null, []]);
+	}
+});
+
+test("the proxy skips the written-document import and no other documents path", () => {
+	const documents = (path: string) => proxied(`https://everyfield.test/documents${path}`);
+	assert.equal(documents("/written/import"), false);
+	for (const path of [
+		"",
+		"/church",
+		"/church/archived",
+		"/church/8d0f1c9e/file",
+		"/church/8d0f1c9e/exports",
+		"/church/8d0f1c9e/exports/1b2c",
+		"/preview",
+		"/read",
+		"/written/new",
+		"/written/8d0f1c9e",
+		"/written/imported",
+		"/written/import/preview",
+		"/written",
+	])
+		assert.equal(documents(path), true, `/documents${path} is not proxied`);
 });

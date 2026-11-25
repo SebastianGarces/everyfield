@@ -1,6 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import { streamText, type ModelMessage, type StopCondition, type ToolSet } from "ai";
-import { readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
+import { READ_DRAFT, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
 import { invokeRead } from "../catalog/invoke.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
 import { liveRowKeys } from "../conversations/liveness.ts";
@@ -15,7 +15,8 @@ import {
 	resolveReferences,
 } from "../context/compile.ts";
 import { readAttachment } from "../attachments/store.ts";
-import { conversationState } from "../conversations/store.ts";
+import { conversationState, readReviews } from "../conversations/store.ts";
+import { notesRead, readNotes, updateNotes } from "../conversations/notes.ts";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
@@ -24,7 +25,7 @@ import type { MailPort, NativePorts } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
-import { modelTools, proposalForModel, resultForModel } from "./tools.ts";
+import { modelTools, proposalForModel, refusalForModel, resultForModel, reviewsRead } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 import { isTransient } from "@everyfield/domain/log";
@@ -151,6 +152,7 @@ async function run(
 	};
 
 	try {
+		if (deps.model.status === "paused") throw new EvryRefusal("model_paused");
 		const session = turn.session_id;
 		const checked = session ? await traced("access check", () => deps.freshActor(session)) : null;
 		if (!session || !checked || checked.accountId !== turn.account_id || checked.owner.id !== turn.tenant_id)
@@ -197,17 +199,37 @@ async function run(
 			type Row = { kind: string; id: string };
 			const key = (row: Row) => `${row.kind}:${row.id}`;
 			const rows = new Map<string, Row>();
-			const rowsOf = (part: unknown) => {
-				const value = (part as { output?: { type?: string; value?: { rows?: unknown } } }).output;
-				return value?.type === "json" && Array.isArray(value.value?.rows) ? (value.value.rows as Row[]) : null;
+			type Section = Record<string, unknown>;
+			const valueOf = (part: unknown) => {
+				const { output } = part as { output?: { type?: string; value?: Section } };
+				return output?.type === "json" && output.value ? output.value : null;
 			};
+			const sectionsOf = (value: Section): Section[] =>
+				Array.isArray(value.results) ? [value, ...(value.results as Section[])] : [value];
 			for (const m of messages)
 				if (m.role === "tool")
-					for (const part of m.content) for (const row of rowsOf(part) ?? []) rows.set(key(row), row);
+					for (const part of m.content)
+						for (const section of sectionsOf(valueOf(part) ?? {}))
+							if (Array.isArray(section.rows)) for (const row of section.rows as Row[]) rows.set(key(row), row);
 			if (!rows.size) return messages;
 			const live = await liveRowKeys(db, current, [...rows.values()]);
 			const withheld = [...rows.keys()].some((k) => !live.has(k));
 			if (!withheld) return messages;
+			const liveOnly = (section: Section): Section => {
+				const results = Array.isArray(section.results) ? { results: (section.results as Section[]).map(liveOnly) } : {};
+				if (!Array.isArray(section.rows)) return { ...section, ...results };
+				const own = section.rows as Row[];
+				const kept = own.filter((r) => live.has(key(r)));
+				if (kept.length === own.length) return { ...section, ...results };
+				return {
+					...section,
+					...results,
+					rows: kept,
+					total: null,
+					completeness: "partial",
+					withheldRows: own.length - kept.length,
+				};
+			};
 			return messages.map((m): ModelMessage => {
 				if (m.role === "assistant")
 					return {
@@ -221,24 +243,10 @@ async function run(
 				return {
 					...m,
 					content: m.content.map((part) => {
-						const own = rowsOf(part);
-						if (!own) return part;
-						const kept = own.filter((r) => live.has(key(r)));
-						if (kept.length === own.length) return part;
-						const output = (part as { output: { value: Record<string, unknown> } }).output;
-						return {
-							...part,
-							output: {
-								type: "json" as const,
-								value: {
-									...output.value,
-									rows: kept,
-									total: null,
-									completeness: "partial",
-									withheldRows: own.length - kept.length,
-								},
-							},
-						} as typeof part;
+						const value = valueOf(part);
+						return value
+							? ({ ...part, output: { type: "json" as const, value: liveOnly(value) } } as typeof part)
+							: part;
 					}),
 				};
 			});
@@ -263,7 +271,7 @@ async function run(
 			let result: SourceResult | undefined;
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh));
+					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh), deps.mail ?? null);
 				} catch (error) {
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
 					if (attempt < LIMITS.readRetries && isTransient(error)) continue;
@@ -323,7 +331,7 @@ async function run(
 					filesOf(fresh),
 				).catch((error: unknown) =>
 					error instanceof EvryRefusal
-						? { error: error.code, ...(error.problem && { problem: error.problem }) }
+						? { ...refusalForModel(error.code), ...(error.problem && { problem: error.problem }) }
 						: { error: "unknown" },
 				);
 				if (proposal && "error" in proposal) return proposal;
@@ -345,6 +353,35 @@ async function run(
 					},
 				});
 				return sequence === null ? { error: "cancelled" } : proposalForModel(proposal);
+			},
+			readNotes: async () => {
+				const fresh = await admit();
+				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
+				const found = await readNotes(db, fresh, turn.conversation_id);
+				if (!found) return { error: "source_unavailable" };
+				const sequence = await save("tool_result", { operation: READ_DRAFT, result: notesRead(found) });
+				if (sequence === null) return { error: "cancelled" };
+				const { notes, revision, withheld } = found;
+				return withheld ? { notes: "", revision, withheld } : { notes, revision };
+			},
+			updateNotes: async (call) => {
+				const fresh = await admit();
+				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
+				await drain();
+				const saved = await updateNotes(db, fresh, lease, turn.conversation_id, call);
+				if (saved.status === "saved") return { revision: saved.revision };
+				if (saved.status === "stale") return { error: "stale_notes", revision: saved.revision };
+				if (saved.status === "too_long") return { error: "notes_too_long", limit: LIMITS.notesChars };
+				return { error: "cancelled" };
+			},
+			readReview: async ({ proposalId }) => {
+				const fresh = await admit();
+				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
+				const found = await readReviews(db, fresh, turn.conversation_id, proposalId ?? null);
+				if (!found) return { error: "source_unavailable" };
+				const result = reviewsRead(found.total, found.reviews);
+				const sequence = await save("tool_result", { operation: result.operation, result });
+				return sequence === null ? { error: "cancelled" } : resultForModel(sequence, result);
 			},
 		});
 

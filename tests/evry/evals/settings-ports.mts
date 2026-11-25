@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import type { Database } from "../../../packages/db/src/client.ts";
+import { sql, type SQLWrapper } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import type { Database, Transaction } from "../../../packages/db/src/client.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import type { InvitationMail } from "../../../packages/domain/src/identity/invitations.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
@@ -13,17 +13,56 @@ import {
 	timezoneOperations,
 } from "../../../packages/domain/src/settings/index.ts";
 import type { NativePorts } from "../../../packages/evry/src/index.ts";
+import { createMailService, type MailIntent } from "../../../packages/domain/src/jobs/mail.ts";
 import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 
-export function nativePorts(mail: { to: string; purpose: string }[] = []): NativePorts {
+const queue = createMailService({
+	db: null as never,
+	encryptionKey: Buffer.alloc(32, 1),
+	addressKey: Buffer.alloc(32, 2),
+	from: "evry@example.test",
+	authorize: async () => new Set(),
+});
+type Queued = Pick<MailIntent, "owner" | "purpose" | "logicalKey" | "address" | "operation">;
+const queueInvitation = (tx: Transaction, writes: SQLWrapper[], mail: Queued) =>
+	queue.append(
+		tx,
+		{
+			...mail,
+			recipient: null,
+			content: { subject: "Your Everyfield invitation", text: "Synthetic invitation." },
+			notice: null,
+			eligibleAt: new Date().toISOString(),
+		},
+		writes,
+	);
+
+export function nativePorts(
+	mail: { to: string; purpose: string }[] = [],
+	{ queued = false }: { queued?: boolean } = {},
+): NativePorts {
 	const organizationEffects = {
-		async invitation(_tx: unknown, input: { recipientEmail: string }) {
+		async invitation(
+			tx: Transaction,
+			input: { owner: MailIntent["owner"]; invitationId: string; operationId: string; recipientEmail: string },
+			writes: SQLWrapper[],
+		) {
 			mail.push({ to: input.recipientEmail, purpose: "relationship_invitation" });
+			if (queued)
+				await queueInvitation(tx, writes, {
+					owner: input.owner,
+					purpose: "relationship_invitation",
+					logicalKey: `relationship/${input.invitationId}/${input.operationId}`,
+					address: input.recipientEmail,
+					operation: input.operationId,
+				});
 		},
 		invalidate: (_tx: unknown, input: { sourceId: string }) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 	};
-	const organizations = createOrganizationAdapter(organizationEffects as never, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(organizationEffects as never, {
+		candidates: () => sql`SELECT NULL::uuid WHERE false`,
+	});
 	const effects = {
 		replan: (tx: never, i: { owner: { id: string }; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {
@@ -77,9 +116,16 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 				budgetSecret: "settings-evals",
 				people: accountPersonProducer,
 				addressBlocked: () => sql`false`,
-				async enqueueMail(_tx, m: InvitationMail) {
+				async enqueueMail(tx, m: InvitationMail, command) {
 					mail.push({ to: m.recipientEmail, purpose: m.purpose });
-					return randomUUID();
+					if (!queued) return randomUUID();
+					return queueInvitation(tx, command.writes, {
+						owner: m.owner,
+						purpose: m.purpose,
+						logicalKey: m.logicalKey,
+						address: m.recipientEmail,
+						operation: m.operationId,
+					});
 				},
 			}),
 		organizations,

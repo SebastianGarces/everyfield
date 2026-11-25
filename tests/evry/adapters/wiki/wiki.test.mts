@@ -185,7 +185,11 @@ test("AC:CASE-WIKI-008 AC:INH-EDGES-05 asking about articles never writes readin
 	const before = await reading();
 	for (const adapter of WIKI_READS) {
 		const input =
-			adapter.operation === "wiki.search" ? { query: "welcome letter" } : { articleId: ids.planted.article };
+			adapter.operation === "wiki.search"
+				? { query: "welcome letter" }
+				: adapter.operation === "wiki.contextGuide"
+					? { route: "/people" }
+					: { articleId: ids.planted.article };
 		await invokeRead(
 			db,
 			owner,

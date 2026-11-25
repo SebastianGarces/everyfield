@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import {
 	ANSWER_MAX,
 	checkSummary,
@@ -17,6 +18,7 @@ import {
 	CardHeading,
 	CardTitle,
 	Field,
+	InlineAlert,
 	Input,
 	Radio,
 	RadioGroup,
@@ -32,7 +34,6 @@ import {
 	countText,
 	EVIDENCE_TEXT,
 	instantDate,
-	longDate,
 	refusalMessage,
 	sent,
 	SUMMARY_MESSAGE,
@@ -219,8 +220,8 @@ function DebriefForm({
 					Actual date and attendance
 				</h4>
 				<p className="mt-1 text-sm text-ink">
-					Held {longDate(o.actualDate)} · {countText(o.attendance)} attended · {countText(o.decisions)} decisions ·{" "}
-					{countText(plan.guests.count)} guests named
+					Held {dayText(o.actualDate, { weekday: "short" })} · {countText(o.attendance)} attended ·{" "}
+					{countText(o.decisions)} decisions · {countText(plan.guests.count)} guests named
 				</p>
 				<p className="mt-0.5 text-xs text-text-3">From Launch Sunday above. Correct them there.</p>
 			</section>
@@ -254,11 +255,7 @@ function DebriefForm({
 					</Field>
 				) : null}
 			</fieldset>
-			{error ? (
-				<p role="alert" className="text-sm text-red-700">
-					{error}
-				</p>
-			) : null}
+			<InlineAlert>{error}</InlineAlert>
 			<div className="flex flex-wrap items-center gap-3">
 				<Button type="submit" variant="primary" disabled={busy}>
 					{d.submitted ? "Submit correction" : "Submit debrief"}
@@ -339,11 +336,7 @@ export function SummaryCard({
 					<div className="rounded-md bg-surface-2 px-4 py-3 text-sm break-words whitespace-pre-line text-ink">
 						{body.trim()}
 					</div>
-					{error ? (
-						<p role="alert" className="text-sm text-red-700">
-							{error}
-						</p>
-					) : null}
+					<InlineAlert>{error}</InlineAlert>
 					<div className="flex flex-wrap gap-3">
 						<Button variant="primary" disabled={busy} onClick={() => void save(true)}>
 							{current ? "Publish new version" : "Publish"}

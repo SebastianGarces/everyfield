@@ -8472,7 +8472,10 @@
         "WP-010",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts"
+      ],
       "description": "Owner and Admin request church deletion; Owner asks to leave while retaining running workspace.",
       "given": {
         "P": {
@@ -8741,7 +8744,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -9067,7 +9073,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -9397,7 +9406,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -9725,7 +9737,10 @@
         "WP-015",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -16576,7 +16591,10 @@
         "WP-053",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts"
+      ],
       "description": "Two Plant A Admin authors with different private care weeks; guessed IDs, merged Persons, role edits, retained Evry context, organization projection, log/audit inspection and personal deletion/isolated restore. Correct a saved entry, attempt individual-entry delete, then request personal lifecycle deletion.",
       "given": {
         "P": {
@@ -16725,7 +16743,10 @@
         "WP-094",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/gates.test.mts"
+      ],
       "description": "Request at 2026-10-13T12:00Z; cancel one millisecond before/at deadline, race cancellation/purge, inject partial DB/file purge, preserve church-authored shared records, restore an old copy after expiry.",
       "given": {
         "P": {

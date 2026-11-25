@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { serveGoogleFonts } from "./google-fonts.ts";
 import { ENGINES, type Engine, seedsOf, TSX, uiTestFiles } from "./nightly.ts";
 
 export const ORIGIN = "http://nightly.localhost:3000";
@@ -79,6 +80,21 @@ function seed(dir: string, action: "up" | "down") {
 	}
 }
 
+async function build(): Promise<number> {
+	const fonts = await serveGoogleFonts(join(root, "apps/web"));
+	try {
+		const child = spawn("pnpm", ["build"], { cwd: root, env: { ...process.env, ...fonts.env }, stdio: "inherit" });
+		const status = await new Promise<number>((resolve, reject) => {
+			child.once("error", reject);
+			child.once("close", (code) => resolve(code ?? 1));
+		});
+		console.log(`fonts served on loopback: ${fonts.requests()}`);
+		return status;
+	} finally {
+		fonts.close();
+	}
+}
+
 const pidFile = (dir: string) => join(dir, "server.pid");
 
 async function startServer(dir: string) {
@@ -136,13 +152,14 @@ function runTests(dir: string, files: string[], engine: Engine): Promise<string>
 	return new Promise((resolve) => child.once("close", () => out.end(() => resolve(output))));
 }
 
-const USAGE = "usage: node scripts/nightly-ui.ts up <dir> | test chromium|webkit <dir> | down <dir>";
+const USAGE = "usage: node scripts/nightly-ui.ts build <dir> | up <dir> | test chromium|webkit <dir> | down <dir>";
 
 export async function nightlyUiCommand(args: string[]): Promise<number> {
 	const [command, ...rest] = args;
 	const dir = rest.at(-1);
-	if (!dir || !["up", "test", "down"].includes(command ?? "")) return (console.error(USAGE), 2);
+	if (!dir || !["build", "up", "test", "down"].includes(command ?? "")) return (console.error(USAGE), 2);
 	mkdirSync(join(dir, "fixtures"), { recursive: true });
+	if (command === "build") return build();
 	if (command === "up") {
 		try {
 			seed(dir, "up");

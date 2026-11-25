@@ -166,7 +166,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 					<ul className="mt-1 flex flex-col gap-1">
 						{review.blockers.causes.map((cause) => (
 							<li key={cause}>
-								{blockerText(cause, { source: name("source"), survivor: name("survivor") }, review.blockers.references)}
+								{blockerText(cause, { source: name("source"), survivor: name("survivor") }, review.blockers)}
 							</li>
 						))}
 					</ul>

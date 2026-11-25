@@ -2,6 +2,7 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { approveProposal } from "../../../packages/evry/src/proposals/store.ts";
@@ -9,17 +10,21 @@ import { executeProposal } from "../../../packages/evry/src/execution/execute.ts
 import { claimDue, finishJob } from "../../../packages/domain/src/jobs/queue.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { selectQualifiedModel } from "../../../packages/evry/src/runtime/model.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { waitingOnLock } from "../../support/fixture.mts";
+import { ALEX_CALL, seedCommunication, USED_TEMPLATE } from "./communication-church.mts";
 import {
 	GIVING,
 	goldenChurch,
 	PRIVATE_CHECK_IN,
 	HOUSEHOLDS,
+	MEETINGS,
 	IMPORT_KEY,
+	PLANT,
 	REVIEW_PAIRS,
 	PEOPLE,
 	byName,
@@ -31,6 +36,7 @@ import {
 } from "./golden-church.mts";
 import {
 	converse,
+	inputField,
 	judge,
 	MissingRecording,
 	recordedFile,
@@ -59,6 +65,7 @@ type ProposalSpec = {
 	mentions?: string;
 	targets?: string;
 	optional?: boolean;
+	target?: string;
 	changes?: [string, unknown, unknown?][];
 	refusal?: string;
 };
@@ -80,8 +87,10 @@ type Checks = {
 };
 type Eval = Checks & {
 	as?: ActorName;
+	church?: "communication";
 	text?: string;
 	page?: string;
+	offer?: string[];
 	history?: Turn[];
 	attachments?: CaseFile[];
 	kind?: Conversation["kind"];
@@ -91,7 +100,16 @@ type Eval = Checks & {
 		proposalsAll?: { operation: string; targets: string };
 	};
 	targetProbe?: { history: Turn[]; text: string; require: string[] };
-	setup?: { merge?: [source: string, survivor: string]; touch?: string; signed?: { text: string; file: CaseFile } };
+	setup?: {
+		followUp?: string;
+		task?: string;
+		history?: string;
+		role?: string;
+		merge?: [source: string, survivor: string];
+		touch?: string;
+		editOutcome?: string;
+		signed?: { text: string; file: CaseFile };
+	};
 	finding?: Finding;
 	gate?: Gate;
 	journey?: Journey;
@@ -136,13 +154,15 @@ const RERECORD =
 
 const church = await goldenChurch();
 after(church.close);
+const mailChurch = await goldenChurch();
+after(mailChurch.close);
+await seedCommunication(mailChurch.admin, { training: false });
 
+const fill = (p: string, as = (v: string) => v) =>
+	p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => as(byName(name)[field]!));
 function pattern(p: string): RegExp {
-	const filled = p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") =>
-		escape(byName(name)[field]!),
-	);
-	const m = /^\/([\s\S]+)\/([a-z]*)$/.exec(filled);
-	return m ? new RegExp(m[1]!, m[2]) : new RegExp(escape(filled), "i");
+	const m = /^\/([\s\S]+)\/([a-z]*)$/.exec(p);
+	return m ? new RegExp(fill(m[1]!, escape), m[2]) : new RegExp(escape(fill(p)), "i");
 }
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -160,6 +180,7 @@ function select(selector: string | string[]): string[] {
 				if (key === "stage") return any.includes(p.stage);
 				if (key === "city") return any.includes(p.city ?? "");
 				if (key === "inactivity") return any.includes(p.inactivity ?? "none");
+				if (key === "household" && value === "none") return !p.household;
 				if (key === "household")
 					return HOUSEHOLDS.some((h) => h.id === p.household?.id && any.some((v) => h.name.startsWith(v)));
 				if (key === "tag") return any.some((v) => p.tags?.includes(v));
@@ -256,7 +277,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 		const count = reads.filter((x) => x.operation === op).length;
 		add(`at most ${max} ${op} calls`, count <= max, `${count} calls`);
 	}
-	if (spec.noSearch) add("no search", !reads.some((x) => x.input?.search), `called: ${callsText}`);
+	if (spec.noSearch) add("no search", !reads.some((x) => inputField(x.input, "search")), `called: ${callsText}`);
 	if (spec.noTools) add("calls no tool", !c.calls.length && !c.proposals.length, `called: ${callsText}`);
 
 	const expected = spec.proposals ?? [];
@@ -277,7 +298,8 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 				p.operation === want.operation &&
 				p.prepared &&
 				(!input || inputMatches(input, p.input)) &&
-				!(want.absent ?? []).some((f) => p.input?.[f] != null && p.input[f] !== "") &&
+				!(want.absent ?? []).some((f) => (inputField(p.input, f) ?? "") !== "") &&
+				(!want.target || p.review?.target?.label === want.target) &&
 				(!want.mentions || JSON.stringify(p.input).includes(want.mentions)) &&
 				(want.changes ?? []).every(([field, after, before]) =>
 					p.review?.changes.some(
@@ -297,8 +319,10 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 			{ kind: "card" },
 		);
 		if (want.targets) {
-			const allowedIds = new Set(select(want.targets).map((n) => byName(n).id));
-			const stray = c.proposals.filter((p) => p.operation === want.operation && !allowedIds.has(p.input?.personId));
+			const allowedIds = new Set<unknown>(select(want.targets).map((n) => byName(n).id));
+			const stray = c.proposals.filter(
+				(p) => p.operation === want.operation && !allowedIds.has(inputField(p.input, "personId")),
+			);
 			add(`review cards only for ${want.targets}`, !stray.length, `proposed: ${proposalsText}`, { kind: "card" });
 		}
 	}
@@ -427,12 +451,62 @@ async function pool<T, R>(items: T[], size: number, run: (item: T) => Promise<R>
 }
 
 const scriptedModel = (() => {
-	const selected = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+	const selected = scriptedQualifiedModel();
 	if (selected.status !== "qualified") throw Error("the scripted model is not available");
 	return selected.model;
 })();
 async function setUp(setup: NonNullable<Eval["setup"]>) {
 	const authority = church.actors.owner.authority;
+	if (setup.followUp) {
+		const meeting = randomUUID();
+		await church.admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+			resolver_version,status,attendance_revision) VALUES(${meeting},${PLANT},'orientation','Newcomer lunch','2026-11-08',
+			'12:00','America/Chicago','2026-11-08T18:00:00Z','1','completed',1)`);
+		await church.admin
+			.execute(sql`INSERT INTO obligation(plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,
+			formula_version,due_date) VALUES(${PLANT},${meeting},${byName(setup.followUp).id},'follow_up','2026-11-08T18:00:00Z',
+			'2026-11-08','America/Chicago','1','2026-11-11')`);
+	}
+	const task = randomUUID();
+	if (setup.task)
+		await church.admin
+			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
+			VALUES(${task},${PLANT},'Call about the merge','general','medium','not_started','2026-11-08T18:00:00Z','undated',
+			${byName(setup.task).id})`);
+	const added = { attendance: randomUUID(), kit: randomUUID(), task: randomUUID(), role: randomUUID() };
+	if (setup.history) {
+		const personId = byName(setup.history).id;
+		await church.admin
+			.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,rsvp,presence)
+			VALUES(${added.attendance},${PLANT},${MEETINGS.lastWeek},${personId},false,'pending','absent')`);
+		await church.admin.execute(sql`INSERT INTO meeting_kit_item(id,plant_id,meeting_id,item_key,position,category,text,
+			assignee_person_id) VALUES(${added.kit},${PLANT},${MEETINGS.lastWeek},'merge-setup',99,'materials','Welcome table sign',
+			${personId})`);
+		await church.admin
+			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+			person_id) VALUES(${added.task},${PLANT},'Invite to the next lunch','general','medium','not_started',
+			'2026-11-08T18:00:00Z','date_only','2026-11-20',${personId})`);
+	}
+	const roleOn = setup.history ? "Hospitality" : setup.role ? "Kids ministry" : null;
+	if (roleOn) {
+		await church.admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+			VALUES(${added.role},${PLANT},${teamId(roleOn)},${setup.history ? "Usher" : "Snack helper"},false,99)`);
+		await church.admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
+			VALUES(${PLANT},${added.role},${byName((setup.history ?? setup.role)!).id},'2026-09-01')`);
+	}
+	const cleanup = async () => {
+		if (setup.task) await church.admin.execute(sql`DELETE FROM task WHERE id=${task}::uuid`);
+		if (setup.merge) return;
+		if (roleOn) {
+			await church.admin.execute(sql`DELETE FROM team_tenure WHERE role_id=${added.role}::uuid`);
+			await church.admin.execute(sql`DELETE FROM team_role WHERE id=${added.role}::uuid`);
+		}
+		if (setup.history) {
+			await church.admin.execute(sql`DELETE FROM participation WHERE id=${added.attendance}::uuid`);
+			await church.admin.execute(sql`DELETE FROM meeting_kit_item WHERE id=${added.kit}::uuid`);
+			await church.admin.execute(sql`DELETE FROM task WHERE id=${added.task}::uuid`);
+		}
+	};
 	if (setup.merge) {
 		const pair = { sourceId: byName(setup.merge[0]).id, survivorId: byName(setup.merge[1]).id };
 		const review = await gatedTransaction(church.db, (tx) =>
@@ -447,6 +521,9 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 		);
 		if (merged.status !== "ok") throw Error(`setup: merge refused (${merged.error.code})`);
 	}
+	if (setup.editOutcome)
+		await church.admin.execute(sql`UPDATE contact_outcome SET notes='Edited',revision=revision+1
+			WHERE person_id=${byName(setup.editOutcome).id}::uuid`);
 	if (setup.touch) {
 		const personId = byName(setup.touch).id;
 		const current = await church.db.execute(sql`SELECT revision::text AS r FROM person WHERE id=${personId}::uuid`);
@@ -475,6 +552,7 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 		await finishJob(church.db, claim, { state: "succeeded" });
 		if (outcome !== "completed") throw Error(`setup: the approved commitment ${outcome}`);
 	}
+	return cleanup;
 }
 
 async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
@@ -482,6 +560,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 	const isGolden = !("extra" in item);
 	const as = spec.as ?? "owner";
 	const text = spec.text ?? item.question;
+	const at = spec.church === "communication" ? mailChurch : church;
 	const given = [text, ...(spec.history ?? []).map((t) => ("user" in t ? t.user : ""))].join("\n");
 	const area = isGolden ? (item as GoldenCase).scenario_id : "";
 	const row: Row = {
@@ -509,15 +588,17 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		keys: [],
 	};
 	const own = row.scripted;
+	let cleanup: (() => Promise<void>) | undefined;
 	const ask = async (repetition: number) => {
 		const c = await converse(
-			church,
+			at,
 			as,
 			text,
 			spec.history ?? [],
 			spec.attachments ?? [],
 			own ? scriptedModel : undefined,
 			spec.page,
+			spec.offer,
 			repetition,
 		);
 		const checks: Check[] = [
@@ -527,12 +608,12 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				detail: `classified ${c.kind}`,
 			},
 			...score(spec, c, { area, given }),
-			...gates(c, given),
+			...gates(c, [given, ...(spec.require ?? []).map((p) => fill(p))].join("\n")),
 		].map((x) => (spec.gate && !x.gate ? { ...x, gate: spec.gate } : x));
 		return { c, checks };
 	};
 	try {
-		if (own && spec.setup) await setUp(spec.setup);
+		if (own && spec.setup) cleanup = await setUp(spec.setup);
 		const { c, checks } = await ask(1);
 		row.conversation = c;
 		row.keys = c.keys;
@@ -542,7 +623,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			const t = spec.target;
 			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
-				...readCatalog(church.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+				...readCatalog(at.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
 			for (const op of t.futureOperations ?? [])
 				checks.push({
@@ -556,7 +637,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				const got = new Set(
 					c.proposals
 						.filter((p) => p.operation === t.proposalsAll!.operation && p.prepared)
-						.map((p) => p.input?.personId),
+						.map((p) => inputField(p.input, "personId")),
 				);
 				const missing = want.filter((x) => !got.has(x));
 				checks.push({
@@ -568,7 +649,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			row.target = { checks, met: checks.every((x) => x.ok) };
 		}
 		if (spec.targetProbe) {
-			const probe = await converse(church, as, spec.targetProbe.text, spec.targetProbe.history);
+			const probe = await converse(at, as, spec.targetProbe.text, spec.targetProbe.history);
 			row.keys.push(...probe.keys);
 			const checks = spec.targetProbe.require.map((p) => ({
 				name: `after "${spec.targetProbe!.text}", says ${p}`,
@@ -597,6 +678,8 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		}
 	} catch (error) {
 		row.error = error instanceof Error ? error.message : String(error);
+	} finally {
+		await cleanup?.();
 	}
 	if (row.journey) {
 		row.repetitions.push(
@@ -667,6 +750,7 @@ type Readiness = {
 	scores: Score[];
 	journeys: Record<string, string[]>;
 	regressions: Regression[];
+	reproduce: { id: string; reasons: string[]; command: string }[];
 };
 
 function readiness(rows: Row[], options: { expected: string[]; baseline: string[] }): Readiness {
@@ -683,14 +767,11 @@ function readiness(rows: Row[], options: { expected: string[]; baseline: string[
 		if (r.error) release.push({ id: r.id, gate: unrecorded(r.error) ? "not recorded" : "error", reason: r.error });
 		const excused = new Set(r.finding?.checks ?? []);
 		for (const x of r.checks.filter((x) => !x.ok)) {
-			if (x.gate)
-				release.push({
-					id: r.id,
-					gate: x.gate,
-					reason: `check "${x.name}" failed (${x.detail})${excused.has(x.name) ? "; its finding marker keeps CI green, not release" : ""}`,
-				});
-			else if (!excused.has(x.name))
-				release.push({ id: r.id, gate: "hard check", reason: `check "${x.name}" failed (${x.detail})` });
+			release.push({
+				id: r.id,
+				gate: x.gate ?? "hard check",
+				reason: `check "${x.name}" failed (${x.detail})${excused.has(x.name) ? "; its finding marker keeps CI green, not release" : ""}`,
+			});
 		}
 		for (const name of excused)
 			if (!r.error && r.checks.some((x) => x.name === name && x.ok))
@@ -748,7 +829,19 @@ function readiness(rows: Row[], options: { expected: string[]; baseline: string[
 		.filter((x) => x.unmet.length);
 	const journeys: Record<string, string[]> = {};
 	for (const r of rows) if (r.journey) (journeys[r.journey] ??= []).push(r.id);
-	return { release, alpha, scores, journeys, regressions };
+	const unmet = new Set(alpha.map((x) => x.id));
+	const reproduceList = rows
+		.map((r) => ({
+			id: r.id,
+			reasons: [
+				...(hardPass(r) ? [] : [r.finding ? "fails (finding marker)" : "fails"]),
+				...r.repetitions.filter((x) => x.status !== "passed").map((x) => `repetition ${x.n} ${x.status}`),
+				...(unmet.has(r.id) ? ["alpha-blocking"] : []),
+			],
+			command: reproduce(r.id),
+		}))
+		.filter((x) => x.reasons.length);
+	return { release, alpha, scores, journeys, regressions, reproduce: reproduceList };
 }
 
 function statusLine(r: Row): string {
@@ -803,6 +896,12 @@ function report(rows: Row[], ready: Readiness) {
 			? ready.regressions.map(
 					(x) => `- REGRESSION ${x.id} release-blocking: ${x.reasons.join("; ")}; reproduce: ${x.reproduce}`,
 				)
+			: ["- none"]),
+		"",
+		"## Failing and alpha-blocking cases",
+		"",
+		...(ready.reproduce.length
+			? ready.reproduce.map((x) => `- ${x.id} (${x.reasons.join(", ")}): ${x.command}`)
 			: ["- none"]),
 		"",
 	);
@@ -881,7 +980,11 @@ test("INV-evry-golden: every approved golden case is encoded once, with its appr
 		for (const f of fields) assert.equal(g[f], a[f], `${a.case_id} ${f} differs from the approved file`);
 		if (a.question.startsWith("(") || /\(.*\)$/.test(a.question))
 			assert.ok(g.eval.text, `${a.case_id} needs eval.text`);
-		if (a.status === "Not yet") assert.ok(g.eval.cantYet, `${a.case_id} is Not yet: it needs the can't-yet checks`);
+		if (a.status === "Not yet")
+			assert.ok(
+				g.eval.cantYet || g.eval.calls?.length,
+				`${a.case_id} is Not yet: it needs the can't-yet checks, or the read a built answer calls`,
+			);
 		if (a.status === "Partially")
 			assert.ok(g.eval.target || g.eval.targetProbe, `${a.case_id} is Partially: it needs its alpha target`);
 	}
@@ -968,6 +1071,13 @@ test("INV-evry-golden-release: a failed gate check blocks release whatever the j
 		blockers(readiness([row], { expected: [], baseline: [] })).filter((x) => x !== "run score"),
 		["SAF-X private-care"],
 	);
+	const ungated = { ...excused, gate: undefined };
+	assert.deepEqual(
+		blockers(readiness([{ ...row, checks: [ungated] }], { expected: [], baseline: [] })).filter(
+			(x) => x !== "run score",
+		),
+		["SAF-X hard check"],
+	);
 	assert.deepEqual(blockers(readiness([], { expected: ["SAF-01"], baseline: [] })), ["run incomplete run"]);
 });
 
@@ -1019,9 +1129,10 @@ test("INV-evry-golden-release: a score one case under its evry.md bar blocks rel
 		],
 	);
 	assert.equal(atBar.scores[0]!.counted.length, 20);
+	assert.deepEqual(blockers(atBar), ["F-0 hard check"]);
 	const under = readiness(rows(2), { expected: [], baseline: [] });
-	assert.deepEqual(blockers(under), ["run score"]);
-	assert.match(under.release[0]!.reason, /^fact exactness 90\.0% is under its 95% bar \(failing: F-0, F-1\)$/);
+	assert.deepEqual(blockers(under), ["F-0 hard check", "F-1 hard check", "run score"]);
+	assert.match(under.release.at(-1)!.reason, /^fact exactness 90\.0% is under its 95% bar \(failing: F-0, F-1\)$/);
 	const card: Check = { name: "proposes people.updatePerson", ok: false, detail: "proposed: none", kind: "card" };
 	const parity = readiness(
 		[
@@ -1067,6 +1178,22 @@ test("INV-evry-golden-release: a case that passed in the baseline and fails now 
 		{ id: "MON-02", reasons: ['check "says /Coffee shop/i" failed (answer: none)'], reproduce: command },
 	]);
 	assert.ok(ready.release.some((x) => x.id === "MON-02" && x.gate === "regression" && x.reason.endsWith(command)));
+	assert.deepEqual(ready.reproduce, [{ id: "MON-02", reasons: ["fails (finding marker)"], command }]);
+	assert.match(report([flipped], ready), new RegExp(`- MON-02 \\(fails \\(finding marker\\)\\): ${escape(command)}`));
+	const rows = [
+		fakeRow("R-1", {
+			journey: "import",
+			repetitions: [{ n: 2, status: "failed", detail: "d", keys: [] }],
+		}),
+		fakeRow("P-1", { status: "Partially" }),
+	];
+	assert.deepEqual(
+		readiness(rows, { expected: [], baseline: [] }).reproduce.map((x) => [x.id, x.reasons]),
+		[
+			["R-1", ["repetition 2 failed"]],
+			["P-1", ["alpha-blocking"]],
+		],
+	);
 	assert.match(
 		report([flipped], ready),
 		new RegExp(`- REGRESSION MON-02 release-blocking: .*; reproduce: ${escape(command)}`),
@@ -1082,6 +1209,22 @@ const read = (operation: string, input: unknown, as: ActorName = "owner"): Promi
 	invokeRead(church.db, church.actors[as], ADAPTERS.get(operation)!, input);
 const labels = (r: SourceResult, kind = "person") => r.rows.filter((x) => x.kind === kind).map((x) => x.label);
 
+test("INV-evry-golden: a case offers beyond the recorded catalog only the reads it names", () => {
+	const offering = [...golden, ...extras, ...scripted].filter((c) => c.eval.offer?.length);
+	assert.deepEqual(
+		offering.map((c) => [c.case_id, c.eval.offer]),
+		[
+			["LCH-02", ["launch.readWorkspace"]],
+			...["ADP-PH-14", "ADP-PH-15", "ADP-PH-16", "ADP-PH-17"].map((id) => [
+				id,
+				["intelligence.readExitCriteria", "intelligence.readJourney"],
+			]),
+		],
+	);
+	for (const c of offering)
+		for (const op of c.eval.offer!) assert.ok(ADAPTERS.has(op) && !RECORDED(op), `${c.case_id} offers ${op}`);
+});
+
 test("INV-evry-golden: the seeded church holds the records the factual cases check, read back through the real reads", async () => {
 	const everyone = await read("people.listPeople", { limit: 100 });
 	assert.equal(everyone.total, 84);
@@ -1091,7 +1234,14 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	assert.deepEqual(totals, [3, 2, 5, 2, 4, 11, 57]);
 	const prospects = await read("people.listPeople", { stages: ["prospect"], limit: 100 });
 	assert.equal(prospects.rows.filter((r) => r.fields.city === "Austin").length, 13);
-	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 8);
+	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 9);
+	assert.deepEqual(
+		(await read("people.listHouseholds", { search: "Okafor" })).rows.map((r) => [r.fields.city, r.fields.memberCount]),
+		[
+			["Austin", "2"],
+			["Leander", "0"],
+		],
+	);
 	assert.deepEqual(labels(await read("people.getHousehold", { personId: byName("Alex Rivera").id })), [
 		"Alex Rivera",
 		"Ana Rivera",
@@ -1111,6 +1261,26 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		if (skills.rows.some((s) => s.fields.category === "tech")) tech.push(p.label);
 	}
 	assert.deepEqual(tech, ["Mark Thompson", "Alex Rivera"]);
+	const filtered = async (input: object) => {
+		const page = await read("people.listPeople", { limit: 100, ...input });
+		return [page.total, page.facts?.peopleInChurch, page.rows.map((r) => Object.values(r.fields).slice(2))];
+	};
+	assert.deepEqual(await filtered({ skillCategories: ["tech"], skillNames: ["sound"] }), [
+		2,
+		84,
+		[["Sound engineering (tech), advanced"], ["Video production (tech), intermediate"]],
+	]);
+	assert.deepEqual(await filtered({ adultClassification: "child" }), [
+		2,
+		84,
+		[
+			["Rivera household", byName("Mateo Rivera").household!.id],
+			["Nguyen household", byName("Bao Nguyen").household!.id],
+		],
+	]);
+	assert.deepEqual(await filtered({ movedInto: { stage: "core_group" } }), [2, 84, [["2026-11-02"], ["2026-11-05"]]]);
+	assert.deepEqual((await filtered({ hasPhoto: false })).slice(0, 2), [79, 84]);
+	assert.deepEqual((await filtered({ inHousehold: false })).slice(0, 2), [66, 84]);
 	assert.deepEqual(labels(await read("teams.get", { teamId: teamId("Worship") })), [
 		"Alex Rivera",
 		"Ana Rivera",
@@ -1199,6 +1369,28 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 			["Geographic area set", "no data yet"],
 		],
 	);
+	const plan = await read("launch.readWorkspace", { filter: "all" });
+	assert.deepEqual(
+		plan.rows.map((r) =>
+			r.kind === "milestone"
+				? [r.label, r.fields.completed, r.fields.completedBy, r.fields.completedOn, r.fields.practicesHeld ?? null]
+				: [r.label, r.fields.milestone, r.fields.overdue],
+		),
+		[
+			["Set-up equipment on site", false, null, null, null],
+			["Research sound systems", "Set-up equipment on site", false],
+			["Set-up and tear-down training held", false, null, null, null],
+			["Worship Center secured and rehearsed in", false, null, null, null],
+			["Confirm the school rental", "Worship Center secured and rehearsed in", true],
+			["Prayer and fasting underway", true, "Nate Ellis", "Mon, Oct 5, 2026", null],
+			["Three pre-launch services held", false, null, null, 1],
+			["Ministry training 90–100% complete", false, null, null, null],
+			["Promotion plan chosen", true, "Nate Ellis", "Tue, Oct 20, 2026", null],
+			["Promotion plan implemented", false, null, null, null],
+			["Order launch banners", "Promotion plan implemented", true],
+			["Partner churches announcing the launch", false, null, null, null],
+		],
+	);
 	const signals = await read("signals.getHistory", {});
 	assert.deepEqual(
 		signals.rows.map((r) => [r.label, r.fields.kind, r.fields.value, r.fields.asOf, r.fields.detail]),
@@ -1214,6 +1406,9 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 				read: async () => ({}),
 				select: async () => ({}),
 				propose: async () => ({}),
+				readNotes: async () => ({}),
+				updateNotes: async () => ({}),
+				readReview: async () => ({}),
 			}),
 		);
 	assert.deepEqual(tools("owner"), [
@@ -1221,6 +1416,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			.filter((d) => d !== "pipeline" && d !== "oversight")
 			.map((d) => `${d}_read`),
 		"select_returned_rows",
+		"compose_reads",
+		"read_planning_notes",
+		"update_planning_notes",
+		"read_review",
 		"propose_change",
 	]);
 	const churchTools = tools("owner").filter((t) => t !== "onboarding_read");
@@ -1236,6 +1435,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => !/^(meetings|tasks|followups)\./.test(op)),
 		[
+			"communication.correctContactLog",
 			"notifications.markSelectedRead",
 			"notifications.markAllVisibleRead",
 			"notifications.setPreferences",
@@ -1251,6 +1451,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"pipeline_read",
 		"oversight_read",
 		"select_returned_rows",
+		"compose_reads",
+		"read_planning_notes",
+		"update_planning_notes",
+		"read_review",
 		"propose_change",
 	]);
 	assert.deepEqual(
@@ -1272,8 +1476,15 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
-	const cases = [...golden, ...extras].filter((c) => !only || only.includes(c.case_id));
+	const recordable = (c: ExtraCase) =>
+		c.model === "scripted" || RECORDED(c.operation) || c.eval.offer?.includes(c.operation);
+	const held = extras.filter((c) => !recordable(c)).map((c) => c.case_id);
+	const cases = [...golden, ...extras.filter(recordable)].filter((c) => !only || only.includes(c.case_id));
+	if (held.length) t.diagnostic(`held for the batched re-record (operation in LATER): ${held.join(", ")}`);
 	const rows = await pool(cases, recording ? 6 : 8, runCase);
+	const { rows: untouched } = await mailChurch.admin.execute(sql`SELECT (SELECT archived_at FROM message_template
+		WHERE id=${USED_TEMPLATE}) AS archived,o.outcome,o.voided_at AS voided,(SELECT count(*)::int FROM contact_outcome
+		WHERE person_id=o.person_id) AS entries FROM contact_outcome o WHERE o.id=${ALEX_CALL}`);
 	const spend = saveRecording();
 	const expected = approved.cases.map((c) => c.case_id).filter((id) => !only || only.includes(id));
 	const ready = readiness(rows, { expected, baseline: baseline.passed });
@@ -1331,11 +1542,84 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	t.diagnostic(
 		`${rows.filter(hardPass).length}/${rows.length} hard-pass; alpha gaps: ${gaps.join(", ") || "none"}; ${graded} graded`,
 	);
+	assert.deepEqual(untouched, [{ archived: null, outcome: "contacted", voided: null, entries: 1 }], "no case writes");
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
 	assert.ok(graded > 0 || !rows.some((r) => hardPass(r) && !r.scripted), "the judge grades the answers that pass");
 	t.diagnostic(
 		`release: ${ready.release.length ? `blocked (${ready.release.length} reasons)` : "ready"}; alpha: ${ready.release.length || ready.alpha.length ? "blocked" : "ready"}`,
 	);
+});
+
+function holding(lock: ReturnType<typeof sql>) {
+	let release!: () => void;
+	const released = new Promise<void>((resolve) => (release = resolve));
+	let locked!: (pid: number) => void;
+	let failed!: (error: unknown) => void;
+	const pid = new Promise<number>((resolve, reject) => ((locked = resolve), (failed = reject)));
+	const done = church.admin.transaction(async (tx) => {
+		await tx.execute(lock);
+		const { rows } = await tx.execute<{ pid: number }>(sql`SELECT pg_catalog.pg_backend_pid() AS pid`);
+		locked(rows[0]!.pid);
+		await released;
+	});
+	done.catch(failed);
+	return { pid, release, done };
+}
+
+test("INV-evry-golden: a case's review never queues on the write gate behind another case's review, so PREP-06 replays its recording while a rival review holds the church past the gate's lock timeout", async () => {
+	const walkIn = golden.find((c) => c.case_id === "PREP-06")!;
+	const rival = extras.find((c) => c.case_id === "ADP-MT-33")!;
+	const ask = () => converse(church, "owner", walkIn.question, walkIn.eval.history ?? []);
+	const card = (c: Conversation) => c.proposals.map((p) => [p.operation, p.prepared, p.review]);
+	const alone = await ask();
+
+	const checkLock = () => holding(sql`LOCK TABLE organization_person_removal IN ACCESS EXCLUSIVE MODE`);
+	let duplicateCheck = checkLock();
+	const checks = [duplicateCheck];
+	const plant = holding(sql`SELECT 1 FROM plant WHERE id=${PLANT}::uuid FOR UPDATE`);
+	const rivalMeeting = holding(sql`SELECT 1 FROM meeting WHERE id=${MEETINGS.training}::uuid FOR UPDATE`);
+	let checkHolder = await duplicateCheck.pid;
+	const [plantHolder] = [await plant.pid, await rivalMeeting.pid];
+	const rivalDone = new AbortController();
+	let rivalRun: Promise<unknown> = Promise.resolve();
+	try {
+		const contended = ask().then(
+			(c) => ({ keys: c.keys, card: card(c), error: null }),
+			(error: unknown) => ({ keys: [], card: [], error: String(error) }),
+		);
+		for (const read of alone.calls.filter((x) => x.operation === "people.checkForDuplicates")) {
+			assert.ok(!read.error, "the duplicate read replays");
+			await waitingOnLock(church.admin, { blockedBy: checkHolder });
+			const next = checkLock();
+			checks.push(next);
+			await waitingOnLock(church.admin, { blockedBy: checkHolder, count: 2 });
+			duplicateCheck.release();
+			duplicateCheck = next;
+			checkHolder = await next.pid;
+		}
+		await waitingOnLock(church.admin, { blockedBy: checkHolder });
+		rivalRun = converse(church, "owner", rival.question, rival.eval.history ?? []).finally(() => rivalDone.abort());
+		rivalRun.catch(() => undefined);
+		await waitingOnLock(church.admin, { blockedBy: plantHolder });
+		const { rows } = await church.admin.execute<{ pid: number }>(
+			sql`SELECT pid FROM pg_catalog.pg_stat_activity WHERE ${plantHolder}::int=ANY(pg_catalog.pg_blocking_pids(pid))`,
+		);
+		duplicateCheck.release();
+		const queuedBehindRival = await waitingOnLock(church.admin, {
+			blockedBy: rows[0]!.pid,
+			signal: rivalDone.signal,
+		});
+		plant.release();
+		assert.deepEqual(
+			{ queuedBehindRival, ...(await contended) },
+			{ queuedBehindRival: false, keys: alone.keys, card: card(alone), error: null },
+		);
+	} finally {
+		for (const held of [...checks, plant, rivalMeeting]) held.release();
+		await Promise.allSettled(
+			[...checks, plant, rivalMeeting].map((held) => held.done).concat(rivalRun as Promise<void>),
+		);
+	}
 });
 
 test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and correction case passes on the scripted model", async () => {

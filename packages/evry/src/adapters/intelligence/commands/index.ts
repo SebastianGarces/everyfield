@@ -2,8 +2,8 @@ import { sql, type SQL } from "@everyfield/db/query";
 import * as s from "@everyfield/contracts/intelligence";
 import { localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/phases";
-import { createFacts, createSignals } from "@everyfield/domain/intelligence";
-import { createPhaseWriter, readCatalog, readReadiness } from "@everyfield/domain/phases";
+import { createFacts, createSignals, criteriaOf, readingOf } from "@everyfield/domain/intelligence";
+import { createPhaseWriter, readCatalog } from "@everyfield/domain/phases";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
@@ -42,7 +42,7 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
 		const writer = createPhaseWriter({ notices: ports.phaseNotices });
 		const reply = await writer.declare(tx, native.authority, {
-			...z.object({}).loose().parse(args),
+			...z.record(z.string(), z.unknown()).parse(args),
 			requestKey: effectKey,
 		});
 		if (reply.status !== "ok") return refused(reply);
@@ -66,9 +66,11 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	async review(actor, value, context) {
 		const [catalog, measured] = await Promise.all([readCatalog(), facts.readFacts(context.db, actor.authority)]);
 		const phases = phaseValues(catalog);
-		const results = measured.status === "ok" ? measured.value.criteria : {};
-		const open = readReadiness(catalog, results).map((r) =>
-			r.criteria.filter((x) => x.status !== "met").map((x) => ({ label: x.label, status: STATUS_WORDS[x.status] })),
+		const snapshot = measured.status === "ok" ? measured.value : null;
+		const open = catalog.phases.map((p) =>
+			criteriaOf(catalog, p.phase, snapshot)
+				.filter((x) => x.status !== "met")
+				.map((x) => ({ label: x.label, status: STATUS_WORDS[x.status], reading: readingOf(x) })),
 		);
 		const to = sql`${value.toPhase}::int`;
 		const direction = sql`CASE WHEN ${to}<p.phase THEN 'backward' WHEN ${to}=p.phase+1 THEN 'forward' WHEN ${to}>p.phase THEN 'skip_forward' END`;
@@ -84,7 +86,7 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
 		const writer = createPhaseWriter({ notices: ports.phaseNotices });
 		const reply = await writer.transition(tx, native.authority, {
-			...z.object({}).loose().parse(args),
+			...z.record(z.string(), z.unknown()).parse(args),
 			requestKey: effectKey,
 		});
 		if (reply.status !== "ok") return refused(reply);
@@ -118,12 +120,15 @@ const FUTURE = "A signal can't be true as of a date after today.";
 const runSignal =
 	(command: typeof signals.attest): ReviewedWrite<unknown>["execute"] =>
 	async (tx, context, args, effectKey, ports, native) => {
-		const reply = await command(tx, native.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const reply = await command(tx, native.authority, {
+			...z.record(z.string(), z.unknown()).parse(args),
+			requestKey: effectKey,
+		});
 		if (reply.status !== "ok") return refused(reply);
 		const r = await tx.execute(
 			sql`SELECT id FROM attestation_revision WHERE plant_id=${context.selected.id}::uuid AND request_key=${effectKey}`,
 		);
-		return { receiptId: z.object({ id: z.uuid() }).parse(r.rows[0]).id, revision: reply.value.signal.revision };
+		return { receiptId: z.strictObject({ id: z.uuid() }).parse(r.rows[0]).id, revision: reply.value.signal.revision };
 	};
 
 const attestInput = z.strictObject({ key: s.signalKey, value: s.signalValue, asOf, detail: words, reference });

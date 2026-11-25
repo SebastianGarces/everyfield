@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type {
 	Assessment,
 	AssessmentView,
@@ -59,7 +60,6 @@ import { resolveAssessmentCitation } from "./fetch.ts";
 import {
 	coldStartTitle,
 	CRITERION,
-	dayText,
 	factText,
 	newestText,
 	nextSteps,
@@ -67,11 +67,12 @@ import {
 	SEVERITY_LABEL,
 	STANDING,
 } from "./assessment-model.ts";
+import { OutOfDate } from "./OutOfDate.tsx";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
-type Props = { view: AssessmentView; facts: PlantFacts; catalog: Catalog };
+type Props = { view: AssessmentView; facts: PlantFacts; outOfDate: boolean; catalog: Catalog };
 type Point = Assessment["focus"];
 
 const LENS_ICON: Record<Lens["key"], IconSvgElement> = {
@@ -86,7 +87,7 @@ const LENS_ICON: Record<Lens["key"], IconSvgElement> = {
 };
 const phaseName = (catalog: Catalog, n: number) => `Phase ${n} · ${catalog.phases[n]?.name ?? ""}`;
 
-export function AssessmentScreen({ view, facts, catalog }: Props) {
+export function AssessmentScreen({ view, facts, outOfDate, catalog }: Props) {
 	const current = view.current;
 	return (
 		<>
@@ -101,7 +102,7 @@ export function AssessmentScreen({ view, facts, catalog }: Props) {
 			/>
 			<IntelligenceTabs current="overview" />
 			{current ? (
-				<Current view={view} assessment={current} catalog={catalog} />
+				<Current view={view} assessment={current} outOfDate={outOfDate} catalog={catalog} />
 			) : (
 				<ColdStart view={view} facts={facts} />
 			)}
@@ -113,7 +114,17 @@ const citations = createRead((runId: string, key: string) => resolveAssessmentCi
 	failed: (): ActionOutcome<CitationView> | ReadFailure => ({ status: "lost" }),
 });
 
-function Current({ view, assessment: a, catalog }: { view: AssessmentView; assessment: Assessment; catalog: Catalog }) {
+function Current({
+	view,
+	assessment: a,
+	outOfDate,
+	catalog,
+}: {
+	view: AssessmentView;
+	assessment: Assessment;
+	outOfDate: boolean;
+	catalog: Catalog;
+}) {
 	const [citation, setCitation] = useState<{ key: string; label: string } | null>(null);
 	const runId = a.runId;
 	const markSeen = useMemo(
@@ -151,7 +162,7 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 						</StatusBadge>
 						<span>
 							As of {dayText(a.measuredOn)}
-							{a.ageDays ? ` · ${a.ageDays === 1 ? "1 day" : `${a.ageDays} days`} ago` : " · today"}
+							{a.ageDays ? ` · ${counted(a.ageDays, "day")} ago` : " · today"}
 							{a.daysToLaunch !== null ? ` · ${a.daysToLaunch} days to the launch date then` : ""}
 						</span>
 					</p>
@@ -161,7 +172,9 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 							{a.phase}, so its criteria and standings are Phase {a.phase}&apos;s, not Phase {otherPhase}&apos;s.
 						</Alert>
 					) : null}
-					{later ? (
+					{outOfDate ? (
+						<OutOfDate key={a.runId} assessment={a} newest={view.newest} />
+					) : later ? (
 						<p role="status" className="text-sm text-text-2" data-newest={view.newest?.state}>
 							{later}
 						</p>
@@ -449,10 +462,10 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 					: "border border-line bg-surface-raised shadow-[var(--ef-shadow-card)]",
 			)}
 		>
-			<div className="flex items-center gap-2.5">
+			<div className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-3">
 				<span
 					className={cn(
-						"grid size-[34px] flex-none place-items-center rounded-pill",
+						"grid size-[34px] place-items-center rounded-pill",
 						standing.status === "positive"
 							? "bg-green-100 text-green-700"
 							: standing.status === "attention"
@@ -464,8 +477,8 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				>
 					<Icon icon={LENS_ICON[lens.key]} size={18} />
 				</span>
-				<h3 className="min-w-0 flex-1 text-[15px] font-semibold text-ink">{lens.label}</h3>
-				<StatusBadge size="sm" status={standing.status} className="shrink-0">
+				<h3 className="col-span-2 row-start-2 text-[15px] font-semibold text-balance text-ink">{lens.label}</h3>
+				<StatusBadge size="sm" status={standing.status} className="col-start-2 row-start-1">
 					{standing.label}
 				</StatusBadge>
 			</div>
@@ -474,7 +487,7 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				<span className="font-medium text-ink-2">{QUALITY[lens.quality].label}</span>
 				{lens.points.length ? (
 					<a href="#focus" className="hover:text-ink">
-						{lens.points.length === 1 ? "1 point cites this" : `${lens.points.length} points cite this`}
+						{`${counted(lens.points.length, "point cites", "points cite")} this`}
 					</a>
 				) : null}
 			</p>
@@ -651,9 +664,7 @@ function CitationBody({ view }: { view: CitationView }) {
 						</ul>
 						{view.people.hidden ? (
 							<p className="mt-1.5 text-xs text-text-3" data-hidden-people={view.people.hidden}>
-								{view.people.hidden === 1
-									? "1 more person was counted who is no longer in your records."
-									: `${view.people.hidden} more people were counted who are no longer in your records.`}
+								{`${counted(view.people.hidden, "more person was", "more people were")} counted who ${countWord(view.people.hidden, "is", "are")} no longer in your records.`}
 							</p>
 						) : null}
 					</div>

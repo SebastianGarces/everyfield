@@ -85,6 +85,7 @@ const searchInput = z.strictObject({
 	...pageInput,
 });
 const ADDRESS = ["street", "postal code", "state", "country", "email", "phone"];
+const MEMBER_CONTACT = ["members' email", "members' phone"];
 const CONTACT = ["contact values", "notes"];
 const ACTIVITY = ["note bodies", "internal reasons", "private care", "account ids", "assessment record ids"];
 
@@ -124,7 +125,11 @@ function householdRows(actor: EvryActor, value: z.infer<typeof householdResult>)
 	const home = value.household;
 	const household = row("household", home.id, home.name, {
 		name: home.name,
-		city: home.city ?? null,
+		street: home.street,
+		city: home.city,
+		stateProvince: home.stateProvince,
+		postalCode: home.postalCode,
+		country: home.country,
 		memberCount: String(home.memberCount),
 		revision: home.revision,
 	});
@@ -231,6 +236,8 @@ function receiptRows(
 }
 
 const listHouseholdsInput = searchInput;
+const SEVERAL_HOUSEHOLDS =
+	"Several households match this search. Ask which one the user means, naming each with its city, before reading any of them, and give no street address until they choose.";
 export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = {
 	operation: "people.listHouseholds",
 	description: "List households in this church, with the exact matched total and the next page when more exist.",
@@ -242,7 +249,7 @@ export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = 
 			await personFields.listHouseholds(tx, readCtx(actor), request),
 		);
 		if (!found) return missing("people.listHouseholds", ADDRESS);
-		return result(
+		const listed = result(
 			"people.listHouseholds",
 			"available",
 			found.items.map((home) =>
@@ -259,6 +266,9 @@ export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = 
 			found.next ? "partial" : "complete",
 			ADDRESS,
 		);
+		return request.search && found.total !== null && found.total > 1
+			? { ...listed, facts: { ...listed.facts, note: SEVERAL_HOUSEHOLDS } }
+			: listed;
 	},
 };
 
@@ -280,9 +290,9 @@ function readHousehold(
 					? await personFields.getHousehold(tx, readCtx(actor), request)
 					: await personFields.getHouseholdMembers(tx, readCtx(actor), request);
 			const found = valueOf<z.infer<typeof householdResult>>(reply);
-			if (!found) return missing(operation, ADDRESS);
+			if (!found) return missing(operation, MEMBER_CONTACT);
 			const rows = householdRows(actor, found);
-			return result(operation, "available", rows, rows.length, 1, null, "complete", ADDRESS);
+			return result(operation, "available", rows, rows.length, 1, null, "complete", MEMBER_CONTACT);
 		},
 	};
 }

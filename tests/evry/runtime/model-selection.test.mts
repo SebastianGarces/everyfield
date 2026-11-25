@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { selectQualifiedModel } from "../../../packages/evry/src/runtime/model.ts";
+import { evryModel } from "../../../apps/web/src/server/models.ts";
 
 const SCRIPTED = { EVRY_SCRIPTED_MODEL: "1" };
 const PAID = { EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" };
 
-test("INV-spend: the Evry turn picks the scripted model only off Vercel, on any Vercel environment never", () => {
+test("INV-spend: the Evry turn picks the scripted model only off Vercel, on any Vercel environment never", async () => {
 	const cases: [string, Record<string, string | undefined>, string | null][] = [
 		["local, scripted", SCRIPTED, "evry-scripted"],
 		["local, paid and scripted", { ...PAID, ...SCRIPTED }, "evry-scripted"],
@@ -19,7 +19,7 @@ test("INV-spend: the Evry turn picks the scripted model only off Vercel, on any 
 		),
 	];
 	for (const [name, env, model] of cases) {
-		const selected = selectQualifiedModel(env);
+		const selected = await evryModel(env);
 		assert.equal(selected.status === "qualified" ? selected.id : null, model, name);
 	}
 });

@@ -13,16 +13,30 @@ import {
 	executeProposal,
 	readConversation,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
+	withMailDelays,
 	type EvryActor,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { readPlantSharing } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	fieldLabel,
+	operationTitle,
+	savedText,
+	settingsLink,
+	shownChanges,
+	shownNotes,
+	showsBefore,
+	valueText,
+	type Review,
+	type SettingsOperation,
+} from "../../../apps/web/src/features/evry/review/model.ts";
+import { withSwitchOff } from "../../support/flags.mts";
 import { nativePorts } from "./settings-ports.mts";
 import { goldenChurch, NETWORK, PLANT, type GoldenChurch } from "./golden-church.mts";
 
@@ -40,6 +54,7 @@ type Case = {
 	answer?: string[];
 	proposal?: { operation: string; target: string; changes?: Change[]; notes?: string[]; refusal?: string | null };
 	approve?: true;
+	mailOff?: { card: string[]; ordinary: string[] };
 };
 const { cases } = JSON.parse(readFileSync(new URL("./settings.cases.json", import.meta.url), "utf8")) as {
 	cases: Case[];
@@ -48,7 +63,7 @@ const { cases } = JSON.parse(readFileSync(new URL("./settings.cases.json", impor
 let church: GoldenChurch;
 let db: Database;
 const mail: { to: string; purpose: string }[] = [];
-const native: NativePorts = nativePorts(mail);
+const native: NativePorts = nativePorts(mail, { queued: true });
 const objects = new Map<string, Buffer>();
 const storage = {
 	bucket: "synthetic-only",
@@ -65,7 +80,7 @@ const png = Buffer.from(
 	"base64",
 );
 
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
@@ -129,6 +144,29 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
 }
+
+async function cardOf(actor: EvryActor, conversationId: string, proposal: Proposal) {
+	const { reviews } = await readConversation(db, actor, conversationId);
+	const shown = (await withMailDelays(db, actor, reviews))[proposal.id];
+	const review = JSON.parse(JSON.stringify(shown)) as Review;
+	return [
+		savedText(review),
+		operationTitle(review.operation),
+		...shownChanges(review).map((c) => {
+			const values = [showsBefore(review, c) ? valueText(c.field, c.before) : null, valueText(c.field, c.after)];
+			return `${fieldLabel(c.field, review.operation)}: ${values.filter((v) => v !== null).join(" to ")}`;
+		}),
+		...shownNotes(review),
+		settingsLink(review.operation as SettingsOperation).label,
+	];
+}
+const heldMail = async (proposal: Proposal) =>
+	(
+		await church.db
+			.execute(sql`SELECT m.state AS mail, j.state AS job, j.attempt_count::int AS attempts FROM audit_event a
+			JOIN mail m ON m.operation_id=a.id JOIN job j ON j.id=m.job_id
+			WHERE a.request_key=${`evry:${proposal.id}:${proposal.revision}`}`)
+	).rows;
 
 const seatsScreen = async (actor: EvryActor) =>
 	(await createSeatService(db).list(actor.authority, { workspace: actor.owner })).items
@@ -272,6 +310,24 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-28": {
 		after: async () => assert.deepEqual(await digest(), { digest_cadence: "off", digest_weekday: 1, digest_hour: 7 }),
 	},
+	"SET-32": {
+		after: async () => assert.deepEqual(mail.at(-1), { to: "maya@example.test", purpose: "seat_invitation" }),
+	},
+	"SET-33": {
+		before: async () => {
+			await church.admin.execute(
+				sql`UPDATE invitation SET resent_at=resent_at-interval '2 minutes' WHERE recipient_email='jordan@example.test'`,
+			);
+		},
+		after: async () => assert.deepEqual(mail.at(-1), { to: "jordan@example.test", purpose: "seat_invitation" }),
+	},
+	"SET-34": {
+		after: async () =>
+			assert.deepEqual(mail.at(-1), {
+				to: "network@hillcountry.example.test",
+				purpose: "relationship_invitation",
+			}),
+	},
 	"SET-22": {
 		after: async () =>
 			assert.deepEqual(await row(sql`SELECT description FROM organization WHERE id=${NETWORK}`), {
@@ -293,7 +349,7 @@ async function stagePhoto(actor: EvryActor) {
 
 test("INV-evry-settings: every seat, Settings, sharing, connection, account and organization case passes on the scripted model, and each approved change reads back in Settings", async () => {
 	const conversations = new Map<string, string>();
-	for (const c of cases) {
+	const score = async (c: Case) => {
 		const actor = church.actors[c.actor];
 		const key = c.conversation ?? c.id;
 		if (!conversations.has(key))
@@ -306,7 +362,7 @@ test("INV-evry-settings: every seat, Settings, sharing, connection, account and 
 			assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${text}`);
 		if (!c.proposal) {
 			assert.equal(turn.proposals.length, 0, `${c.id} prepares no review`);
-			continue;
+			return;
 		}
 		assert.equal(turn.proposals.length, 1, `${c.id} prepares one review: ${turn.answer}`);
 		const [proposal] = turn.proposals as [Proposal];
@@ -323,8 +379,30 @@ test("INV-evry-settings: every seat, Settings, sharing, connection, account and 
 		if (expected.refusal !== undefined)
 			assert.equal(proposal.review.refusal ?? null, expected.refusal, `${c.id} refusal`);
 		await SETTLED[c.id]?.before?.(actor);
-		if (!c.approve) continue;
+		if (!c.approve) return;
 		assert.equal(await approveAndRun(actor, proposal), "completed", `${c.id} runs once approved`);
+		if (c.mailOff) {
+			const card = await cardOf(actor, conversations.get(key)!, proposal);
+			assert.deepEqual(card, c.mailOff.card, `${c.id} card with mail off`);
+			assert.doesNotMatch(card.join("\n"), /\bsent\b|\bemails\b/i, `${c.id} says nothing was sent`);
+			assert.deepEqual(await heldMail(proposal), [{ mail: "pending", job: "ready", attempts: 0 }], c.id);
+		}
 		await SETTLED[c.id]!.after(actor);
+		if (c.mailOff)
+			return async () =>
+				assert.deepEqual(
+					await cardOf(actor, conversations.get(key)!, proposal),
+					c.mailOff!.ordinary,
+					`${c.id} card with mail back on`,
+				);
+	};
+	for (const c of cases) {
+		if (!c.mailOff) {
+			await score(c);
+			continue;
+		}
+		const off = { flag: "outbound-mail", operator: church.actors.owner.accountId } as const;
+		const backOn = await withSwitchOff(church.db, off, () => score(c));
+		await backOn!();
 	}
 });

@@ -1,10 +1,23 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter, templateStatus } from "../../../packages/domain/src/documents/index.ts";
 import { docTemplateById, publishedTemplate } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { LEGAL_NOTICE, docTemplate, templateHash } from "../../../packages/contracts/src/documents/index.ts";
+import {
+	LEGAL_NOTICE,
+	docTemplate,
+	templateHash,
+	type BlockNode,
+	type ChurchCompare,
+	type ChurchTemplateSummary,
+	type CompareView,
+	type DocDifference,
+	type DocDocument,
+	type FieldDecl,
+	type ParagraphNode,
+} from "../../../packages/contracts/src/documents/index.ts";
 import { pdfPages } from "./fixtures/readers.mts";
+import { asKind, blocksOf, para, present } from "./support.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -12,9 +25,8 @@ import { randomUUID } from "node:crypto";
 const POLICY = "conflict-of-interest-policy";
 const v1 = docTemplateById(POLICY)!;
 const B = v1.body.content!;
-const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
-const shape = (items) => items.map((d) => [d.id, d.part, d.kind]);
-const ASK = {
+const shape = (items: DocDifference[] | null) => present(items).map((d) => [d.id, d.part, d.kind]);
+const ASK: ParagraphNode = {
 	type: "paragraph",
 	content: [
 		{ type: "text", text: "Questions go to " },
@@ -22,8 +34,17 @@ const ASK = {
 		{ type: "text", text: "." },
 	],
 };
-const PASTOR = { key: "pastor_name", label: "Pastor", type: "text", source: "church.pastor", fallback: "our pastor" };
-const HEADING_4 = { ...B[4], content: [{ type: "text", text: "Why this policy exists" }] };
+const PASTOR: FieldDecl = {
+	key: "pastor_name",
+	label: "Pastor",
+	type: "text",
+	source: "church.pastor",
+	fallback: "our pastor",
+};
+const HEADING_4: BlockNode = {
+	...asKind(B[4], "heading"),
+	content: [{ type: "text", text: "Why this policy exists" }],
+};
 const PARA_12 = para("A board member with a personal interest in a decision tells the board in writing.");
 
 function versionTwo() {
@@ -33,17 +54,18 @@ function versionTwo() {
 	v2.page.margin.top = v1.page.margin.top + 18;
 	v2.page.header = { pages: "all", content: [para("Board copy")] };
 	v2.fields.push(PASTOR);
-	v2.body.content = B.flatMap((block, i) =>
+	v2.body.content = B.flatMap((block, i): BlockNode[] =>
 		i === 4 ? [HEADING_4] : i === 5 || i === 22 ? [] : i === 7 ? [block, ASK] : i === 12 ? [PARA_12] : [block],
 	);
 	return docTemplate.parse(v2);
 }
 const v2 = versionTwo();
+type Templates = Awaited<ReturnType<typeof sources>>;
 const sources = async (current = v2) => {
 	const hash = await templateHash(current);
 	return {
-		current: (id) => (id === POLICY ? current : docTemplateById(id)),
-		published: (id, h) => (id === POLICY && h === hash ? current : publishedTemplate(id, h)),
+		current: (id: string) => (id === POLICY ? current : docTemplateById(id)),
+		published: (id: string, h: string) => (id === POLICY && h === hash ? current : publishedTemplate(id, h)),
 	};
 };
 const V2_CHANGES = [
@@ -58,9 +80,9 @@ const V2_CHANGES = [
 ];
 const OWN_9 = para("A board member has an interest when a decision could help them or their family.");
 const OWN_END = para("Our own closing line.");
-function ownEdits(body) {
+function ownEdits(body: DocDocument) {
 	const edited = structuredClone(body);
-	const blocks = edited.body.content;
+	const blocks = blocksOf(edited);
 	blocks[9] = OWN_9;
 	blocks.splice(18, 1);
 	blocks.push(OWN_END);
@@ -72,7 +94,7 @@ const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
-const actors = [
+const actors: [Actor, Actor, Actor, Actor] = [
 	database.actors.owner,
 	database.actors.member,
 	database.actors.admin,
@@ -83,20 +105,28 @@ const MEMBER = 1;
 const ADMIN = 2;
 const OTHER = 3;
 
-const authority = async (who) => {
-	const actor = await RequestActor.resolve(db, actors[who].session);
+const authority = async (who: number) => {
+	const actor = await RequestActor.resolve(db, present(actors[who]).session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
-const create = async (who, templateId) =>
+const create = async (who: number, templateId: string) =>
 	ok(await documentsWriter.createFromTemplate(db, await authority(who), { templateId, requestKey: randomUUID() }));
-const save = async (who, documentId, expectedRevision, body) =>
+const save = async (who: number, documentId: string, expectedRevision: string, body: unknown) =>
 	documentsWriter.saveNative(db, await authority(who), { documentId, expectedRevision, body });
-const compare = async (who, documentId, templates?) =>
+const compare = async (who: number, documentId: string, templates?: Templates) =>
 	documentsWriter.readTemplateCompare(db, await authority(who), { documentId }, templates);
-const accept = async (who, request, templates?) =>
+const accept = async (who: number, request: unknown, templates?: Templates) =>
 	documentsWriter.acceptTemplateChanges(db, await authority(who), request, templates);
-const acceptFrom = async (who, found, view, items, templates?) =>
+const acceptFrom = async (
+	who: number,
+	found: Pick<ChurchCompare, "documentId" | "revision" | "templateHash"> & {
+		keys: Partial<Record<CompareView, string | null>>;
+	},
+	view: CompareView,
+	items: number[] | "all",
+	templates?: Templates,
+) =>
 	accept(
 		who,
 		{
@@ -109,22 +139,24 @@ const acceptFrom = async (who, found, view, items, templates?) =>
 		},
 		templates,
 	);
-const status = async (who, documentId) =>
+const status = async (who: number, documentId: string) =>
 	ok(await documentsWriter.readChurchForEdit(db, await authority(who), { documentId })).template;
-const history = async (who, documentId) =>
+const history = async (who: number, documentId: string) =>
 	ok(await documentsWriter["history.list"](db, await authority(who), { documentId }));
-const revisionBody = async (documentId, revision) =>
+const revisionBody = async (documentId: string, revision: number) =>
 	ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId, revision })).body;
-const pdfText = async (who, documentId) => {
+const pdfText = async (who: number, documentId: string) => {
 	const f = ok(await documentsWriter.readChurchFile(db, await authority(who), { documentId, format: "pdf" }, null));
 	return (await pdfPages(Buffer.from(f.bytes, "base64"))).join(" ").replace(/\s+/g, " ");
 };
-const revisionCount = async (id) =>
+const revisionCount = async (id: string) =>
 	Number(
-		(await admin.execute(sql`SELECT count(*)::int AS n FROM document_revision WHERE document_id = ${id}::uuid`)).rows[0]
-			.n,
+		present(
+			(await admin.execute(sql`SELECT count(*)::int AS n FROM document_revision WHERE document_id = ${id}::uuid`))
+				.rows[0],
+		).n,
 	);
-async function churchTemplate(who, name) {
+async function churchTemplate(who: number, name: string) {
 	const base = await create(who, POLICY);
 	return ok(
 		await documentsWriter.saveChurchTemplate(db, await authority(who), {
@@ -136,7 +168,11 @@ async function churchTemplate(who, name) {
 		}),
 	);
 }
-async function updateTemplate(template, expectedVersion, edit) {
+async function updateTemplate(
+	template: ChurchTemplateSummary,
+	expectedVersion: number,
+	edit: (body: DocDocument) => void,
+) {
 	const doc = await create(OWNER, template.templateId);
 	const body = structuredClone(doc.body);
 	edit(body);
@@ -183,16 +219,17 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		assert.equal(found.baseVersion, 1);
 		assert.equal(found.templateVersion, 2);
 		assert.deepEqual(shape(found.changes), V2_CHANGES);
-		const [title, page, header, heading, removed, added, reworded, removedLast] = found.changes;
-		assert.deepEqual([title.document, title.template], [v1.title, v2.title]);
+		const [title, page, header, heading, removed, added, reworded, removedLast] = present(found.changes);
+		assert.ok(page?.part === "page");
+		assert.deepEqual([title?.document, title?.template], [v1.title, v2.title]);
 		assert.equal(page.document.margin.top, v1.page.margin.top);
 		assert.equal(page.template.margin.top, v2.page.margin.top);
-		assert.deepEqual([header.document, header.template], [null, v2.page.header]);
-		assert.deepEqual([heading.document, heading.template], [B[4], HEADING_4]);
-		assert.deepEqual([removed.document, removed.template], [B[5], null]);
-		assert.deepEqual([added.document, added.template], [null, ASK]);
-		assert.deepEqual([reworded.document, reworded.template], [B[12], PARA_12]);
-		assert.deepEqual([removedLast.document, removedLast.template], [B[22], null]);
+		assert.deepEqual([header?.document, header?.template], [null, v2.page.header]);
+		assert.deepEqual([heading?.document, heading?.template], [B[4], HEADING_4]);
+		assert.deepEqual([removed?.document, removed?.template], [B[5], null]);
+		assert.deepEqual([added?.document, added?.template], [null, ASK]);
+		assert.deepEqual([reworded?.document, reworded?.template], [B[12], PARA_12]);
+		assert.deepEqual([removedLast?.document, removedLast?.template], [B[22], null]);
 		assert.equal(await templateStatus(doc.body, templates), "behind");
 	});
 
@@ -203,7 +240,7 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		const found = ok(await compare(OWNER, doc.id, templates));
 		assert.deepEqual(shape(found.changes), V2_CHANGES);
 		const listed = JSON.stringify(found.changes);
-		for (const block of [OWN_9, OWN_END, B[9], B[18]])
+		for (const block of [OWN_9, OWN_END, asKind(B[9], "paragraph"), asKind(B[18], "paragraph")])
 			assert.ok(!listed.includes(JSON.stringify(block.content)), "an untouched block the church changed");
 		assert.ok(JSON.stringify(found.differences).includes("Our own closing line."));
 	});
@@ -212,7 +249,7 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		const templates = await sources();
 		const doc = await create(ADMIN, POLICY);
 		const edited = structuredClone(doc.body);
-		const blocks = edited.body.content;
+		const blocks = blocksOf(edited);
 		const own12 = para("Our board members tell the board about any interest at once.");
 		const own22 = para("The board talks with the member first.");
 		blocks[4] = HEADING_4;
@@ -229,8 +266,8 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 			[4, "body", "both"],
 			[5, "body", "both"],
 		]);
-		assert.deepEqual([found.changes[4].document, found.changes[4].template], [own12, PARA_12]);
-		assert.deepEqual([found.changes[5].document, found.changes[5].template], [own22, null]);
+		assert.deepEqual([found.changes?.[4]?.document, found.changes?.[4]?.template], [own12, PARA_12]);
+		assert.deepEqual([found.changes?.[5]?.document, found.changes?.[5]?.template], [own22, null]);
 	});
 
 	test("INV-template-changes: one accepted item lands in its place; one revision records v2; declined ones move to All differences", async () => {
@@ -238,15 +275,15 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		const doc = await create(OWNER, POLICY);
 		const own = ok(await save(OWNER, doc.id, "1", ownEdits(doc.body)));
 		const found = ok(await compare(OWNER, doc.id, templates));
-		assert.deepEqual(found.changes[5].template, ASK);
+		assert.deepEqual(found.changes?.[5]?.template, ASK);
 		const accepted = ok(await acceptFrom(OWNER, found, "changes", [5], templates));
-		const expected = structuredClone(own.body.body.content);
+		const expected = structuredClone(blocksOf(own.body));
 		expected.splice(8, 0, ASK);
 		assert.deepEqual(accepted.body.body.content, expected);
 		assert.equal(accepted.body.title, v1.title, "the declined title keeps the church's");
 		assert.deepEqual(accepted.body.page, own.body.page);
 		assert.deepEqual(accepted.body.origin, { template: POLICY, version: 2, hash: await templateHash(v2) });
-		assert.equal(accepted.body.data.pastor_name, "Pastor Ada");
+		assert.equal(accepted.body.data?.pastor_name, "Pastor Ada");
 		assert.ok((await pdfText(OWNER, doc.id)).includes("Questions go to Pastor Ada."));
 
 		assert.deepEqual(
@@ -272,12 +309,12 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 			[8, "body", "document-only"],
 			[9, "body", "document-only"],
 		]);
-		assert.deepEqual(again.differences[5].document, OWN_9);
+		assert.deepEqual(again.differences[5]?.document, OWN_9);
 
 		const other = await create(OWNER, POLICY);
 		ok(await save(OWNER, other.id, "1", ownEdits(other.body)));
 		const all = ok(await acceptFrom(OWNER, ok(await compare(OWNER, other.id, templates)), "changes", "all", templates));
-		const want = B.flatMap((block, i) =>
+		const want = B.flatMap((block, i): BlockNode[] =>
 			i === 4
 				? [HEADING_4]
 				: i === 5 || i === 22 || i === 18
@@ -302,9 +339,9 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		const by = structuredClone(doc.body);
 		Object.assign(by, { title: v2.title, page: v2.page, fields: [...by.fields, PASTOR] });
 		by.body = { type: "doc", content: structuredClone(v2.body.content) };
-		by.body.content[8] = OWN_9;
+		blocksOf(by)[8] = OWN_9;
 		const saved = ok(await save(ADMIN, doc.id, "1", by));
-		assert.equal(saved.body.origin.hash, await templateHash(v1));
+		assert.equal(saved.body.origin?.hash, await templateHash(v1));
 		assert.equal(await templateStatus(saved.body, templates), "current");
 		const found = ok(await compare(ADMIN, doc.id, templates));
 		assert.deepEqual(found.changes, [], "the document already has every template change");
@@ -317,8 +354,8 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 	test("INV-template-changes: a base that is not stored offers All differences only, and accept works from it", async () => {
 		const doc = await create(ADMIN, POLICY);
 		const forged = structuredClone(doc.body);
-		forged.origin = { ...forged.origin, hash: `sha256:${"0".repeat(64)}` };
-		forged.body.content.splice(5, 1);
+		forged.origin = { ...present(forged.origin), hash: `sha256:${"0".repeat(64)}` };
+		blocksOf(forged).splice(5, 1);
 		ok(await save(ADMIN, doc.id, "1", forged));
 		const found = ok(await compare(ADMIN, doc.id));
 		assert.equal(found.baseVersion, null);
@@ -338,14 +375,14 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		const template = await churchTemplate(OWNER, "Twice-updated policy");
 		const doc = await create(ADMIN, template.templateId);
 		const own = structuredClone(doc.body);
-		own.body.content[9] = OWN_9;
+		blocksOf(own)[9] = OWN_9;
 		const r2 = ok(await save(ADMIN, doc.id, "1", own));
 		await updateTemplate(template, 1, (body) => {
-			body.body.content[4] = HEADING_4;
+			blocksOf(body)[4] = HEADING_4;
 		});
 		await updateTemplate(template, 2, (body) => {
-			body.body.content.splice(12, 1, PARA_12);
-			body.body.content.push(OWN_END);
+			blocksOf(body).splice(12, 1, PARA_12);
+			blocksOf(body).push(OWN_END);
 		});
 		assert.equal(await status(ADMIN, doc.id), "behind");
 		const found = ok(await compare(ADMIN, doc.id));
@@ -358,14 +395,14 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 			[2, "body", "template-only"],
 		]);
 		assert.deepEqual(
-			found.changes.map((d) => d.template),
+			found.changes?.map((d) => d.template),
 			[HEADING_4, PARA_12, OWN_END],
 		);
 		const accepted = ok(await acceptFrom(ADMIN, found, "changes", [1]));
-		const expected = structuredClone(r2.body.body.content);
+		const expected = structuredClone(blocksOf(r2.body));
 		expected[12] = PARA_12;
 		assert.deepEqual(accepted.body.body.content, expected);
-		assert.equal(accepted.body.origin.version, 3);
+		assert.equal(accepted.body.origin?.version, 3);
 		assert.equal(await status(ADMIN, doc.id), "current", "the base is now v3");
 		assert.equal(ok(await compare(ADMIN, doc.id)).baseVersion, 3);
 		refused(await compare(OTHER, doc.id), "unavailable");
@@ -382,7 +419,7 @@ describe("INV-template-changes: Template changes on a Church Document", { concur
 		assert.ok(!JSON.stringify(found.changes).includes(LEGAL_NOTICE));
 		const accepted = ok(await acceptFrom(OTHER, found, "changes", "all", templates));
 		assert.equal(accepted.documentClass, "formal/legal");
-		assert.equal(accepted.body.data.pastor_name, "our pastor");
+		assert.equal(accepted.body.data?.pastor_name, "our pastor");
 		const pdf = await pdfText(OTHER, doc.id);
 		assert.ok(pdf.includes("Questions go to our pastor."));
 		assert.ok(pdf.includes(LEGAL_NOTICE));

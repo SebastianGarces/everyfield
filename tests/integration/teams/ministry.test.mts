@@ -1,8 +1,9 @@
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { tenantId } from "../../../packages/contracts/src/common/index.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import {
@@ -32,29 +33,40 @@ const actors = [
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 	await database.actor({ kind: "plant", id: P }, "member"),
 ];
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const tx = (body) => gatedTransaction(db, body);
-const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
+const ctx = (who = 0) => ({
+	session: actors[who]!.session,
+	selected: { kind: "plant" as const, id: tenantId.parse(who === 3 ? Q : P) },
+});
+type Context = ReturnType<typeof ctx>;
+const tx = <V,>(body: (t: WriteTx) => Promise<V>) => gatedTransaction(db, body);
+const run = <V,>(op: (t: WriteTx, context: Context, raw: unknown) => Promise<V>, input: unknown, who = 0) =>
+	tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
-const viewer = async (who = 0) => RequestActor.resolve(db, actors[who].session);
-const count = async (query) => Number((await admin.execute(query)).rows[0].n);
-const rev = async (table, id) =>
-	(await admin.execute(sql.raw(`SELECT revision::text AS r FROM ${table} WHERE id='${id}'`))).rows[0].r;
+const viewer = async (who = 0) => {
+	const actor = await RequestActor.resolve(db, actors[who]!.session);
+	assert.ok(actor instanceof RequestActor);
+	return actor;
+};
+const count = async (query: SQL) => Number((await admin.execute(query)).rows[0]!.n);
+const rev = async (table: string, id: string) =>
+	(await admin.execute<{ r: string }>(sql.raw(`SELECT revision::text AS r FROM ${table} WHERE id='${id}'`))).rows[0]!.r;
 
-async function person(name, fields = {}) {
+async function person(name: string, fields: { plant?: string; stage?: string; account?: string } = {}) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,
 		pipeline_position,state,created_at,linked_account_id) VALUES(${id},${fields.plant ?? P},${fields.plant ?? P},${name},'other',
 		${fields.stage ?? "prospect"},'unknown','unknown',0,'live',clock_timestamp(),${fields.account ?? null})`);
 	return id;
 }
-async function makeTeam(name, who = 0) {
+async function makeTeam(name: string, who = 0) {
 	const team = ok(await run(teamsWriter.create, { requestKey: key(), input: { name } }, who)).team;
-	const stored = Number((await admin.execute(sql`SELECT sort_order FROM team WHERE id=${team.id}`)).rows[0].sort_order);
+	const stored = Number(
+		(await admin.execute(sql`SELECT sort_order FROM team WHERE id=${team.id}`)).rows[0]!.sort_order,
+	);
 	assert.equal(team.sortOrder, stored);
 	return team;
 }
-async function makeRole(teamId, name, fields = {}) {
+async function makeRole(teamId: string, name: string, fields: { leadership?: boolean; desiredSkills?: string } = {}) {
 	return ok(
 		await run(teamsWriter.createRole, {
 			requestKey: key(),
@@ -66,8 +78,8 @@ after(async () => {
 	await database.close();
 });
 
-const day = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
-async function assign(team, role, personId) {
+const day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+async function assign(team: { id: string }, role: { id: string }, personId: string) {
 	return ok(
 		await run(teamsWriter.assignRole, {
 			requestKey: key(),
@@ -76,7 +88,7 @@ async function assign(team, role, personId) {
 		}),
 	);
 }
-async function leave(team, personId) {
+async function leave(team: { id: string }, personId: string) {
 	return ok(
 		await run(teamsWriter.endMembership, {
 			requestKey: key(),
@@ -85,30 +97,31 @@ async function leave(team, personId) {
 		}),
 	);
 }
-const plan = (fields, who = 0) =>
+const plan = (fields: object, who = 0) =>
 	run(
 		meetingsWriter.schedule,
 		{ requestKey: key(), input: { type: "team_meeting", date: day(7), time: "19:00", ...fields } },
 		who,
 	);
-const guestsOf = async (meetingId, who = 0) =>
+const guestsOf = async (meetingId: string, who = 0) =>
 	ok(await meetingsReader.listGuests(db, await viewer(who), { meetingId })).guests;
-async function own(who, name, fields = {}) {
-	const found = await admin.execute(
-		sql`SELECT id FROM person WHERE linked_account_id=${actors[who].id} AND plant_id=${P}`,
+async function own(who: number, name: string, fields: { stage?: string } = {}) {
+	const found = await admin.execute<{ id: string }>(
+		sql`SELECT id FROM person WHERE linked_account_id=${actors[who]!.id} AND plant_id=${P}`,
 	);
-	return found.rows[0]?.id ?? person(name, { ...fields, account: actors[who].id });
+	return found.rows[0]?.id ?? person(name, { ...fields, account: actors[who]!.id });
 }
-const names = (list) => list.map((g) => g.person?.displayName ?? g.displayName).sort();
+const names = (list: ({ person: { displayName: string } } | { displayName: string })[]) =>
+	list.map((g) => ("person" in g ? g.person.displayName : g.displayName)).sort();
 
-async function worship(label) {
+async function worship(label: string) {
 	const team = await makeTeam(`Worship ${label}`);
 	const lead = await makeRole(team.id, "Worship lead", { leadership: true });
-	const people = [];
+	const people: string[] = [];
 	for (let i = 1; i <= 6; i++) people.push(await person(`${label} Singer ${i}`));
-	await assign(team, lead, people[0]);
-	await assign(team, await makeRole(team.id, "Keys"), people[0]);
-	for (let i = 1; i < 6; i++) await assign(team, await makeRole(team.id, `Seat ${i}`), people[i]);
+	await assign(team, lead, people[0]!);
+	await assign(team, await makeRole(team.id, "Keys"), people[0]!);
+	for (let i = 1; i < 6; i++) await assign(team, await makeRole(team.id, `Seat ${i}`), people[i]!);
 	const former = await person(`${label} Former`);
 	await assign(team, await makeRole(team.id, "Former seat"), former);
 	await leave(team, former);
@@ -125,7 +138,7 @@ test("AC:TARGET-MTG-007 a team meeting needs one current ministry and an Owner, 
 	refused(await plan({ teamId: team.id }, 4));
 	const missing = refused(await plan({}), "invalid_input");
 	assert.deepEqual(
-		missing.details.issues.map((i) => [i.path, i.problem]),
+		missing.details.issues.map((i: { path: string; problem: string }) => [i.path, i.problem]),
 		[["input.teamId", "team_meeting_needs_one_team"]],
 	);
 	refused(await plan({ type: "orientation", teamId: team.id }), "invalid_input");
@@ -167,8 +180,12 @@ test("AC:TARGET-TEAM-013 REQ-TEAM-013 a ministry's own linked leader schedules i
 	assert.deepEqual(made.team, { id: w.team.id, name: w.team.name });
 	assert.equal(made.guestCount, 6);
 	const read = ok(await meetingsReader.get(db, await viewer(), { meetingId: made.id }));
+	assert.ok(read.status === "available");
 	assert.equal(read.meeting.subtype, "planning");
-	assert.equal((await admin.execute(sql`SELECT subtype FROM meeting WHERE id=${made.id}`)).rows[0].subtype, "planning");
+	assert.equal(
+		(await admin.execute(sql`SELECT subtype FROM meeting WHERE id=${made.id}`)).rows[0]!.subtype,
+		"planning",
+	);
 	assert.equal(await meetings(), before + 1);
 
 	refused(await plan({ teamId: w.team.id }, 4));
@@ -183,7 +200,7 @@ test("AC:TARGET-TEAM-013 REQ-TEAM-013 a ministry's own linked leader schedules i
 	try {
 		refused(await plan({ teamId: w.team.id }, 1));
 	} finally {
-		await admin.execute(sql`UPDATE person SET linked_account_id=${actors[1].id} WHERE id=${lead}`);
+		await admin.execute(sql`UPDATE person SET linked_account_id=${actors[1]!.id} WHERE id=${lead}`);
 	}
 	await admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${lead}`);
 	try {
@@ -203,7 +220,7 @@ test("AC:TARGET-TEAM-013 a subtype is a team meeting's alone, and the Owner and 
 		assert.equal(ok(await plan({ teamId: team.id, subtype }, 2)).meeting.subtype, subtype);
 	const wrong = refused(await plan({ type: "orientation", teamId: undefined, subtype: "training" }), "invalid_input");
 	assert.deepEqual(
-		wrong.details.issues.map((i) => [i.path, i.problem]),
+		wrong.details.issues.map((i: { path: string; problem: string }) => [i.path, i.problem]),
 		[["input.subtype", "subtype_only_for_team_meeting"]],
 	);
 	refused(await plan({ teamId: team.id, subtype: "worship" }), "invalid_input");
@@ -244,8 +261,8 @@ test("AC:TARGET-MTG-007 the guest list changes only through a reviewed update fr
 			input: { meetingId: made.id, personId: byHand, inviterPersonId: null },
 		}),
 	);
-	const departed = w.people[5],
-		present = w.people[4];
+	const departed = w.people[5]!,
+		present = w.people[4]!;
 	const token = await issueRsvpToken(admin, P, made.id, departed);
 	assert.ok(token);
 	await admin.execute(
@@ -288,7 +305,7 @@ test("AC:TARGET-MTG-007 the guest list changes only through a reviewed update fr
 	const updated = ok(await run(rosterWriter.copyTeamRoster, request));
 	assert.equal(updated.outcome, "changed");
 	assert.deepEqual(names(updated.added), ["Sync Newcomer"]);
-	assert.deepEqual([updated.added[0].rsvp, updated.added[0].presence], ["pending", "absent"]);
+	assert.deepEqual([updated.added[0]!.rsvp, updated.added[0]!.presence], ["pending", "absent"]);
 	assert.deepEqual(updated.removedPersonIds, [departed]);
 	const after = names(await guestsOf(made.id));
 	assert.deepEqual(after, [...listed.filter((n) => n !== "Sync Singer 6"), "Sync Newcomer"].sort());
@@ -297,7 +314,7 @@ test("AC:TARGET-MTG-007 the guest list changes only through a reviewed update fr
 		await admin.execute(
 			sql`SELECT removed_at IS NOT NULL AS removed, rsvp_token_open FROM participation WHERE meeting_id=${made.id} AND person_id=${departed}`,
 		)
-	).rows[0];
+	).rows[0]!;
 	assert.deepEqual(row, { removed: true, rsvp_token_open: false });
 	assert.deepEqual(await describeRsvpToken(db, { token }), { state: "unavailable" });
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${made.id}`), audits + 1);
@@ -326,9 +343,9 @@ test("AC:TARGET-MTG-007 the guest list changes only through a reviewed update fr
 		}),
 	);
 	assert.equal(
-		again.added[0].id,
+		again.added[0]!.id,
 		(await admin.execute(sql`SELECT id FROM participation WHERE meeting_id=${made.id} AND person_id=${departed}`))
-			.rows[0].id,
+			.rows[0]!.id,
 	);
 	assert.equal(
 		await count(
@@ -355,7 +372,7 @@ test("AC:TARGET-TEAM-001 a ministry lists its meetings, upcoming first, then pas
 	const upcoming = ok(await plan({ teamId: team.id, date: day(14) })).meeting;
 	const other = await makeTeam("Quiet ministry");
 	await plan({ teamId: other.id, date: day(3) });
-	const list = async (teamId, who) =>
+	const list = async (teamId: string, who: number) =>
 		ok(await meetingsReader.list(db, await viewer(who), { teamId })).items.map((m) => [
 			m.id,
 			m.localDate,
@@ -386,8 +403,8 @@ test("AC:TARGET-TEAM-001 the ministries list carries each leader's name, and a s
 	const role = await makeRole(led.id, "Greeting lead", { leadership: true });
 	await assign(led, role, await person("Greta Greeter", { stage: "launch_team" }));
 	const items = ok(await teamsReader.list(db, await viewer(), {})).items;
-	assert.equal(items.find((t) => t.id === led.id).leaderName, "Greta Greeter");
-	assert.equal(items.find((t) => t.id === unled.id).leaderName, null);
+	assert.equal(items.find((t) => t.id === led.id)!.leaderName, "Greta Greeter");
+	assert.equal(items.find((t) => t.id === unled.id)!.leaderName, null);
 	assert.deepEqual(ok(await teamsReader.readRevision(db, await viewer(), { teamId: led.id })), {
 		teamId: led.id,
 		revision: await rev("team", led.id),
@@ -399,40 +416,40 @@ test("AC:TARGET-TEAM-001 the ministries list carries each leader's name, and a s
 test("AC:TARGET-IDN-019 removing a leader's seat leaves the ministry without a leader and keeps their history", async () => {
 	const team = await makeTeam("Hospitality");
 	const role = await makeRole(team.id, "Hospitality lead", { leadership: true });
-	const host = await person("Hosting Member", { account: actors[4].id, stage: "launch_team" });
+	const host = await person("Hosting Member", { account: actors[4]!.id, stage: "launch_team" });
 	const filled = await assign(team, role, host);
 	assert.equal(
-		(await admin.execute(sql`SELECT leader_person_id FROM team WHERE id=${team.id}`)).rows[0].leader_person_id,
+		(await admin.execute(sql`SELECT leader_person_id FROM team WHERE id=${team.id}`)).rows[0]!.leader_person_id,
 		host,
 	);
 	const seat = (
 		await admin.execute(
-			sql`SELECT id, revision::text AS r FROM seat WHERE account_id=${actors[4].id} AND plant_id=${P}`,
+			sql`SELECT id, revision::text AS r FROM seat WHERE account_id=${actors[4]!.id} AND plant_id=${P}`,
 		)
-	).rows[0];
+	).rows[0]!;
 	await createSeatService(db).remove(
 		await viewer(0),
-		{ kind: "plant", id: P },
+		{ kind: "plant", id: tenantId.parse(P) },
 		{ requestKey: key(), expectedRevision: seat.r, input: { seatId: seat.id, expectedRole: "member", handoffs: [] } },
 		noReminders,
 	);
 	const teams = ok(await teamsReader.list(db, await viewer(), {})).items;
-	assert.equal(teams.find((t) => t.id === team.id).leaderPersonId, null);
-	assert.equal(teams.find((t) => t.id === team.id).leaderName, null);
+	assert.equal(teams.find((t) => t.id === team.id)!.leaderPersonId, null);
+	assert.equal(teams.find((t) => t.id === team.id)!.leaderName, null);
 	const chart = ok(await teamsReader.readOrgChart(db, await viewer(), {})).nodes;
-	assert.equal(chart.find((n) => n.id === team.id).leaderName, null);
+	assert.equal(chart.find((n) => n.id === team.id)!.leaderName, null);
 	const history = ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
 	assert.deepEqual(
 		history.map((e) => [e.kind, e.after]),
 		[["leader_change", null], ...history.slice(1).map((e) => [e.kind, e.after])],
 	);
-	assert.equal(history[0].actorName, "Synthetic");
+	assert.equal(history[0]!.actorName, "Synthetic");
 	const members = ok(await teamsReader.listMembers(db, await viewer(), { teamId: team.id })).members;
 	const started = members.find((m) => m.personId === host)?.startedOn;
 	assert.equal(
 		started,
 		filled.tenureId
-			? (await admin.execute(sql`SELECT started_on::text AS d FROM team_tenure WHERE id=${filled.tenureId}`)).rows[0].d
+			? (await admin.execute(sql`SELECT started_on::text AS d FROM team_tenure WHERE id=${filled.tenureId}`)).rows[0]!.d
 			: null,
 	);
 	const roles = ok(await teamsReader.listPersonAssignments(db, await viewer(), { personId: host })).assignments;
@@ -449,16 +466,16 @@ test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's date
 	await assign(team, role, alex);
 	await leave(team, alex);
 	const [held] = ok(await teamsReader.listPersonAssignments(db, await viewer(), { personId: alex })).assignments;
-	const correct = (input, who = 0, revision = held.revision) =>
+	const correct = (input: object, who = 0, revision: string = held!.revision) =>
 		run(
 			teamsWriter.correctTenure,
-			{ requestKey: key(), expectedRevision: revision, input: { tenureId: held.tenureId, ...input } },
+			{ requestKey: key(), expectedRevision: revision, input: { tenureId: held!.tenureId, ...input } },
 			who,
 		);
 	const dates = { startedOn: "2026-01-04", endedOn: "2026-03-01" };
 	const blank = refused(await correct({ ...dates, reason: "  " }), "invalid_input");
 	assert.deepEqual(
-		blank.details.issues.map((i) => [i.path, i.problem]),
+		blank.details.issues.map((i: { path: string; problem: string }) => [i.path, i.problem]),
 		[["input.reason", "reason_required"]],
 	);
 	const backwards = refused(
@@ -466,7 +483,7 @@ test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's date
 		"invalid_input",
 	);
 	assert.deepEqual(
-		backwards.details.issues.map((i) => [i.path, i.problem]),
+		backwards.details.issues.map((i: { path: string; problem: string }) => [i.path, i.problem]),
 		[["input.endedOn", "before_start"]],
 	);
 	refused(await correct({ ...dates, reason: "Typo" }, 1), "access_denied");
@@ -474,10 +491,10 @@ test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's date
 	const stored = async () =>
 		(
 			await admin.execute(
-				sql`SELECT started_on::text AS s, ended_on::text AS e, revision::text AS r FROM team_tenure WHERE id=${held.tenureId}`,
+				sql`SELECT started_on::text AS s, ended_on::text AS e, revision::text AS r FROM team_tenure WHERE id=${held!.tenureId}`,
 			)
-		).rows[0];
-	assert.deepEqual(await stored(), { s: held.startedOn, e: held.endedOn, r: held.revision });
+		).rows[0]!;
+	assert.deepEqual(await stored(), { s: held!.startedOn, e: held!.endedOn, r: held!.revision });
 
 	const done = ok(await correct({ ...dates, reason: "Entered the wrong month" }, 2));
 	assert.deepEqual(
@@ -486,7 +503,7 @@ test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's date
 	);
 	assert.deepEqual(await stored(), { s: "2026-01-04", e: "2026-03-01", r: done.assignment.revision });
 	const [now] = ok(await teamsReader.listPersonAssignments(db, await viewer(), { personId: alex })).assignments;
-	assert.deepEqual([now.startedOn, now.endedOn], ["2026-01-04", "2026-03-01"]);
+	assert.deepEqual([now!.startedOn, now!.endedOn], ["2026-01-04", "2026-03-01"]);
 	const past = ok(await teamsReader.listMembers(db, await viewer(), { teamId: team.id })).history;
 	assert.deepEqual(
 		past.filter((m) => m.personId === alex).map((m) => [m.startedOn, m.endedOn]),
@@ -495,17 +512,17 @@ test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's date
 	const [entry] = ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
 	assert.deepEqual(
 		{
-			kind: entry.kind,
-			reason: entry.reason,
-			before: entry.before,
-			after: entry.after,
-			about: entry.about,
-			by: entry.actorName,
+			kind: entry!.kind,
+			reason: entry!.reason,
+			before: entry!.before,
+			after: entry!.after,
+			about: entry!.about,
+			by: entry!.actorName,
 		},
 		{
 			kind: "correct",
 			reason: "Entered the wrong month",
-			before: { startedOn: held.startedOn, endedOn: held.endedOn },
+			before: { startedOn: held!.startedOn, endedOn: held!.endedOn },
 			after: { startedOn: "2026-01-04", endedOn: "2026-03-01" },
 			about: { personName: "Alex Dates", roleName: "Greeter" },
 			by: "Synthetic",
@@ -518,8 +535,8 @@ test("AC:TARGET-TEAM-006 INV-role-dates an Owner or Admin corrects a role's date
 	const openRefusal = refused(
 		await run(teamsWriter.correctTenure, {
 			requestKey: key(),
-			expectedRevision: open.revision,
-			input: { tenureId: open.tenureId, startedOn: "2026-02-01", endedOn: "2026-02-02", reason: "No" },
+			expectedRevision: open!.revision,
+			input: { tenureId: open!.tenureId, startedOn: "2026-02-01", endedOn: "2026-02-02", reason: "No" },
 		}),
 		"invalid_input",
 	);
@@ -530,12 +547,12 @@ test("AC:TARGET-TEAM-002 the old correction path is gone and Edit details change
 	assert.equal("correct" in teamsWriter, false);
 	const team = await makeTeam("Edit only");
 	await admin.execute(sql`INSERT INTO audit_event(id,tenant_id,actor_id,subject_type,subject_id,action,kind,before_value,after_value,reason)
-		VALUES(${randomUUID()},${P},${actors[0].id},'team',${team.id},'teams.changed','correct','{"name":"Edit onl"}','{"name":"Edit only"}','Spelling')`);
+		VALUES(${randomUUID()},${P},${actors[0]!.id},'team',${team.id},'teams.changed','correct','{"name":"Edit onl"}','{"name":"Edit only"}','Spelling')`);
 	const [old] = ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries.filter(
 		(e) => e.kind === "correct",
 	);
 	assert.deepEqual(
-		[old.before, old.after, old.reason, old.about],
+		[old!.before, old!.after, old!.reason, old!.about],
 		[{ name: "Edit onl" }, { name: "Edit only" }, "Spelling", null],
 	);
 	const edited = ok(
@@ -601,9 +618,9 @@ test("AC:TARGET-TEAM-006 a ministry's history shows its own role changes, and no
 		[
 			["retire", "role", { personName: null, roleName: "Lead greeter" }, "Synthetic"],
 			["assign", "tenure", { personName: "Casey Roles", roleName: "Lead greeter" }, "Synthetic"],
-			["remove", "ministry", null, "Synthetic"],
+			["remove", "ministry", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
 			["assign", "tenure", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
-			["remove", "ministry", null, "Synthetic"],
+			["remove", "ministry", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
 			["edit", "role", { personName: null, roleName: "Lead greeter" }, "Synthetic"],
 			["assign", "tenure", { personName: "Alex Roles", roleName: "Lead greeter" }, "Synthetic"],
 			["create", "role", { personName: null, roleName: "Greeter" }, "Synthetic"],
@@ -611,9 +628,9 @@ test("AC:TARGET-TEAM-006 a ministry's history shows its own role changes, and no
 		],
 	);
 	const [retired, , , , , edited, , added] = entries;
-	assert.deepEqual([edited.before, edited.after], [{ name: "Greeter" }, { name: "Lead greeter" }]);
-	assert.deepEqual(added.after, { name: "Greeter", desiredSkills: null, leadership: false });
-	assert.deepEqual(retired.after, { retired: true, occupantPersonId: null });
+	assert.deepEqual([edited!.before, edited!.after], [{ name: "Greeter" }, { name: "Lead greeter" }]);
+	assert.deepEqual(added!.after, { name: "Greeter", desiredSkills: null, leadership: false });
+	assert.deepEqual(retired!.after, { retired: true, occupantPersonId: null });
 	for (const e of entries) assert.equal(Number.isNaN(Date.parse(e.occurredAt)), false);
 	const elsewhere = ok(await teamsReader.listHistory(db, await viewer(), { teamId: other.id })).entries;
 	assert.deepEqual(
@@ -643,7 +660,7 @@ test("INV-team-history: training filed under a ministry never shows in that mini
 	const pat = await person("Pat Training", { stage: "launch_team" });
 	await assign(team, role, pat);
 	const history = async () => ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
-	const shown = (entries) => entries.map((e) => [e.kind, e.subject, e.about]);
+	const shown = (entries: Awaited<ReturnType<typeof history>>) => entries.map((e) => [e.kind, e.subject, e.about]);
 	const before = await history();
 	assert.deepEqual(shown(before), [
 		["assign", "tenure", { personName: "Pat Training", roleName: "Usher" }],
@@ -688,14 +705,14 @@ test("INV-team-history: training filed under a ministry never shows in that mini
 	assert.deepEqual(shown(after), shown(before));
 });
 
-const leaderOf = async (teamId) =>
+const leaderOf = async (teamId: string) =>
 	(
-		await admin.execute(
+		await admin.execute<{ personId: string | null; source: string | null; roleId: string | null; revision: string }>(
 			sql`SELECT leader_person_id AS "personId", leader_source AS source, leader_role_id AS "roleId",
 				revision::text AS revision FROM team WHERE id=${teamId}`,
 		)
-	).rows[0];
-const editRole = async (role, fields) =>
+	).rows[0]!;
+const editRole = async (role: { id: string }, fields: object) =>
 	ok(
 		await run(teamsWriter.editRole, {
 			requestKey: key(),
@@ -703,13 +720,13 @@ const editRole = async (role, fields) =>
 			input: { roleId: role.id, ...fields },
 		}),
 	);
-const lastEdit = async (roleId) =>
+const lastEdit = async (roleId: string) =>
 	(
 		await admin.execute(
 			sql`SELECT before_value AS before, after_value AS after FROM audit_event
 				WHERE subject_id=${roleId} AND subject_type='team_role' AND kind='edit' ORDER BY occurred_at DESC LIMIT 1`,
 		)
-	).rows[0];
+	).rows[0]!;
 
 test("AC:TARGET-TEAM-004 turning leadership off a role clears only the leader that role made, and the history names it", async () => {
 	const derived = await makeTeam("Derived leader");
@@ -876,7 +893,7 @@ test("AC:REQ-IDN-005 an unknown or another church's team, role or tenure is unav
 		);
 	}
 	assert.equal(
-		(await admin.execute(sql`SELECT name FROM team WHERE id=${foreignTeam.id}`)).rows[0].name,
+		(await admin.execute(sql`SELECT name FROM team WHERE id=${foreignTeam.id}`)).rows[0]!.name,
 		"Foreign ministry",
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team_role WHERE name='Probe'`), 0);

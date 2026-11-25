@@ -1,4 +1,5 @@
 import "../platform/setup.mts";
+import { connectionLink } from "../../../packages/domain/src/proofs.ts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync } from "node:fs";
@@ -13,24 +14,42 @@ import {
 	refusals,
 	skips,
 } from "../../../packages/contracts/src/machines/index.ts";
-import { owner } from "../../../packages/contracts/src/common/index.ts";
+import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
+import type { InvitationSubject, Observation } from "../../../packages/contracts/src/machines/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { pipelineDataWriter } from "../../../packages/domain/src/organizations/data.ts";
 import { pipelineWriter, readPipelineBoard } from "../../../packages/domain/src/organizations/pipeline.ts";
-import { seeds } from "../../support/fixture.mts";
-import { fixture, key } from "./invitations-support.mts";
+import { ok, seeds, type Workspace } from "../../support/fixture.mts";
+import { codeOf, fixture, key, type Fixture } from "./invitations-support.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f, seed, associations;
-const proofs = new Map();
+let f: Fixture, seed: ReturnType<typeof seeds>, associations: ReturnType<typeof createOrganizationAdapter>;
+type Step = (typeof machine.transitions)[number];
+type Person = { id: string; session: string; email: string; selected?: unknown };
+type World = {
+	tenant: Workspace | null;
+	sender: Person;
+	recipient?: Person;
+	receiver?: Person;
+	email: string;
+	id: string;
+	proof?: string;
+	person?: string;
+	pair?: object;
+};
+const proofs = new Map<string, string>();
 before(async () => {
 	f = await fixture();
 	seed = seeds(f.admin);
 	associations = createOrganizationAdapter(
 		{
 			async invitation(tx, v, writes) {
-				proofs.set(v.invitationId, v.proof);
+				proofs.set(
+					v.invitationId,
+					connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1]!,
+				);
+				assert.ok(v.owner.kind !== "global");
 				await f.mail.append(
 					tx,
 					{
@@ -50,44 +69,51 @@ before(async () => {
 			invalidate: (_tx, v) =>
 				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 		},
-		{ candidates: async () => [] },
+		{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 	);
 });
 after(() => f?.close());
 
-const command = (input, expectedRevision) => ({ requestKey: key(), expectedRevision, input });
-const authority = (who) => f.actor(who.session);
-const relate = (name, who, input) =>
+const command = (input: object, expectedRevision: string) => ({ requestKey: key(), expectedRevision, input });
+const authority = (who: Person) => f.actor(who.session);
+const relate = <K extends keyof typeof associations>(name: K, who: Person, input: object) =>
 	gatedTransaction(f.db, async (tx) => {
-		if (!(await RequestActor.claimWrite(tx, who.session, who.selected))) throw Error("unavailable");
-		return associations[name](tx, who.session, who.selected, input);
+		const session = sessionId.parse(who.session),
+			selected = owner.parse(who.selected);
+		if (!(await RequestActor.claimWrite(tx, session, selected))) throw Error("unavailable");
+		return associations[name](tx, session, selected, input);
 	});
-async function settle(promise) {
+async function settle(promise: Promise<unknown>): Promise<{ ok?: unknown; refused?: unknown }> {
 	try {
-		const value = await promise;
+		const value = (await promise) as
+			{ status?: string; refusal?: { code?: string }; error?: { code?: string } } | undefined;
 		return value?.status === "refused" ? { refused: value.refusal?.code ?? value.error?.code } : { ok: value };
 	} catch (error) {
-		return { refused: error.code ?? error.message };
+		return { refused: codeOf(error) ?? (error instanceof Error ? error.message : String(error)) };
 	}
 }
 
-async function stored(id) {
-	const r = await f.admin.execute(sql`SELECT id, revision::text AS revision, state FROM invitation WHERE id = ${id}`);
-	return r.rows[0];
+async function stored(id: string) {
+	const r = await f.admin.execute<{ id: string; revision: string; state: string }>(
+		sql`SELECT id, revision::text AS revision, state FROM invitation WHERE id = ${id}`,
+	);
+	return r.rows[0]!;
 }
-const age = (id, fresh) =>
+const age = (id: string, fresh: boolean | undefined) =>
 	f.admin.execute(
 		sql`UPDATE invitation SET created_at = clock_timestamp() - ${fresh ? "2 minutes" : "721 hours"}::interval, resent_at = NULL WHERE id = ${id}`,
 	);
-async function rootRevision(tenant) {
+async function rootRevision(tenant: Workspace) {
 	const table = tenant.kind === "plant" ? sql`plant` : sql`organization`;
-	const r = await f.admin.execute(sql`SELECT revision::text AS revision FROM ${table} WHERE id = ${tenant.id}`);
-	return r.rows[0].revision;
+	const r = await f.admin.execute<{ revision: string }>(
+		sql`SELECT revision::text AS revision FROM ${table} WHERE id = ${tenant.id}`,
+	);
+	return r.rows[0]!.revision;
 }
-async function pipelinePerson(world) {
+async function pipelinePerson(world: Pick<World, "sender">) {
 	const personId = randomUUID();
-	const board = await readPipelineBoard(f.db, await authority(world.sender), {});
-	const stageId = board.value.stages[0].id;
+	const board = ok(await readPipelineBoard(f.db, await authority(world.sender), {}));
+	const stageId = board.stages[0]!.id;
 	const added = await pipelineWriter.addPerson(f.db, await authority(world.sender), {
 		personId,
 		displayName: "Synthetic resident",
@@ -99,10 +125,10 @@ async function pipelinePerson(world) {
 	return personId;
 }
 
-async function relationshipWorld(kind) {
-	const church = owner.parse(await seed.organization("sending_church"));
-	const subjectTenant = kind === "plant" ? owner.parse(await seed.plant()) : kind === "sending_church" ? church : null;
-	const organization = kind === "sending_church" ? owner.parse(await seed.organization("sending_network")) : church;
+async function relationshipWorld(kind: "plant" | "sending_church" | "discovery"): Promise<World> {
+	const church = await seed.organization("sending_church");
+	const subjectTenant = kind === "plant" ? await seed.plant() : kind === "sending_church" ? church : null;
+	const organization = kind === "sending_church" ? await seed.organization("sending_network") : church;
 	const sender = await seed.actor(subjectTenant, "owner");
 	const receiver = await seed.actor(organization, "owner");
 	if (kind === "discovery") await f.admin.execute(sql`INSERT INTO discovery(account_id) VALUES(${sender.id})`);
@@ -114,7 +140,7 @@ async function relationshipWorld(kind) {
 	return { tenant: subjectTenant, sender, receiver, email: receiver.email, pair, id: sent.invitationId };
 }
 
-const worlds = {
+const worlds: Partial<Record<InvitationSubject["purpose"], (s: InvitationSubject) => Promise<World>>> = {
 	async seat(s) {
 		const w = await f.setup(s.tenant === "plant" ? "plant" : "sending_church");
 		const i = await f.invitation(w);
@@ -139,12 +165,12 @@ const worlds = {
 	discovery_church: () => relationshipWorld("discovery"),
 };
 
-function fire(world, row, event, to) {
+function fire(world: World, row: { id: string; revision: string }, event: string, to: string): Promise<unknown> {
 	const at = row.revision,
 		invitationId = row.id;
 	switch (event) {
 		case "seats.invite":
-			return rootRevision(world.tenant).then(async (revision) =>
+			return rootRevision(world.tenant!).then(async (revision) =>
 				f.invitations.invite(
 					await authority(world.sender),
 					command({ workspace: world.tenant, role: "member", recipientEmail: world.email }, revision),
@@ -156,7 +182,7 @@ function fire(world, row, event, to) {
 					await authority(world.sender),
 					command(
 						{ organization: world.tenant, personId, recipientEmail: world.email },
-						await rootRevision(world.tenant),
+						await rootRevision(world.tenant!),
 					),
 				),
 			);
@@ -165,10 +191,10 @@ function fire(world, row, event, to) {
 		case "seats.revokeInvitation":
 			return authority(world.sender).then((a) => f.invitations.revoke(a, command({ invitationId }, at)));
 		case "seats.acceptInvitation":
-			return f.invitations.accept(world.recipient.session, command({ invitationId, proof: world.proof }, at));
+			return f.invitations.accept(world.recipient!.session, command({ invitationId, proof: world.proof }, at));
 		case "residency.respondInvitation":
 			return f.invitations.respondResident(
-				world.recipient.session,
+				world.recipient!.session,
 				command(
 					to === "declined"
 						? { invitationId, proof: world.proof, decision: "decline" }
@@ -183,11 +209,13 @@ function fire(world, row, event, to) {
 			);
 		case "pipeline.removePerson":
 			return f.admin
-				.execute(sql`SELECT revision::text AS revision FROM pipeline_person WHERE person_id = ${world.person}`)
+				.execute<{ revision: string }>(
+					sql`SELECT revision::text AS revision FROM pipeline_person WHERE person_id = ${world.person}`,
+				)
 				.then(async (r) =>
 					pipelineDataWriter.removePerson(f.db, await authority(world.sender), {
 						personId: world.person,
-						expectedRevision: r.rows[0].revision,
+						expectedRevision: r.rows[0]!.revision,
 					}),
 				);
 		case "associations.invite":
@@ -195,8 +223,10 @@ function fire(world, row, event, to) {
 				world.tenant
 					? rootRevision(world.tenant)
 					: f.admin
-							.execute(sql`SELECT revision::text AS revision FROM account WHERE id = ${world.sender.id}`)
-							.then((r) => r.rows[0].revision)
+							.execute<{ revision: string }>(
+								sql`SELECT revision::text AS revision FROM account WHERE id = ${world.sender.id}`,
+							)
+							.then((r) => r.rows[0]!.revision)
 			).then((revision) =>
 				relate(event, world.sender, command({ pair: world.pair, recipientEmail: world.email }, revision)),
 			);
@@ -206,36 +236,36 @@ function fire(world, row, event, to) {
 		case "associations.acceptInvitation":
 			return relate(
 				event,
-				world.receiver,
+				world.receiver!,
 				command({ invitationId, proof: proofs.get(invitationId), decision: "accept" }, at),
 			);
 		case "associations.respondInvitation":
 			return relate(
 				event,
-				world.receiver,
+				world.receiver!,
 				command(
 					{ invitationId, proof: proofs.get(invitationId), decision: to === "declined" ? "decline" : "accept" },
 					at,
 				),
 			);
 		case "associations.declineInvitation":
-			return relate(event, world.receiver, command({ invitationId, decision: "decline" }, at));
+			return relate(event, world.receiver!, command({ invitationId, decision: "decline" }, at));
 	}
 	throw Error(`no operation for ${event}`);
 }
 
-const variant = (subject, fresh) => ({ ...machine.subjects[subject], fresh });
-const allowedAt = (subject, t) =>
+const variant = (subject: string, fresh: boolean) => ({ ...machine.subjects[subject]!, fresh });
+const allowedAt = (subject: string, t: Step) =>
 	[true, false].find((fresh) => allows(machine, t.event, t.from, t.to, variant(subject, fresh)));
 
-function pathTo(subject, goal) {
-	const [entry] = enters(machine, machine.subjects[subject]);
-	const routes = new Map([[entry.to, []]]);
+function pathTo(subject: string, goal: string) {
+	const entry = enters(machine, machine.subjects[subject])[0]!;
+	const routes = new Map<string, Step[]>([[entry.to, []]]);
 	const queue = [entry.to];
 	for (let at = queue.shift(); at !== undefined; at = queue.shift())
 		for (const t of machine.transitions)
 			if (t.from === at && !routes.has(t.to) && allowedAt(subject, t) !== undefined) {
-				routes.set(t.to, [...routes.get(at), t]);
+				routes.set(t.to, [...routes.get(at)!, t]);
 				queue.push(t.to);
 			}
 	const route = routes.get(goal);
@@ -243,9 +273,11 @@ function pathTo(subject, goal) {
 	return route;
 }
 
-async function invitationIn(subject, state) {
-	const sample = machine.subjects[subject];
-	const world = await worlds[sample.purpose](sample);
+async function invitationIn(subject: string, state: string) {
+	const sample = machine.subjects[subject]!;
+	const seedWorld = worlds[sample.purpose];
+	assert.ok(seedWorld, `no world for ${sample.purpose}`);
+	const world = await seedWorld(sample);
 	let row = await stored(world.id);
 	assert.equal(row.state, "pending");
 	for (const step of pathTo(subject, state)) {
@@ -260,19 +292,19 @@ async function invitationIn(subject, state) {
 }
 
 test("INV-machine: invitation state follows its declared transitions and refuses every other move", async (t) => {
-	const observations = [];
-	const observe = (o) => observations.push({ machine: machine.id, ...o });
+	const observations: Observation[] = [];
+	const observe = (o: Omit<Observation, "machine">) => observations.push({ machine: machine.id, ...o });
 	const subjects = Object.keys(machine.subjects);
 
 	for (const subject of subjects) {
-		const [entry] = enters(machine, machine.subjects[subject]);
+		const entry = enters(machine, machine.subjects[subject])[0]!;
 		const { row } = await invitationIn(subject, entry.to);
 		observe({ kind: "edge", subject, event: entry.event, from: null, to: row.state });
 	}
 
 	for (const edge of machine.transitions)
 		for (const subject of subjects) {
-			if (!allows(machine, edge.event, edge.from, edge.to, machine.subjects[subject])) continue;
+			if (!allows(machine, edge.event, edge.from, edge.to, machine.subjects[subject]!)) continue;
 			const { world, row: before } = await invitationIn(subject, edge.from);
 			const reply = await settle(fire(world, before, edge.event, edge.to));
 			assert.ok(reply.ok, `${subject} ${edge.event} ${edge.from} -> ${edge.to}: ${JSON.stringify(reply)}`);
@@ -284,7 +316,7 @@ test("INV-machine: invitation state follows its declared transitions and refuses
 	for (const stay of machine.stays)
 		for (const state of stay.in)
 			for (const subject of subjects) {
-				if (!holds(machine, stay.event, state, machine.subjects[subject])) continue;
+				if (!holds(machine, stay.event, state, machine.subjects[subject]!)) continue;
 				const { world, row: before } = await invitationIn(subject, state);
 				const reply = await settle(fire(world, before, stay.event, state));
 				assert.ok(reply.ok, `${subject} ${stay.event} stays in ${state}: ${JSON.stringify(reply)}`);

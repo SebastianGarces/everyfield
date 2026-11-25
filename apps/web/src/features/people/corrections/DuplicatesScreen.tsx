@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import {
 	Alert02Icon,
 	ArrowLeftRightIcon,
@@ -39,6 +40,7 @@ import { dismissPair, mergePair, type Merged } from "./actions.ts";
 import { mergeDestination, reviewPair } from "../fetch.ts";
 import { leaveConfirmation } from "./DuplicatePairs.tsx";
 import {
+	attendanceText,
 	blockerText,
 	counted,
 	defaultChoices,
@@ -332,17 +334,14 @@ function PairReview({
 							</CardTitle>
 						</CardHeading>
 					</CardHeader>
-					{groups.moves.length || groups.blocked.length ? (
+					{groups.moves.length ? (
 						<ul className="flex flex-col">
-							{[...groups.moves, ...groups.blocked].map((r) => (
+							{groups.moves.map((r) => (
 								<li
 									key={r.kind}
 									className="flex items-center justify-between gap-3 border-t border-line py-2.5 text-sm first:border-t-0"
 								>
-									<span className="text-text-2">
-										{kindTitle(r.kind)}
-										{r.treatment === "block" ? <span className="text-magenta-600"> · cannot move yet</span> : null}
-									</span>
+									<span className="text-text-2">{kindTitle(r.kind)}</span>
 									<span className="font-semibold text-ink tabular-nums">{r.count}</span>
 								</li>
 							))}
@@ -353,6 +352,50 @@ function PairReview({
 					{groups.moves.some((r) => r.treatment === "deduplicate") ? (
 						<p className="mt-2 text-xs text-text-3">Tags they both have are kept once.</p>
 					) : null}
+					{review.openFollowUps.length ? (
+						<div className="mt-3 border-t border-line pt-2.5">
+							<p className="text-xs font-semibold text-ink-2">
+								{review.openFollowUps.length === 1
+									? "This open follow-up stays open"
+									: review.openFollowUps.length === 2
+										? "Both open follow-ups stay open"
+										: `All ${review.openFollowUps.length} open follow-ups stay open`}{" "}
+								on {first(survivor.displayName)}
+							</p>
+							<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+								{review.openFollowUps.map((f) => (
+									<li key={`${f.personId}-${f.meeting}-${f.dueDate}`} className="text-pretty">
+										{f.personId === source.personId ? source.displayName : survivor.displayName}&rsquo;s from{" "}
+										{f.meeting}, due <LocalDay day={f.dueDate} />
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
+					<ReviewList
+						title="Meeting records that change"
+						items={review.attendance.map((a) => ({
+							key: `${a.change}-${a.meeting}`,
+							text: attendanceText(a, review),
+						}))}
+					/>
+					<ReviewList
+						title={`${countWord(review.openTasks.length, "This open task stays", "These open tasks stay")} open on ${first(survivor.displayName)}`}
+						items={review.openTasks.map((t, i) => ({
+							key: `${i}-${t.title}`,
+							text: t.dueDate ? (
+								<>
+									{t.title}, due <LocalDay day={t.dueDate} />
+								</>
+							) : (
+								`${t.title}, no due date`
+							),
+						}))}
+					/>
+					<ReviewList
+						title={`${countWord(review.openKitItems.length, "This unchecked kit item stays", "These unchecked kit items stay")} assigned to ${first(survivor.displayName)}`}
+						items={review.openKitItems.map((k, i) => ({ key: `${i}-${k.text}`, text: `${k.text}, for ${k.meeting}` }))}
+					/>
 					{groups.stays.length ? (
 						<p className="mt-3 text-xs text-text-3">
 							Stays in {first(source.displayName)}&rsquo;s history:{" "}
@@ -371,7 +414,7 @@ function PairReview({
 							<ul className="mt-2 flex flex-col gap-2 text-sm text-ink-2">
 								{review.blockers.causes.map((cause) => (
 									<li key={cause} className="text-pretty">
-										{blockerText(cause, names, review.blockers.references)}
+										{blockerText(cause, names, review.blockers)}
 										{cause === "linked_source" ? (
 											<Button
 												variant="secondary"
@@ -397,7 +440,7 @@ function PairReview({
 							</div>
 							<p className="mt-2 text-sm text-text-2">
 								Account links, note authorship and history never move. A merge stops if both people have an account or
-								if a record cannot move yet.
+								if both hold a current role on the same team.
 							</p>
 						</>
 					)}
@@ -671,6 +714,22 @@ function ConfirmMerge({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function ReviewList({ title, items }: { title: string; items: { key: string; text: ReactNode }[] }) {
+	if (!items.length) return null;
+	return (
+		<div className="mt-3 border-t border-line pt-2.5">
+			<p className="text-xs font-semibold text-ink-2">{title}</p>
+			<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+				{items.map((item) => (
+					<li key={item.key} className="text-pretty">
+						{item.text}
+					</li>
+				))}
+			</ul>
+		</div>
 	);
 }
 

@@ -1,6 +1,9 @@
+import "../runs-in/react-server.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { meetingCounts } from "../../../packages/contracts/src/oversight/index.ts";
 import {
+	attendanceText,
 	chosenText,
 	HOME_HEADING,
 	intelligenceWords,
@@ -44,6 +47,39 @@ test("a milestone-path row is labelled Milestone with its progress, never read a
 		chosenText(milestone({ status: "reached", date: "2026-10-11" }, null), "Harvest Point"),
 		"chosen by another organization Harvest Point is linked with",
 	);
+});
+
+test("the attendance line covers only meetings whose attendance is known, and says Unknown when none is", () => {
+	const line = (...attended) => {
+		const known = attended.filter((n) => n !== null);
+		return attendanceText(
+			meetingCounts.parse({
+				meetings: attended.map((n, i) => ({ date: `2026-09-0${i + 1}`, attended: n })),
+				averageDaysBetween: attended.length > 1 ? 1 : null,
+				attendedTotal: known.length ? known.reduce((sum, n) => sum + n, 0) : null,
+			}),
+		);
+	};
+	assert.equal(line(1, 2, 3, 1, 2, 3), "Attendance at the last 6 meetings · 12 in total");
+	assert.equal(line(0, 0), "Attendance at the last 2 meetings · 0 in total");
+	assert.equal(line(4), "Attendance at the last 1 meeting · 4 in total");
+	assert.equal(line(1200, 34), "Attendance at the last 2 meetings · 1,234 in total");
+	assert.equal(line(3, 2, null), "Attendance at 2 of the last 3 meetings · 5 in total");
+	assert.equal(line(0, null), "Attendance at 1 of the last 2 meetings · 0 in total");
+	assert.equal(line(null, null, null), "Attendance at the last 3 meetings · Unknown");
+	assert.equal(line(null), "Attendance at the last meeting · Unknown");
+});
+
+test("a meetings total that disagrees with its meetings is refused", () => {
+	const counts = (attendedTotal, ...attended) => ({
+		meetings: attended.map((n) => ({ date: "2026-09-01", attended: n })),
+		averageDaysBetween: null,
+		attendedTotal,
+	});
+	assert.equal(meetingCounts.safeParse(counts(0, null)).success, false);
+	assert.equal(meetingCounts.safeParse(counts(null, 0)).success, false);
+	assert.equal(meetingCounts.safeParse(counts(3, 2, null)).success, false);
+	assert.equal(meetingCounts.safeParse(counts(2, 2, null)).success, true);
 });
 
 test("AC:ORG55-004 a plant with no lead planter says so and never falls back to another name", () => {
@@ -152,6 +188,7 @@ test("a near Launch Sunday alone is no concern; a recorded role or training gap 
 	assert.equal(nearLaunch(prep({ launched: true, daysToLaunch: null, unfilledRoles: 3 })), "clear");
 	assert.equal(nearLaunch(prep({ daysToLaunch: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null })), "unknown");
+	assert.equal(nearLaunch(prep({ outstandingTraining: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null, outstandingTraining: 1 })), "gap");
 });
 
@@ -214,4 +251,5 @@ test("follow-up, growth and training results keep zero, the 21 and 28 day lines 
 	assert.equal(trainingResult(counts({ requiredTraining: 3, outstandingTraining: 2 })), "gap");
 	assert.equal(trainingResult(counts({ requiredTraining: 3, outstandingTraining: 0 })), "clear");
 	assert.equal(trainingResult(counts({ outstandingTraining: 0 })), "unknown");
+	assert.equal(trainingResult(counts({ requiredTraining: 3 })), "unknown");
 });

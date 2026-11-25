@@ -1,3 +1,5 @@
+import { mergeDraft } from "../../../apps/web/src/components/save/conflict.ts";
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -18,7 +20,6 @@ import {
 	withBlockers,
 	withChange,
 	parseQuery,
-	rebase,
 	querySearch,
 	withFilters,
 } from "../../../apps/web/src/features/tasks/model.ts";
@@ -216,13 +217,14 @@ test("BUG-31d611e R4-2: a refused edit opens again on the newest task with only 
 	};
 	const mine = { ...seen, title: "Call Kim today" };
 	const latest = { ...seen, description: "She asked for Tuesday.", assigneeIds: ["b2"] };
-	assert.deepEqual(rebase(mine, seen, latest), {
+	const reopened = (typed, base, now) => mergeDraft({ base, mine: typed, latest: now, picks: {}, fields: [] }).values;
+	assert.deepEqual(reopened(mine, seen, latest), {
 		title: "Call Kim today",
 		description: "She asked for Tuesday.",
 		assigneeIds: ["b2"],
 		due: { kind: "undated", date: "", time: "" },
 	});
-	assert.deepEqual(rebase({ ...mine, assigneeIds: ["c3"] }, seen, latest).assigneeIds, ["c3"]);
+	assert.deepEqual(reopened({ ...mine, assigneeIds: ["c3"] }, seen, latest).assigneeIds, ["c3"]);
 });
 
 test("AC:TARGET-TSK-006 INV-blocking: a settled or deleted prerequisite releases its task; a reopened one holds it again", () => {
@@ -325,5 +327,6 @@ test("BUG-PR551 (messages/com-21): every chosen assignee is held in the picker, 
 		],
 	);
 	const mine = { assigneeIds: [viewer], ineligible: viewer };
-	assert.equal(rebase(mine, { assigneeIds: [viewer] }, { assigneeIds: [viewer] }).ineligible, viewer);
+	const seen = { assigneeIds: [viewer] };
+	assert.equal(mergeDraft({ base: seen, mine, latest: seen, picks: {}, fields: [] }).values.ineligible, viewer);
 });

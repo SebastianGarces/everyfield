@@ -983,7 +983,7 @@
         "Both Persons and moved current references are same plant; two account-linked Persons cannot merge and linked Person must survive.",
         "Current reference writers validate live Person so no new reference races onto retired source.",
         "Source-to-survivor lineage is acyclic and retries do not create duplicate merge or inverse.",
-        "Unmerge requires unchanged recorded facts/reference revisions and all inverse checks; no discarded later facts, transferred private author identity or unsent mail."
+        "Unmerge keeps every later fact with the Person it was added to and refuses, with no write, a later change it cannot split; no discarded later facts, transferred private author identity or unsent mail."
       ],
       "retention": "Keep original merge and inverse receipts plus necessary owned snapshots/reference/photo facts under plant lifecycle. No unlimited undo or blanket permanent private snapshot exemption exists; deleted private account data cannot survive in merge payloads.",
       "current_tables": [
@@ -1606,7 +1606,7 @@
       "invariants": [],
       "retention": "No additional database storage for routing, metric snapshots, feeds, legal-page versions, sitemap or robots is required.",
       "current_tables": [],
-      "notes": "Sources: ADM-004 through 007. Routing reads identity/onboarding facts; metrics and twenty-event feed read current owned records and actual dated source/correction history. Optional dismissal is CAP-A-047. Public policies are reviewed static copy describing selected vendors and actual lifecycle/recovery limits, without a consent/legal-version tracking product."
+      "notes": "Sources: ADM-004 through 007. Routing reads identity/onboarding facts; metrics and twenty-event feed read current owned records and actual dated source/correction history. Optional dismissal is CAP-A-047. Public policies are reviewed static copy describing provider categories and lifecycle limits in general terms, without a consent/legal-version tracking product."
     },
     {
       "id": "CAP-A-050",

@@ -9,17 +9,26 @@ import {
 	personFields,
 } from "@everyfield/domain/people";
 import {
+	adultClassification,
 	duplicateCheckRequest,
 	listPeopleRequest,
+	movedInto,
+	moveWarningLines,
+	moveWarnings,
 	personFieldsRequest,
 	personRequest,
+	skillCategory,
+	skillName,
 	stage,
+	type peoplePage,
 } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import { ownerOrAdmin } from "../commands/index.ts";
+import { id } from "../../tasks/values.ts";
+import { stageWarnings } from "../stage-warnings.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
 type PlantPerson = { id: string; displayName: string; city?: string | null; stage: string };
@@ -47,35 +56,123 @@ const listInput = z.strictObject({
 		.describe(
 			"The seven stages, in order: prospect, attendee, following_up, interviewed, core_group, launch_team, leader. There is no inactive stage: asked for one, name these seven and offer people.deletePerson with a reason.",
 		),
+	skillCategories: z
+		.array(skillCategory)
+		.min(1)
+		.max(7)
+		.optional()
+		.describe("Recorded skill categories. A person matches on any category or skillNames text; notes never count."),
+	skillNames: z.array(skillName).min(1).max(10).optional().describe("Text in a recorded skill's name"),
+	hasPhoto: z
+		.boolean()
+		.optional()
+		.describe("Whether the People list shows a photo for them, their account's photo included"),
+	inHousehold: z.boolean().optional().describe("Whether they are in any household"),
+	adultClassification: adultClassification
+		.optional()
+		.describe(
+			"What is recorded, or what the birth date decides. A child row names its household. A household role, surname or note never counts; unknown means nothing is recorded.",
+		),
+	movedInto: movedInto
+		.optional()
+		.describe(
+			"People with a recorded move into this stage between two church-local dates, each person once with the date of their last such move. Leave the dates out for this calendar month. Being added or imported in the stage, or moving on from it, isn't a move into it.",
+		),
 	page: z.int().min(1).max(100_000).optional().describe("Page number of a previous result's next page"),
-	limit: z.int().min(1).max(100).optional(),
+	limit: z
+		.int()
+		.min(1)
+		.max(100)
+		.optional()
+		.describe("At most 24 a page under a skill, photo, household, child or move filter"),
 });
+type Match = NonNullable<z.infer<typeof peoplePage>["matches"]>[number];
+const matchFields = (m: Match) => ({
+	...(m.skills && {
+		skills: m.skills.map((s) => `${s.name} (${s.category}), ${s.proficiency ?? "level not recorded"}`).join("; "),
+	}),
+	...(m.household && { household: m.household.name, householdId: m.household.id }),
+	...(m.movedOn && { movedOn: m.movedOn }),
+});
+const PAGE = 24;
+const CHURCH_WIDE =
+	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name this page's people, say how many of the total they are and offer the next page under the same filter.";
+const CHILD_NOTE =
+	"Say that people with no adult or child recorded aren't counted. A household no page names has no child recorded.";
+const MOVE_NOTE =
+	"Moves say who moved in and when, never who is stuck or inactive: for that, read people.getPipelineData instead and give each person's inactivity.";
 const personInput = z.strictObject({ personId: z.uuid() });
 
 export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 	operation: "people.listPeople",
 	description:
-		"List people in this church, with the exact matched total and the next page when more exist. A stage says where someone is, never whether they are ready for the next one: list the stage and say that readiness is the user's call.",
+		"List people in this church, or only those matching a city, stage, skill, photo, household, adult or child, or stage move, with the exact matched total and the next page when more exist. A stage says where someone is, never whether they are ready for the next one: list the stage and say that readiness is the user's call.",
 	input: listInput,
 	allowed: inPlant,
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
-		const request = listPeopleRequest.parse({ ...input, limit: input.limit ?? 24, page: input.page ?? 1 });
+		const churchWide =
+			input.skillCategories !== undefined ||
+			input.skillNames !== undefined ||
+			input.hasPhoto !== undefined ||
+			input.inHousehold !== undefined ||
+			input.adultClassification !== undefined ||
+			input.movedInto !== undefined;
+		const limit = Math.min(input.limit ?? PAGE, churchWide ? PAGE : 100);
+		const named = (input.skillNames ?? []).flatMap((n) => skillCategory.safeParse(n.toLowerCase()).data ?? []);
+		const skillCategories = [...new Set([...(input.skillCategories ?? []), ...named])];
+		const request = listPeopleRequest.parse({
+			...input,
+			...(skillCategories.length > 0 && { skillCategories }),
+			limit,
+			page: input.page ?? 1,
+		});
 		const reply = await peopleReader.listPeople(tx, new PeopleReadContext(actor.authority), request);
 		if (reply.status !== "ok")
 			throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
 		const page = reply.value;
+		const everyone = churchWide
+			? await peopleReader.listPeople(
+					tx,
+					new PeopleReadContext(actor.authority),
+					listPeopleRequest.parse({ page: 1, limit: 1 }),
+				)
+			: null;
+		if (everyone && everyone.status !== "ok") throw new EvryRefusal("source_unavailable");
+		const matches = new Map((page.matches ?? []).map((m) => [m.personId, matchFields(m)]));
 		return {
 			operation: "people.listPeople",
 			status: "available",
-			rows: page.items.map((p) => row(actor, p)),
+			rows: page.items.map((p) => {
+				const found = row(actor, p);
+				return { ...found, fields: { ...found.fields, ...matches.get(p.id) } };
+			}),
 			total: page.total,
 			page: request.page,
 			next: page.next,
 			completeness: page.completeness,
-			exclusions: ["archived people", "private care"],
+			exclusions: [
+				"archived people",
+				"private care",
+				...(input.skillCategories || input.skillNames ? ["skill notes"] : []),
+				...(input.adultClassification === "child" ? ["people with no adult or child recorded"] : []),
+			],
+			...(everyone && {
+				facts: {
+					peopleInChurch: everyone.value.total,
+					...(page.next !== null && page.total !== null && { pages: Math.ceil(page.total / limit) }),
+					note: [
+						CHURCH_WIDE,
+						...(input.adultClassification === "child" ? [CHILD_NOTE] : []),
+						...(input.movedInto ? [MOVE_NOTE] : []),
+					].join(" "),
+				},
+			}),
 		};
 	},
 };
+
+const CONTACT_NOTE =
+	"Give this person's email and phone only when the user asks for contact details, such as an email, a phone number or how to reach them, and then give both as recorded. Leave them out of any other answer about this person.";
 
 export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 	operation: "people.getPerson",
@@ -85,7 +182,15 @@ export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
 		const reply = await peopleReader.getPerson(tx, new PeopleReadContext(actor.authority), personRequest.parse(input));
 		const found = reply.status === "ok" && reply.value.status === "available" ? reply.value.person : null;
-		return one("people.getPerson", found && "stage" in found ? [row(actor, found)] : [], ["private care"]);
+		if (!found || !("stage" in found)) return one("people.getPerson", [], ["private care"]);
+		const fields = {
+			city: found.city ?? null,
+			stage: found.stage,
+			email: found.email ?? null,
+			phone: found.phone ?? null,
+		};
+		const read = one("people.getPerson", [personRow(actor, found.id, found.displayName, fields)], ["private care"]);
+		return fields.email || fields.phone ? { ...read, facts: { note: CONTACT_NOTE } } : read;
 	},
 };
 
@@ -162,9 +267,38 @@ export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates, listDuplicatePairs] as const;
+const warningsInput = z.strictObject({ personId: id, stage: stage.optional() });
+export const getStatusWarnings: ReadAdapter<z.infer<typeof warningsInput>> = {
+	operation: "people.getStatusWarnings",
+	description:
+		"The reminders the stage dialog shows before one person moves, as it shows them to every seat: each stage the move skips (give stage, the stage they would move to), and an assessment, interview or commitment that isn't recorded, with how many open duties they hold. Reminders never block a move and never say whether someone is ready",
+	input: warningsInput,
+	allowed: inPlant,
+	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
+		const found = await stageWarnings(tx, actor, input.personId);
+		if (!found) return one("people.getStatusWarnings", [], []);
+		const { person, warnings } = found;
+		const lines = moveWarningLines(moveWarnings(person.stage, input.stage ?? null, warnings));
+		const fields = {
+			stage: person.stage,
+			movingTo: input.stage ?? null,
+			openDuties: warnings.openDuties.length,
+			reminders: lines.join("\n") || "None",
+		};
+		return one("people.getStatusWarnings", [personRow(actor, person.id, person.displayName, fields)], ["private care"]);
+	},
+};
 
-const verifiedRow = z.object({
+export const PEOPLE_READS = [
+	listPeople,
+	getPerson,
+	getPersonPhoto,
+	checkForDuplicates,
+	listDuplicatePairs,
+	getStatusWarnings,
+] as const;
+
+const verifiedRow = z.strictObject({
 	id: z.uuid(),
 	display_name: z.string(),
 	city: z.string().nullable(),

@@ -1,58 +1,19 @@
-import { testDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { referenceService, ReferenceRefusal } from "../../../packages/reference/src/server.ts";
-import type { ReferenceAuthority, ReferenceDependencies } from "../../../packages/reference/src/server.ts";
-import { promotion } from "../../../packages/contracts/src/reference/release.ts";
 import type { Promotion } from "../../../packages/contracts/src/reference/release.ts";
 import { hash, canonical } from "../../../packages/reference/src/hash.ts";
 import { fixture } from "./fixtures.mts";
+import { promotions } from "./promotions.mts";
 
-const database = await testDatabase({ prefix: "wp032_test", roles: {}, max: 6 });
-const { admin: db } = database;
-const actor = randomUUID(),
-	user = randomUUID(),
-	session = randomUUID(),
-	plant = randomUUID();
-const artifacts = new Map<string, unknown>();
-const reviews = new Map<string, { actorId: string; review: ReferenceAuthority["review"] }>();
+const { database, db, actor, session, artifacts, reviews, authorize, service, command, seed } = await promotions(
+	"wp032_test",
+	fixture,
+);
+const plant = randomUUID();
 let firstCommand: Promotion;
-const authorize: ReferenceDependencies["authorize"] = async (tx, command) => {
-	const saved = reviews.get(command.requestKey);
-	if (!saved) return null;
-	const live = await tx.execute(
-		querySql`SELECT id FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE`,
-	);
-	return live.rowCount === 1 ? saved : null;
-};
-const service = referenceService(db, {
-	authorize,
-	loadArtifact: async (locator) => artifacts.get(locator),
-	policyFor: (key) => fixture(key).policy,
-});
-function command(key: string, expected: string, kind: "activate" | "rollback" = "activate"): Promotion {
-	const f = fixture(key);
-	artifacts.set(key, f.bundle);
-	const cmd = promotion.parse({
-		kind,
-		generationKey: key,
-		manifestHash: f.manifestHash,
-		expectedActivation: expected,
-		requestKey: randomUUID(),
-		reason: "Synthetic reviewed reference proof",
-	});
-	reviews.set(cmd.requestKey, {
-		actorId: actor,
-		review: {
-			commandDigest: hash(canonical(cmd)),
-			approvalHash: hash("synthetic-reviewed:" + f.manifestHash),
-			approvalLocator: "synthetic-review:" + cmd.requestKey,
-		},
-	});
-	return cmd;
-}
 async function counts() {
 	return (
 		await db.execute(querySql`SELECT (SELECT count(*)::int FROM reference_activation) AS activations,
@@ -67,18 +28,7 @@ async function refused(cmd: Promotion, code: string) {
 	);
 }
 before(async () => {
-	await db.execute(
-		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(actor)},${querySql.param(user)},'active','discovery')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${querySql.param(session)},${querySql.param(user)},${querySql.param(randomUUID())},now()+interval '1 hour')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO platform_grant(account_id,capability) VALUES(${querySql.param(actor)},'reference_publish')`,
-	);
+	await seed();
 	await db.execute(querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
     VALUES(${querySql.param(plant)},'Synthetic existing plant','America/Chicago',7,14,1,8,1,1)`);
 	await db.execute(querySql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind)

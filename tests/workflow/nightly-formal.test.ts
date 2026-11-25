@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { secretUses } from "./secret-uses.ts";
 import { type FormalDeps, nightlyFormal, type Run } from "../../scripts/nightly-formal.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
@@ -189,15 +190,29 @@ test("T-401 the nightly formal job runs on its own Postgres, with no secret, no 
 	assert.ok(start > 0, "formal job");
 	const next = workflow.slice(start + 1).search(/\n  [\w-]+:\n/);
 	const job = next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next);
-	assert.doesNotMatch(workflow, /secrets\./);
+	assert.deepEqual(secretUses(job), []);
 	assert.doesNotMatch(job, /needs:|upload-artifact|nightly-formal\/replay/);
 	assert.match(job, /\n    timeout-minutes: (\d+)\n/);
 	assert.ok(Number(/\n    timeout-minutes: (\d+)\n/.exec(job)![1]) <= 20);
 	assert.match(job, /image: pgvector\/pgvector:0\.8\.7-pg18\n/);
 	assert.match(job, /DATABASE_URL: postgres:\/\/ci:ci@localhost:5432\/everyfield_ci\n/);
-	assert.match(job, /EARLY_ACCESS_TEST_DATABASE: "1"\n/);
+	assert.match(job, /EVERYFIELD_DISPOSABLE_DATABASE: "1"\n/);
 	assert.match(job, /uses: \.\/\.github\/actions\/setup\n/);
 	assert.ok(job.indexOf("run: pnpm db:migrate\n") > 0);
 	assert.ok(job.indexOf("run: node scripts/nightly-formal.ts\n") > job.indexOf("run: pnpm db:migrate\n"));
 	assert.match(workflow, /\non:\n  schedule:\n    - cron: "[^"]+"\n  workflow_dispatch:\n/);
+});
+
+test("T-532 the only secret in the nightly is the flag reader URL, passed to bin/flag stale alone in the flag-cleanup job", () => {
+	const workflow = readFileSync(join(root, ".github/workflows/nightly.yml"), "utf8");
+	assert.deepEqual(secretUses(workflow), ["secrets.FLAG_READER_DATABASE_URL"]);
+	const start = workflow.indexOf("\n  flag-cleanup:\n");
+	assert.ok(start > 0, "flag-cleanup job");
+	const next = workflow.slice(start + 1).search(/\n  [\w-]+:\n/);
+	const job = next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next);
+	assert.match(
+		job,
+		/\n        env:\n          FLAG_READER_DATABASE_URL: \$\{\{ secrets\.FLAG_READER_DATABASE_URL \}\}\n        run: bin\/flag stale\n/,
+	);
+	assert.doesNotMatch(job, /--file|echo|::add-mask::|upload-artifact/);
 });

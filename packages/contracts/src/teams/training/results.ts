@@ -99,6 +99,17 @@ export const trainingHistory = z.strictObject({
 	personId,
 	credits: z.array(historyRow).max(200),
 });
+export const endedAssignment = z.strictObject({
+	id: recordId,
+	personName: z.string(),
+	programName,
+	assignedOn: localDate,
+	endedOn: localDate,
+});
+export const assignmentHistory = z.strictObject({
+	teamId: recordId,
+	assignments: z.array(endedAssignment).max(200),
+});
 export const teamFacts = z.strictObject({
 	teamId: recordId,
 	filledSlots: z.int().min(0),

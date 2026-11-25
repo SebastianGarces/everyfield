@@ -1,6 +1,5 @@
-import { fixture, ok, refusedWith } from "../../support/fixture.mts";
+import { fixture, ok, refusedWith, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
@@ -10,6 +9,21 @@ import {
 	nativeText,
 	readNative,
 } from "../../../packages/contracts/src/documents/native.ts";
+import { MemoryClient } from "./storage.mts";
+import { asKind, present, type Generated } from "./support.mts";
+import type {
+	BlockNode,
+	CellNode,
+	ColumnSpec,
+	ColumnType,
+	DocNode,
+	InlineNode,
+	Mark,
+	ParagraphNode,
+	RowNode,
+	TableNode,
+	TextNode,
+} from "../../../packages/contracts/src/documents/index.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -22,84 +36,58 @@ const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
-const actors = [
+const actors: [Actor, Actor, Actor, Actor, Actor] = [
 	database.actors.owner,
 	database.actors.member,
 	database.actors.admin,
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 	await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
 ];
-let foreignMeeting;
-const sha = (text) => createHash("sha256").update(text).digest("hex");
-const doc = (text) => nativeFromText(text);
+let foreignMeeting: string;
+const sha = (text: string | Uint8Array) => createHash("sha256").update(text).digest("hex");
+const doc = (text: string) => nativeFromText(text);
 
-class MemoryClient extends S3Client {
-	objects = new Map();
-	constructor() {
-		super({
-			region: "us-east-1",
-			endpoint: "https://example.invalid",
-			forcePathStyle: true,
-			credentials: { accessKeyId: "test", secretAccessKey: "test" },
-		});
-	}
-	async send(command) {
-		const input = command.input ?? {};
-		switch (command.constructor.name) {
-			case "GetBucketAclCommand":
-				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			case "PutObjectCommand":
-				this.objects.set(input.Key, Buffer.from(input.Body));
-				return {};
-			case "GetObjectCommand": {
-				const body = this.objects.get(input.Key);
-				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
-				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-			}
-			case "DeleteObjectCommand":
-				this.objects.delete(input.Key);
-				return {};
-			default:
-				throw new Error(`unexpected provider operation ${command.constructor.name}`);
-		}
-	}
-}
 const client = new MemoryClient();
 const storage = { bucket: "synthetic-only", client };
 
 const refusedPrivate = refusedWith({ hidden: ["Harvest Point", "Quinn Canary"] });
 const authority = async (who = 0) => {
-	const actor = await RequestActor.resolve(db, actors[who].session);
+	const actor = await RequestActor.resolve(db, present(actors[who]).session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
-const countOf = async (table, where = "") =>
-	Number((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table} ${where}`))).rows[0].n);
-const fileKey = async (generatedId) =>
-	(
-		await admin.execute(
-			sql`SELECT f.id AS file_id, f.opaque_key, f.state FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${generatedId}::uuid`,
-		)
-	).rows[0];
-const currentOf = async (documentId) =>
-	(
-		await admin.execute(
-			sql`SELECT d.revision::text AS revision, d.kind, d.current_revision_id AS revision_id, r.body, r.content_hash
+const countOf = async (table: string, where = "") =>
+	Number(present((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table} ${where}`))).rows[0]).n);
+const fileKey = async (generatedId: string) =>
+	present(
+		(
+			await admin.execute<{ file_id: string; opaque_key: string; state: string }>(
+				sql`SELECT f.id AS file_id, f.opaque_key, f.state FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${generatedId}::uuid`,
+			)
+		).rows[0],
+	);
+const currentOf = async (documentId: string) =>
+	present(
+		(
+			await admin.execute<{ revision: string; kind: string; revision_id: string; body: string; content_hash: string }>(
+				sql`SELECT d.revision::text AS revision, d.kind, d.current_revision_id AS revision_id, r.body, r.content_hash
 			FROM document d LEFT JOIN document_revision r ON r.id = d.current_revision_id WHERE d.id = ${documentId}::uuid`,
-		)
-	).rows[0];
-const endSeat = (accountId) =>
+			)
+		).rows[0],
+	);
+const endSeat = (accountId: string) =>
 	admin.execute(
 		sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${accountId}::uuid AND ended_at IS NULL`,
 	);
-const restoreSeat = (accountId) =>
+const restoreSeat = (accountId: string) =>
 	admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${accountId}::uuid`);
 
 const { storedZip } = W;
-const paragraph = (text) =>
+const paragraph = (text: string) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
-const docx = (text, extra = []) => storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
-function lyingZip(declared, inflated) {
+const docx = (text: string, extra: Parameters<typeof storedZip>[0] = []) =>
+	storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
+function lyingZip(declared: number, inflated: number) {
 	const name = Buffer.from("word/document.xml");
 	const data = zlib.deflateRawSync(Buffer.alloc(inflated));
 	const local = Buffer.alloc(30 + name.length);
@@ -201,11 +189,11 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		);
 		assert.equal(await countOf("file_object"), filesBefore);
 
-		const saved = {};
+		const saved: Record<string, { made: Generated; stored: Awaited<ReturnType<typeof fileKey>> }> = {};
 		for (const [template, format] of [
 			[card, "pdf"],
 			[budget, "xlsx"],
-		]) {
+		] as const) {
 			const preview = ok(await documentsReader.preview(db, owner, { templateId: template.id, format }));
 			const made = ok(
 				await documentsWriter.generate(
@@ -215,7 +203,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 					storage,
 				),
 			);
-			const bytes = Buffer.from(preview.artifact, "base64");
+			const bytes = Buffer.from(present(preview.artifact), "base64");
 			const stored = await fileKey(made.id);
 			assert.equal(made.plantId, P);
 			assert.equal(made.savedTemplateName, template.name);
@@ -238,6 +226,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			assert.equal(await countOf("file_object", `WHERE upload_key = 'generated:${P}:make-${format}'`), 1);
 			saved[format] = { made, stored };
 		}
+		const savedPdf = present(saved.pdf);
 		const refusal = refusedPrivate(
 			await documentsWriter.generate(
 				db,
@@ -257,13 +246,13 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 8388608, ${legacyBytes.length},
 				${createHash("sha256").update(legacyBytes).digest("hex")}, 'ready', 'legacy-docx', 0)
 		`);
-		const legacyRow = await admin.execute(sql`
+		const legacyRow = await admin.execute<{ id: string }>(sql`
 			INSERT INTO generated_document (tenant_id, template_id, template_version, saved_template_name, renderer_version, format, object_id, inputs, download_name, generated_at)
 			VALUES (${P}::uuid, 'vision-meeting-agenda', ${"ef".repeat(32)}, 'Vision Meeting Agenda', 'hand-written-writer', 'docx', ${legacyFile}::uuid, '[]'::jsonb, 'vision-meeting-agenda.docx', clock_timestamp())
 			RETURNING id
 		`);
 		client.objects.set(legacyKey, legacyBytes);
-		const legacyId = legacyRow.rows[0].id;
+		const legacyId = present(legacyRow.rows[0]).id;
 		const legacy = ok(await documentsWriter.download(db, owner, { documentId: legacyId }, storage));
 		assert.equal(legacy.url.includes(legacyKey), true);
 		assert.deepEqual(client.objects.get(legacyKey), legacyBytes);
@@ -314,10 +303,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			),
 		);
 		assert.equal(otherFile.plantId, Q);
-		refusedPrivate(
-			await documentsWriter.download(db, other, { documentId: saved.pdf.made.id }, storage),
-			"unavailable",
-		);
+		refusedPrivate(await documentsWriter.download(db, other, { documentId: savedPdf.made.id }, storage), "unavailable");
 		refusedPrivate(
 			await documentsWriter.generate(
 				db,
@@ -331,15 +317,15 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 
 		const listed = ok(await documentsWriter["history.list"](db, owner, {}));
 		assert.equal(
-			listed.entries.some((entry) => entry.id === saved.pdf.made.id),
+			listed.entries.some((entry) => entry.id === savedPdf.made.id),
 			true,
 		);
 		assert.equal(
 			listed.entries.every((entry) => entry.plantId === P),
 			true,
 		);
-		const one = ok(await documentsWriter["history.get"](db, owner, { documentId: saved.pdf.made.id }));
-		assert.equal(one.digest, saved.pdf.made.digest);
+		const one = ok(await documentsWriter["history.get"](db, owner, { documentId: savedPdf.made.id }));
+		assert.equal(one.digest, savedPdf.made.digest);
 		refusedPrivate(await documentsWriter["history.get"](db, owner, { documentId: randomUUID() }), "unavailable");
 		await admin.execute(sql`
 			INSERT INTO file_object (id, tenant_id, purpose, opaque_key, media_type, max_bytes, byte_count, sha256, state, upload_key, claim_generation)
@@ -376,22 +362,22 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		`);
 		const cleaned = ok(await documentsWriter.reconcileOrphans(db, storage));
 		assert.equal(cleaned.purged >= 2, true);
-		const stateOf = async (id) =>
-			(await admin.execute(sql`SELECT state FROM file_object WHERE id = ${id}::uuid`)).rows[0].state;
+		const stateOf = async (id: string) =>
+			(await admin.execute(sql`SELECT state FROM file_object WHERE id = ${id}::uuid`)).rows[0]?.state;
 		assert.equal(await stateOf(expired), "purged");
 		assert.equal(await stateOf(orphan), "purged");
 		assert.equal(await stateOf(fresh), "pending");
-		assert.equal(await stateOf(saved.pdf.stored.file_id), "ready");
-		assert.equal(client.objects.has(saved.pdf.stored.opaque_key), true);
+		assert.equal(await stateOf(savedPdf.stored.file_id), "ready");
+		assert.equal(client.objects.has(savedPdf.stored.opaque_key), true);
 		const second = ok(await documentsWriter.reconcileOrphans(db, storage));
 		assert.equal(second.purged, 0);
-		const signed = ok(await documentsWriter.download(db, owner, { documentId: saved.pdf.made.id }, storage));
+		const signed = ok(await documentsWriter.download(db, owner, { documentId: savedPdf.made.id }, storage));
 		assert.equal(signed.expiresInSeconds, 300);
-		assert.equal(signed.url.includes(saved.pdf.stored.opaque_key), true);
+		assert.equal(signed.url.includes(savedPdf.stored.opaque_key), true);
 		const query = new URL(signed.url).searchParams;
 		assert.equal(query.get("X-Amz-Expires"), "300");
 		const signedAt = Date.parse(
-			query.get("X-Amz-Date").replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, "$1-$2-$3T$4:$5:$6Z"),
+			present(query.get("X-Amz-Date")).replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, "$1-$2-$3T$4:$5:$6Z"),
 		);
 		const ttl = Date.parse(signed.expiresAt) - signedAt;
 		assert.equal(ttl >= 300_000 && ttl < 301_000, true, String(ttl));
@@ -409,7 +395,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const input = { templateId: "vision-meeting-agenda", format: "pdf", meetingId: meeting };
 		const preview = ok(await documentsReader.preview(db, owner, input));
 		assert.ok(preview.digest, "the preview renders from the meeting");
-		const dated = preview.fields.find((field) => field.key === "meeting_date");
+		const dated = present(preview.fields.find((field) => field.key === "meeting_date"));
 		assert.equal(dated.source, "meeting");
 		const unbound = ok(
 			await documentsReader.preview(db, owner, {
@@ -423,8 +409,8 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const made = ok(await documentsWriter.generate(db, owner, { ...input, requestKey: "t124-meeting" }, storage));
 		assert.equal(made.digest, preview.digest, "generate stores the preview's bytes");
 		const stored = await fileKey(made.id);
-		assert.equal(sha(client.objects.get(stored.opaque_key)), preview.digest);
-		assert.deepEqual(client.objects.get(stored.opaque_key), Buffer.from(preview.artifact, "base64"));
+		assert.equal(sha(present(client.objects.get(stored.opaque_key))), preview.digest);
+		assert.deepEqual(client.objects.get(stored.opaque_key), Buffer.from(present(preview.artifact), "base64"));
 		const other = randomUUID();
 		await admin.execute(
 			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
@@ -467,8 +453,8 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		]);
 		assert.deepEqual(pair.map((item) => item.status).sort(), ["ok", "refused"]);
 		const lost = pair.find((item) => item.status === "refused");
-		assert.equal(lost.error.code, "conflict");
-		assert.equal(lost.error.retry, "refresh");
+		assert.equal(lost?.error.code, "conflict");
+		assert.equal(lost?.error.retry, "refresh");
 
 		const values = ok(
 			await documentsWriter.saveNative(db, owner, {
@@ -582,7 +568,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				expectedRevision: "0",
 			}),
 		);
-		const rejects = [
+		const rejects: [string, Uint8Array][] = [
 			["text", Buffer.from("   ")],
 			["text", Buffer.from("hello\u0000")],
 			["text", Buffer.from([0xd0, 0xcf, 0x11, 0xe0])],
@@ -770,7 +756,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				FROM (SELECT clock_timestamp() - interval '744 hours' AS requested_at) stamp
 				RETURNING id
 			`)
-		).rows[0].id;
+		).rows[0]?.id;
 		const removed = ok(await documentsWriter.purgeOwnedForDeletion(db, { witnessId: witness }));
 		assert.equal(removed.removed >= 1, true);
 		assert.equal(await countOf("document", `WHERE tenant_id = '${actors[0].id}'`), 0);
@@ -788,7 +774,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const owner = await authority(2);
 		const bytes = lyingZip(10, 100 * 1024 * 1024);
 		const real = zlib.inflateRawSync;
-		const limits = [];
+		const limits: number[] = [];
 		zlib.inflateRawSync = (input, options) => {
 			limits.push(options?.maxOutputLength ?? Infinity);
 			return real(input, options);
@@ -809,15 +795,22 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			syncBuiltinESMExports();
 		}
 		assert.equal(limits.length, 1, "the one entry is inflated once");
-		assert.ok(limits[0] <= 40 * 1024 * 1024, `the inflate may make at most the cap, not ${limits[0]} bytes`);
+		assert.ok(present(limits[0]) <= 40 * 1024 * 1024, `the inflate may make at most the cap, not ${limits[0]} bytes`);
 	});
 
 	test("AC:CASE-DOC-016 INV-documents: a native body is checked at the boundary, old text opens intact, and Use for this church writes one copy", async () => {
 		const owner = await authority(2);
 		const member = await authority(1);
-		const text = (value, marks) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
-		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
-		const body = {
+		const text = (value: string, marks?: Mark[]): TextNode => ({
+			type: "text",
+			text: value,
+			...(marks ? { marks } : {}),
+		});
+		const para = (...content: InlineNode[]): ParagraphNode => ({
+			type: "paragraph",
+			...(content.length ? { content } : {}),
+		});
+		const body: DocNode = {
 			type: "doc",
 			content: [
 				{ type: "heading", attrs: { level: 1 }, content: [text("Our values")] },
@@ -944,7 +937,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			}),
 		);
 		const rows = (
-			await admin.execute(
+			await admin.execute<{ version_number: number; body: string }>(
 				sql`SELECT version_number, body FROM document_revision WHERE document_id = ${old}::uuid ORDER BY version_number`,
 			)
 		).rows;
@@ -952,8 +945,8 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			rows.map((row) => row.version_number),
 			[1, 2],
 		);
-		assert.equal(rows[0].body, oldText);
-		assert.deepEqual(JSON.parse(rows[1].body), opened.body);
+		assert.equal(rows[0]?.body, oldText);
+		assert.deepEqual(JSON.parse(present(rows[1]).body), opened.body);
 		assert.equal(resaved.textRevision, false);
 
 		const imported = ok(
@@ -1083,7 +1076,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			offered.map((item) => item.title),
 			["Prayer plan"],
 		);
-		assert.equal(offered[0].revisionId, source.revisionId);
+		assert.equal(offered[0]?.revisionId, source.revisionId);
 		refusedPrivate(await documentsWriter.listCopySources(db, member, {}), "unavailable");
 
 		const copies = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action = 'documents.copied'`);
@@ -1095,7 +1088,8 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			documentsWriter.useForChurch(db, seated, request),
 			documentsWriter.useForChurch(db, seated, request),
 		]);
-		const [first, second] = pair.map(ok);
+		const first = ok(pair[0]);
+		const second = ok(pair[1]);
 		assert.equal(first.id, second.id);
 		const replay = ok(await documentsWriter.useForChurch(db, seated, request));
 		assert.equal(replay.id, first.id);
@@ -1119,7 +1113,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			["an empty document", { documentId: empty.id, revisionId: emptyRevision }, seated],
 			["a revision that is not current", { documentId: empty.id, revisionId: empty.revisionId }, seated],
 			["a Member", { documentId: source.id, revisionId: source.revisionId }, member],
-		])
+		] as const)
 			assert.equal(
 				(await documentsWriter.useForChurch(db, who, { ...input, requestKey: randomUUID() })).status,
 				"refused",
@@ -1148,24 +1142,32 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 	test("AC:CASE-DOC-016 a Word file keeps its headings, lists and links as native nodes", async () => {
 		const owner = await authority(2);
 		const member = await authority(1);
-		const text = (value, href) => ({
+		const text = (value: string, href?: string): TextNode => ({
 			type: "text",
 			text: value,
 			...(href ? { marks: [{ type: "link", attrs: { href } }] } : {}),
 		});
-		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
-		const heading = (level, ...content) => ({ type: "heading", attrs: { level }, content });
-		const items = (...texts) => texts.map((value) => ({ type: "listItem", content: [para(text(value))] }));
-		const bullets = (...texts) => ({ type: "bulletList", content: items(...texts) });
-		const ordered = (...texts) => ({ type: "orderedList", content: items(...texts) });
-		const importWord = async (bytes, requestKey = randomUUID()) =>
+		const para = (...content: InlineNode[]): ParagraphNode => ({
+			type: "paragraph",
+			...(content.length ? { content } : {}),
+		});
+		const heading = (level: 1 | 2 | 3, ...content: InlineNode[]): BlockNode => ({
+			type: "heading",
+			attrs: { level },
+			content,
+		});
+		const items = (...texts: string[]) =>
+			texts.map((value) => ({ type: "listItem" as const, content: [para(text(value))] }));
+		const bullets = (...texts: string[]): BlockNode => ({ type: "bulletList", content: items(...texts) });
+		const ordered = (...texts: string[]): BlockNode => ({ type: "orderedList", content: items(...texts) });
+		const importWord = async (bytes: Uint8Array, requestKey: string = randomUUID()) =>
 			documentsWriter.importTextOrWord(
 				db,
 				owner,
 				{ title: "From Word", format: "docx", bytes, expectedRevision: "0", requestKey },
 				storage,
 			);
-		const stored = async (result) => {
+		const stored = async (result: Awaited<ReturnType<typeof importWord>>) => {
 			const value = ok(result);
 			const body = JSON.parse((await currentOf(value.id)).body);
 			assert.deepEqual(value.body, body);
@@ -1330,7 +1332,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				],
 			},
 		);
-		const hyperlinkTo = (target) =>
+		const hyperlinkTo = (target: string) =>
 			W.word(W.p("outside"), {
 				rels: `<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${target}" TargetMode="External"/></Relationships>`,
 			});
@@ -1348,7 +1350,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			),
 			{ type: "doc", content: [para(text("Name: Jo’s")), para(text("Hex’s & more &#38; &#1;"))] },
 		);
-		const partRel = (target) =>
+		const partRel = (target: string) =>
 			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${target}"/>`;
 		for (const target of ["/docProps/meta.xml", "./theme/../../docProps/meta.xml"])
 			ok(await importWord(W.textutilWord(["<w:t>Inside</w:t>"], partRel(target))));
@@ -1473,11 +1475,18 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 	test("AC:CASE-DOC-016 INV-documents: plain tables save at the boundary, read back, feed core values and survive Use for this church", async () => {
 		const owner = await authority(2);
 		const member = await authority(1);
-		const text = (value, marks) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
-		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
-		const cell = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
-		const column = (id, label, type) => ({ id, label, type, width: 0 });
-		const grid = {
+		const text = (value: string, marks?: Mark[]): TextNode => ({
+			type: "text",
+			text: value,
+			...(marks ? { marks } : {}),
+		});
+		const para = (...content: InlineNode[]): ParagraphNode => ({
+			type: "paragraph",
+			...(content.length ? { content } : {}),
+		});
+		const cell = (...content: InlineNode[]): CellNode => ({ type: "cell", ...(content.length ? { content } : {}) });
+		const column = (id: string, label: string, type: ColumnType): ColumnSpec => ({ id, label, type, width: 0 });
+		const grid: TableNode = {
 			type: "table",
 			attrs: {
 				style: "grid",
@@ -1505,7 +1514,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				{ type: "row", content: [cell(text("Tables", [{ type: "italic" }])), cell(), cell(), cell(), cell()] },
 			],
 		};
-		const checklist = {
+		const checklist: TableNode = {
 			type: "table",
 			attrs: {
 				style: "rows",
@@ -1517,7 +1526,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				{ type: "row", content: [{ type: "cell", attrs: { checked: true } }, cell(text("Invite"))] },
 			],
 		};
-		const body = { type: "doc", content: [para(text("Setup plan")), grid, para(text("Then")), checklist] };
+		const body: DocNode = { type: "doc", content: [para(text("Setup plan")), grid, para(text("Then")), checklist] };
 		const revisions = () => countOf("document_revision", `WHERE tenant_id = '${P}'`);
 		const audits = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action LIKE 'documents.%'`);
 
@@ -1526,25 +1535,28 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.deepEqual(ok(await documentsWriter.read(db, owner, { documentId: saved.id })).body, body);
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: saved.id })).body, body);
 
-		const changed = (change) => {
+		const changed = (change: (table: TableNode) => void) => {
 			const next = structuredClone(body);
-			change(next.content[1]);
+			change(asKind(next.content?.[1], "table"));
 			return next;
 		};
-		const firstCell = (t) => t.content[0].content[0];
+		const rowAt = (t: TableNode, i: number) => present(t.content?.[i]);
+		const firstCell = (t: TableNode) => present(rowAt(t, 0).content[0]);
 		const refusals = {
 			"a budget table": changed((t) => (t.attrs.style = "ledger")),
 			"a formula column": changed(
-				(t) => (t.attrs.columns[1] = { ...t.attrs.columns[1], type: "formula", formula: "cost" }),
+				(t) => (t.attrs.columns[1] = { ...present(t.attrs.columns[1]), type: "formula", formula: "cost" }),
 			),
 			"a header color": changed((t) => (t.attrs.headerFill = "primary")),
 			"write-in rows": changed((t) => (t.attrs.writeInRows = 3)),
 			"a list field": changed((t) => (t.attrs.source = "people")),
-			"a group row": changed((t) => (t.content[0].attrs = { role: "group" })),
-			"a total row": changed((t) => (t.content[1].attrs = { role: "total" })),
+			"a group row": changed((t) => (rowAt(t, 0).attrs = { role: "group" })),
+			"a total row": changed((t) => (rowAt(t, 1).attrs = { role: "total" })),
 			"a tag in a cell": changed((t) => (firstCell(t).content = [text("Chairs", [{ type: "tag" }])])),
 			"a field in a cell": changed((t) => (firstCell(t).content = [{ type: "field", attrs: { key: "church_name" } }])),
-			"an image in a cell": changed((t) => (firstCell(t).content = [{ type: "image", attrs: { source: "logo" } }])),
+			"an image in a cell": changed((t) =>
+				Object.assign(firstCell(t), { content: [{ type: "image", attrs: { source: "logo" } }] }),
+			),
 		};
 		const [beforeRevisions, beforeAudits] = [await revisions(), await audits()];
 		for (const bad of Object.values(refusals)) {
@@ -1625,7 +1637,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		);
 		assert.deepEqual(copy.body, body);
 		await endSeat(actors[2].id);
-		const edited = changed((t) => (t.content[0].content[2] = { type: "cell", attrs: { value: 10 } }));
+		const edited = changed((t) => (rowAt(t, 0).content[2] = { type: "cell", attrs: { value: 10 } }));
 		ok(
 			await documentsWriter.saveNative(db, await authority(2), {
 				title: "Setup tables",
@@ -1640,32 +1652,36 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 	});
 	test("AC:CASE-DOC-016: a Word table imports as a native table of text columns", async () => {
 		const member = await authority(1);
-		const text = (value, href) => ({
+		const text = (value: string, href?: string): TextNode => ({
 			type: "text",
 			text: value,
 			...(href ? { marks: [{ type: "link", attrs: { href } }] } : {}),
 		});
-		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
-		const cellOf = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
-		const typed = (...cells) => ({
+		const para = (...content: InlineNode[]): ParagraphNode => ({
+			type: "paragraph",
+			...(content.length ? { content } : {}),
+		});
+		const cellOf = (...content: InlineNode[]): CellNode => ({ type: "cell", ...(content.length ? { content } : {}) });
+		const typed = (...cells: (string | InlineNode[])[]): RowNode => ({
 			type: "row",
 			content: cells.map((value) => (Array.isArray(value) ? cellOf(...value) : value ? cellOf(text(value)) : cellOf())),
 		});
-		const columns = (labels) => labels.map((label, i) => ({ id: `c${i + 1}`, label, type: "text", width: 0 }));
-		const numberedLabels = (n) => Array.from({ length: n }, (_, i) => `Column ${i + 1}`);
-		const tableOf = (labels, header, rows) => ({
+		const columns = (labels: string[]) =>
+			labels.map((label, i): ColumnSpec => ({ id: `c${i + 1}`, label, type: "text", width: 0 }));
+		const numberedLabels = (n: number) => Array.from({ length: n }, (_, i) => `Column ${i + 1}`);
+		const tableOf = (labels: string[], header: boolean, rows: RowNode[]): TableNode => ({
 			type: "table",
 			attrs: { columns: columns(labels), style: "grid", header },
 			...(rows.length ? { content: rows } : {}),
 		});
-		const importWord = async (who, bytes) =>
+		const importWord = async (who: RequestActor, bytes: Uint8Array) =>
 			documentsWriter.importTextOrWord(
 				db,
 				who,
 				{ title: "Word table", format: "docx", bytes, expectedRevision: "0", requestKey: randomUUID() },
 				storage,
 			);
-		const stored = async (result) => {
+		const stored = async (result: Awaited<ReturnType<typeof importWord>>) => {
 			const value = ok(result);
 			const body = JSON.parse((await currentOf(value.id)).body);
 			assert.deepEqual(value.body, body);
@@ -1673,7 +1689,8 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			return body;
 		};
 		const admin2 = await authority(2);
-		const imported = async (body, parts) => stored(await importWord(admin2, W.word(body, parts)));
+		const imported = async (body: string, parts?: Parameters<typeof W.word>[1]) =>
+			stored(await importWord(admin2, W.word(body, parts)));
 		const { table, row, headerRow, cell } = W;
 
 		const roster = W.table(
@@ -1713,7 +1730,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			"Our team\nName | Role | Day\nAda | Pastor | Sunday\nBen | Music | Friday\nThank you",
 		);
 
-		const twoRows = (first, props = "") =>
+		const twoRows = (first: (cells: string[]) => string, props = "") =>
 			W.p("Prose") + table([first([cell("Item"), cell("Count")]), row([cell("Chairs"), cell("40")])], props);
 		const withHeader = {
 			type: "doc",

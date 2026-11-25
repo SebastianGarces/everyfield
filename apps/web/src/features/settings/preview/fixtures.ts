@@ -1,3 +1,4 @@
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
@@ -84,12 +85,12 @@ export type Operation =
 	| "readWikiOrder"
 	| "saveWikiOrder"
 	| BrandOperation;
-export type Fault = SettingsError["code"] | BrandFault;
+export type Fault = SettingsError["code"] | BrandFault | "mail_delayed";
 
 type Store = {
 	sections: Map<string, SectionResult>;
 	previews: Map<string, { zone: string; expiresAt: number }>;
-	avatars: Map<string, string>;
+	avatars: Map<string, AppAssetPath>;
 	staged: Map<string, Blob>;
 };
 
@@ -612,7 +613,7 @@ export function createFixturePort(
 					const row = store.sections.get("account");
 					if (!bytes || !row || row.section !== "account") return refuse("invalid_input");
 					const versionId = nextId();
-					store.avatars.set(versionId, URL.createObjectURL(bytes));
+					store.avatars.set(versionId, URL.createObjectURL(bytes) as AppAssetPath);
 					const avatar = S.avatarResult.parse({
 						status: "available",
 						avatar: { accountId: ACCOUNT[persona], versionId },
@@ -634,10 +635,10 @@ export function createFixturePort(
 				},
 			},
 			async requestEmailChange(request) {
-				const fault = await enter("requestEmailChange");
-				if (fault) return fault;
+				const fault = await tick("requestEmailChange");
+				if (fault && fault !== "mail_delayed") return refuse(fault as SettingsError["code"]);
 				N.requestEmailChange.parse(request);
-				return { status: "ok", value: { status: "verification_requested" } };
+				return { status: "ok", value: { status: "verification_requested", ...(fault ? { mailDelayed: true } : {}) } };
 			},
 			async changePassword(request) {
 				const fault = await enter("changePassword");

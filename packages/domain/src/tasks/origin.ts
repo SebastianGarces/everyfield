@@ -31,3 +31,11 @@ export function originOf(raw: unknown): FollowUpOrigin {
 			}
 		: { kind: "added", by: o.by };
 }
+
+export function outcomeEvidence(x: SQL, o: SQL) {
+	const combined = sql`SELECT d.id FROM obligation d WHERE d.plant_id=${o}.plant_id AND (d.id=${o}.id OR (d.kind=${o}.kind
+		AND d.meeting_id=${o}.meeting_id AND d.superseded_at IS NOT NULL
+		AND d.person_id IN (SELECT w.id FROM person w WHERE w.merged_into_person_id=${o}.person_id AND w.tenant_id=${o}.plant_id)))`;
+	return sql`(${x}.obligation_id=ANY(ARRAY(${combined})) OR (${x}.person_id=${o}.person_id
+		AND ${x}.also_task_ids&&ARRAY(SELECT k.id FROM task k WHERE k.obligation_id IN (${combined}))))`;
+}

@@ -1,10 +1,13 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import type { BackupBucket } from "./bucket.mts";
 import { readPrivateBytes } from "./control.mts";
 import { ManifestRefused, validateCandidate } from "./recovery.mts";
 import type { Snapshot } from "./restore.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
-const { z } = require("zod");
+const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 
 export const COPY_OPERATION = "maintenance.createEncryptedCopy";
 const capability = z.strictObject({
@@ -14,11 +17,29 @@ const capability = z.strictObject({
 	environment: z.literal("isolated-test"),
 });
 
-export type BackupStore = {
-	put(key: string, bytes: Uint8Array): Promise<void>;
-	get(key: string): Promise<Uint8Array | null>;
-};
-export type CopyDeps = { store: BackupStore; clock: () => Date };
+const COPY_KEY = /^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|key|database|objects\/[0-9a-f-]{36})$/;
+const COPY_LIMIT = 256 * 1024 * 1024;
+
+export class BackupDirectory {
+	readonly #root: string;
+	constructor(root: string) {
+		this.#root = root;
+	}
+	#path(key: string) {
+		if (!COPY_KEY.test(key)) throw Error("copy_key_invalid");
+		return join(this.#root, key);
+	}
+	async put(key: string, bytes: Uint8Array): Promise<void> {
+		const path = this.#path(key);
+		await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+		await writeFile(path, bytes, { mode: 0o600, flag: "wx" });
+	}
+	get(key: string): Promise<Uint8Array | null> {
+		return readPrivateBytes(this.#path(key), COPY_LIMIT).catch(() => null);
+	}
+}
+export type CopyStore = BackupDirectory | BackupBucket;
+export type CopyDeps = { store: CopyStore; clock: () => Date };
 export type CopyInput = {
 	capability: unknown;
 	keyFile: string;
@@ -59,6 +80,7 @@ class Refused extends Error {
 }
 const IV = 12,
 	TAG = 16;
+export const SEALED_BYTES = IV + TAG;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const instant = (value: string | number) => new Date(value).toISOString().replace(/\.000Z$/, "Z");
 
@@ -86,7 +108,7 @@ async function backupKey(path: string) {
 	return key;
 }
 
-export async function openEncryptedCopy(store: BackupStore, location: string, keyFile: string): Promise<Snapshot> {
+export async function openEncryptedCopy(store: CopyStore, location: string, keyFile: string): Promise<Snapshot> {
 	const kek = await backupKey(keyFile);
 	const manifestBytes = await store.get(`${location}/manifest.json`);
 	if (!manifestBytes) throw new Refused("copy_unreadable");

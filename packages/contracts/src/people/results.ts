@@ -16,8 +16,9 @@ import {
 	longText,
 	pipelineColumn,
 } from "./values.ts";
-import { householdMembership } from "./fields/index.ts";
+import { householdMembership, skill } from "./fields/index.ts";
 import { avatarRoute } from "../settings/results.ts";
+import { personPhotoPath, type AppAssetPath } from "../common/assets.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
 export const plantPerson = z
@@ -46,19 +47,26 @@ export const listPhoto = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), personId, versionId: recordId }),
 	z.strictObject({ kind: z.literal("account"), accountId, versionId: recordId }),
 ]);
-export function listPhotoRoute(photo: z.infer<typeof listPhoto>): string {
+export function listPhotoRoute(photo: z.infer<typeof listPhoto>): AppAssetPath {
 	return photo.kind === "person"
-		? `/people/${photo.personId}/photo/${photo.versionId}`
+		? personPhotoPath(photo.personId, photo.versionId)
 		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
 }
 export const personPhoto = z.strictObject({ personId, photo: listPhoto });
 export type PersonPhoto = z.infer<typeof personPhoto>;
 export const personPhotos = z.strictObject({ photos: z.array(personPhoto).max(100) });
+export const personMatch = z.strictObject({
+	personId,
+	skills: z.array(skill.pick({ name: true, category: true, proficiency: true })).optional(),
+	household: z.strictObject({ id: recordId, name: z.string() }).optional(),
+	movedOn: localDate.optional(),
+});
 export const peoplePage = z
 	.strictObject({
 		owner: plantOwner,
 		items: z.array(plantPerson).max(100),
 		photos: z.array(personPhoto).max(100),
+		matches: z.array(personMatch).max(100).optional(),
 		next: z.int().min(2).nullable(),
 		completeness: z.enum(["complete", "partial"]),
 		total: z.int().min(0).nullable(),
@@ -186,6 +194,7 @@ export const activity = z.discriminatedUnion("kind", [
 		recordId: recordId.optional(),
 		stage: z.strictObject({ from: stage, to: stage }).optional(),
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
+		guardian: z.strictObject({ change: z.enum(["added", "removed"]), personId, displayName: z.string() }).optional(),
 		withPerson: z.strictObject({ id: personId, displayName: z.string() }).optional(),
 	}),
 	z.strictObject({
@@ -209,7 +218,18 @@ type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"inv
 export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError(
 		"invalid_input",
-		{ reason: z.enum(["future_date", "unreadable_document", "birth_date_decides"]).optional() },
+		{
+			reason: z
+				.enum([
+					"future_date",
+					"unreadable_document",
+					"birth_date_decides",
+					"not_child",
+					"not_adult",
+					"not_in_household",
+				])
+				.optional(),
+		},
 		"never",
 	),
 	...safeError.options.filter(

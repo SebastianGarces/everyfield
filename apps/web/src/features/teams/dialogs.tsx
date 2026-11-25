@@ -1,11 +1,14 @@
 "use client";
 
 import { Alert02Icon, Crown02Icon, UserAdd01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea } from "@everyfield/ui/controls";
+import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea, ProblemText } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
+import { conflictProblem, type ConflictField } from "../../components/save/conflict.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
+import { useMergedDraft } from "../../components/save/useMergedDraft.ts";
+import { SaveConflict } from "../../components/save/SaveConflict.tsx";
 import { PersonPicker, type PickedPerson } from "../meetings/dialogs.tsx";
 import { ICON_KEYS, ICONS, STATE_HINT, STATE_LABEL, STATES, type IconKey, type Role, type TeamState } from "./model.ts";
 
@@ -14,15 +17,33 @@ const TEXT_MAX = 2000;
 const blank = (s: string) => s.trim() === "";
 export const optional = (s: string) => (blank(s) ? null : s.trim());
 
-export type TeamForm = {
-	mode: "create" | "edit";
+export type TeamDraft = {
 	name: string;
 	description: string;
 	icon: IconKey;
 	state: TeamState;
 	reason: string;
+};
+export type TeamForm = TeamDraft & {
+	mode: "create" | "edit";
+	base?: TeamDraft;
 	problem?: string;
 };
+
+const TEAM = "this ministry";
+const TEAM_FIELDS: readonly ConflictField<TeamDraft>[] = [
+	{ key: "name", label: "Name", text: (d) => d.name },
+	{ key: "description", label: "What this ministry does", text: (d) => d.description },
+	{ key: "icon", label: "Icon", text: (d) => ICONS[d.icon].label },
+	{ key: "state", label: "State", text: (d) => STATE_LABEL[d.state] },
+];
+const teamDraft = ({ name, description, icon, state, reason }: TeamDraft): TeamDraft => ({
+	name,
+	description,
+	icon,
+	state,
+	reason,
+});
 
 const DIALOG = {
 	create: { title: "New ministry", action: "Create ministry", description: "A team of people who serve together." },
@@ -31,35 +52,55 @@ const DIALOG = {
 
 export function TeamDialog({
 	form,
+	latest,
 	problem,
 	wait,
 	onClose,
 	onSubmit,
 }: {
 	form: TeamForm;
+	latest?: TeamDraft;
 	problem?: string;
 	wait: Wait;
 	onClose: () => void;
 	onSubmit: (form: TeamForm) => void;
 }) {
-	const [f, setF] = useState(form);
+	const start = teamDraft(form);
+	const base = form.base ?? start;
+	const merged = useMergedDraft({
+		base,
+		latest: latest ? { ...latest, reason: base.reason } : base,
+		start,
+		fields: TEAM_FIELDS,
+	});
+	const { values: f, set } = merged;
 	const [touched, setTouched] = useState(false);
-	const set = (patch: Partial<TeamForm>) => setF((x) => ({ ...x, ...patch }));
 	const noName = blank(f.name);
-	const copy = DIALOG[f.mode];
+	const copy = DIALOG[form.mode];
+	const conflicted = form.problem === "conflict";
 	return (
 		<RecordDialog
 			icon={UserGroupIcon}
 			title={copy.title}
 			description={copy.description}
 			action={copy.action}
-			problem={problem}
+			problem={conflictProblem(merged, TEAM, touched, conflicted, problem)}
+			conflict={
+				<SaveConflict
+					what={TEAM}
+					rows={merged.rows}
+					asked={touched}
+					focus={conflicted}
+					onPick={merged.choose}
+					onKeepSaved={onClose}
+				/>
+			}
 			wait={wait}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (noName) return false;
-				onSubmit(f);
+				if (noName || merged.unchosen) return false;
+				onSubmit({ ...f, mode: form.mode, base: latest ?? form.base });
 				return true;
 			}}
 		>
@@ -90,7 +131,7 @@ export function TeamDialog({
 					))}
 				</RadioGroup>
 			</fieldset>
-			{f.mode === "edit" ? (
+			{form.mode === "edit" ? (
 				<Field label="Reason for change" optional hint="It stays in this ministry's history.">
 					<Textarea value={f.reason} rows={2} maxLength={500} onChange={(e) => set({ reason: e.target.value })} />
 				</Field>
@@ -108,16 +149,35 @@ function IconOption({ icon }: { icon: IconKey }) {
 	);
 }
 
-export type RoleForm = {
-	roleId: string | null;
-	revision: string;
+export type RoleDraft = {
 	name: string;
 	description: string;
 	leadership: boolean;
 	timeCommitment: string;
 	desiredSkills: string;
+};
+export type RoleForm = RoleDraft & {
+	roleId: string | null;
+	revision: string;
+	base?: RoleDraft;
 	problem?: string;
 };
+
+const ROLE = "this role";
+const ROLE_FIELDS: readonly ConflictField<RoleDraft>[] = [
+	{ key: "name", label: "Name", text: (d) => d.name },
+	{ key: "description", label: "Description", text: (d) => d.description },
+	{ key: "timeCommitment", label: "Time each week", text: (d) => d.timeCommitment },
+	{ key: "desiredSkills", label: "Skills that help", text: (d) => d.desiredSkills },
+	{ key: "leadership", label: "Leadership role", text: (d) => (d.leadership ? "Yes" : "No") },
+];
+const roleDraft = ({ name, description, leadership, timeCommitment, desiredSkills }: RoleDraft): RoleDraft => ({
+	name,
+	description,
+	leadership,
+	timeCommitment,
+	desiredSkills,
+});
 export const roleForm = (role: Role | null): RoleForm => ({
 	roleId: role?.id ?? null,
 	revision: role?.revision ?? "",
@@ -130,34 +190,54 @@ export const roleForm = (role: Role | null): RoleForm => ({
 
 export function RoleDialog({
 	form,
+	latest,
 	problem,
 	wait,
 	onClose,
 	onSubmit,
 }: {
 	form: RoleForm;
+	latest?: RoleForm;
 	problem?: string;
 	wait: Wait;
 	onClose: () => void;
 	onSubmit: (form: RoleForm) => void;
 }) {
-	const [f, setF] = useState(form);
+	const start = roleDraft(form);
+	const base = form.base ?? start;
+	const merged = useMergedDraft({ base, latest: latest ? roleDraft(latest) : base, start, fields: ROLE_FIELDS });
+	const { values: f, set } = merged;
 	const [touched, setTouched] = useState(false);
-	const set = (patch: Partial<RoleForm>) => setF((x) => ({ ...x, ...patch }));
+	const conflicted = form.problem === "conflict";
 	const noName = blank(f.name);
 	return (
 		<RecordDialog
 			icon={UserAdd01Icon}
-			title={f.roleId ? "Edit role" : "New role"}
+			title={form.roleId ? "Edit role" : "New role"}
 			description="Each role is one place for one person."
-			action={f.roleId ? "Save changes" : "Add role"}
-			problem={problem}
+			action={form.roleId ? "Save changes" : "Add role"}
+			problem={conflictProblem(merged, ROLE, touched, conflicted, problem)}
+			conflict={
+				<SaveConflict
+					what={ROLE}
+					rows={merged.rows}
+					asked={touched}
+					focus={conflicted}
+					onPick={merged.choose}
+					onKeepSaved={onClose}
+				/>
+			}
 			wait={wait}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (noName) return false;
-				onSubmit(f);
+				if (noName || merged.unchosen) return false;
+				onSubmit({
+					...f,
+					roleId: form.roleId,
+					revision: latest?.revision ?? form.revision,
+					base: latest ? roleDraft(latest) : form.base,
+				});
 				return true;
 			}}
 		>
@@ -268,12 +348,7 @@ export function PersonDialog({
 					exclude={exclude}
 					onChange={(person) => setF((x) => ({ ...x, person }))}
 				/>
-				{touched && noPerson ? (
-					<p role="alert" className="flex items-center gap-1.5 text-xs text-magenta-600">
-						<Icon icon={Alert02Icon} size={16} />
-						Choose a person.
-					</p>
-				) : null}
+				{touched && noPerson ? <ProblemText icon={Alert02Icon}>Choose a person.</ProblemText> : null}
 			</div>
 			{note}
 		</RecordDialog>

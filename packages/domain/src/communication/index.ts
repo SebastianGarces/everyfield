@@ -15,6 +15,5 @@ export {
 	type MessagesOptInResult,
 	type MessagesOptOutResult,
 } from "./opt-out.ts";
-export { audiencePeople, recipientsDigest } from "./audience.ts";
+export { audiencePeople, optedOutSql, recipientsDigest } from "./audience.ts";
 export { mailAddressHash } from "./delivery.ts";
-export { optedOutSql } from "./opt-out.ts";

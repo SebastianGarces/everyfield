@@ -8,6 +8,7 @@ import { testDatabase, type Database } from "../../support/test-database.mts";
 import { seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
 import { forkTemplate, nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import { SEED as LAUNCH_MILESTONES } from "../../../packages/domain/src/launch/catalog.ts";
 
 export const NOW = new Date("2026-11-09T15:00:00Z");
 const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -46,6 +47,11 @@ const SIGNUP_TASK = id(0xd13);
 const INTEREST_MEETING = id(0xd21);
 let wikiId = 0x5000;
 export const WIKI = wikiIds(() => id(wikiId++));
+export const GUIDE = {
+	article: id(0x5101),
+	revision: id(0x5102),
+	body: "Read this first.\n\n## Overview of the Three Documents\n\nEach one has a single job.\n\n## Who Signs Them\n\nOnly adults sign.",
+};
 
 export const DOCS = {
 	coreValues: {
@@ -130,6 +136,7 @@ export const HOUSEHOLDS = [
 	{ id: id(0xa6), name: "Garcia household", city: "Austin" },
 	{ id: id(0xa7), name: "Johnson household", city: "Cedar Park" },
 	{ id: id(0xa8), name: "Lee household", city: "Round Rock" },
+	{ id: id(0xa9), name: "Okafor household", city: "Leander", street: "77 Birch Ln" },
 ] as const;
 const home = (name: string) => HOUSEHOLDS.find((h) => h.name.startsWith(name))!.id;
 export const TAGS = [
@@ -279,6 +286,12 @@ export const byName = (name: string) => {
 	return found;
 };
 
+export const RECORDED_CHILDREN = ["Mateo Rivera", "Bao Nguyen"] as const;
+export const CORE_GROUP_MOVES = [
+	{ name: "Sam Patel", at: "2026-10-28T18:00:00.000Z" },
+	{ name: "Priya Shah", at: "2026-11-02T18:00:00.000Z" },
+	{ name: "Mike Brennan", at: "2026-11-05T18:00:00.000Z" },
+] as const;
 export const PHASES = {
 	declared: { phase: 0, at: "2026-04-01T15:00:00.000Z" },
 	moved: { phase: 1, at: "2026-08-03T15:00:00.000Z", reason: "Our core group started meeting every week." },
@@ -399,8 +412,8 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 		[EMPTY_PLANT, "New Hope", 1, 8],
 		[OTHER_PLANT, "Grace Point", 1, 8],
 	] as const)
-		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision,city,state_province,country)
-			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},2,1,'Austin','TX','US')`);
+		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision,street,city,state_province,country)
+			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},2,1,'1200 Congress Ave','Austin','TX','US')`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,description)
@@ -543,6 +556,7 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 			await run(sql`INSERT INTO person_duplicate_dismissal(id,plant_id,person_id,with_person_id,dismissed_at)
 				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
 	}
+	await seedPersonChanges(run, owner);
 	await seedJudgments(admin, owner);
 	for (const [n, doc] of Object.values(DOCS).entries()) {
 		const policy = docTemplateById("conflict-of-interest-policy")!;
@@ -585,6 +599,15 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 	const roles = WIKI.phaseTwo[1]!;
 	await run(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,policy_version,last_read_meaningful_sequence,bookmarked,revision)
 		VALUES(${id(0x5100)},${owner},${roles.article},${roles.global},${PLANT},0.4,'2026-11-08T15:00:00.000Z','wiki-reading-v1',1,false,1)`);
+	await run(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
+		VALUES(${GUIDE.article},'article','core-group/commitment/the-three-key-documents','00000000-0000-0000-0000-000000000000')`);
+	await run(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,
+			content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
+		VALUES(${GUIDE.revision},${GUIDE.article},'00000000-0000-0000-0000-000000000000',${WIKI.release},1,'The Three Key Documents',
+			'core-group/commitment/the-three-key-documents','The Three Key Documents',${GUIDE.body},'safe_mdx',3,1,md5(${GUIDE.revision}::text),
+			clock_timestamp(),true,1,${WIKI.section},ARRAY['launch-team/launch-team-roles']::text[])`);
+	await run(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,completed_at,completed_revision_id,completed_fraction,policy_version,last_read_meaningful_sequence,bookmarked,revision)
+		VALUES(${id(0x5103)},${owner},${GUIDE.article},${GUIDE.revision},${PLANT},0.9,'2026-11-07T15:00:00.000Z','2026-11-07T15:00:00.000Z',${GUIDE.revision},0.9,'wiki-reading-v1',1,true,1)`);
 	await seedNotifications(run);
 	await seedOversight(run);
 }
@@ -930,6 +953,63 @@ export async function seedGolden(admin: Database, options: SeedOptions = {}) {
 	await seedMinistries(admin);
 	await seedMeetings((q) => admin.execute(q), ACTOR_SPECS.owner.account, options.shiftDays);
 	await seedTasks(admin, options);
+	await seedLaunchPlan(admin, options);
+}
+
+const LAUNCH_PLAN = {
+	completed: [
+		["launch_team.prayer_and_fasting", "2026-10-05T15:00:00.000Z"],
+		["promotion.plan", "2026-10-20T15:00:00.000Z"],
+	],
+	linked: [
+		["sound", "operations.equipment_on_site/1"],
+		["rental", "operations.worship_center/1"],
+		["banners", "promotion.implemented/3"],
+	],
+} as const;
+
+async function seedLaunchPlan(admin: Database, options: SeedOptions) {
+	const done = new Map<string, string>(LAUNCH_PLAN.completed);
+	await admin.execute(sql`INSERT INTO launch(plant_id,status) VALUES(${PLANT},'planning')`);
+	for (const m of LAUNCH_MILESTONES) {
+		const at = done.get(m.key);
+		await admin.execute(sql`INSERT INTO launch_milestone(id,plant_id,template_key,title,description,area,position,completed_at,completed_by)
+			VALUES(${id(0xd500 + m.position)},${PLANT},${m.key},${m.title},${m.description},${m.area},${m.position},
+				${at ? shifted(at, options.shiftDays) : null}::timestamptz,${at ? ACTOR_SPECS.owner.account : null}::uuid)`);
+	}
+	for (const [task, key] of LAUNCH_PLAN.linked)
+		await admin.execute(sql`UPDATE task SET launch_task_key=${key} WHERE id=${taskId(task)}`);
+}
+
+async function seedPersonChanges(run: (q: ReturnType<typeof sql>) => Promise<unknown>, owner: string) {
+	const changes = [
+		...RECORDED_CHILDREN.map((name) => ({
+			name,
+			at: "2026-10-04T18:00:00.000Z",
+			action: "people.recorded",
+			before: { adult_classification: "unknown" },
+			after: { adult_classification: "child" },
+			reason: "Their parents told us.",
+		})),
+		...CORE_GROUP_MOVES.map(({ name, at }) => ({
+			name,
+			at,
+			action: "people.stage_changed",
+			before: { stage: "interviewed" },
+			after: { stage: "core_group" },
+			reason: "They joined the core group.",
+		})),
+	];
+	for (const [n, c] of changes.entries()) {
+		const personId = byName(c.name).id;
+		await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,before_value,after_value,
+				before_revision,after_revision,occurred_at,recorded_at,reason)
+			VALUES(${id(0x6100 + n)},${PLANT},${owner},${c.action},'edit','person',${personId},${JSON.stringify(c.before)}::jsonb,
+				${JSON.stringify(c.after)}::jsonb,1,2,${c.at},${c.at},${c.reason})`);
+		await run(sql`UPDATE person SET revision=2 WHERE id=${personId}`);
+	}
+	for (const name of RECORDED_CHILDREN)
+		await run(sql`UPDATE person SET adult_classification='child' WHERE id=${byName(name).id}`);
 }
 
 async function seedJudgments(admin: Database, owner: string) {

@@ -42,6 +42,7 @@ const taskRow = z.object({
 	occurrence_key: z.string().nullable(),
 	obligation_id: z.uuid().nullable(),
 	obligation_kind: storedKind.nullable(),
+	superseded: z.boolean(),
 	follow_up_owners: z.array(c.followUpOwner).nullish(),
 	follow_up_origin: z.unknown().nullish(),
 	relation_label: z.string().nullable(),
@@ -95,7 +96,7 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 	t.due_time::text AS due_time, t.timezone, t.due_at, t.person_id, t.meeting_id, t.team_id, t.parent_id, t.series_id,
 	t.predecessor_id, t.prerequisite_ids::text[] AS prerequisite_ids,
 	${openPrerequisites("t")} AS open_prerequisites,
-	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind,
+	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, o.superseded_at IS NOT NULL AS superseded,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
@@ -134,6 +135,12 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 }
 export const lockingTasks = (plantId: string, which: SQL) =>
 	sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`;
+export async function lockTaskWith(tx: Tx, plantId: string, taskId: string, facts: (task: SQL) => SQL) {
+	const r = await tx.execute(sql`WITH k AS (${lockingTasks(plantId, sql`t.id=${taskId}::uuid`)})
+		SELECT (SELECT row_to_json(k) FROM k) AS task, ${facts(sql`k`)}`);
+	const row = r.rows[0] ?? {};
+	return { task: lockedTask.nullable().parse(row.task ?? null), facts: row };
+}
 export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
 	const r = await tx.execute(lockingTasks(plantId, which));
 	return z.array(lockedTask).parse(r.rows);

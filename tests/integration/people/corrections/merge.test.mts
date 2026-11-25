@@ -1,10 +1,12 @@
 import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../../packages/db/src/query.ts";
+import { authorityOf, church, isActivity, reads, type Row } from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { owner, sessionId } from "../../../../packages/contracts/src/common/index.ts";
+import type { WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { createSignals } from "../../../../packages/domain/src/intelligence/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
@@ -13,7 +15,6 @@ import {
 	commitments,
 	interviews,
 	peopleMerge,
-	peopleReader,
 	peopleUnmerge,
 	peopleWriter as people,
 	personFields,
@@ -25,28 +26,39 @@ import { gatedTransaction } from "../../../../packages/domain/src/operations/wri
 const database = await fixture({ prefix: "wp015" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
+const day = (n: number) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
-const plants = [database.tenant.id, (await database.plant()).id],
+const plants = [database.tenant.id, (await database.plant()).id] as const,
 	actors = [
 		database.actors.owner,
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 		database.actors.admin,
-	];
+	] as const;
 const today = (
 	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
-).rows[0].d;
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => gatedTransaction(db, body);
+).rows[0]!.d;
+type Who = 0 | 1 | 2 | 3;
+const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who === 2 ? 1 : 0]) });
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 const key = () => randomUUID();
-const rows = async (query) => (await admin.execute(query)).rows;
-const one = async (query) => (await rows(query))[0];
-const personRow = (id) =>
-	one(sql`SELECT state,merged_into_person_id,revision::text,display_name,email,stage,commitment_state,household_id
+const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
+const one = async <T extends Row>(query: SQL) => (await rows<T>(query))[0]!;
+type PersonRow = {
+	state: string;
+	merged_into_person_id: string | null;
+	revision: string;
+	display_name: string;
+	email: string | null;
+	stage: string | null;
+	commitment_state: string | null;
+	household_id: string | null;
+};
+const personRow = (id: string) =>
+	one<PersonRow>(sql`SELECT state,merged_into_person_id,revision::text,display_name,email,stage,commitment_state,household_id
  FROM person WHERE id=${sql.param(id)}`);
 
-async function person(name, input = {}) {
+async function person(name: string, input = {}) {
 	return ok(
 		await tx((t) =>
 			people.createPerson(t, ctx(), {
@@ -56,9 +68,15 @@ async function person(name, input = {}) {
 		),
 	).person;
 }
-const review = (sourceId, survivorId, who = 0) =>
+const review = (sourceId: string, survivorId: string, who: Who = 0) =>
 	tx((t) => peopleMerge.getMergeReview(t, ctx(who), { sourceId, survivorId }));
-async function merge(sourceId, survivorId, fieldChoices = {}, who = 0, requestKey = key()) {
+async function merge(
+	sourceId: string,
+	survivorId: string,
+	fieldChoices = {},
+	who: Who = 0,
+	requestKey: string = key(),
+) {
 	const r = ok(await review(sourceId, survivorId, who));
 	return tx((t) =>
 		peopleMerge.mergePeople(t, ctx(who), {
@@ -67,9 +85,9 @@ async function merge(sourceId, survivorId, fieldChoices = {}, who = 0, requestKe
 		}),
 	);
 }
-const addSkill = (personId, name, who = 3) =>
+const addSkill = (personId: string, name: string, who: Who = 3) =>
 	tx((t) => personFields.addSkill(t, ctx(who), { requestKey: key(), input: { personId, name, category: "tech" } }));
-const skillsOf = async (personId) =>
+const skillsOf = async (personId: string) =>
 	(await rows(sql`SELECT name FROM person_skill WHERE person_id=${sql.param(personId)} ORDER BY name`)).map(
 		(r) => r.name,
 	);
@@ -82,10 +100,8 @@ test("AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a curr
 	const keep = await person("Jordan Lee"),
 		gone = await person("Jordan L.");
 	const r = ok(await review(gone.id, keep.id));
-	let release;
-	const hold = new Promise((resolve) => (release = resolve));
-	let merged;
-	const mergeWritten = new Promise((resolve) => (merged = resolve));
+	const { promise: hold, resolve: release } = Promise.withResolvers<void>();
+	const { promise: mergeWritten, resolve: merged } = Promise.withResolvers<void>();
 	const first = tx(async (t) => {
 		ok(
 			await peopleMerge.mergePeople(t, ctx(), {
@@ -108,8 +124,9 @@ test("AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a curr
 	assert.equal((await personRow(gone.id)).state, "merged");
 });
 
-const unmergePreview = (mergeId, who = 0) => tx((t) => peopleUnmerge.previewUnmerge(t, ctx(who), { mergeId }));
-async function unmerge(mergeId, who = 0, requestKey = key()) {
+const unmergePreview = (mergeId: string, who: Who = 0) =>
+	tx((t) => peopleUnmerge.previewUnmerge(t, ctx(who), { mergeId }));
+async function unmerge(mergeId: string, who: Who = 0, requestKey: string = key()) {
 	const preview = ok(await unmergePreview(mergeId, who));
 	return tx((t) =>
 		peopleUnmerge.unmergePeople(t, ctx(who), {
@@ -119,21 +136,24 @@ async function unmerge(mergeId, who = 0, requestKey = key()) {
 		}),
 	);
 }
-const lens = (score) => ({ score, notes: "Private lens " + score });
-const criteria = (rating) =>
+const lens = (score: number) => ({ score, notes: "Private lens " + score });
+const criteria = (rating: string) =>
 	Object.fromEntries(
 		["maturity", "gifted", "chemistry", "rightReasons", "season"].map((n) => [n, { rating, notes: null }]),
 	);
-const tagIds = async (personId) =>
+const tagIds = async (personId: string) =>
 	(await rows(sql`SELECT tag_id FROM person_tag WHERE person_id=${sql.param(personId)} ORDER BY tag_id`)).map(
 		(r) => r.tag_id,
 	);
-const owners = async (table, ids) =>
+const owners = async (table: string, ids: string[]) =>
 	(
 		await rows(sql`SELECT person_id FROM ${sql.identifier(table)} WHERE id=ANY(${sql.param(ids)}::uuid[]) ORDER BY id`)
 	).map((r) => r.person_id);
-const audits = (subjectIds) =>
-	rows(sql`SELECT * FROM audit_event WHERE subject_id=ANY(${sql.param(subjectIds)}::uuid[])
+const audits = (subjectIds: string[]) =>
+	rows<{
+		reason: string | null;
+		metadata: { event?: string };
+	}>(sql`SELECT * FROM audit_event WHERE subject_id=ANY(${sql.param(subjectIds)}::uuid[])
  AND action IN ('people.merged','people.unmerged','people.corrected') ORDER BY occurred_at,id`);
 
 test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-UNMERGE AC:PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE AC:PERSONREF-ACCOUNT-LINK-MERGE AC:ROLE43-011 INV-merge-choices reviewed merge moves every people reference to the survivor, and Unmerge restores both people exactly", async () => {
@@ -145,7 +165,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	for (const [id, name] of [
 		[shared, "Volunteer"],
 		[own, "Musician"],
-	])
+	] as const)
 		await admin.execute(
 			sql`INSERT INTO tag(id,plant_id,name,normalized_name) VALUES(${sql.param(id)},${sql.param(plants[0])},${name},${name.toLowerCase()})`,
 		);
@@ -199,7 +219,14 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 			}),
 		),
 	).commitment;
-	const fix = (recordType, personId, recordId, expectedRevision, changes, reason = "Typo") =>
+	const fix = (
+		recordType: string,
+		personId: string,
+		recordId: string,
+		expectedRevision: string,
+		changes: object,
+		reason = "Typo",
+	) =>
 		tx((t) =>
 			recordCorrections.correctPersonRecord(t, ctx(), {
 				requestKey: key(),
@@ -243,7 +270,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 		skill: [1, "move"],
 		tag: [2, "deduplicate"],
 	});
-	assert.deepEqual(r.blockers, { causes: [], references: [] });
+	assert.deepEqual(r.blockers, { causes: [], leadership: [], invitations: [] });
 	refused(await review(s.id, d.id, 1));
 	refused(await review(s.id, d.id, 2));
 
@@ -272,7 +299,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	refused(await review(s.id, d.id));
 	const repeated = ok(await tx((t) => peopleMerge.mergePeople(t, ctx(), request)));
 	assert.deepEqual(repeated, merged);
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM person_merge WHERE source_id=${sql.param(s.id)}`))[0].n, 1);
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM person_merge WHERE source_id=${sql.param(s.id)}`))[0]!.n, 1);
 
 	const after = { d: await personRow(d.id), s: await personRow(s.id) };
 	assert.deepEqual([after.s.state, after.s.merged_into_person_id, after.s.household_id], ["merged", d.id, null]);
@@ -288,11 +315,11 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual(await owners("four_cs", [assessment.id]), [d.id]);
 	assert.deepEqual(await correctionOwners(), [d.id, d.id, d.id]);
 	const trail = await correctionTrail();
-	assert.equal(trail.score, 5);
+	assert.equal(trail?.score, 5);
 	refused(await fix("assessment", s.id, assessment.id, "2", { courageous: lens(1) }, "Old form"));
 	refused(await fix("assessment", d.id, assessment.id, "2", { courageous: lens(1) }, "Old form"), "conflict");
 	assert.deepEqual(await correctionTrail(), trail);
-	assert.equal(ok(await corrections(d.id)).items[0].reason, "Typo");
+	assert.equal(ok(await corrections(d.id)).items[0]!.reason, "Typo");
 	assert.deepEqual(await owners("interview", [interview.id]), [d.id]);
 	assert.deepEqual(await owners("commitment", [card.id]), [d.id]);
 	assert.deepEqual(await owners("person_note", [note.noteId]), [d.id]);
@@ -301,7 +328,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 		actors[3].id,
 	);
 	const moved = ok(await tx((t) => assessments.getAssessments(t, ctx(), { personId: d.id })));
-	assert.deepEqual([moved.total, moved.items[0].actor], [1, { kind: "current_account", accountId: actors[3].id }]);
+	assert.deepEqual([moved.total, moved.items[0]!.actor], [1, { kind: "current_account", accountId: actors[3].id }]);
 	assert.equal(
 		(await one(sql`SELECT linked_account_id FROM person WHERE id=${sql.param(s.id)}`)).linked_account_id,
 		null,
@@ -312,9 +339,9 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 		destinationId: d.id,
 		mergeId: merged.mergeId,
 	});
-	const feed = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: d.id, limit: 100 }))).items;
-	assert.ok(feed.some((a) => a.action === "interview_recorded" && a.recordId === interview.id));
-	assert.ok(feed.some((a) => a.action === "person_merged" && a.recordId === merged.mergeId));
+	const feed = ok(await tx((t) => reads.getActivities(t, ctx(), { personId: d.id, limit: 100 }))).items;
+	assert.ok(feed.some((a) => isActivity(a) && a.action === "interview_recorded" && a.recordId === interview.id));
+	assert.ok(feed.some((a) => isActivity(a) && a.action === "person_merged" && a.recordId === merged.mergeId));
 	assert.ok(feed.some((a) => a.kind === "note" && a.body === "Met at the picnic"));
 	refused(await addSkill(s.id, "Late"));
 	assert.equal((await audits([d.id])).length, 1);
@@ -352,7 +379,9 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual([await skillsOf(d.id), await skillsOf(s.id)], [["Hospitality"], ["Sound"]]);
 	assert.deepEqual(await owners("four_cs", [assessment.id]), [s.id]);
 	assert.deepEqual(await correctionOwners(), [s.id, s.id, s.id]);
-	const current = (await one(sql`SELECT revision::text r FROM four_cs WHERE id=${sql.param(assessment.id)}`)).r;
+	const current = (
+		await one<{ r: string }>(sql`SELECT revision::text r FROM four_cs WHERE id=${sql.param(assessment.id)}`)
+	).r;
 	refused(await fix("assessment", d.id, assessment.id, current, { courageous: lens(1) }, "Old form"), "conflict");
 	assert.deepEqual(await correctionTrail(), trail);
 	assert.deepEqual(await owners("person_note", [note.noteId]), [s.id]);
@@ -373,56 +402,45 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.equal((await personRow(s.id)).revision, back.s.revision);
 });
 
-test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT Unmerge refuses after a later edit, new reference or chained merge and changes nothing", async () => {
-	const cases = [
+test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT Unmerge refuses after a merged field is edited again, the survivor retires or a chained merge, names it and changes nothing", async () => {
+	const edit = async (d: { id: string }) =>
+		ok(
+			await tx(async (t) =>
+				people.updatePerson(t, ctx(), {
+					requestKey: key(),
+					expectedRevision: (await personRow(d.id)).revision,
+					input: { personId: d.id, patch: { phone: "555 010 3000" } },
+				}),
+			),
+		);
+	const cases: [string, string[], string[], (d: { id: string }) => Promise<unknown>][] = [
+		["merged field edited again", ["survivor_changed"], ["phone"], edit],
 		[
-			"survivor edit",
-			["survivor_changed"],
-			async (d) =>
-				ok(
-					await tx(async (t) =>
-						people.updatePerson(t, ctx(), {
-							requestKey: key(),
-							expectedRevision: (await personRow(d.id)).revision,
-							input: { personId: d.id, patch: { phone: "555 010 3000" } },
-						}),
-					),
+			"survivor retired",
+			["survivor_retired"],
+			[],
+			(d) =>
+				admin.execute(
+					sql`UPDATE person SET state='retired',retired_at=clock_timestamp(),revision=revision+1 WHERE id=${sql.param(d.id)}`,
 				),
 		],
+		["chained merge", ["chained_merge"], [], async (d) => ok(await merge(d.id, (await person("Chain survivor")).id))],
 		[
-			"new reference",
-			["references_changed"],
-			async (d) =>
-				ok(
-					await tx((t) =>
-						assessments.createAssessment(t, ctx(), {
-							requestKey: key(),
-							input: {
-								personId: d.id,
-								occurredOn: day(1),
-								committed: lens(2),
-								compelled: lens(2),
-								contagious: lens(2),
-								courageous: lens(2),
-							},
-						}),
-					),
-				),
-		],
-		[
-			"chained merge",
-			["source_changed", "survivor_changed", "references_changed"],
-			async (d) => ok(await merge(d.id, (await person("Chain survivor")).id)),
+			"later merge into the survivor",
+			["chained_merge"],
+			[],
+			async (d) => ok(await merge((await person("Chain source")).id, d.id)),
 		],
 	];
-	for (const [name, causes, later] of cases) {
+	for (const [name, causes, fields, later] of cases) {
 		const d = await person("Unmerge " + name),
-			s = await person("Unmerge " + name + " duplicate");
+			s = await person("Unmerge " + name + " duplicate", { phone: "555 010 2000" });
 		ok(await addSkill(s.id, "Teaching"));
-		const merged = ok(await merge(s.id, d.id));
+		const merged = ok(await merge(s.id, d.id, { phone: "source" }));
 		await later(d);
 		const state = { d: await personRow(d.id), s: await personRow(s.id), skills: await skillsOf(d.id) };
-		assert.deepEqual(ok(await unmergePreview(merged.mergeId)).conflicts, causes, name);
+		const p = ok(await unmergePreview(merged.mergeId));
+		assert.deepEqual([p.conflicts, p.changedFields], [causes, fields], name);
 		const error = refused(
 			await tx((t) =>
 				peopleUnmerge.unmergePeople(t, ctx(), {
@@ -433,21 +451,21 @@ test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW
 			),
 			"inverse_conflict",
 		);
-		assert.deepEqual(error.details.causes, causes, name);
+		assert.deepEqual(error.details, { causes, changed: [], changedFields: fields }, name);
 		assert.deepEqual({ d: await personRow(d.id), s: await personRow(s.id), skills: await skillsOf(d.id) }, state, name);
 	}
 });
 
-test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV-survivor merge refuses linked-account collisions and references their package has not registered; hints never merge", async () => {
+test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV-survivor merge refuses linked-account collisions, a task about the source no longer blocks it, and hints never merge", async () => {
 	const a = await person("Avery Stone", { email: "avery@example.test" }),
 		b = await person("Avery Stone"),
 		c = await person("Avery S.");
 	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[0].id)} WHERE id=${sql.param(a.id)}`);
 	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[3].id)} WHERE id=${sql.param(b.id)}`);
-	const blocked = async (sourceId, survivorId, causes, references = []) => {
-		assert.deepEqual(ok(await review(sourceId, survivorId)).blockers, { causes, references });
+	const blocked = async (sourceId: string, survivorId: string, causes: string[]) => {
+		assert.deepEqual(ok(await review(sourceId, survivorId)).blockers, { causes, leadership: [], invitations: [] });
 		const error = refused(await merge(sourceId, survivorId), "merge_blocked");
-		assert.deepEqual(error.details, { causes, references });
+		assert.deepEqual(error.details, { causes, leadership: [], invitations: [] });
 		assert.equal((await personRow(sourceId)).state, "live");
 	};
 	await blocked(b.id, a.id, ["linked_account_collision"]);
@@ -458,7 +476,9 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV
 	await admin.execute(
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${sql.param(plants[0])},${sql.param(duty)},${sql.param(actors[0].id)})`,
 	);
-	await blocked(c.id, a.id, ["unregistered_reference"], ["task"]);
+	const withTask = ok(await review(c.id, a.id));
+	assert.deepEqual(withTask.blockers, { causes: [], leadership: [], invitations: [] });
+	assert.deepEqual(withTask.openTasks, [{ title: "Call", dueDate: null }]);
 	const hints = ok(
 		await tx((t) => checkForDuplicates(t, ctx(1), { displayName: "avery  stone", excludePersonId: c.id })),
 	);
@@ -470,7 +490,7 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV
 		],
 	);
 	assert.equal(
-		(await rows(sql`SELECT count(*)::int n FROM person WHERE display_name LIKE 'Avery%' AND state='live'`))[0].n,
+		(await rows(sql`SELECT count(*)::int n FROM person WHERE display_name LIKE 'Avery%' AND state='live'`))[0]!.n,
 		3,
 	);
 });
@@ -487,6 +507,7 @@ test("AC:REQ-PPL-016 the person page shows the duplicate hints checkForDuplicate
 		phone = await person("Phone twin", { phone: `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}` });
 	await person(`Jordan Leeds${tag}`, { phone: digits.slice(3) });
 	const page = ok(await tx((t) => readPersonPage(t, ctx(1), { personId: p.id }, 50, { duplicates: true })));
+	assert.ok(page.found.status === "available");
 	const own = page.found.person;
 	const hints = ok(
 		await tx((t) =>
@@ -510,13 +531,13 @@ test("AC:REQ-PPL-016 the person page shows the duplicate hints checkForDuplicate
 });
 
 const correct = (
-	recordType,
-	personId,
-	recordId,
-	expectedRevision,
-	changes,
-	who = 0,
-	requestKey = key(),
+	recordType: string,
+	personId: string,
+	recordId: string,
+	expectedRevision: string,
+	changes: object,
+	who: Who = 0,
+	requestKey: string = key(),
 	reason: { reason?: string } = { reason: "Entered from the wrong form" },
 ) =>
 	tx((t) =>
@@ -526,7 +547,7 @@ const correct = (
 			input: { recordType, personId, recordId, ...reason, changes },
 		}),
 	);
-const corrections = (personId, who = 0) =>
+const corrections = (personId: string, who: Who = 0) =>
 	tx((t) => recordCorrections.listRecordCorrections(t, ctx(who), { personId }));
 
 test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reason corrections keep the recorder, recompute the total, never move the stage, take an optional reason, clear a note sent as null and keep old and new values out of audit", async () => {
@@ -592,6 +613,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reas
 		"noop",
 	);
 	const read = ok(await tx((t) => assessments.getAssessments(t, ctx(), { personId: p.id }))).latest;
+	assert.ok(read);
 	assert.deepEqual(
 		[read.total, read.revision, read.actor, read.recordedAt],
 		[14, "2", { kind: "current_account", accountId: actors[3].id }, a.recordedAt],
@@ -633,7 +655,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reas
 	ok(await correct("commitment", p.id, card.id, "2", { notes: "Signed at the picnic" }, 0, key(), { reason: " \n " }));
 	const history = ok(await corrections(p.id));
 	assert.deepEqual(
-		history.items.map((x) => [x.recordType, x.recordId, x.changes, x.actor.accountId]),
+		history.items.map((x) => [x.recordType, x.recordId, x.changes, "accountId" in x.actor && x.actor.accountId]),
 		[
 			["commitment", card.id, [{ field: "notes", old: "Signed at lunch", new: "Signed at the picnic" }], actors[0].id],
 			["commitment", card.id, [{ field: "occurredOn", old: day(20), new: day(40) }], actors[3].id],
@@ -669,15 +691,21 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reas
 		db.execute(
 			sql`UPDATE record_correction SET reason='Rewritten',after_value='{}' WHERE person_id=${sql.param(p.id)}`,
 		),
-		(error) => /permission denied for table record_correction/.test(error.cause?.message),
+		(error) =>
+			error instanceof Error &&
+			error.cause instanceof Error &&
+			/permission denied for table record_correction/.test(error.cause.message),
 	);
 	const audit = JSON.stringify(
 		(await audits([p.id])).filter((r) => r.metadata.event !== "commitment_corrected" || r.reason === null),
 	);
 	assert.ok(!audit.match(/Corrected note|not_qualified|Signed at|wrong form|"score"/), audit);
-	const feed = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: p.id, limit: 100 }))).items;
+	const feed = ok(await tx((t) => reads.getActivities(t, ctx(), { personId: p.id, limit: 100 }))).items;
 	assert.deepEqual(
-		feed.filter((x) => /_corrected$/.test(x.action ?? "")).map((x) => [x.action, x.recordId]),
+		feed
+			.filter(isActivity)
+			.filter((x) => /_corrected$/.test(x.action))
+			.map((x) => [x.action, x.recordId]),
 		[
 			["commitment_corrected", card.id],
 			["commitment_corrected", card.id],
@@ -690,9 +718,9 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reas
 	ok(await correct("interview", p.id, i.id, "3", { nextSteps: null }));
 	ok(await correct("commitment", p.id, card.id, "3", { notes: null }));
 	const cleared = await tx(async (t) => [
-		ok(await assessments.getAssessments(t, ctx(), { personId: p.id })).latest.committed,
-		ok(await interviews.getInterviews(t, ctx(), { personId: p.id })).latest.nextSteps,
-		ok(await commitments.getCommitments(t, ctx(), { personId: p.id })).items.find((x) => x.id === card.id).notes,
+		ok(await assessments.getAssessments(t, ctx(), { personId: p.id })).latest?.committed,
+		ok(await interviews.getInterviews(t, ctx(), { personId: p.id })).latest?.nextSteps,
+		ok(await commitments.getCommitments(t, ctx(), { personId: p.id })).items.find((x) => x.id === card.id)!.notes,
 	]);
 	assert.deepEqual(cleared, [{ score: 5, notes: null }, null, null]);
 	assert.deepEqual(
@@ -711,7 +739,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 INV-correction-patch INV-optional-reas
 test("AC:ADR1-017 organization duplicates are hints for a human, and an organization merge and Unmerge follow the same rules", async () => {
 	const org = randomUUID(),
 		other = randomUUID(),
-		staff = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+		staff = { id: randomUUID(), user: randomUUID(), session: sessionId.parse(randomUUID()) };
 	for (const id of [org, other])
 		await admin.execute(
 			sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${sql.param(id)},'sending_church','Synthetic','America/Chicago',1)`,
@@ -730,9 +758,9 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 	);
 	const octx = {
 		session: staff.session,
-		selected: { kind: "organization", id: org, organizationKind: "sending_church" },
+		selected: owner.parse({ kind: "organization", id: org, organizationKind: "sending_church" }),
 	};
-	const member = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	const member = { id: randomUUID(), user: randomUUID(), session: sessionId.parse(randomUUID()) };
 	await admin.execute(
 		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(member.user)},${sql.param(member.id + "@example.test")},true,'Synthetic')`,
 	);
@@ -746,10 +774,10 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${sql.param(member.id)},${sql.param(org)},'member',clock_timestamp())`,
 	);
 	const mctx = { ...octx, session: member.session };
-	const orgPerson = async (name, email, owner = org) => {
+	const orgPerson = async (name: string, email: string, tenant: string = org) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO person(id,tenant_id,organization_id,display_name,email,source,state,created_at,revision)
- VALUES(${sql.param(id)},${sql.param(owner)},${sql.param(owner)},${name},${email},'other','live',clock_timestamp(),1)`);
+ VALUES(${sql.param(id)},${sql.param(tenant)},${sql.param(tenant)},${name},${email},'other','live',clock_timestamp(),1)`);
 		return id;
 	};
 	const p = await orgPerson("Casey Lee", "casey@example.test"),
@@ -792,7 +820,7 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 	);
 	assert.equal(ok(await tx((t) => peopleMerge.mergedPersonDestination(t, octx, { personId: q }))).destinationId, p);
 	refused(await tx((t) => peopleMerge.mergedPersonDestination(t, mctx, { personId: q })));
-	refused(await tx((t) => peopleReader.getPerson(t, mctx, { personId: p })));
+	refused(await tx((t) => reads.getPerson(t, mctx, { personId: p })));
 	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, octx, { mergeId: merged.mergeId })));
 	const back = ok(
 		await tx((t) =>
@@ -813,7 +841,10 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 });
 
 test("AC:REQ-PPL-024 the reference registry names every Person foreign key in the database exactly once", async () => {
-	const declared = await rows(sql`SELECT c.conrelid::regclass::text AS t,a.attname AS col FROM pg_constraint c
+	const declared = await rows<{
+		t: string;
+		col: string;
+	}>(sql`SELECT c.conrelid::regclass::text AS t,a.attname AS col FROM pg_constraint c
  JOIN LATERAL unnest(c.conkey) WITH ORDINALITY k(n,i) ON k.i=1 JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.n
  WHERE c.contype='f' AND c.confrelid=${schema + ".person"}::regclass ORDER BY 1,2`);
 	assert.deepEqual(
@@ -823,8 +854,8 @@ test("AC:REQ-PPL-024 the reference registry names every Person foreign key in th
 });
 
 const signals = createSignals();
-const authority = (who = 3) => tx((t) => RequestActor.resolve(t, actors[who].session));
-async function attestCandidate(personId, who = 3) {
+const authority = (who: Who = 3) => gatedTransaction(db, (t) => authorityOf(t, actors[who]));
+async function attestCandidate(personId: string, who: Who = 3) {
 	return ok(
 		await signals.attestCandidate(db, await authority(who), {
 			requestKey: key(),
@@ -833,16 +864,16 @@ async function attestCandidate(personId, who = 3) {
 		}),
 	).candidate;
 }
-const candidates = async (who = 3) => ok(await signals.readAttestations(db, await authority(who), {})).candidates;
-const attestationOf = (personId) =>
-	one(
+const candidates = async (who: Who = 3) => ok(await signals.readAttestations(db, await authority(who), {})).candidates;
+const attestationOf = (personId: string) =>
+	one<{ id: string; person_id: string; state: string; revision: string }>(
 		sql`SELECT id,person_id,state,revision::text FROM attestation WHERE person_id=${sql.param(personId)} AND key='leadership_candidate'`,
 	);
-const attestationRows = (personId) =>
+const attestationRows = (personId: string) =>
 	rows(
 		sql`SELECT revision::text, kind FROM attestation_revision WHERE person_id=${sql.param(personId)} ORDER BY revision`,
 	);
-const mergeReceipts = async (sourceId) =>
+const mergeReceipts = async (sourceId: string) =>
 	(await one(sql`SELECT count(*)::int n FROM person_merge WHERE source_id=${sql.param(sourceId)}`)).n;
 
 test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE merge moves the candidate attestation to the survivor, keeps the source's history and Unmerge returns it", async () => {
@@ -856,7 +887,7 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PER
 		reviewed.references.filter((x) => x.kind === "attestation"),
 		[{ kind: "attestation", count: 1, treatment: "move" }],
 	);
-	assert.deepEqual(reviewed.blockers, { causes: [], references: [] });
+	assert.deepEqual(reviewed.blockers, { causes: [], leadership: [], invitations: [] });
 	const requestKey = key();
 	const merged = ok(
 		await tx((t) =>
@@ -903,16 +934,14 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PER
 });
 
 test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE retiring a Person keeps its candidate row, marked retired, and its history", async () => {
-	const p3 = await person("Riley Stone");
+	const p3: { id: string } = await person("Riley Stone");
 	await attestCandidate(p3.id);
 	assert.equal(
 		(await candidates()).some((x) => x.personId === p3.id),
 		true,
 	);
 	const current = await personRow(p3.id);
-	const reviewRevision = ok(
-		await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: p3.id })),
-	).reviewRevision;
+	const reviewRevision = ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: p3.id }))).reviewRevision;
 	ok(
 		await tx((t) =>
 			people.retirePerson(
@@ -952,8 +981,8 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE retiring a Person keeps i
 });
 
 test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT a stale reviewed reference state changes no reference; a survivor that already holds one keeps it and the source's stays as history", async () => {
-	const p1 = await person("Jordan Kim"),
-		p2 = await person("Jordan Kimball");
+	const p1: { id: string } = await person("Jordan Kim"),
+		p2: { id: string } = await person("Jordan Kimball");
 	const made = await attestCandidate(p2.id);
 	const stale = ok(await review(p2.id, p1.id));
 	ok(
@@ -997,7 +1026,7 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT a stale reviewed refere
 	const reviewed = ok(await review(p2.id, p1.id));
 	assert.deepEqual(
 		reviewed.references.filter((x) => x.kind === "attestation"),
-		[{ kind: "attestation", count: 1, treatment: "deduplicate" }],
+		[{ kind: "attestation", count: 1, treatment: "keep" }],
 	);
 	const merged = ok(
 		await tx((t) =>

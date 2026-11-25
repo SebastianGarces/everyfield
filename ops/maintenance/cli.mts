@@ -2,8 +2,6 @@ import { createDatabase, closeDatabase } from "../../packages/db/src/client.ts";
 import { sql } from "../../packages/db/src/query.ts";
 import { parseArgs } from "node:util";
 import { randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import { loadControl, readPrivateBytes, readPrivateJson, developmentConnection } from "./control.mts";
 import {
 	migrate as applyVersionedMigration,
@@ -12,7 +10,8 @@ import {
 } from "../../packages/db/src/schema/migrate.ts";
 import { validateCandidate } from "./recovery.mts";
 import { OPERATION, readCurrentManifest, restoreWithCurrentManifest } from "./restore.mts";
-import { COPY_OPERATION, createEncryptedCopy } from "./copy.mts";
+import { BackupDirectory, COPY_OPERATION, createEncryptedCopy } from "./copy.mts";
+import { OPERATOR_COMMANDS, runOperator } from "./operator.mts";
 import { READINESS_OPERATION, readiness } from "./readiness.mts";
 
 const commands = [
@@ -37,16 +36,30 @@ async function main() {
 			out: { type: "string" },
 			recopy: { type: "string" },
 			evidence: { type: "string" },
+			config: { type: "string" },
+			copy: { type: "string" },
+			target: { type: "string" },
+			incident: { type: "string" },
+			subject: { type: "string" },
+			agents: { type: "string" },
+			keys: { type: "string", multiple: true },
+			current: { type: "string" },
+			load: { type: "boolean" },
+			history: { type: "boolean" },
 			help: { type: "boolean" },
 		},
 	});
 	if (values.help) {
 		console.log(
-			"Restricted development operations. Commands: migration-inspect, migration-apply, migration-adopt, backup-check, backup-copy, restore-rehearsal, readiness. Requires --control <private host-bound authorization file>. Adoption additionally requires --review <private reviewed per-file SHA-256 map>. restore-rehearsal requires --snapshot <private directory with manifest.json, image.json and objects/<id>> and restores into a fresh closed schema it drops afterwards. backup-copy requires --key <private 32-byte backup key file>, --out <private copy directory> and either --snapshot <directory> or --recopy <copy location in --out>. readiness reads --evidence <private evidence file> when given and reports the customer-data gate. No production action or provider setup.",
+			"Restricted development operations. Commands: migration-inspect, migration-apply, migration-adopt, backup-check, backup-copy, restore-rehearsal, readiness. Requires --control <private host-bound authorization file>. Adoption additionally requires --review <private reviewed per-file SHA-256 map>. restore-rehearsal requires --snapshot <private directory with manifest.json, image.json and objects/<id>> and restores into a fresh closed schema it drops afterwards. backup-copy requires --key <private 32-byte backup key file>, --out <private copy directory> and either --snapshot <directory> or --recopy <copy location in --out>. readiness reads --evidence <private evidence file> when given and reports the customer-data gate. The restricted backup and recovery commands backup-key-create, backup-capture, backup-daily, backup-expire, backup-status, bucket-probe, schedule-install, schedule-uninstall, restore-copy, restore-open and deletion-check take --config <private directory> instead and exit 2 when their check fails; docs/runbooks/recovery.md gives each one. No production action or provider setup.",
 		);
 		return;
 	}
 	const command = positionals[0];
+	if (positionals.length === 1 && command !== undefined && Object.hasOwn(OPERATOR_COMMANDS, command)) {
+		if (!(await runOperator(command, values))) process.exitCode = 2;
+		return;
+	}
 	if (positionals.length !== 1 || !commands.includes(command) || !values.control) throw Error("invalid_command");
 	const c = await loadControl(values.control, command);
 	if (command === "readiness") {
@@ -66,19 +79,7 @@ async function main() {
 	}
 	if (command === "backup-copy") {
 		if (!values.key || !values.out || !values.snapshot === !values.recopy) throw Error("copy_arguments_required");
-		const out = values.out;
-		const safe = (key: string) => {
-			if (!/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|key|database|objects\/[0-9a-f-]{36})$/.test(key))
-				throw Error("copy_key_invalid");
-			return join(out, key);
-		};
-		const store = {
-			put: async (key: string, bytes: Uint8Array) => {
-				await mkdir(dirname(safe(key)), { recursive: true, mode: 0o700 });
-				await writeFile(safe(key), bytes, { mode: 0o600, flag: "wx" });
-			},
-			get: (key: string) => readPrivateBytes(safe(key), SNAPSHOT_LIMIT).catch(() => null),
-		};
+		const store = new BackupDirectory(values.out);
 		let source;
 		if (values.recopy) source = { copy: values.recopy };
 		else {

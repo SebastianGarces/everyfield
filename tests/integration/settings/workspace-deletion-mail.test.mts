@@ -1,7 +1,9 @@
 import "../platform/setup.mts";
+import { openedDeletion } from "../../support/deletion-cookie.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { sessionId, tenantId, type Owner } from "../../../packages/contracts/src/common/index.ts";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { and, eq, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
@@ -60,7 +62,7 @@ after(async () => {
 });
 
 type Person = Awaited<ReturnType<typeof seed.actor>>;
-type Church = { id: string; kind: "plant" };
+type Church = Extract<Owner, { kind: "plant" }>;
 
 async function pass() {
 	const sent: MailPayload[] = [];
@@ -78,14 +80,15 @@ async function pass() {
 }
 async function church(roles: ("admin" | "member")[] = ["admin", "member"]) {
 	await pass();
-	const p = (await seed.plant({ name: `Harvest Point ${randomUUID().slice(0, 4)}` })) as Church;
-	const owner = await seed.actor(p as never, "owner", { user: { name: "Olivia Owner" } });
+	const seeded = await seed.plant({ name: `Harvest Point ${randomUUID().slice(0, 4)}` });
+	const p: Church = { kind: "plant", id: tenantId.parse(seeded.id) };
+	const owner = await seed.actor(p, "owner", { user: { name: "Olivia Owner" } });
 	const seats: Person[] = [];
-	for (const role of roles) seats.push(await seed.actor(p as never, role));
+	for (const role of roles) seats.push(await seed.actor(p, role));
 	return { p, owner, seats };
 }
 async function signIn(a: Person) {
-	const session = randomUUID();
+	const session = sessionId.parse(randomUUID());
 	await admin.insert(t.auth_session).values({
 		id: session,
 		user_id: a.user,
@@ -99,24 +102,27 @@ async function request(a: Person, p: Church, requestKey = randomUUID()) {
 	return gatedTransaction(db, (tx) =>
 		deletion.requestWorkspaceDeletion(
 			tx,
-			{ session: a.session, selected: p } as never,
-			{ requestKey, expectedRevision: row!.revision, input: { plant: p, confirmed: true } } as never,
+			{ session: a.session, selected: p },
+			{ requestKey, expectedRevision: row!.revision, input: { plant: p, confirmed: true } },
 		),
 	);
 }
 async function cancel(owner: Person, p: Church, status: { requestId: string; revision: string }) {
-	const proof = await gatedTransaction(admin, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject: p, requestId: status.requestId }, async () => ({
-			accountId: owner.id,
-			provenAt: new Date(),
-		})),
+	const proof = await openedDeletion(
+		gatedTransaction(admin, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject: p, requestId: status.requestId }, async () => ({
+				accountId: owner.id,
+				provenAt: new Date(),
+			})),
+		),
+		{ subject: p, requestId: status.requestId },
 	);
 	return gatedTransaction(db, (tx) =>
 		deletion.cancelWorkspaceDeletion(tx, proof, {
 			requestKey: randomUUID(),
 			expectedRevision: status.revision,
 			input: { subject: p, requestId: status.requestId },
-		} as never),
+		}),
 	);
 }
 async function notices(kind: "requested" | "cancelled", requestId: string) {

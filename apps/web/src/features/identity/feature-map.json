@@ -305,6 +305,18 @@
 							"name": "Send reset link"
 						}
 					]
+				},
+				{
+					"id": "mail-delayed",
+					"reach": {
+						"manual": "as a visitor, send a reset link with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards)"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Reset emails are delayed"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -343,6 +355,21 @@
 							],
 							"kind": "behavior"
 						}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
+				},
+				{
+					"id": "mail-delayed",
+					"says": "With email paused, Send reset link and Send another link say reset emails are delayed, for a known or an unknown address.",
+					"catalog": ["IDN-009"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/flags/mail-delay.test.mts",
+								"name": "a password reset with mail off says delayed for a known and an unknown address alike and queues the mail; back on it answers as before"
+							}
+						]
 					},
 					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
@@ -488,6 +515,18 @@
 							"name": "This page is not available"
 						}
 					]
+				},
+				{
+					"id": "mail-delayed",
+					"reach": {
+						"manual": "join from a seat invitation with an unconfirmed address with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards)"
+					},
+					"expect": [
+						{
+							"text": "Confirmation email is delayed.",
+							"match": "contains"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -509,6 +548,21 @@
 						],
 						"cases": ["TARGET-IDN-002", "TARGET-IDN-003", "TARGET-IDN-030"]
 					}
+				},
+				{
+					"id": "mail-delayed",
+					"says": "With email paused, Confirm your email to join says confirmation email is delayed before and after sending the link again.",
+					"catalog": ["IDN-017"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/flags/mail-delay.test.mts",
+								"name": "a confirmation email with mail off says delayed for a known and an unknown address alike and queues the mail; back on it answers as before"
+							}
+						]
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -580,6 +634,18 @@
 						},
 						{
 							"noText": "Send invitation"
+						}
+					]
+				},
+				{
+					"id": "mail-delayed",
+					"reach": {
+						"manual": "as owner, open /settings/seats and send or resend an invitation with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards)"
+					},
+					"expect": [
+						{
+							"text": "is saved, but its email is delayed.",
+							"match": "contains"
 						}
 					]
 				}
@@ -658,6 +724,20 @@
 							],
 							"kind": "presence"
 						}
+					}
+				},
+				{
+					"id": "mail-delayed",
+					"says": "With email paused, an invitation and a resend are saved and the status says the email is delayed.",
+					"catalog": ["IDN-017"],
+					"operations": ["seats.invite", "seats.resendInvitation"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/flags/mail-delay.test.mts",
+								"name": "a seat invitation and its resend succeed with mail off and say delayed; back on they and a replay of the off command do not"
+							}
+						]
 					}
 				}
 			]

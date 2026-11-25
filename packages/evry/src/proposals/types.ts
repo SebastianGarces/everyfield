@@ -45,18 +45,21 @@ export type ReviewContext = {
 
 export type NativeContext = { authority: RequestActor; ports: NativePorts | null };
 
-export const personOutcome = z.object({
+export const savedInput = z.strictObject({ input: z.unknown() });
+export const savedRevision = z.strictObject({ expectedRevision: z.string(), input: z.unknown() });
+
+export const personOutcome = z.strictObject({
 	id: z.uuid(),
 	label: z.string(),
 	outcome: z.enum(["changed", "unchanged"]),
 	reason: z.string().optional(),
 });
-export const importOutcome = z.object({
+export const importOutcome = z.strictObject({
 	status: z.enum(["in_progress", "complete", "partial"]),
-	counts: z.object({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
-	failed: z.array(z.object({ row: z.int(), reason: z.string() })),
+	counts: z.strictObject({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
+	failed: z.array(z.strictObject({ row: z.int(), reason: z.string() })),
 });
-export const currentPerson = z.object({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
+export const currentPerson = z.strictObject({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
 type EffectDone = {
 	receiptId?: string;
 	meetingId?: string;
@@ -73,6 +76,7 @@ export type ReviewedWrite<I> = {
 	description: string;
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
+	sendsMail?: true;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	execute(
 		tx: WriteTx,
@@ -82,6 +86,7 @@ export type ReviewedWrite<I> = {
 		ports: EffectPorts,
 		native: NativeContext,
 	): Promise<EffectResult>;
+	again?(args: unknown, changes: readonly { field: string; before?: unknown; after?: unknown }[]): I;
 	approveNow?: {
 		reason: boolean;
 		run(db: Database, authority: RequestActor, args: unknown, reason: string | null): Promise<EffectResult>;

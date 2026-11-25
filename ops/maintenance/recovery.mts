@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
-const { z } = require("zod");
+const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const artifact = z.strictObject({
 	id: z.uuid(),
@@ -29,7 +29,11 @@ export class ManifestRefused extends Error {
 		this.code = code;
 	}
 }
-export function validateCandidate(input, now, originalExpiries = new Map()) {
+export function validateCandidate(
+	input: unknown,
+	now: Date,
+	originalExpiries: ReadonlyMap<string, string> = new Map(),
+) {
 	const m = manifestSchema.parse(input);
 	const created = Date.parse(m.createdAt),
 		expires = Date.parse(m.expiresAt);

@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import { registerHooks } from "node:module";
@@ -21,7 +22,7 @@ export const cookies = async () => ({ get: (n) => jar().get(n), getAll: () => [.
 			return fake(
 				`export const requestDatabase = () => ({ execute: async (query) => { globalThis.flagStatements.push(JSON.stringify(query)); return { rows: globalThis.flagRows }; } });`,
 			);
-		if (specifier === "./request-context") return fake(`export const getViewer = async () => null;`);
+		if (specifier === "./request-context") return fake(`export const getViewer = async () => ({ authority: null });`);
 		if (specifier === "./config") return next("./config.ts", context);
 		if (specifier === "flags") return next(specifier, { ...context, parentURL: webServer });
 		return next(specifier, context);

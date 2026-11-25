@@ -46,7 +46,7 @@ pings him for `evf ask owner`, stuck or environment failures, usage limits and l
   and durable rulings. Requirements describe end-state behavior.
 - The repository is public. PR bodies, commit messages and committed docs never describe an unfixed security
   weakness in detail: no affected route, field, input or way to trigger it. Reference the task id only, for example
-  "fixes a weakness tracked in T-NNN". The detail stays in the evf task.
+  "fixes a weakness tracked in T-NNN". The detail stays in the evf task. Read `.agents/skills/policy-writing/SKILL.md` before you change public legal text (privacy, terms).
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.

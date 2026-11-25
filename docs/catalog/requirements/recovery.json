@@ -65,7 +65,7 @@
         "DOC-015",
         "OPS-007"
       ],
-      "text": "Before customer data, same-provider/account outage/loss may affect both primary storage and backup; disclose accepted limitation and require no second provider as launch gate. Ordinary live-provider 1h RPO/4h RTO remains measured target; daily 24h fallback applies only if a sufficiently fresh successful daily copy survives and remains available; a scheduled job alone does not establish 24h recovery, with no invented disaster RTO/SLA.",
+      "text": "Before customer data, same-provider/account outage/loss may affect both primary storage and backup; this is an accepted internal limitation, not public policy text, and no second provider is required as launch gate. Ordinary live-provider 1h RPO/4h RTO remains measured target; daily 24h fallback applies only if a sufficiently fresh successful daily copy survives and remains available; a scheduled job alone does not establish 24h recovery, with no invented disaster RTO/SLA.",
       "spec": "docs/architecture/recovery.md#before-customer-data-gate",
       "operations": [],
       "acceptance_ids": [
@@ -411,7 +411,7 @@
         "ADM-007",
         "IDN-026"
       ],
-      "text": "Privacy policy explains 30 day private cancellation retention/live purge/7 day recovery-copy policy, minimal shared attribution and actual asynchronous provider/external-copy limits. Native own-feedback status also respects suspended/deleted subject filters; no physical day 37-erasure claim or silent public-copy recall.",
+      "text": "Privacy policy explains in general terms the private cancellation period, live purge, deletion reaching backups, minimal shared attribution and actual asynchronous provider/external-copy limits. Native own-feedback status also respects suspended/deleted subject filters; no physical day 37-erasure claim or silent public-copy recall.",
       "spec": "docs/architecture/recovery.md#current-lifecycle-witness",
       "operations": [],
       "acceptance_ids": [

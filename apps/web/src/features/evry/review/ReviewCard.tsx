@@ -70,8 +70,10 @@ import {
 	carryOver,
 	carryOverText,
 	documentRefusalText,
+	draftRows,
 	documentResult,
 	isDocument,
+	delayedText,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
@@ -115,6 +117,7 @@ import {
 	reviseInput,
 	SHARE_CHOICES,
 	savedText,
+	shownNotes,
 	showsBefore,
 	shownChanges,
 	subjectName,
@@ -125,9 +128,11 @@ import {
 	linkEdit,
 	type CarryOver,
 	type Change,
+	type DraftRow,
 	type Phase,
 	type Review,
 } from "./model.ts";
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import { NativeImage } from "@/components/native";
 import { useRead } from "@/components/read";
 import { useLocalStore } from "@/components/store";
@@ -138,18 +143,21 @@ import {
 	reviewOf,
 	uploadOf,
 	type Action,
+	type Church,
 	type Notice,
+	type StagedSrc,
 } from "./ReviewCard.store.ts";
+import { ChurchChanged } from "../conversation/ChurchChanged.tsx";
 
-type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown" | "moved" | "left";
 
-export function useReview(proposalId: string, seed: Review | null | undefined) {
+export function useReview(proposalId: string, seed: Review | null | undefined, church: Church) {
 	const router = useRouter();
 	const store = useLocalStore(() =>
 		createReviewStore({
 			id: proposalId,
 			seed,
-			port: { ...api, refresh: () => router.refresh() },
+			port: { ...api, refresh: () => router.refresh(), church },
 		}),
 	);
 	const state = useSyncExternalStore(store.getState().actions.follow, store.getState, store.getState);
@@ -158,8 +166,15 @@ export function useReview(proposalId: string, seed: Review | null | undefined) {
 	const review = reviewOf(value);
 	const load = loadOf(value);
 	const lapsed = lapsedOf({ review, ranOut });
-	const view: Exclude<View, "photo_unavailable" | "unknown"> =
-		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
+	const view: Exclude<View, "photo_unavailable" | "unknown"> = state.churchChanged
+		? "moved"
+		: !review && church.changed()
+			? "left"
+			: load === "ready" && review
+				? phaseOf(review, lapsed)
+				: load === "ready"
+					? "loading"
+					: load;
 	const upload = uploadOf(review);
 	const mine = photo && photo.upload === upload ? photo : null;
 	const staged: StagedPhoto = mine ?? { status: view === "pending" && upload !== null ? "loading" : "idle" };
@@ -175,7 +190,7 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 	recheck: "Evry got no answer from the email service. Check again.",
 };
 
-type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
+type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: StagedSrc };
 
 type Tone = BandTone;
 const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; title: string; tone: Tone }> = {
@@ -190,6 +205,8 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
+	moved: { icon: SquareLock02Icon, title: "Not approved", tone: "gray" },
+	left: { icon: SquareLock02Icon, title: "Not available", tone: "gray" },
 };
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
@@ -198,6 +215,12 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const tasks = !!review && isTasks(review.operation);
 	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
+	if (review?.stale === "merge" && (view === "pending" || view === "withheld"))
+		return `Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. ${
+			view === "withheld" || reviseInput(review) === null
+				? "Ask Evry to prepare it again."
+				: "Review it again to see it as it is now."
+		}`;
 	if (mail) {
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
@@ -216,6 +239,10 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
+			if (review?.review.earlier)
+				return draftRows(review)?.every((row) => row.already)
+					? `${who ?? "The record"} was saved after Evry prepared this, and it already has these values. Nothing was changed.`
+					: `Someone saved ${who ?? "the record"} after Evry prepared this, so nothing was changed. Compare Evry's draft with the saved version, then approve again.`;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -262,6 +289,10 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
 				: `${what} in this change is no longer available to you. Nothing was changed.`;
 		}
+		case "completed":
+			return review && delayedText(review);
+		case "left":
+			return "Your church changed, so Evry can't show this change here.";
 		case "unavailable":
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
@@ -288,12 +319,14 @@ export function ReviewCard({
 	proposalId,
 	target,
 	seed,
+	church,
 }: {
 	proposalId: string;
 	target: string | null;
 	seed?: Review | null;
+	church: Church;
 }) {
-	const r = useReview(proposalId, seed);
+	const r = useReview(proposalId, seed, church);
 	const [reason, setReason] = useState("");
 	const [editing, setEditing] = useState<number | null>(null);
 	const [closes, setCloses] = useState(0);
@@ -306,7 +339,7 @@ export function ReviewCard({
 	const view: View = unknown ? "unknown" : r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
 
 	const mailTitle = review ? mailHead(review, view) : null;
-	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}`;
+	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}:${(review && delayedText(review)) ?? ""}`;
 	const [said, setSaid] = useState({ key, text: "" });
 	if (said.key !== key)
 		setSaid({ key, text: said.key.startsWith("loading") ? "" : announcement(view, review, r.lapsed, unknown) });
@@ -375,7 +408,13 @@ export function ReviewCard({
 						Try again
 					</Button>
 				</div>
-			) : view === "unavailable" || view === "withheld" || !review ? null : (view === "pending" ||
+			) : view === "moved" ? (
+				<div className="px-4 py-3.5">
+					<ChurchChanged onReload={church.reload}>
+						Nothing was changed. Reload to use Evry for your new church.
+					</ChurchChanged>
+				</div>
+			) : view === "unavailable" || view === "withheld" || view === "left" || !review ? null : (view === "pending" ||
 					unknown === "revise") &&
 			  editing === review.revision ? (
 				<ReviseForm
@@ -401,7 +440,7 @@ export function ReviewCard({
 								<InvitationChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
 								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
-								{view === "pending" && !review.review.refusal ? (
+								{view === "pending" && !review.review.refusal && !review.stale ? (
 									<p className="text-sm text-text-2">{INVITATION_CONSEQUENCE}</p>
 								) : null}
 							</>
@@ -435,7 +474,7 @@ export function ReviewCard({
 								{consequence(review) && (view === "pending" || view === "running") ? (
 									<p className="text-sm text-text-2">{consequence(review)}</p>
 								) : null}
-								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
+								{shownNotes(review).length ? <Notes notes={shownNotes(review)} /> : null}
 								{view === "pending" && asksReason(review.operation) && !review.review.refusal ? (
 									<Field
 										label="Reason for this move"
@@ -521,13 +560,13 @@ function Footer({
 						variant="primary"
 						icon={Tick02Icon}
 						loading={r.busy === "approve"}
-						disabled={other("approve") || !canApprove || review.stale || reason === ""}
+						disabled={other("approve") || !canApprove || review.stale !== null || reason === ""}
 						onClick={() => void r.approve(reason ?? undefined)}
 					>
 						Approve
 					</Button>
 				)}
-				{review.stale ? (
+				{review.stale && reviseInput(review) !== null ? (
 					<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
 						Review again
 					</Button>
@@ -886,7 +925,7 @@ function PhotoTile({
 }: {
 	caption: string;
 	value: unknown;
-	src?: string;
+	src?: AppAssetPath | StagedSrc;
 	alt: string;
 	state: TileState;
 	onRetry?: () => void;
@@ -944,7 +983,7 @@ function PhotoChange({
 	onRetry: () => void;
 }) {
 	const saved = review.outcome === "completed";
-	const after: { state: TileState; src?: string } =
+	const after: { state: TileState; src?: AppAssetPath | StagedSrc } =
 		change.after === null || change.after === undefined
 			? { state: "none" }
 			: staged.status === "ready"
@@ -1005,7 +1044,39 @@ function Notes({ notes }: { notes: string[] }) {
 	);
 }
 
+function DraftAgainstSaved({ review, rows }: { review: Review; rows: DraftRow[] }) {
+	const line = (label: string, field: string, value: unknown, strong = false) => (
+		<div className="grid grid-cols-[88px_minmax(0,1fr)] items-baseline gap-x-3">
+			<dt className="text-xs text-text-2">{label}</dt>
+			<dd className="min-w-0">
+				<Value field={field} value={value} before={!strong} />
+			</dd>
+		</div>
+	);
+	return (
+		<ul aria-label="Evry's draft against the saved version" className="flex flex-col gap-2">
+			{rows.map((row) => (
+				<li key={row.field} className="rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+					<p className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 font-medium text-ink">
+						{fieldLabel(row.field, review.operation)}
+						<span className="text-xs font-normal text-text-2">
+							{row.already ? "Already saved" : row.changed ? "Changed since the draft" : "Not changed since the draft"}
+						</span>
+					</p>
+					<dl className="flex flex-col gap-1">
+						{row.changed && row.prepared !== undefined ? line("Before", row.field, row.prepared) : null}
+						{line("Saved now", row.field, row.saved)}
+						{line("Evry's draft", row.field, row.draft, true)}
+					</dl>
+				</li>
+			))}
+		</ul>
+	);
+}
+
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
+	const drafted = review.status === "pending" ? draftRows(review) : null;
+	if (drafted) return <DraftAgainstSaved review={review} rows={drafted} />;
 	const changes = shownChanges(review).filter((c) => c.field !== "openCriteria");
 	if (!changes.length) return null;
 	const item = itemField(review.operation);
@@ -1060,6 +1131,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 									<li key={x.label} className="flex flex-wrap items-baseline justify-between gap-x-3">
 										<span className="font-medium break-words text-ink">{x.label}</span>
 										<span className="text-xs text-text-3">{x.status.charAt(0).toUpperCase() + x.status.slice(1)}</span>
+										{x.reading ? <span className="w-full text-xs break-words text-text-2">{x.reading}</span> : null}
 									</li>
 								))}
 							</ul>

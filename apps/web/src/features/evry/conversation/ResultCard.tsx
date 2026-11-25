@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	Activity01Icon,
 	Award01Icon,
@@ -41,6 +42,7 @@ import { cardView, type Glyph, type RowView } from "./resultView.ts";
 
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
+	retired_person: UserIcon,
 	person: UserIcon,
 	people: UserMultipleIcon,
 	household: Home01Icon,
@@ -103,7 +105,7 @@ export function ResultCard({
 	operation: string;
 	result: SourceResult;
 	originalTotal: number | null;
-	photos: Readonly<Record<string, string>>;
+	photos: Readonly<Record<string, AppAssetPath>>;
 }) {
 	const [all, setAll] = useState(false);
 	const { title, summary, icon, rows, facts, links } = cardView(operation, result, originalTotal);

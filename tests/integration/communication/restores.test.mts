@@ -5,8 +5,13 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
+import { type Church, type Fixture, type Staff } from "./communication-support.mts";
 
-let f, plant, owner, other;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
+let other: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -14,7 +19,7 @@ const keys = {
 	origin: "https://app.example.test",
 };
 
-async function bounce(address) {
+async function bounce(address: string) {
 	const hash = createHmac("sha256", keys.addressKey).update(address).digest("hex");
 	const eventId = randomUUID();
 	await f.admin
@@ -25,7 +30,7 @@ async function bounce(address) {
 		SET reason=excluded.reason,source_event_id=excluded.source_event_id,suppressed_at=excluded.suppressed_at,
 		cleared_at=NULL,clear_operation_id=NULL,revision=suppression.revision+1`);
 }
-const restore = async (who, reason) =>
+const restore = async (who: Staff, reason: string) =>
 	ok(
 		await communicationWriter.requestRestore(
 			f.db,
@@ -34,13 +39,13 @@ const restore = async (who, reason) =>
 			keys,
 		),
 	);
-async function listed(who) {
+async function listed(who: Staff) {
 	let statements = 0;
 	const counted = new Proxy(f.db, {
 		get(target, name) {
 			const value = Reflect.get(target, name);
 			if (name !== "execute") return typeof value === "function" ? value.bind(target) : value;
-			return (...args) => {
+			return (...args: unknown[]) => {
 				statements += 1;
 				return value.apply(target, args);
 			};
@@ -49,7 +54,7 @@ async function listed(who) {
 	const value = ok(await communicationWriter.listForSelf(counted, who.actor, { address: who.email }, keys));
 	return { value, statements };
 }
-async function seated(name) {
+async function seated(name: string) {
 	const account = await f.account();
 	await f.seat(account, plant, name === "Pat Owner" ? "owner" : "admin");
 	await f.admin
@@ -62,7 +67,7 @@ async function seated(name) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	owner = await seated("Pat Owner");
 	other = await seated("Robin Admin");
 });
@@ -91,7 +96,7 @@ test("AC:CASE-NTF-011 Your address lists each past restore of the viewer's own a
 		],
 	);
 	const [newest, oldest] = two.value.restores.map((row) => Date.parse(row.at));
-	assert.ok(newest > oldest);
+	assert.ok(newest! > oldest!);
 	assert.ok(two.value.restores.every((row) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(row.at)));
 	assert.ok(!JSON.stringify(two.value).includes("Robin"));
 	assert.equal(two.statements, none.statements);

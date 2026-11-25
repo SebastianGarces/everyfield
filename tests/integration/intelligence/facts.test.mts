@@ -1,38 +1,49 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
+import { PgDialect } from "../../../packages/db/node_modules/drizzle-orm/pg-core/index.js";
+import type { Database } from "../../../packages/db/src/client.ts";
+import { SQL, sql, type SQLWrapper } from "../../../packages/db/src/query.ts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import {
 	createFacts,
 	createPrivateCare,
 	createSignals,
 	factInputs,
+	type PrivateCare,
+	type Signals,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { commitments, peopleWriter, recordCorrections } from "../../../packages/domain/src/people/index.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f, facts, signals, care;
+let f: Fixture;
+let facts: ReturnType<typeof createFacts>;
+let signals: Signals;
+let care: PrivateCare;
+type Plant = Awaited<ReturnType<typeof plant>>;
+type Committed = Awaited<ReturnType<typeof committed>>;
+type PlantFacts = Awaited<ReturnType<typeof read>>;
 const ZONE = "America/Chicago";
 const refusedBare = refusedWith({ details: {} });
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
-let today;
-const day = (n) => new Date(Date.parse(today + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
-const hoursAgo = (h) => new Date(Date.now() - h * 3_600_000).toISOString();
+const rows = async <T extends Record<string, unknown>>(q: SQL) => (await f.admin.execute<T>(q)).rows;
+const one = async <T extends Record<string, unknown>>(q: SQL) => (await rows<T>(q))[0]!;
+let today: string;
+const day = (n: number) => new Date(Date.parse(today + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 
 before(async () => {
 	f = await fixture();
 	facts = createFacts();
 	signals = createSignals();
 	care = createPrivateCare();
-	today = (await one(sql`SELECT (clock_timestamp() AT TIME ZONE ${ZONE})::date::text AS d`)).d;
+	today = (await one<{ d: string }>(sql`SELECT (clock_timestamp() AT TIME ZONE ${ZONE})::date::text AS d`)).d;
 });
 after(() => f?.close());
 
 async function plant() {
 	const w = await f.workspace();
+	assert.ok(w.kind === "plant");
 	await f.admin.execute(sql`UPDATE plant SET timezone=${ZONE} WHERE id=${w.id}`);
 	const a = await f.account();
 	await f.seat(a, w, "owner");
@@ -41,34 +52,54 @@ async function plant() {
 		...a,
 		w,
 		actor: await f.actor(a.session),
-		ctx: { session: a.session, selected: { kind: "plant", id: w.id } },
+		ctx: { session: a.session, selected: w },
 	};
 }
-const tx = (body) => gatedTransaction(f.db, body);
-async function person(o, displayName, input = { adultClassification: "adult" }) {
+const tx = <T,>(body: Parameters<typeof gatedTransaction<T>>[1]) => gatedTransaction(f.db, body);
+async function person(
+	o: Plant,
+	displayName: string,
+	input: Record<string, unknown> = { adultClassification: "adult" },
+): Promise<{ id: string; displayName: string }> {
 	return ok(
 		await tx((t) =>
 			peopleWriter.createPerson(t, o.ctx, { requestKey: randomUUID(), input: { displayName, ...input } }),
 		),
 	).person;
 }
-const card = async (o, personId, occurredOn, kind = "core_group") =>
+const card = async (
+	o: Plant,
+	personId: string,
+	occurredOn: string,
+	kind: "core_group" | "launch_team" = "core_group",
+) =>
 	ok(
 		await tx((t) =>
 			commitments.createCommitment(t, o.ctx, { requestKey: randomUUID(), input: { personId, kind, occurredOn } }),
 		),
 	);
-async function committed(o, name, on = day(-60), input) {
+async function committed(o: Plant, name: string, on = day(-60), input?: Record<string, unknown>) {
 	const p = await person(o, name, input);
 	const saved = await card(o, p.id, on);
 	return { ...p, cardId: saved.commitment.id, cardRevision: saved.commitment.revision };
 }
-const read = async (o, db = f.db) => ok(await facts.readFacts(db, o.actor, {}));
-const record = (id, kind, plantId) =>
+const read = async (o: Pick<Plant, "actor">, db: Pick<Database, "execute"> = f.db) =>
+	ok(await facts.readFacts(db, o.actor, {}));
+const record = (id: string, kind: string, plantId: string) =>
 	f.admin.execute(sql`INSERT INTO record(id,kind,tenant_id) VALUES(${id},${kind},${plantId}) ON CONFLICT DO NOTHING`);
 
 let visionNumber = 0;
-async function meeting(o, { held, inDays, type = "vision_meeting", attended = [] }) {
+async function meeting(
+	o: Plant,
+	{
+		held,
+		inDays = 0,
+		type = "vision_meeting",
+		attended = [],
+	}: { type?: string; attended?: string[] } & (
+		{ held: number; inDays?: undefined } | { held?: undefined; inDays: number }
+	),
+) {
 	const id = randomUUID();
 	await record(id, "meeting", o.w.id);
 	const on = held !== undefined ? day(-held) : day(inDays);
@@ -81,14 +112,20 @@ async function meeting(o, { held, inDays, type = "vision_meeting", attended = []
 	for (const personId of attended) await attend(o, id, personId);
 	return id;
 }
-async function attend(o, meetingId, personId, presence = "attended") {
+async function attend(o: Plant, meetingId: string, personId: string, presence = "attended") {
 	const id = randomUUID();
 	await record(id, "participation", o.w.id);
 	await f.admin.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,presence)
 		VALUES(${id},${o.w.id},${meetingId},${personId},true,${presence})`);
 	return id;
 }
-async function followUp(o, meetingId, personId, ageHours, task = {}) {
+async function followUp(
+	o: Plant,
+	meetingId: string,
+	personId: string,
+	ageHours: number,
+	task: { status?: string; after?: number } = {},
+) {
 	const id = randomUUID(),
 		taskId = randomUUID();
 	await record(id, "obligation", o.w.id);
@@ -103,7 +140,14 @@ async function followUp(o, meetingId, personId, ageHours, task = {}) {
 		${id},${task.status === "complete" ? hoursAgo(ageHours - (task.after ?? 1)) : null}::timestamptz)`);
 	return { id, taskId, origin };
 }
-async function outcome(o, obligation, personId, kind, afterHours, completes = true) {
+async function outcome(
+	o: Plant,
+	obligation: Awaited<ReturnType<typeof followUp>>,
+	personId: string,
+	kind: string,
+	afterHours: number,
+	completes = true,
+) {
 	const id = randomUUID();
 	await record(id, "contact_outcome", o.w.id);
 	const at = new Date(Date.parse(obligation.origin) + afterHours * 3_600_000).toISOString();
@@ -112,13 +156,13 @@ async function outcome(o, obligation, personId, kind, afterHours, completes = tr
 		${at}::timestamptz,${at}::timestamptz,${completes})`);
 	return id;
 }
-async function roles(o, holders) {
+async function roles(o: Plant, holders: [string, string | null][]) {
 	const team = randomUUID();
 	await record(team, "team", o.w.id);
 	await f.admin.execute(
 		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${o.w.id},'Launch team','active',1)`,
 	);
-	const out = {};
+	const held: Record<string, { role: string; tenure: string }> = {};
 	let order = 0;
 	for (const [key, personId] of holders) {
 		const role = randomUUID();
@@ -130,12 +174,12 @@ async function roles(o, holders) {
 			await record(tenure, "team_tenure", o.w.id);
 			await f.admin.execute(sql`INSERT INTO team_tenure(id,plant_id,role_id,person_id,started_on)
 				VALUES(${tenure},${o.w.id},${role},${personId},${day(-10)})`);
-			out[key] = { role, tenure };
+			held[key] = { role, tenure };
 		}
 	}
-	return { team, ...out };
+	return { team, held };
 }
-async function program(o, people, complete) {
+async function program(o: Plant, people: { id: string }[], complete: number) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO training_program(id,plant_id,name,required) VALUES(${id},${o.w.id},'Launch team basics',true)`,
@@ -150,7 +194,7 @@ async function program(o, people, complete) {
 	return id;
 }
 const CANARY = "canary-note-7f3a";
-async function interview(o, personId, on) {
+async function interview(o: Plant, personId: string, on: string) {
 	const id = randomUUID();
 	await record(id, "interview", o.w.id);
 	await f.admin
@@ -158,14 +202,14 @@ async function interview(o, personId, on) {
 		right_reasons,season,maturity_notes,result) VALUES(${id},${o.w.id},${personId},${on},clock_timestamp(),'concern','pass',
 		'pass','pass','fail',${CANARY + "-interview"},'not_qualified')`);
 }
-async function fourCs(o, personId, on) {
+async function fourCs(o: Plant, personId: string, on: string) {
 	const id = randomUUID();
 	await record(id, "four_cs", o.w.id);
 	await f.admin
 		.execute(sql`INSERT INTO four_cs(id,plant_id,person_id,assessed_on,recorded_at,committed,compelled,contagious,
 		courageous,committed_notes) VALUES(${id},${o.w.id},${personId},${on},clock_timestamp(),2,3,1,4,${CANARY + "-4cs"})`);
 }
-async function checkIn(o) {
+async function checkIn(o: Plant) {
 	const current = ok(await care.readCurrent(f.db, o.actor, {}));
 	const struggling = { spiritual: "struggling", family: "struggling", financial: "struggling", pace: "struggling" };
 	ok(
@@ -176,11 +220,11 @@ async function checkIn(o) {
 		}),
 	);
 }
-const stable = ({ asOf: _asOf, ...rest }) => rest;
+const stable = ({ asOf: _asOf, ...rest }: PlantFacts) => rest;
 
 test("AC:CA001 AC:CA003 30 committed adults on two teams count once each, children do not count, and the list names each", async () => {
 	const o = await plant();
-	const adults = [];
+	const adults: Committed[] = [];
 	for (let i = 0; i < 30; i++) {
 		const p = await committed(o, `Adult ${String(i + 1).padStart(2, "0")}`);
 		if (i < 10) await card(o, p.id, day(-30), "launch_team");
@@ -191,7 +235,7 @@ test("AC:CA001 AC:CA003 30 committed adults on two teams count once each, childr
 	const a = r.committedAdults;
 	assert.deepEqual([a.status, a.known, a.exact, a.children, a.needsClassifying.length], ["met", 30, 30, 2, 0]);
 	assert.deepEqual(a.evidence.map((e) => e.person.id).sort(), adults.map((p) => p.id).sort());
-	const both = a.evidence.find((e) => e.person.id === adults[0].id);
+	const both = a.evidence.find((e) => e.person.id === adults[0]!.id)!;
 	assert.deepEqual([both.kinds, both.committedSince], [["core_group", "launch_team"], day(-60)]);
 	assert.equal(r.criteria.committed_adults, "met");
 	assert.equal(r.formulaVersion, "plant-facts/2");
@@ -214,7 +258,7 @@ test("AC:CA008 AC:CA019 a withdrawal lowers the count but keeps the growth clock
 	const blake = await committed(o, "Blake Recent", day(-22));
 	let r = await read(o);
 	assert.deepEqual([r.growth.status, r.growth.daysSince, r.committedAdults.known], ["slowed", 22, 2]);
-	const personRevision = (await one(sql`SELECT revision::text AS r FROM person WHERE id=${blake.id}`)).r;
+	const personRevision = (await one<{ r: string }>(sql`SELECT revision::text AS r FROM person WHERE id=${blake.id}`)).r;
 	ok(
 		await tx((t) =>
 			commitments.withdrawCommitment(t, o.ctx, {
@@ -269,27 +313,27 @@ test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-002 AC:B01-020 AC:B01-026 vis
 	await meeting(o, { held: 2 });
 
 	const [g1, g2, g3, g4] = [
-		await followUp(o, held, people[0].id, 72, { status: "complete", after: 72 - 10 }),
-		await followUp(o, held, people[1].id, 72, { status: "complete", after: 72 - 40 }),
-		await followUp(o, held, people[2].id, 72, { status: "no_longer_needed" }),
-		await followUp(o, held, people[3].id, 72),
+		await followUp(o, held, people[0]!.id, 72, { status: "complete", after: 72 - 10 }),
+		await followUp(o, held, people[1]!.id, 72, { status: "complete", after: 72 - 40 }),
+		await followUp(o, held, people[2]!.id, 72, { status: "no_longer_needed" }),
+		await followUp(o, held, people[3]!.id, 72),
 	];
-	await outcome(o, g1, people[0].id, "contacted", 10);
-	await outcome(o, g2, people[1].id, "administrative_completion", 40);
+	await outcome(o, g1, people[0]!.id, "contacted", 10);
+	await outcome(o, g2, people[1]!.id, "administrative_completion", 40);
 	void g3;
 	void g4;
 
 	const [a, b, c, d, e] = people;
 	await roles(o, [
-		["worship", a.id],
-		["children", b.id],
-		["assimilation", c.id],
-		["small_groups", d.id],
+		["worship", a!.id],
+		["children", b!.id],
+		["assimilation", c!.id],
+		["small_groups", d!.id],
 		["administration_finance", null],
-		["facilities", a.id],
-		["promotion", b.id],
+		["facilities", a!.id],
+		["promotion", b!.id],
 		["technology", null],
-		["prayer", e.id],
+		["prayer", e!.id],
 	]);
 	await program(o, people, 9);
 	ok(
@@ -312,10 +356,10 @@ test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-002 AC:B01-020 AC:B01-026 vis
 	);
 	assert.deepEqual(
 		[r.coverage.filled, r.coverage.people, r.coverage.prayerLeader],
-		[6, 4, [{ id: e.id, name: e.displayName }]],
+		[6, 4, [{ id: e!.id, name: e!.displayName }]],
 	);
 	assert.deepEqual([r.training.complete, r.training.total, r.training.status], [9, 10, "not_met"]);
-	const prayer = r.attestations.find((x) => x.key === "prayer_rhythm_established");
+	const prayer = r.attestations.find((x) => x.key === "prayer_rhythm_established")!;
 	assert.deepEqual([prayer.value, prayer.asOf, prayer.renewal.status], ["yes", day(-35), "needs_renewing"]);
 	assert.deepEqual(
 		[r.criteria.all_team_leaders, r.criteria.training_complete, r.criteria.worship_leader, r.criteria.financial_base],
@@ -350,11 +394,18 @@ test("AC:PI-PURPOSE-001 AC:ASMT-012 check-ins never reach the facts; interviews 
 	const text = JSON.stringify(r);
 	for (const hidden of [CANARY, "struggling", "not_qualified", "concern"]) assert.ok(!text.includes(hidden), hidden);
 	assert.deepEqual(stable(r), stable(before));
-	const seen = [];
-	const spy = { execute: (q) => (seen.push(q), f.db.execute(q)) };
+	const seen: (SQLWrapper | string)[] = [];
+	const spy: Pick<Database, "execute"> = {
+		execute: <T extends Record<string, unknown>>(q: SQLWrapper | string) => {
+			seen.push(q);
+			return f.db.execute<T>(q);
+		},
+	};
 	await read(o, spy);
 	assert.equal(seen.length, 1);
-	const statement = f.db.dialect.sqlToQuery(seen[0]).sql;
+	const [query] = seen;
+	assert.ok(query instanceof SQL);
+	const statement = new PgDialect().sqlToQuery(query).sql;
 	for (const name of ["private_", "_notes", "result", "maturity", "committed,", "score", "next_steps", "card_notes"])
 		assert.ok(!statement.includes(name), name);
 });
@@ -417,8 +468,8 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"obligation.origin_at": sql`UPDATE obligation SET origin_at=origin_at-interval '1 hour' WHERE id=${ob.id}`,
 		"contact_outcome.voided_at": sql`UPDATE contact_outcome SET voided_at=clock_timestamp() WHERE id=${co}`,
 		"team.archived_at": sql`UPDATE team SET archived_at=clock_timestamp() WHERE id=${other.team}`,
-		"team_tenure.ended_on": sql`UPDATE team_tenure SET ended_on=${today} WHERE id=${team.worship.tenure}`,
-		"team_role.retired_at": sql`UPDATE team_role SET retired_at=clock_timestamp() WHERE id=${team.children.role}`,
+		"team_tenure.ended_on": sql`UPDATE team_tenure SET ended_on=${today} WHERE id=${team.held.worship!.tenure}`,
+		"team_role.retired_at": sql`UPDATE team_role SET retired_at=clock_timestamp() WHERE id=${team.held.children!.role}`,
 		training_credit: sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
 			VALUES(${o.w.id},${p.id},${prog},'earned',1,${day(-1)})`,
 		"training_program.version": sql`UPDATE training_program SET version=2 WHERE id=${prog}`,

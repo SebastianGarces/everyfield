@@ -5,6 +5,7 @@ import { liveAccess, type RequestActor, type WriteTx } from "@everyfield/domain/
 import { createSeatService } from "@everyfield/domain/identity";
 import { auditTransaction, gatedTransaction, WriteUnavailable } from "@everyfield/domain/operations";
 import {
+	connectionLink,
 	createOrganizationAdapter,
 	geographyReference,
 	OrganizationRefusal,
@@ -30,11 +31,12 @@ import {
 	type MailPass,
 	type MailTransport,
 } from "@everyfield/domain/jobs";
+import type { MailDelay } from "@everyfield/domain/flags";
+import { withMailDelay } from "../../server/switches.ts";
 import { getViewer } from "../../server/request-context";
-import { invitationLink } from "../../server/invitations";
 
 export type RefusalCode = OrganizationRefusalCode | "invalid_input";
-export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: RefusalCode };
+export type Reply<T = unknown> = ({ status: "ok"; value: T } & MailDelay) | { status: "refused"; code: RefusalCode };
 export type Mount = ReturnType<typeof current>;
 
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
@@ -65,7 +67,7 @@ function create(v: ServerConfig) {
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
 			if (input.owner.kind === "global") refuse();
-			const link = invitationLink(v.IDENTITY_ORIGIN, "/connections/respond", input.invitationId, input.proof);
+			const link = connectionLink(v.IDENTITY_ORIGIN, "/connections/respond", input.invitationId, input.proof);
 			await mail.append(
 				tx,
 				{
@@ -163,6 +165,9 @@ export async function command<T>(
 		return refusalOf(e);
 	}
 }
+
+export const sendCommand = async <T>(...args: Parameters<typeof command<T>>): Promise<Reply<T>> =>
+	withMailDelay(await command(...args));
 
 export async function query<T>(
 	m: Mount,

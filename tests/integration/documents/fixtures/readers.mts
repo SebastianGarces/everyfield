@@ -13,14 +13,15 @@ type PdfJs = {
 		}>;
 	};
 };
+async function loadPdfJs(): Promise<PdfJs> {
+	const base = "../../../../packages/db/node_modules/pdfjs-dist/legacy/build/";
+	Object.assign(globalThis, { pdfjsWorker: await import(base + "pdf.worker.mjs") });
+	return import(base + "pdf.mjs");
+}
 let pdfjs: PdfJs | undefined;
 
 export async function pdfPages(bytes: Uint8Array): Promise<string[]> {
-	if (!pdfjs) {
-		const base = "../../../../packages/db/node_modules/pdfjs-dist/legacy/build/";
-		(globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = await import(base + "pdf.worker.mjs");
-		pdfjs = (await import(base + "pdf.mjs")) as unknown as PdfJs;
-	}
+	pdfjs ??= await loadPdfJs();
 	const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
 	const pages: string[] = [];
 	for (let n = 1; n <= doc.numPages; n++) {
@@ -124,10 +125,10 @@ export async function pdfFontFaces(bytes: Uint8Array): Promise<{ baseFont: strin
 		const raw = Buffer.from(file.contents);
 		const font = file.dict.get(PDFName.of("Filter")) ? inflateSync(raw) : raw;
 		const names = nameTable(font);
+		const name = obj.get(PDFName.of("FontName"));
+		assert.ok(name instanceof PDFName);
 		faces.push({
-			baseFont: (obj.get(PDFName.of("FontName")) as InstanceType<typeof PDFName>)
-				.decodeText()
-				.replace(/^[A-Z]{6}\+/, ""),
+			baseFont: name.decodeText().replace(/^[A-Z]{6}\+/, ""),
 			family: names[1] ?? "",
 			style: names[2] ?? "",
 		});

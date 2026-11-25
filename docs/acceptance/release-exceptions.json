@@ -1,0 +1,9 @@
+{
+  "exceptions": [
+    {
+      "id": "UI45-005",
+      "package": "WP-094",
+      "reason": "Its result is keyboard focus returned to the Evry button after the panel closes, which only a browser shows."
+    }
+  ]
+}

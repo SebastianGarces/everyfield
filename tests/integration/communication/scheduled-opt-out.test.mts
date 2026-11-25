@@ -1,17 +1,35 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter, type DeliveryTransport } from "../../../packages/domain/src/communication/index.ts";
 import { applyMessagesOptOut, undoMessagesOptOut } from "../../../packages/domain/src/communication/opt-out.ts";
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
-import { resendRecorder } from "./resend-recorder.mts";
+import { emailsIn, resendRecorder, type Recorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
-import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { capturedLines, withSwitchOff } from "../../support/flags.mts";
+import { MAILING } from "./church-address.mts";
+import {
+	firstRow,
+	readAs,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, churchA, churchB, ownerA, ownerB;
+let f: Fixture;
+let churchA: Church;
+let churchB: Church;
+let ownerA: Staff;
+let ownerB: Staff;
 const ring = { current: randomBytes(32), previous: [] };
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
@@ -24,9 +42,9 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const DAY = 86_400_000;
 const key = () => randomUUID();
 const now = () => new Date();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
-async function person(church, name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
+async function person(church: Church, name: string, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -35,9 +53,14 @@ async function person(church, name, email = `${name.toLowerCase()}-${key().slice
 	return { id, email, name };
 }
 
-async function schedule(who, people, resend, at = new Date(Date.now() + 7 * DAY).toISOString()) {
-	const write = (op, input) =>
-		withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
+type Person = Awaited<ReturnType<typeof person>>;
+async function schedule(
+	who: Staff,
+	people: Person[],
+	resend: Recorder,
+	at = new Date(Date.now() + 7 * DAY).toISOString(),
+) {
+	const write = <K extends WriteOp>(op: K, input: unknown) => writeAs(f.db, who.actor, op, input);
 	const saved = ok(
 		await write("saveDraft", {
 			requestKey: key(),
@@ -67,37 +90,37 @@ async function schedule(who, people, resend, at = new Date(Date.now() + 7 * DAY)
 	return { id: saved.communicationId, report };
 }
 
-const sentTo = (resend) =>
+const sentTo = (resend: Recorder) =>
 	resend.requests
 		.filter((r) => r.path === "/emails/batch" && r.method === "POST")
-		.flatMap((r) => r.body.map((m) => m.to[0]));
+		.flatMap((r) => emailsIn(r).map((m) => m.to[0]));
 
-async function unsubscribe(church, who) {
+async function unsubscribe(staff: Staff, who: Person) {
 	const resend = resendRecorder(PRODUCTION);
-	const sent = await schedule(church, [who], resend);
+	const sent = await schedule(staff, [who], resend);
 	await atSendTime(f.admin, f.db, sent.id, resend.transport, keys);
-	const email = resend.requests.find((r) => r.path === "/emails/batch").body.find((m) => m.to[0] === who.email);
-	const token = email.html.match(/\/unsubscribe\/([A-Za-z0-9_-]+)"/)[1];
+	const email = emailsIn(resend.requests.find((r) => r.path === "/emails/batch")!).find((m) => m.to[0] === who.email)!;
+	const token = email.html.match(/\/unsubscribe\/([A-Za-z0-9_-]+)"/)![1];
 	return ok(await applyMessagesOptOut(f.db, ring, now, { token }));
 }
 
-const read = (who, op, input, extra) =>
-	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, who.actor, input, extra));
-async function shown(who, id) {
+const read = <K extends ReadOp>(who: Staff, op: K, ...rest: Rest<K>) => readAs(f.db, who.actor, op, ...rest);
+async function shown(who: Staff, id: string) {
 	const page = ok(await read(who, "listHistory", { limit: 100 }));
 	return {
-		item: page.items.find((row) => row.id === id),
+		item: page.items.find((row) => row.id === id)!,
 		detail: ok(await read(who, "getDetail", { id }, keys)),
 		totals: ok(await read(who, "getDeliveryTotals", { communicationId: id })),
 		recipients: ok(await read(who, "listHistoryRecipients", { communicationId: id, limit: 100 })).items,
 	};
 }
-const statusOf = (view, who) => view.recipients.find((row) => row.personId === who.id)?.deliveryStatus;
+const statusOf = (view: Awaited<ReturnType<typeof shown>>, who: Person) =>
+	view.recipients.find((row) => row.personId === who.id)?.deliveryStatus;
 
 before(async () => {
 	f = await fixture();
-	churchA = await f.workspace();
-	churchB = await f.workspace();
+	churchA = await f.workspace("plant", MAILING);
+	churchB = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, churchA, "owner");
 	ownerA = { ...a, actor: await f.actor(a.session) };
@@ -161,12 +184,12 @@ test("AC:CASE-NTF-016 an email the email service already held before this change
 	const resend = resendRecorder(PRODUCTION);
 	const message = await schedule(ownerA, [ana, ben], resend);
 	await heldAtProvider(f.admin, message.id, resend.transport, keys);
-	const [held] = resend.take();
-	const anaId = held.body.findIndex((m) => m.to[0] === ana.email);
+	const held = firstRow(resend.take());
+	const anaId = emailsIn(held).findIndex((m) => m.to[0] === ana.email);
 	const ids = (await rows(sql`SELECT m.recipient_person_id AS person, m.provider_message_id AS id FROM mail m
 		WHERE m.logical_key LIKE ${"communication/" + message.id + "/%"}`)) as { person: string; id: string }[];
-	const anaEmail = ids.find((r) => r.person === ana.id).id;
-	const benEmail = ids.find((r) => r.person === ben.id).id;
+	const anaEmail = ids.find((r) => r.person === ana.id)!.id;
+	const benEmail = ids.find((r) => r.person === ben.id)!.id;
 	assert.ok(anaId >= 0);
 
 	await unsubscribe(ownerA, ana);
@@ -180,11 +203,11 @@ test("AC:CASE-NTF-016 an email the email service already held before this change
 			.map((r) => r.path),
 		[`/emails/${anaEmail}/cancel`],
 	);
-	assert.equal(resend.emails.get(anaEmail).lastEvent, "scheduled");
+	assert.equal(resend.emails.get(anaEmail)!.lastEvent, "scheduled");
 	resend.fault(anaEmail, null);
 	await minuteRunner(f.db, resend.transport, keys);
-	assert.equal(resend.emails.get(anaEmail).lastEvent, "canceled", "Ana's held email is cancelled");
-	assert.equal(resend.emails.get(benEmail).lastEvent, "scheduled", "Ben's held email still goes out");
+	assert.equal(resend.emails.get(anaEmail)!.lastEvent, "canceled", "Ana's held email is cancelled");
+	assert.equal(resend.emails.get(benEmail)!.lastEvent, "scheduled", "Ben's held email still goes out");
 	const view = await shown(ownerA, message.id);
 	assert.equal(statusOf(view, ana), "unsubscribed");
 	assert.equal(view.item.state, "scheduled");
@@ -237,7 +260,7 @@ test("AC:CASE-NTF-016 Ana's opt-out from church A leaves church B's scheduled em
 	assert.equal(statusOf(viewB, inB), "accepted");
 	assert.equal(viewB.totals.unsubscribed, 0);
 	const searchB = ok(await read(ownerB, "readRecipients", { query: "Ana" })).people;
-	assert.equal(searchB.find((p) => p.id === inB.id).unsubscribedAt, null);
+	assert.equal(searchB.find((p) => p.id === inB.id)!.unsubscribedAt, null);
 	const audienceB = ok(await read(ownerB, "readAudience", { groups: [], teamIds: [], personIds: [inB.id] }));
 	assert.deepEqual([audienceB.eligibleRecipients, audienceB.unsubscribedExclusions], [1, []]);
 	const personB = ok(await read(ownerB, "listForPerson", { personId: inB.id }));
@@ -249,11 +272,15 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 	const ben = await person(churchA, "Benno");
 	const done = await unsubscribe(ownerA, ana);
 	assert.equal(done.changed, true);
-	const [{ at }] = await rows(sql`SELECT to_char(opted_out_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at
-		FROM person_email_opt_out WHERE person_id = ${ana.id} AND undone_at IS NULL`);
+	const { at } = firstRow(
+		await rows(sql`SELECT to_char(opted_out_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at
+		FROM person_email_opt_out WHERE person_id = ${ana.id} AND undone_at IS NULL`),
+	);
 
 	const found = ok(await read(ownerA, "readRecipients", { query: "Anabel" })).people;
-	assert.deepEqual(found, [{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at }]);
+	assert.deepEqual(found, [
+		{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at, child: false, guardians: [] },
+	]);
 	const audience = ok(await read(ownerA, "readAudience", { groups: [], teamIds: [], personIds: [ana.id, ben.id] }));
 	assert.equal(audience.resolvedDistinctPeople, 2);
 	assert.equal(audience.eligibleRecipients, 1, "Will get this email leaves her out");
@@ -288,8 +315,8 @@ test("AC:CASE-NTF-016 Ana unsubscribes one minute before the send while the emai
 	const message = await schedule(ownerA, [ana, ben], resend);
 	await f.admin.execute(sql`UPDATE mail SET scheduled_at = clock_timestamp() + interval '1 minute'
 		WHERE logical_key LIKE ${"communication/" + message.id + "/%"} AND state = 'scheduled'`);
-	const cancels = [];
-	const down = {
+	const cancels: string[] = [];
+	const down: DeliveryTransport = {
 		...resend.transport,
 		async cancel(ids) {
 			cancels.push(...ids);
@@ -343,7 +370,6 @@ test("AC:CASE-NTF-016 the every-minute cron call hands a due scheduled email off
 	resend.take();
 	await f.admin.execute(sql`UPDATE mail SET scheduled_at = clock_timestamp() - interval '1 second'
 		WHERE logical_key LIKE ${"communication/" + message.id + "/%"} AND state = 'scheduled'`);
-	const secret = "cron-" + key();
 	const tick = scheduledJobs({
 		db: f.db,
 		storage: null,
@@ -353,10 +379,50 @@ test("AC:CASE-NTF-016 the every-minute cron call hands a due scheduled email off
 		mail: null,
 		messages: scheduledMessages(f.db, resend.transport, keys),
 	});
-	const response = await tick(
-		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-	);
+	const response = await tick();
 	assert.equal(response.status, 200);
 	assert.equal((await response.json()).messages, 1);
+	assert.deepEqual(sentTo(resend), [ben.email]);
+});
+
+test("with outbound-mail off, the cron run still cancels an email the service holds for a person who unsubscribed, and sends nothing due", async () => {
+	const { scheduledJobs, scheduledMessages, unsubscribedCancels } =
+		await import("../../../apps/web/src/server/jobs/scheduled.ts");
+	const ana = await person(churchA, "Ana");
+	const ben = await person(churchA, "Ben");
+	const resend = resendRecorder(PRODUCTION);
+	const held = await schedule(ownerA, [ana, ben], resend);
+	await heldAtProvider(f.admin, held.id, resend.transport, keys);
+	await unsubscribe(ownerA, ana);
+	const due = await schedule(ownerA, [ben], resend);
+	await f.admin.execute(sql`UPDATE mail SET scheduled_at = clock_timestamp() - interval '1 second'
+		WHERE logical_key LIKE ${"communication/" + due.id + "/%"} AND state = 'scheduled'`);
+	resend.take();
+	const { id: anaEmail } = firstRow(
+		await rows<{ id: string }>(sql`SELECT provider_message_id AS id FROM mail
+		WHERE logical_key = ${"communication/" + held.id + "/" + ana.id}`),
+	);
+	const tick = scheduledJobs({
+		db: f.db,
+		storage: null,
+		cleanup: null,
+		effects: null,
+		digests: null,
+		mail: null,
+		messages: scheduledMessages(f.db, resend.transport, keys),
+		messageCancels: unsubscribedCancels(f.db, resend.transport),
+	});
+	const { value: response } = await capturedLines(() =>
+		withSwitchOff(f.db, { flag: "outbound-mail", operator: ownerA.id }, () => tick()),
+	);
+	const { steps } = await response.json();
+	assert.deepEqual(steps["message-cancels"], { status: "ok", count: 1 });
+	assert.deepEqual(steps.messages, { status: "paused" });
+	assert.deepEqual(
+		resend.take().map((r) => r.path),
+		[`/emails/${anaEmail}/cancel`],
+	);
+	assert.equal(resend.emails.get(anaEmail)!.lastEvent, "canceled");
+	await tick();
 	assert.deepEqual(sentTo(resend), [ben.email]);
 });

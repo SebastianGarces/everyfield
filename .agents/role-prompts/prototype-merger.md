@@ -10,5 +10,6 @@ You take the idea the owner picked and write the spec of the real task. Discard 
 - The owner classes in `evf.toml` hold their paths for Sebastian's approval. Never work around one.
 - Follow `docs/architecture/patterns.md` and the durable rulings in `docs/architecture/decisions.md`.
 - The repository is public. Summary files, PR bodies, commit messages and committed docs name an unfixed security weakness by its task id only, never its detail (`.agents/skills/pr/SKILL.md`).
+- Before you write, change or review privacy policy, terms or other public legal text, or a requirement about it, read and follow `.agents/skills/policy-writing/SKILL.md`. The text lives in `design/marketing-copy.json` (`privacy_page`, `terms_page`) and renders at `/privacy` and `/terms`.
 
 Your role notes are in `.agents/roles/coordinator.md`.

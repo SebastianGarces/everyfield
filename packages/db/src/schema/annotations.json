@@ -1510,8 +1510,8 @@
 				"evry_effect"
 			],
 			"job.state": ["ready", "claimed", "retry_wait", "reconcile", "succeeded", "failed", "cancelled", "superseded"],
-			"lifecycle_witness.kind": ["account", "plant", "seat", "affiliation"],
-			"lifecycle_witness.state": ["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"],
+			"lifecycle_witness.kind": ["account", "plant"],
+			"lifecycle_witness.state": ["pending_deletion", "purging", "purged", "cancelled"],
 			"lifecycle_witness.cleanup_state": ["not_started", "in_progress", "inaccessible", "confirmed"],
 			"tenant.kind": ["account", "plant", "organization", "global"],
 			"record.kind": [
@@ -1729,7 +1729,7 @@
 				"other"
 			],
 			"development_program.kind": ["apprenticeship", "residency"],
-			"development_enrollment.status": ["active", "completed", "withdrawn"],
+			"development_enrollment.status": ["active", "completed"],
 			"schema_migration.provenance": ["original", "adopted"],
 			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
 			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],
@@ -1962,7 +1962,7 @@
 				"meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
 				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
 				"merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
-				"inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+				"inverse_policy": "Clear the source's redirect and return earlier merged Persons the merge repointed. Refuse with no write while a later merge of the survivor stands, or when the survivor is retired. An organization keeps the REQ-MUL-017 refusals.",
 				"retirement_policy": "Stop new current references after retirement, merge or removal. Active duties and enrollments require reviewed resolution; retain only necessary facts under removal policy.",
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -1976,7 +1976,7 @@
 				"meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
 				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
 				"merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
-				"inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+				"inverse_policy": "In a church: return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship. An organization note keeps the REQ-MUL-017 refusals.",
 				"retirement_policy": "Stop new current references after retirement, merge or removal. Active duties and enrollments require reviewed resolution; retain only necessary facts under removal policy.",
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -1989,8 +1989,8 @@
 				"consumer_work_packages": ["WP-004", "WP-012"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
-				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"merge_policy": "Move the skill to the survivor. A skill the survivor already has by the same name stays on the source as history, so the survivor shows it once.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2004,7 +2004,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2018,7 +2018,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2032,7 +2032,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2046,7 +2046,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2060,7 +2060,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2074,7 +2074,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2088,7 +2088,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2102,7 +2102,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2116,7 +2116,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return the inviter on each guest the merge repointed and keep the guest's later RSVP or attendance. Refuse with no write when the guest's inviter changed after the merge.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2130,7 +2130,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2143,8 +2143,8 @@
 				"consumer_work_packages": ["WP-004", "WP-024"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
-				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"merge_policy": "Move the follow-up, its task and its outcomes to the survivor. When both have one for the same meeting, the survivor's stays current with the better state of the two (finished, then open) and both owners while open. The source's is superseded and stays on the source with its task closed; its outcomes move and count on the survivor's.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2158,7 +2158,7 @@
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2172,7 +2172,7 @@
 				"meaning": "Current candidate attestation. It follows the Person on merge; a survivor that already holds one keeps it and the source's stays on the source.",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2241,8 +2241,8 @@
 				"consumer_work_packages": ["WP-004", "WP-028", "WP-031"],
 				"meaning": "Organization or plant Person reference under exact immutable owner; linked account grants are separate.",
 				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
-				"merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
-				"inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+				"merge_policy": "Sent email stays on the Person it was sent to, and Messages reads the merge lineage, so it also shows in the survivor's history. Email not yet sent moves to the survivor with its frozen address. Never resend or rewrite.",
+				"inverse_policy": "Each Person keeps the email sent to them, as sent. Email the merge moved goes back to its original recipient; nothing is unsent or resent. An organization keeps the REQ-MUL-017 refusals.",
 				"retirement_policy": "Stop new current references after retirement, merge or removal. Active duties and enrollments require reviewed resolution; retain only necessary facts under removal policy.",
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Preserve earned credit and reviewed recipient/delivery/attendance provenance; no silent rewrite.",
@@ -2298,7 +2298,7 @@
 				"meaning": "Current kit-item assignee; a retired or merged Person drops out of operational selection while history keeps the original reference.",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
-				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
 				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2311,7 +2311,7 @@
 				"consumer_work_packages": ["WP-015"],
 				"meaning": "Merge lineage: the source and survivor of one reviewed merge.",
 				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
-				"merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+				"merge_policy": "Immutable lineage of an earlier merge; never moved. While a later merge of the survivor stands, the earlier Unmerge is refused.",
 				"inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
 				"retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
 				"privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
@@ -2325,7 +2325,7 @@
 				"consumer_work_packages": ["WP-015"],
 				"meaning": "Merge lineage: the source and survivor of one reviewed merge.",
 				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
-				"merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+				"merge_policy": "Immutable lineage of an earlier merge; never moved. While a later merge of the survivor stands, the earlier Unmerge is refused.",
 				"inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
 				"retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
 				"privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
@@ -2340,7 +2340,7 @@
 				"meaning": "Correction history of a record of this Person.",
 				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
 				"merge_policy": "Moves with its record to the survivor; the correction keeps its original corrector and values.",
-				"inverse_policy": "Moves back with its record on a guarded Unmerge.",
+				"inverse_policy": "Moves back with its record on Unmerge.",
 				"retirement_policy": "History stays under current permission and goes with the Person on purge.",
 				"privacy_policy": "Private qualification values stay in plant history; never in central audit.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
@@ -2368,7 +2368,7 @@
 				"meaning": "Saved person and program applicability. A merge moves every episode to the survivor.",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then the assignment row.",
 				"merge_policy": "Move the assignment to the survivor. Do not put both people on one active episode of the same program.",
-				"inverse_policy": "Unmerge moves the assignment back when the reviewed survivor revision still matches.",
+				"inverse_policy": "Unmerge moves the assignment back and reopens one the merge closed because both people held it. Refuse with no write when it was edited after the merge. An assignment added after the merge stays with the survivor.",
 				"retirement_policy": "Operational rosters list live people only. The episode row remains.",
 				"privacy_policy": "Assignment movement never transfers account grants, private care, or mail.",
 				"immutable_evidence_policy": "Ended episodes keep their dates. A merge moves the row. It does not rewrite the dates.",
@@ -2381,7 +2381,7 @@
 				"consumer_work_packages": ["WP-019"],
 				"meaning": "Append-only earned, revoked, or service evidence. A merge leaves it on the source person.",
 				"lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the credit.",
-				"merge_policy": "Keep the credit on the source person. Do not move historical completion.",
+				"merge_policy": "Keep the credit on the source person. Training reads the merge lineage, so the survivor's completion counts it; the date and verifier never change.",
 				"inverse_policy": "Unmerge does not move the credit, because the merge did not move it.",
 				"retirement_policy": "Operational selectors omit a retired person. The credit row remains under that person.",
 				"privacy_policy": "Credit evidence never transfers account grants, private care, or organization person evidence.",
@@ -2401,6 +2401,34 @@
 				"privacy_policy": "Names only the person; the reviewer reads the chosen live answers and nothing else of the person's record.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
+			},
+			{
+				"table": "guardian_contact",
+				"columns": ["child_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-012", "WP-021"],
+				"meaning": "The child whose Messages email goes to a parent or guardian contact instead (D-2336, D-2337).",
+				"lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
+				"merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
+				"inverse_policy": "Unmerge does not move a link, because the merge did not move it.",
+				"retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
+				"privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
+				"immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
+				"future_case_ids": ["TARGET-PPL-009"]
+			},
+			{
+				"table": "guardian_contact",
+				"columns": ["guardian_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-012", "WP-021"],
+				"meaning": "The adult in the child's household who receives the child's Messages email (D-2336, D-2337).",
+				"lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
+				"merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
+				"inverse_policy": "Unmerge does not move a link, because the merge did not move it.",
+				"retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
+				"privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
+				"immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
+				"future_case_ids": ["TARGET-PPL-009"]
 			}
 		],
 		"person_snapshot_references": [
@@ -11514,10 +11542,16 @@
 					"note": ""
 				},
 				"refusal": {
-					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead."
+					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; child when the person was marked as a child at send time and no parent or guardian contact could be emailed (no override); guardian when the child's email went to a parent or guardian contact instead; null otherwise. A blocked address keeps its suppression row instead."
 				},
 				"communication_id": {
 					"note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix."
+				},
+				"guardian_mail_ids": {
+					"note": "For a child's Messages row with refusal guardian: the mail rows of the parent or guardian contacts who received the email instead. Each is that adult's one copy of the send. Null otherwise."
+				},
+				"guardian_copy": {
+					"note": "True on a Messages row sent to an adult only as a child's parent or guardian contact, not as a person in the audience. The Selected total of a send leaves these rows out."
 				}
 			},
 			"foreignKeys": {
@@ -13231,7 +13265,7 @@
 			"table": {
 				"name": "lifecycle_witness",
 				"domain": "operations",
-				"purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
+				"purpose": "Body-free account and church workspace deletion witness with stable opaque subject key after live-root purge. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-015", "CAP-A-052"],
@@ -13359,12 +13393,6 @@
 				"cleanup_state": {
 					"note": ""
 				},
-				"seat_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"affiliation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"requester_opaque_id": {
 					"note": "Historical non-content subject key; retained after the live requester FK is cleared."
 				},
@@ -13389,20 +13417,6 @@
 					}
 				},
 				"requester_id->account(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"seat_id->seat(id)": {
-					"scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"affiliation_id->affiliation(id)": {
-					"scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -14203,7 +14217,7 @@
 					"Both Persons and moved current references are same plant; two account-linked Persons cannot merge and linked Person must survive.",
 					"Current reference writers validate live Person so no new reference races onto retired source.",
 					"Source-to-survivor lineage is acyclic and retries do not create duplicate merge or inverse.",
-					"Unmerge requires unchanged recorded facts/reference revisions and all inverse checks; no discarded later facts, transferred private author identity or unsent mail.",
+					"Unmerge keeps every later fact with the Person it was added to and refuses, with no write, a later change it cannot split; no discarded later facts, transferred private author identity or unsent mail.",
 					"Server reparses original bytes, caps 10 MiB and 10000 rows, and checks frozen reviewed digest.",
 					"Each import-intent/row key commits at most one successful creation; retries resume only unfinished rows.",
 					"Stale authority/review refuses effects; partial outcomes remain factual and named.",
@@ -18133,6 +18147,83 @@
 				}
 			}
 		},
+		"guardian_contact": {
+			"table": {
+				"name": "guardian_contact",
+				"domain": "people",
+				"purpose": "An adult in a child's household whom staff named as that child's parent or guardian contact (D-2336). A Messages email that includes the child goes to the contact instead (D-2337). The link counts only while both people are live and in the household it names and the contact is marked as an adult.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-022"],
+				"replaces": [],
+				"producer_work_packages": ["WP-012"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-012"],
+					"rule": "WP-012 People households records a parent or guardian contact from an Owner or Admin."
+				},
+				"feature_ids": ["PPL-009"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "tenant",
+				"invariants": [
+					"At most one link per church, child and adult.",
+					"The child and the adult are different people in the same household when the link is written, and the adult is marked as an adult.",
+					"A link whose people are no longer both live, both in its household, or whose adult is no longer marked as an adult is ignored by every read and send.",
+					"Each add and remove writes one audit row on the child in the same statement."
+				],
+				"revision": "No revision column; adding and removing a link bump the child's revision.",
+				"idempotency": "Adding a link that exists or removing one that does not changes nothing and writes a noop audit row.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Link identity."
+				},
+				"plant_id": {
+					"note": "The church both people belong to."
+				},
+				"child_person_id": {
+					"note": "The person marked as a child. Not moved by a merge."
+				},
+				"guardian_person_id": {
+					"note": "The adult who receives the child's Messages email. Not moved by a merge."
+				},
+				"household_id": {
+					"note": "The household both people were in when the link was written; the link counts only while both are still in it."
+				},
+				"created_at": {
+					"note": "When the link was written."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"child_person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The link goes with either Person in the church purge."
+					}
+				},
+				"guardian_person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The link goes with either Person in the church purge."
+					}
+				},
+				"household_id,plant_id->household(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The link goes with its household."
+					}
+				}
+			}
+		},
 		"person_duplicate_dismissal": {
 			"table": {
 				"name": "person_duplicate_dismissal",
@@ -18287,7 +18378,7 @@
 				"invariants": [
 					"Source and survivor share the owner.",
 					"At most one open merge names a source.",
-					"Unmerge proceeds only while both revisions and the survivor reference digest are unchanged."
+					"In a church, Unmerge keeps later additions with the Person they were added to and refuses, with no write, a chained merge, an edited moved record or a merged field edited again. An organization Unmerge proceeds only while both revisions and the survivor reference digest are unchanged."
 				],
 				"revision": "Unmerge sets unmerged_at once.",
 				"idempotency": "The merge audit row's request key returns the recorded result.",

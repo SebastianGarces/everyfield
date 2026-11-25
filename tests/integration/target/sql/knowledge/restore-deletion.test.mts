@@ -1,4 +1,5 @@
 import "../../../platform/setup.mts";
+import { openedDeletion } from "../../../../support/deletion-cookie.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -10,9 +11,14 @@ import { RequestActor, readViewer } from "../../../../../packages/domain/src/acc
 import { feedbackWriter } from "../../../../../packages/domain/src/feedback/index.ts";
 import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { validateCandidate } from "../../../../../ops/maintenance/recovery.mts";
-import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
+import {
+	readCurrentManifest,
+	restoreWithCurrentManifest,
+	type Snapshot,
+} from "../../../../../ops/maintenance/restore.mts";
+import { accountId } from "../../../../../packages/contracts/src/common/values.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { ok, seeds } from "../../../../support/fixture.mts";
+import { type Actor, ok, seeds } from "../../../../support/fixture.mts";
 import {
 	dropTarget,
 	freezeClock,
@@ -56,12 +62,14 @@ const api = deletionOperations({
 		]),
 	workspaceNotice: async () => {},
 });
-const command = (input, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
+const command = (input: object, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
 const PRIVATE = "A's private note about the launch budget";
 const live: Store = new Map();
 const targets: string[] = [];
 
-let a, subject, requestId, avatar, cancelUntil, image;
+let a: Actor, subject: { kind: "account"; id: ReturnType<typeof accountId.parse> }, requestId: string;
+let avatar: Awaited<ReturnType<typeof readyFile>>, cancelUntil: string;
+let image: Awaited<ReturnType<typeof snapshot>>;
 async function at(when: Date) {
 	await freezeClock(admin, schema, when);
 	mock.timers.setTime(when.getTime());
@@ -72,7 +80,7 @@ before(async () => {
 	await at(REQUESTED);
 	const plant = await seed.plant({ name: "Harvest Point" });
 	a = await seed.actor(plant, "admin", { email: "alex@example.test" });
-	subject = { kind: "account" as const, id: a.id };
+	subject = { kind: "account", id: accountId.parse(a.id) };
 	const actor = await RequestActor.resolve(db, a.session);
 	assert.ok(actor instanceof RequestActor);
 	ok(
@@ -86,7 +94,7 @@ before(async () => {
 	avatar = await readyFile(admin, live, a.id, Buffer.from("A's avatar bytes"), "avatar");
 	await admin.update(t.account).set({ avatar_object_id: avatar.id }).where(eq(t.account.id, a.id));
 
-	const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	const account = (await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!;
 	const requested = ok(
 		await gatedTransaction(db, (tx) =>
 			api.requestAccountDeletion(
@@ -126,7 +134,7 @@ after(async () => {
 	await database.close();
 });
 
-async function rehearse(when: Date, copy) {
+async function rehearse(when: Date, copy: Snapshot) {
 	await at(when);
 	const target = `${schema}_r${targets.length}`;
 	targets.push(target);
@@ -152,8 +160,14 @@ async function privateVisible(target: string, store: Store) {
 
 async function cancelThrough(target: string) {
 	const pool = database.connect("admin", { schema: target, max: 1 });
-	const proof = await gatedTransaction(pool, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: new Date() })),
+	const proof = await openedDeletion(
+		gatedTransaction(pool, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({
+				accountId: a.id,
+				provenAt: new Date(),
+			})),
+		),
+		{ subject, requestId },
 	);
 	return gatedTransaction(pool, (tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId })));
 }
@@ -163,17 +177,19 @@ const witnessIn = async (target: string) =>
 		await admin.execute<{ state: string; copy_expires_at: Date }>(
 			sql`SELECT state, copy_expires_at FROM ${sql.raw(`${target}.lifecycle_witness`)} WHERE opaque_subject_id=${a.id}::uuid`,
 		)
-	).rows[0];
+	).rows[0]!;
 
 test("AC:ORG55-008 a restore from before the purge keeps A hidden, with the copy expiry of the current witness", async (step) => {
 	await step.test(
 		"the request sets the cancel deadline; the live purge after one retry sets the copy expiry",
 		async () => {
 			assert.equal(cancelUntil, "2026-11-12T16:00:00.000Z");
-			const [w] = await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id));
+			const w = (
+				await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id))
+			)[0]!;
 			assert.equal(w.state, "purged");
-			assert.equal(w.live_purged_at.toISOString(), PURGED.toISOString());
-			assert.equal(w.copy_expires_at.toISOString(), "2026-11-27T16:00:00.000Z");
+			assert.equal(w.live_purged_at!.toISOString(), PURGED.toISOString());
+			assert.equal(w.copy_expires_at!.toISOString(), "2026-11-27T16:00:00.000Z");
 		},
 	);
 
@@ -237,13 +253,14 @@ test("AC:DEL58-008 a recopy after the purge never resets the copy expiry, and th
 		const { result, store, target } = await rehearse(RESTORE_AT, recopy);
 		assert.equal(result.restore_success, true, JSON.stringify(result));
 		const w = await witnessIn(target);
-		let cancel;
+		let cancel: Awaited<ReturnType<typeof cancelThrough>>;
 		const outcome = {
 			copy_expiry: result.subjects.find((s) => s.id === a.id)!.copy_expiry,
 			restored_visible: await privateVisible(target, store),
 			cancel_allowed: (cancel = await cancelThrough(target)).status === "ok",
 		};
 		assert.deepEqual(outcome, { copy_expiry: "2026-11-27T16:00:00Z", restored_visible: false, cancel_allowed: false });
+		if (cancel.status !== "refused") assert.fail(cancel.status);
 		assert.equal(cancel.error.code, "deadline_passed");
 		assert.equal(w.state, "purged");
 		assert.equal(new Date(w.copy_expires_at).toISOString(), "2026-11-27T16:00:00.000Z");

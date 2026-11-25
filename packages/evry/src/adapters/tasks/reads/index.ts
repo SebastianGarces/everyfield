@@ -1,3 +1,4 @@
+import { addDays } from "@everyfield/contracts/common";
 import type { Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
@@ -130,7 +131,7 @@ async function churchToday(tx: Transaction, actor: EvryActor) {
 }
 export async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT pl.timezone AS zone FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`);
-	return z.object({ zone: z.string() }).parse(r.rows[0]).zone;
+	return z.strictObject({ zone: z.string() }).parse(r.rows[0]).zone;
 }
 export function localTime(at: string | null, zone: string) {
 	if (!at) return null;
@@ -149,8 +150,6 @@ export function localTime(at: string | null, zone: string) {
 	);
 	return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${zone}`;
 }
-const addDays = (date: string, days: number) =>
-	new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 const OPEN = ["not_started", "in_progress", "blocked"] as const;
 const SCAN = 500;
@@ -321,7 +320,7 @@ export const statusHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 				from: e.from,
 				to: e.to,
 				occurredAt: localTime(e.occurredAt, zone),
-				by:
+				[e.source === "merge" ? "mergedBy" : e.source === "unmerge" ? "unmergedBy" : "by"]:
 					e.actor.kind === "account"
 						? e.actor.accountId === actor.accountId
 							? "you"
@@ -571,7 +570,7 @@ export const readPhaseOffer: ReadAdapter<z.infer<typeof readPhaseOfferRequest>> 
 const receiptInput = z.strictObject({
 	receiptId: id.optional().describe("One import's receipt id; omitted lists the latest imports"),
 });
-const receiptRow = z.object({
+const receiptRow = z.strictObject({
 	id: id,
 	occurred_at: z.coerce.date(),
 	kind: z.string(),

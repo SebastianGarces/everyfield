@@ -17,7 +17,7 @@ export function JourneySection() {
 						title: s.title,
 						body: s.body,
 						say,
-						icon: <Icon icon={ICONS[icon]} size={40} stroke={1.4} className="size-[44%]" />,
+						icon: <Icon icon={ICONS[icon]} size={40} stroke={1.4} className="size-[44%] max-mk-cx:translate-y-[3px]" />,
 					},
 				]
 			: [];

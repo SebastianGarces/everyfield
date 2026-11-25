@@ -20,6 +20,8 @@ export const articleLive = (id: SQL, plant: SQL) =>
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	person: (id, plant) =>
 		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND coalesce(p.plant_id,p.organization_id)=${plant} AND p.state='live')`,
+	retired_person: (id, plant, account) =>
+		sql`(${ownerOrAdmin(plant, account)} AND EXISTS(SELECT FROM person live_d WHERE live_d.id=${id} AND live_d.tenant_id=${plant} AND live_d.plant_id=${plant}))`,
 	household: (id, plant) => sql`EXISTS(SELECT FROM household h WHERE h.id=${id} AND h.plant_id=${plant})`,
 	tag: (id, plant) => sql`EXISTS(SELECT FROM tag t WHERE t.id=${id} AND t.plant_id=${plant})`,
 	message: (id, plant) => sql`EXISTS(SELECT FROM communication m WHERE m.id=${id} AND m.plant_id=${plant})`,

@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { createConversation, readConversation, submitTurn, type EvryActor } from "../../../packages/evry/src/index.ts";
 import { liveRowKeys } from "../../../packages/evry/src/conversations/liveness.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { actor, accounts, admin, db, people, plant, setup, sql, teardown, work } from "./support.mts";
+import { assistantText, toolResult, type ToolResult } from "./saved.mts";
 
 before(setup);
 after(teardown);
@@ -31,8 +32,8 @@ async function events(who: EvryActor, id: string) {
 		if (!page.more) break;
 	}
 	return {
-		cards: all.filter((e) => e.kind === "tool_result").map((e) => e.body as Record<string, any>),
-		texts: all.filter((e) => e.kind === "assistant_text").map((e) => e.body as Record<string, any>),
+		cards: all.filter((e) => e.kind === "tool_result").map((e) => toolResult.parse(e.body)),
+		texts: all.filter((e) => e.kind === "assistant_text").map((e) => assistantText.parse(e.body)),
 	};
 }
 async function household(name: string, city: string | null, members: { id: string; role: string }[] = []) {
@@ -57,7 +58,7 @@ const setState = (id: string, state: "live" | "retired") =>
 	);
 
 function script(
-	calls: { operation: string; input: unknown }[],
+	calls: { operation: string; input: unknown; tool?: string }[],
 	answer: string,
 	before: Record<number, () => Promise<unknown>> = {},
 ) {
@@ -71,13 +72,14 @@ function script(
 			prompts.push(JSON.stringify(options.prompt));
 			const n = step++;
 			await before[n]?.();
-			const call = calls[n];
-			const parts = call
+			const { tool = "peopleOrganization_read", ...call } = calls[n] ?? {};
+			const asks = n < calls.length;
+			const parts = asks
 				? [
 						{
 							type: "tool-call" as const,
 							toolCallId: randomUUID(),
-							toolName: "peopleOrganization_read",
+							toolName: tool,
 							input: JSON.stringify(call),
 						},
 					]
@@ -92,7 +94,7 @@ function script(
 						for (const p of parts) c.enqueue(p);
 						c.enqueue({
 							type: "finish",
-							finishReason: { unified: call ? "tool-calls" : "stop", raw: undefined },
+							finishReason: { unified: asks ? "tool-calls" : "stop", raw: undefined },
 							usage,
 						});
 						c.close();
@@ -130,11 +132,7 @@ test("AC:EVRY-CONTEXT-BOUNDS a listHouseholds turn keeps its household row in-tu
 		const card = replay.cards[0]!.result;
 		assert.equal(card.operation, "people.listHouseholds");
 		assert.deepEqual(
-			[
-				card.rows.map((r: any) => [r.kind, r.label, r.fields.city, r.fields.memberCount]),
-				card.total,
-				card.withheldRows,
-			],
+			[card.rows.map((r) => [r.kind, r.label, r.fields.city, r.fields.memberCount]), card.total, card.withheldRows],
 			[[["household", "Okafor household", "North Ridgeville", "2"]], 1, undefined],
 		);
 		assert.equal(replay.texts.map((t) => t.text).join(""), "There is 1 household: Okafor household.");
@@ -180,7 +178,7 @@ test("AC:EVRY-CONTEXT-BOUNDS a mixed household result withholds only the source 
 		{ id: people.alexRivera, role: "head" },
 		{ id: people.alexChen, role: "spouse" },
 	]);
-	const labels = (card: Record<string, any>) => card.result.rows.map((r: any) => r.label).sort();
+	const labels = (card: ToolResult) => card.result.rows.map((r) => r.label).sort();
 	try {
 		const id = await ask(owner, "show me the Okafor household");
 		const run = script([{ operation: "people.getHousehold", input: { householdId: home } }], "Done.");
@@ -257,7 +255,7 @@ test("AC:EVRY-CONTEXT-BOUNDS every row kind the catalog returns is kept while it
 		assert.equal(await work(run.model), "succeeded");
 		const replay = await events(owner, id);
 		assert.deepEqual(
-			replay.cards.map((c) => [c.result.rows[0].kind, c.result.rows.length, c.result.withheldRows]),
+			replay.cards.map((c) => [c.result.rows[0]!.kind, c.result.rows.length, c.result.withheldRows]),
 			[
 				["tag", 1, undefined],
 				["file", 1, undefined],
@@ -311,6 +309,76 @@ test("AC:EVRY-CONTEXT-BOUNDS an actor who lost access gets no row of any kind fr
 		await admin.execute(
 			sql`UPDATE auth_session SET expires_at=clock_timestamp()+interval '1 day' WHERE id=${accounts.owner.session}`,
 		);
+		await removeHousehold(home);
+	}
+});
+
+async function photo(tenant: string, purpose: "person_photo" | "avatar") {
+	const id = randomUUID();
+	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation)
+		VALUES(${id},${tenant},${purpose},${`private/${tenant}/${randomUUID()}`},'image/png',100,100,${"0".repeat(64)},'ready',${id},0)`);
+	return id;
+}
+
+test("INV-row-photos: reading people who have photos saves and sends the model no photo address or version id", async () => {
+	const owner = await actor("owner");
+	const own = await photo(plant, "person_photo");
+	const avatar = await photo(accounts.member.id, "avatar");
+	const person = people.alexRivera;
+	const linked = people.alexChen;
+	const home = await household("Photo household", "Austin", [
+		{ id: person, role: "head" },
+		{ id: linked, role: "spouse" },
+	]);
+	await admin.execute(sql`UPDATE person SET photo_object_id=${own} WHERE id=${person}`);
+	await admin.execute(sql`UPDATE account SET avatar_object_id=${avatar} WHERE id=${accounts.member.id}`);
+	await admin.execute(sql`UPDATE person SET linked_account_id=${accounts.member.id} WHERE id=${linked}`);
+	try {
+		const id = await ask(owner, "who has a photo?");
+		const inPeople = (operation: string, input: unknown) => ({ tool: "people_read", operation, input });
+		const reads = [
+			inPeople("people.listPeople", { search: "Alex" }),
+			inPeople("people.listPeople", { hasPhoto: true }),
+			inPeople("people.getPerson", { personId: person }),
+			inPeople("people.getPerson", { personId: linked }),
+			inPeople("people.checkForDuplicates", { displayName: "Alex Rivera" }),
+			{ operation: "people.getHousehold", input: { householdId: home } },
+			{ operation: "people.getHouseholdMembers", input: { householdId: home } },
+			{ operation: "people.getActivities", input: { personId: person } },
+			{ operation: "people.getPipelineData", input: {} },
+		];
+		const run = script(reads, "Alex Rivera and Alex Chen have photos.");
+		assert.equal(await work(run.model), "succeeded");
+		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "and who else?" });
+		const next = script([], "Nobody else.");
+		assert.equal(await work(next.model), "succeeded");
+		const replay = await events(owner, id);
+		assert.deepEqual(
+			replay.cards.map((c) => [c.operation, c.result.status]),
+			reads.map((r) => [r.operation, "available"]),
+		);
+		const saved = (
+			await admin.execute(sql`SELECT body::text AS body FROM conversation_event WHERE conversation_id=${id}`)
+		).rows;
+		const held = {
+			"a saved event": saved.map((r) => String(r.body)),
+			"a conversation read": [JSON.stringify(replay)],
+			"the model's context": [...run.prompts, ...next.prompts],
+		};
+		assert.ok(saved.length > reads.length && next.prompts.length === 1 && run.prompts.length === reads.length + 1);
+		for (const [where, texts] of Object.entries(held)) {
+			assert.ok(texts.some((t) => t.includes("Alex Rivera")) && texts.some((t) => t.includes("Alex Chen")), where);
+			for (const t of texts) {
+				for (const version of [own, avatar])
+					assert.equal(t.includes(version), false, `${where} names a photo version: ${t}`);
+				assert.doesNotMatch(t, /\/photo\/|\/avatar\//, `${where} holds a photo address`);
+			}
+		}
+	} finally {
+		await admin.execute(
+			sql`UPDATE person SET photo_object_id=NULL,linked_account_id=NULL WHERE id IN (${person},${linked})`,
+		);
+		await admin.execute(sql`UPDATE account SET avatar_object_id=NULL WHERE id=${accounts.member.id}`);
 		await removeHousehold(home);
 	}
 });

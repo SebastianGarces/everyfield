@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { schemaVersion } from "../../../../../ops/maintenance/restore.mts";
 import type { Snapshot } from "../../../../../ops/maintenance/restore.mts";
 import { sql } from "../../../../../packages/db/src/query.ts";
-import type { Database } from "../../../../support/test-database.mts";
+import { dropSchema, type Database } from "../../../../support/test-database.mts";
 
 export async function freezeClock(admin: Database, schema: string, at: Date) {
 	const instant = at.toISOString();
@@ -41,7 +41,7 @@ export async function snapshot(
 		expiresAt,
 		subjects = [],
 	}: { createdAt: Date; expiresAt?: Date; subjects?: { id: string; expiresAt: string }[] },
-): Promise<Snapshot & { manifest: Record<string, any> }> {
+) {
 	const names = (
 		await admin.execute<{ name: string }>(sql`SELECT c.relname AS name FROM pg_class c
 			JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -81,7 +81,7 @@ export async function snapshot(
 			witnessCheckpoint: checkpoint,
 			subjects,
 		},
-	};
+	} satisfies Snapshot;
 }
 
 export async function readyFile(
@@ -104,8 +104,7 @@ export async function readyFile(
 export const schemaExists = async (admin: Database, name: string) =>
 	(await admin.execute(sql`SELECT EXISTS(SELECT FROM pg_namespace WHERE nspname=${name}) AS found`)).rows[0]!.found ===
 	true;
-export const dropTarget = (admin: Database, name: string) =>
-	admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${name.replace(/[^a-z0-9_]/g, "")} CASCADE`));
+export const dropTarget = (admin: Database, name: string) => dropSchema(admin, name.replace(/[^a-z0-9_]/g, ""));
 
 export async function closedTo(pool: Database, target: string) {
 	try {

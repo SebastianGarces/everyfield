@@ -5,17 +5,18 @@ import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
-import { verifyArticles } from "../adapters/wiki/reads/index.ts";
-import type { ConversationEvent, ConversationState, Reference } from "../conversations/store.ts";
+import { verifyArticles, verifyPage } from "../adapters/wiki/reads/index.ts";
+import type { ConversationEvent, ConversationState, Reference, ReviewOutcome } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
 import { present } from "../runtime/captured.ts";
+import { PHOTO_NAME } from "../attachments/store.ts";
 
 export const PASTORAL_BOUNDARY =
 	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready or qualified. Your church's leaders are the right people for that. I can show what is recorded about a person, such as their stage and history.";
 
-const requestKind = z.object({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
+const requestKind = z.strictObject({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
 export type RequestKind = z.infer<typeof requestKind>["kind"];
 
 export async function classifyRequest(model: LanguageModelV4, text: string, signal: AbortSignal) {
@@ -27,7 +28,7 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 		maxOutputTokens: 32,
 		output: Output.object({ schema: requestKind }),
 		system:
-			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of someone's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer.",
+			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of a person's spiritual readiness or suitability. capabilities: the user asks only what the assistant can do in general, such as what it can do or help with, and names nothing to read, find or change. application: anything else, including any request to read, find, change or set something, questions about the church's records, templates, tags, checklists, Wiki, settings or notifications, planning the church's work, such as what to focus on this week, short replies such as yes, records that merely mention prayer, and questions about the church's launch, its Launch plan or its phase readiness, such as whether the church is ready to launch or to move to the next phase.",
 		prompt: scrub(text),
 		telemetry: { functionId: "evry.classify" },
 	});
@@ -49,7 +50,7 @@ function readOnlyAreas(catalog: Catalog) {
 	const written = new Set(catalog.reviewedWrites.map((w) => namespace(w.operation)));
 	const read = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => namespace(o.operation))));
 	return [...read]
-		.filter((n) => n !== "notifications" && n !== "calendar" && !written.has(n))
+		.filter((n) => n !== "notifications" && n !== "calendar" && n !== "mail" && !written.has(n))
 		.map((n) => AREA_NAMES[n] ?? n);
 }
 
@@ -139,6 +140,8 @@ export const LAUNCH_RULES = {
 		"I couldn't load the Launch plan just now, so I can't answer that. Try again in a moment, or open [Launch](/launch).",
 	derived:
 		"Guest data entered and Debrief done follow the submitted debrief, so they can't be checked off by hand. Nothing was prepared.",
+	whichCount:
+		"Which number is wrong: the headcount (everyone who attended), or the guests named on the Launch plan? If it's the named guests, tell me which guest. I prepared nothing.",
 } as const;
 function launchRules() {
 	return [
@@ -151,6 +154,8 @@ function launchRules() {
 		"Launch Sunday guests are only the guests launch.readDebrief names; never use Vision Meeting or other meeting attendance in their place, and say so when the recorded attendance is higher than the guests named.",
 		"To name a Launch Sunday guest, read launch.readDebrief with guestName for each name first. When it finds no live Person, propose launch.addGuestAttendance with displayName. When it finds any, propose nothing for that name: list each match with its detail and ask which one, or whether to add a new Person; propose personId only for the match the user picks, never one you choose. One card per guest. Propose nothing and say why when Launch Sunday isn't recorded, the person picked is already a named guest, or the name is empty or over 255 characters. No count ever creates a Person.",
 		"To correct Launch Sunday's recorded outcome, propose launch.correctOutcome with only the fields the user names and their reason in their own words; ask for the reason when they gave none. \"We don't know\" a count is null (Not recorded), never 0. Propose nothing and say why when Launch Sunday isn't recorded, the new values are what is already recorded, the date is after today or a count is outside 0 to 1,000,000.",
+		`A wrong headcount is corrected with launch.correctOutcome (attendance). A wrong named guest, or a wrong count of named guests, is corrected with launch.correctGuestAttendance, one card for each guest the user names, after launch.readDebrief. When the user says only that the guest count is wrong and it could be either, read launch.readDebrief, prepare nothing and reply: ${LAUNCH_RULES.whichCount}`,
+		"When the user asks to save a half-done debrief, propose launch.saveDebriefDraft with only the areas they gave, in their own words; when they ask to save the summary so far, propose launch.saveDebriefSummaryDraft. Never propose launch.submitDebrief or launch.publishDebriefSummary unless they ask to submit or publish.",
 		`When the user asks how launch readiness changed, use launch.readJournal and add: ${LAUNCH_RULES.historyOnly}`,
 		"A launch date move or postponement needs the user's reason in their own words: ask for it when they gave none.",
 	].join("\n");
@@ -176,6 +181,10 @@ export const OVERSIGHT_RULES = {
 	totalsOnly:
 		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
 	noRanking: "I don't rank or score plants against each other.",
+	noPlaceRanking:
+		"Network Intelligence doesn't rank or score plants or places, so I can't say which one is doing best. I can show you the patterns it found instead, for one Region, state or country or across your whole portfolio.",
+	earlierRunLocation:
+		"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one.",
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;
@@ -186,6 +195,10 @@ function oversightRules() {
 		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
 		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
 	].join("\n");
+}
+
+function placeRules() {
+	return `Network Intelligence by place and over time comes from organizationIntelligence.readHistory (one level or every level, one named place, an earlier run, or what changed since the run before), organizationIntelligence.readLocations (where each plant is placed now) and organizationIntelligence.readLocationHistory (a plant's saved locations and the runs that used each). Quote groups and patterns as they come, say why a group has no pattern, link each plant you name with its plantLinks or href and link the page view with href. A plant with No Region set still counts at its state, its country and the whole portfolio. ${OVERSIGHT_RULES.earlierRunLocation} Never give a street address or coordinates. When asked which plant or place is doing best, or to rank or score them, reply: ${OVERSIGHT_RULES.noPlaceRanking}`;
 }
 
 function roleRule(actor: EvryActor) {
@@ -259,13 +272,16 @@ const READ_AREAS: Record<string, string> = {
 		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
-const WRITE_AREAS: { prefix: string; text: string }[] = [
+const WIKI_BROWSING =
+	"Browse and search the Wiki, show the guide for the page you're on, say what to read next, and read back your bookmarks, reading history and feedback.";
+const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 	{
 		prefix: "people.",
 		text: "Prepare changes to people for your review: add someone, update their details, move them to another stage, remove them, set or remove a photo, and import a People spreadsheet you checked with me.",
 	},
 	{
 		prefix: "communication.",
+		except: "communication.correctContactLog",
 		text: "Prepare emails for your review: save a draft, then schedule, move, cancel or change a scheduled email.",
 	},
 	{
@@ -329,9 +345,17 @@ const ROLE_NAME = { owner: "an Owner", admin: "an Admin", member: "a Member" } a
 export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "role">) {
 	const reads = catalog.domains.map((d) => READ_AREAS[d.domain]).filter((t): t is string => !!t);
 	const ops = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
+	if (ops.has("wiki.navigation"))
+		reads.splice(
+			reads.findIndex((text) => text === READ_AREAS.wiki),
+			1,
+			WIKI_BROWSING,
+		);
 	if (ops.has("people.previewImport"))
 		reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
-	const writes = WRITE_AREAS.filter((a) => catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix)));
+	const writes = WRITE_AREAS.filter((a) =>
+		catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix) && w.operation !== a.except),
+	);
 	const lines = reads.length
 		? ["Here is what I can do for you here:", ...reads.map((r) => "- " + r), ...writes.map((w) => "- " + w.text)]
 		: ["I don't have anything to read in this context yet."];
@@ -346,7 +370,7 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	lines.push("", "I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.");
 	return lines.join("\n");
 }
-export type VerifiedReference = { kind: "person" | "photo" | "article"; id: string; label: string };
+export type VerifiedReference = { kind: "person" | "photo" | "article" | "page"; id: string; label: string };
 
 export async function resolveReferences(
 	db: Database,
@@ -369,7 +393,11 @@ export async function resolveReferences(
 			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
 		: [];
 	const slugs = [...new Set(bounded.flatMap((r) => (r.kind === "article" ? [r.slug] : [])))];
-	return [...people, ...attached, ...(await verifyArticles(db, actor, slugs))];
+	const pages = verifyPage(
+		actor,
+		bounded.flatMap((r) => (r.kind === "page" ? [r.route] : [])),
+	);
+	return [...people, ...attached, ...(await verifyArticles(db, actor, slugs)), ...pages];
 }
 
 function taskRules(catalog: Catalog) {
@@ -412,13 +440,27 @@ function recordedJudgments(catalog: Catalog) {
 	const reads = catalog.domains.some((d) => d.operations.some((o) => o.operation === "people.getInterviews"));
 	return reads
 		? "Interviews, 4 C's assessments and commitments are recorded human judgments, for this church's Owners and Admins. Show them exactly as recorded and record exactly what the user says. Never rate, score, rank or judge anyone's maturity, calling or qualification, and never suggest a rating, score, result or date: when the user leaves one out, ask for it."
-		: "Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, and this user cannot see them. If asked for one, say so plainly. Do not look for them in other records, and never hint whether any exist, when, or what they say.";
+		: [
+				"Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, and this user cannot see them. If asked for one, say so plainly. Do not look for them in other records, and never hint whether any exist, when, or what they say.",
+				...(catalog.domains.some((d) => d.operations.some((o) => o.operation === "people.getStatusWarnings"))
+					? [
+							"The one exception is the reminders people.getStatusWarnings returns, which the stage dialog shows every seat: repeat them as they are, only when asked about a stage move.",
+						]
+					: []),
+			].join(" ");
 }
 
 const WIKI_RULE = [
 	"When the user asks what the Wiki says, answer only from Wiki tool results: quote the excerpt as the Wiki's words, with the article's title as a markdown link to its href.",
 	"When no Wiki article matches, say the Wiki has nothing on it. Never answer from general knowledge as if it were the Wiki.",
 	"No tool writes or edits Wiki content: the Wiki is shared reading. When asked to edit the Wiki or add the church's own writing to it, say churches keep their own writing in Church Documents, and offer no change.",
+].join(" ");
+
+const PAGE_GUIDE_RULE = [
+	"For what is in the Wiki use wiki.navigation, and for the articles of a section or phase wiki.articles.list: never search for them. When a section has no articles or doesn't exist, say so and name no other article as its own.",
+	"To quote one section of an article, read wiki.tableOfContents and pass its heading to wiki.referenceExcerpt exactly as listed. When the article has no such section, say so and never quote its start in its place.",
+	"For the guide to a page, call wiki.contextGuide with the page the user names, or else the page reference. With neither, ask which page. When that page has no guide, say it has none; wiki.recommendForPhase suggestions are not a page's guide.",
+	"The user's reading, bookmarks and feedback are only their own; you never see another reader's.",
 ].join(" ");
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
@@ -430,7 +472,7 @@ const PRIVATE_CARE =
 const EMAIL_HANDOFF = new Set(["communication.saveDraft", "communication.sendReviewed"]);
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
-function outcomeOf(r: ConversationState["reviews"][number]): string {
+export function outcomeOf(r: ReviewOutcome): string {
 	const email = r.operation.startsWith("communication.") && r.operation !== "communication.saveDraft";
 	if (r.status === "pending")
 		return `waiting for the user's review: nothing changed${email ? " and nothing was sent" : ""} yet`;
@@ -465,8 +507,10 @@ function savedFacts(state: ConversationState | null) {
 							? `available until ${when(present(a.availableUntil))}`
 							: a.status === "replaced"
 								? "replaced by a newer file with the same name"
-								: "gone: attached files last 24 hours; ask the user to attach it again"
-					}${a.status !== "gone" ? (a.checkedDigest ? `; checked: fileDigest ${a.checkedDigest}` : "; not checked yet") : ""}`,
+								: a.status === "used"
+									? "used: it is already someone's People photo; to use it again, ask the user to attach it again"
+									: "gone: attached files last 24 hours; ask the user to attach it again"
+					}${a.status === "available" || a.status === "replaced" ? (a.checkedDigest ? `; checked: fileDigest ${a.checkedDigest}` : "; not checked yet") : ""}`,
 			),
 		);
 	if (state.reviews.length)
@@ -522,7 +566,7 @@ export function compileContext(input: {
 		"Report exact totals and say when a result is partial; offer the next page instead of guessing. When a name matches more than one person, ask once which one, using only the returned fields.",
 		"You cannot change records yourself. propose_change only prepares an exact review card; nothing changes until the user approves it in the app. Never say a change was saved.",
 		input.actor.contextKind === "plant" && input.actor.role === "member"
-			? "This user is a Member of the church. Sending, resending or changing email, and changing records, needs an Owner or Admin of this church: say so when asked."
+			? "This user is a Member of the church. Sending, resending or changing email, and changing records, needs an Owner or Admin of this church: say so when asked. When asked which teams or people an email can go to, say only an Owner or Admin can choose that, and read nothing for it."
 			: "",
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
 		role
@@ -530,6 +574,7 @@ export function compileContext(input: {
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
 		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
+		ops.has("organizationIntelligence.readLocations") ? placeRules() : "",
 		input.catalog.reviewedWrites.some((w) => EMAIL_HANDOFF.has(w.operation))
 			? "When the user says to send or save an email you drafted, propose it with the subject and body exactly as you last showed them: change nothing they didn't ask for, and if something in it looks wrong, ask before proposing."
 			: "",
@@ -551,9 +596,14 @@ export function compileContext(input: {
 		ops.has("people.previewImport")
 			? "A file the user attached is listed below with its attachmentId. To check a People spreadsheet, call people.previewImport with its attachmentId; it writes nothing. To import it, propose people.executeBulkImport with that attachmentId and the fileDigest of its latest check. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation."
 			: "",
+		input.catalog.reviewedWrites.some((w) => w.operation === "people.setPersonPhoto") &&
+		input.state?.attachments.some((a) => PHOTO_NAME.test(a.name))
+			? "To make a photo attached here (a .jpg, .jpeg, .png or .webp file in the list of attached files) someone's People photo, find the person, then propose people.setPersonPhoto with that photo's attachmentId as uploadId. Use only a photo listed as available; for any other, ask the user to attach it here. An \"Attached photo\" reference is only for the user's own account photo (account.finalizeAvatar)."
+			: "",
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),
 		input.actor.contextKind === "plant" && input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
+		ops.has("wiki.contextGuide") ? PAGE_GUIDE_RULE : "",
 		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),

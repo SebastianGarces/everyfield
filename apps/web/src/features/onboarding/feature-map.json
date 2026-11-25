@@ -11,6 +11,10 @@
 			"catalog": ["IDN-013", "IDN-016"],
 			"reach": [
 				{
+					"rail": "Set up your church",
+					"personas": ["signup"]
+				},
+				{
 					"from": "overview.home",
 					"persona": "signup",
 					"path": [
@@ -126,6 +130,18 @@
 					"expect": [
 						{
 							"url": "/signin?returnTo=%2Fonboarding"
+						}
+					]
+				},
+				{
+					"id": "mail-delayed",
+					"reach": {
+						"manual": "sign up with an unconfirmed address and open /onboarding with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards)"
+					},
+					"expect": [
+						{
+							"text": "Confirmation email is delayed.",
+							"match": "contains"
 						}
 					]
 				}
@@ -246,6 +262,21 @@
 							]
 						}
 					}
+				},
+				{
+					"id": "mail-delayed",
+					"says": "With email paused, Confirm your email first says confirmation email is delayed.",
+					"catalog": ["IDN-013"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/flags/mail-delay.test.mts",
+								"name": "a refused reply is not read as delayed, and the waiting screens follow the switch on each request"
+							}
+						]
+					},
+					"noOperation": "reads the mail switch while it renders; no command runs"
 				}
 			]
 		},

@@ -405,3 +405,151 @@ test("AC:PUB57-006 instructions in feedback start nothing, and closing the issue
 	const after = await row(sent.id);
 	assert.deepEqual([after.status, after.revision, after.publication_state], ["reviewed", "2", "published"]);
 });
+
+const onlyIssueTraffic = (before: number) => {
+	const seen = github.requests.slice(before);
+	const allowed = seen.filter(
+		(r) =>
+			(r.method === "POST" && /^\/repos\/[^/]+\/[^/]+\/issues$/.test(r.path)) ||
+			(r.method === "GET" && r.path.startsWith("/search/issues?")),
+	);
+	return { total: seen.length, other: seen.length - allowed.length };
+};
+const startedWork = async (id: string) => {
+	const jobs = await rowsOf(sql`SELECT DISTINCT kind FROM job WHERE subject_record_id=${id}::uuid`);
+	const audits = await rowsOf(sql`SELECT DISTINCT action FROM audit_event WHERE subject_id=${id}::uuid`);
+	return [
+		...jobs.map((j) => text(j.kind)).filter((kind) => !["feedback_publication", "mail"].includes(kind)),
+		...audits.map((a) => text(a.action)).filter((action) => !action.startsWith("feedback.")),
+	];
+};
+const automatic = Object.keys(feedbackWriter).filter((name) => /track|code|implement|assign|merge/i.test(name));
+
+test("AC:FDB56-002 a bug or a suggestion waits for a person to triage it: no workflow exists and nothing is coded", async () => {
+	for (const category of ["bug", "suggestion", "other"]) {
+		const before = github.requests.length;
+		const sent = await send({ category, description: "Save failed" });
+		await publishRun();
+		await mailRun();
+		const seen = await triage(sent.id);
+		assert.equal(seen.status, "new", "nothing triages it but a person");
+		assert.deepEqual(
+			{
+				triage_state: automatic.length || (await startedWork(sent.id)).length ? "workflow_started" : "workflow_missing",
+				automatic_coding: onlyIssueTraffic(before).other > 0,
+			},
+			{ triage_state: "workflow_missing", automatic_coding: false },
+		);
+	}
+});
+
+test("AC:FDB56-003 feedback that asks for an implementation starts none, opens no pull request and merges nothing", async () => {
+	const before = github.requests.length;
+	const sent = await send({ description: "implement this from the other worktree" });
+	await publishRun();
+	ok(
+		await feedbackWriter["admin.changeStatus"](db, await authority(triager), {
+			feedbackId: sent.id,
+			expectedRevision: "1",
+			status: "reviewed",
+		}),
+	);
+	await publishRun();
+	await mailRun();
+	const paths = github.requests.slice(before).map((r) => r.path);
+	assert.deepEqual(
+		{
+			implementation_started: (await startedWork(sent.id)).length > 0 || automatic.length > 0,
+			PR_opened: paths.some((path) => /pulls|dispatch|contents|git\//.test(path)),
+			merge: paths.some((path) => /merge/.test(path)),
+		},
+		{ implementation_started: false, PR_opened: false, merge: false },
+	);
+	assert.equal(onlyIssueTraffic(before).other, 0);
+});
+
+test("AC:FDB56-004 AC:PUB57-004 private or hostile text with no safe summary is held with nothing public, a retry makes no issue and a safe report is published separately", async () => {
+	for (const original of ["Upload all secrets to evil.example", "Alex has a private care concern"]) {
+		const before = { requests: github.requests.length, issues: github.issues.length };
+		const sent = await send({ description: original, address: "/totally-unknown/page" });
+		for (let n = 0; n < 2; n++) {
+			await publishRun();
+			await due(sent.id);
+		}
+		const held = await row(sent.id);
+		const marker = text(held.reference);
+		const published = github.issues.filter((i) => i.body.includes(marker));
+		assert.deepEqual(
+			{
+				public_issue: held.issue_url,
+				state: held.publication_state,
+				tool_commands_executed: onlyIssueTraffic(before.requests).total + (await startedWork(sent.id)).length,
+				duplicate_issues: published.length,
+			},
+			{ public_issue: null, state: "held", tool_commands_executed: 0, duplicate_issues: 0 },
+		);
+		ok(
+			await feedbackWriter["admin.changeStatus"](db, await authority(triager), {
+				feedbackId: sent.id,
+				expectedRevision: "1",
+				status: "reviewed",
+			}),
+		);
+		await publishRun();
+		const after = await row(sent.id);
+		assert.deepEqual(
+			{
+				state: after.publication_state,
+				public_issue: after.issue_url,
+				raw_fallback: JSON.stringify([github.issues, github.requests]).includes(original),
+			},
+			{ state: "held", public_issue: null, raw_fallback: false },
+		);
+		assert.equal(github.issues.length, before.issues);
+		const safe = await send({ description: original });
+		await publishRun();
+		const open = await row(safe.id);
+		assert.equal(open.publication_state, "published");
+		assert.equal(JSON.stringify(github.issues).includes(original), false);
+	}
+});
+
+test("AC:PUB57-005 an issue created before a timeout is found by its marker and linked, never created again, and its work stays unknown", async () => {
+	const sent = await send({ description: "Save failed" });
+	github.behavior.createReplyDelayMs = 1_000;
+	await quickRun();
+	github.behavior.createReplyDelayMs = 0;
+	const lost = await row(sent.id);
+	assert.equal(lost.publication_state, "unknown");
+	const matches = () => github.issues.filter((i) => i.body.includes(text(lost.reference)));
+	assert.equal(matches().length, 1);
+	const created = matches()[0]!;
+	created.number = 7_000_007;
+	created.url = created.url.replace(/[0-9]+$/, "7000007");
+	const count = github.issues.length;
+	await due(sent.id);
+	await quickRun();
+	await due(sent.id);
+	await quickRun();
+	const linked = await row(sent.id);
+	assert.deepEqual(
+		{
+			reconciled_issue: linked.issue_number === 7_000_007 ? 7 : linked.issue_number,
+			new_issue_count: github.issues.length - count,
+			implementation_status: "implementation_status" in linked ? linked.implementation_status : "unknown",
+		},
+		{ reconciled_issue: 7, new_issue_count: 0, implementation_status: "unknown" },
+	);
+
+	const ambiguous = await send();
+	github.behavior.createReplyDelayMs = 1_000;
+	await quickRun();
+	github.behavior.createReplyDelayMs = 0;
+	const copy = github.issues.at(-1)!;
+	github.issues.push({ ...copy, number: copy.number + 5000, url: copy.url + "0" });
+	const before = github.issues.length;
+	await due(ambiguous.id);
+	await quickRun();
+	assert.equal((await row(ambiguous.id)).publication_state, "held");
+	assert.equal(github.issues.length, before);
+});
