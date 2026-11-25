@@ -33,6 +33,7 @@ import {
 import type { ReadAdapter } from "../../../../packages/evry/src/catalog/types.ts";
 import { harness } from "../../../evry/evals/intelligence-harness.mts";
 import { ok, refused } from "../../../support/fixture.mts";
+import { recorded } from "../../../support/recorded.mts";
 import {
 	acceptance,
 	activity,
@@ -43,7 +44,6 @@ import {
 	endCommand,
 	endOnce,
 	feedApi,
-	footprint,
 	invite,
 	jobs,
 	lead,
@@ -517,21 +517,14 @@ test("AC:AF-030 changing one organization's activity choice leaves the other's c
 		);
 	assert.deepEqual(await events(), [{ action: "affiliation.approved", n: 2 }]);
 	const request = S.command(input);
-	const quiet = async () => {
-		const { notices, mail, seats } = await footprint();
-		return { notices, mail, seats };
-	};
-	const queued = () => rows(sql`SELECT id,tenant_id,kind,subject_record_id,producer_key,state FROM job ORDER BY id`);
-	const [untold, jobsBefore] = [await quiet(), new Set((await queued()).map((j) => j.id))];
-	const saved = await S.call("privacy.setSharing", w.admin, request);
+	const { value: saved, added } = await recorded(S.db, () => S.call("privacy.setSharing", w.admin, request));
 	assert.deepEqual(saved, { status: "committed" });
-	assert.deepEqual(await quiet(), untold, "no notice or mail is written");
-	console.log(
-		(await queued()).filter((j) => !jobsBefore.has(j.id)),
-		w.p.id,
-		a.id,
-		w.S1.o.id,
+	assert.deepEqual(
+		added,
+		{ audits: ["sharing.changed"], jobs: ["notification"], notices: 0, mail: 0 },
+		"one audit row, and the one job that later plans the sharing notice; no notice or mail is written",
 	);
+	assert.deepEqual((await jobs(a)).at(-1), ["affiliation/sharing/2", "ready", null]);
 	await silent(async () => {
 		assert.deepEqual(await S.call("privacy.setSharing", w.admin, request), saved);
 	});
@@ -973,6 +966,7 @@ test("AC:TARGET-IDN-022 each pair keeps its own seven choices through a joint ac
 	await connect(w, w.N2);
 	assert.deepEqual((await sharing(w, w.S1, w.owner)) as object, admin(w.S1, mixed, "2", s1Name));
 	await activity(w);
+	await person(w, "Alex Rivera");
 	const shared = await bodies(w, w.S1, await as(w.S1.admin));
 	assert.deepEqual([shared.digest, shared.page!.sections.people.status], [true, "shared"]);
 	await share(w, w.S1, s1 as never, "activity", false);

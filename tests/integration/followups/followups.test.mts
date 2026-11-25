@@ -32,6 +32,7 @@ import type { TaskReply } from "../../../packages/domain/src/tasks/core.ts";
 import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { activityRequest, listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { recorded } from "../../support/recorded.mts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
 import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
@@ -1383,20 +1384,46 @@ test("AC:ROLE43-008 changing and removing a lead title leaves the seat, the logi
 			teamsWriter.create(tx, ctx, { requestKey: key(), input: { name: "Plant leadership", description: null } }),
 		),
 	);
-	const appoint = async (personId: string) => {
-		const { revision } = ok(await teamsReader.readRevision(f.db, c.owner.actor, { teamId: team.id }));
-		ok(
-			await withTeamsWrite(f.db, c.owner.actor, (tx, ctx) =>
-				teamsWriter.appointLeader(tx, ctx, {
-					requestKey: key(),
-					expectedRevision: revision,
-					input: { teamId: team.id, personId },
-				}),
+	const role = ok(
+		await withTeamsWrite(f.db, c.owner.actor, (tx, ctx) =>
+			teamsWriter.createRole(tx, ctx, {
+				requestKey: key(),
+				input: { teamId: team.id, name: "Lead planter", leadership: true },
+			}),
+		),
+	).role;
+	const titles = async () => [
+		(await one(sql`SELECT leader_person_id AS id FROM team WHERE id=${team.id}`)).id,
+		(await one(sql`SELECT name FROM team_role WHERE id=${role.id}`)).name,
+	];
+	const onTitle = async (operation: "assignRole" | "editRole" | "removeRole" | "appointLeader", input: object) => {
+		const team_ = operation === "appointLeader" || operation === "assignRole";
+		const { r } = await one(
+			team_
+				? sql`SELECT revision::text AS r FROM team WHERE id=${team.id}`
+				: sql`SELECT revision::text AS r FROM team_role WHERE id=${role.id}`,
+		);
+		const { value, added } = await recorded(f.admin, () =>
+			withTeamsWrite(
+				f.db,
+				c.owner.actor,
+				(tx, ctx) =>
+					teamsWriter[operation](tx, ctx, {
+						requestKey: key(),
+						expectedRevision: r,
+						input: {
+							...(operation === "appointLeader" ? { teamId: team.id } : { roleId: role.id }),
+							...(operation === "assignRole" ? { teamId: team.id } : {}),
+							...input,
+						},
+					}) as Promise<TaskReply<unknown>>,
 			),
 		);
-		return (await one(sql`SELECT leader_person_id AS id FROM team WHERE id=${team.id}`)).id;
+		ok(value);
+		assert.deepEqual(added, { audits: ["teams.changed"], jobs: [], notices: 0, mail: 0 }, operation);
+		return titles();
 	};
-	assert.equal(await appoint(alex), alex);
+	assert.deepEqual(await onTitle("assignRole", { personId: alex }), [alex, "Lead planter"]);
 	await f.admin.execute(
 		sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id IN (${lead.id},${c.owner.id})`,
 	);
@@ -1435,12 +1462,12 @@ test("AC:ROLE43-008 changing and removing a lead title leaves the seat, the logi
 	);
 	assert.deepEqual([start.tasks.length, start.weeks.length, start.mine.answer?.note], [2, 1, "Mine."]);
 
-	assert.equal(await appoint(other), other);
-	assert.deepEqual(await held(), start, "another lead title");
-	await f.admin.execute(
-		sql`UPDATE team SET leader_person_id=NULL,leader_source=NULL,leader_role_id=NULL WHERE id=${team.id}`,
-	);
+	assert.deepEqual(await onTitle("editRole", { name: "Site lead" }), [alex, "Site lead"]);
+	assert.deepEqual(await held(), start, "another title");
+	assert.deepEqual(await onTitle("removeRole", { personId: alex }), [null, "Site lead"]);
 	assert.deepEqual(await held(), start, "no lead title");
+	assert.deepEqual(await onTitle("appointLeader", { personId: other }), [other, "Site lead"]);
+	assert.deepEqual(await held(), start, "another lead");
 	const own = await f.actor(lead.session);
 	assert.equal("kind" in own.actor.context && own.actor.context.kind === "seat" && own.actor.context.role, "admin");
 	assert.equal(ok(await care.readCurrent(f.db, c.owner.actor, {})).week.answer, null);
@@ -1491,7 +1518,9 @@ test("AC:ROLE43-015 a finalized Vision Meeting with no lead title and nobody to 
 		[empty, [], ["meeting_evaluation"]],
 		[full, [guest], ["first_vision_follow_up", "meeting_evaluation"]],
 	] as const) {
-		const done = await finalizeMeeting(c.admin, id, [...attendees]);
+		const { value: done, added } = await recorded(f.admin, () => finalizeMeeting(c.admin, id, [...attendees]));
+		const work = attendees.length ? ["people.stage_changed", "tasks.changed", "tasks.changed"] : ["tasks.changed"];
+		assert.deepEqual(added, { audits: ["meetings.finalized", ...work], jobs: [], notices: 0, mail: 0 });
 		assert.deepEqual(
 			done.work.map((x) => [x.kind, x.outcome, x.assigneeIds, x.needsOwner]).sort(),
 			kinds.map((kind) => [kind, "created", [], true]),

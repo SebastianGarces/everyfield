@@ -19,12 +19,15 @@ import {
 	deletionOperations,
 	timezoneOperations,
 } from "../../../packages/domain/src/settings/index.ts";
-import { peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
+import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
+import { accountPersonProducer, peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { nextMonday } from "../../../apps/web/src/components/time.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
+import { recorded } from "../../support/recorded.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f: Fixture;
@@ -48,6 +51,7 @@ const rejects = (promise: Promise<unknown>, pattern: RegExp) =>
 		assert.match(e.cause instanceof Error ? e.cause.message : e.message, pattern);
 		return true;
 	});
+const NOTHING = { audits: [], jobs: [], notices: 0, mail: 0 };
 const levels = (spiritual: string, family: string, financial: string, pace: string): Answers => ({
 	spiritual,
 	family,
@@ -258,8 +262,15 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 	await changeZone(a, "Pacific/Auckland");
 	const preview = await previewZone(a, "Pacific/Kiritimati");
 	const key = randomUUID();
-	ok(await setZone(a, preview, key));
-	ok(await setZone(a, preview, key));
+	const { added } = await recorded(f.admin, async () => {
+		ok(await setZone(a, preview, key));
+		ok(await setZone(a, preview, key));
+	});
+	assert.deepEqual(
+		added,
+		{ ...NOTHING, audits: ["settings.changed"], jobs: ["digest"] },
+		"one change, however often sent",
+	);
 	const open = ok(await current(a));
 	assert.equal(open.week.id, saved.week.id);
 	assert.equal(open.week.zone, "America/Chicago");
@@ -268,7 +279,8 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 	assert.equal((await footprint(a)).weeks, 1);
 	assert.equal((await footprint(a)).revisions, 1);
 	assert.deepEqual(await stored(), first, "two zone edits rewrite no week, author or revision");
-	const unmoved = ok(await history(a));
+	const { value: unmoved, added: byReading } = await recorded(f.admin, async () => ok(await history(a)));
+	assert.deepEqual(byReading, NOTHING);
 	assert.deepEqual(
 		unmoved.weeks.map((x) => [x.id, x.startsOn, x.zone, x.answer?.answers.spiritual, x.revisions.length]),
 		[[saved.week.id, "2026-10-12", "America/Chicago", "strained", 1]],
@@ -341,18 +353,26 @@ test("AC:B03-019 a church timezone change never rekeys personal weeks", async ()
 			tz.previewPlantTimezone(tx, ctx, { plant: plantOf(w), timeZone: "Europe/London" }),
 		),
 	);
-	const changed = ok(
-		await gatedTransaction(f.db, (tx) =>
-			tz.setPlantTimezone(tx, ctx, {
-				requestKey: randomUUID(),
-				expectedRevision: preview.expectedRevision,
-				input: { plant: plantOf(w), timeZone: "Europe/London", previewId: preview.previewId },
-			}),
+	const { value: changed, added } = await recorded(f.admin, async () =>
+		ok(
+			await gatedTransaction(f.db, (tx) =>
+				tz.setPlantTimezone(tx, ctx, {
+					requestKey: randomUUID(),
+					expectedRevision: preview.expectedRevision,
+					input: { plant: plantOf(w), timeZone: "Europe/London", previewId: preview.previewId },
+				}),
+			),
 		),
 	);
 	assert.equal(changed.status, "changed");
+	assert.deepEqual(added, { ...NOTHING, audits: ["plant.profile_changed"], jobs: ["digest"] });
 	assert.deepEqual(await one(sql`SELECT timezone FROM plant WHERE id=${w.id}`), { timezone: "Europe/London" });
-	assert.deepEqual({ history: ok(await history(a)), footprint: await footprint(a) }, before);
+	const { value: after, added: byReading } = await recorded(f.admin, async () => ({
+		history: ok(await history(a)),
+		footprint: await footprint(a),
+	}));
+	assert.deepEqual(after, before);
+	assert.deepEqual(byReading, NOTHING);
 	assert.deepEqual(
 		before.history.weeks.map((x) => [x.startsOn, x.zone]),
 		[["2026-10-12", "Pacific/Auckland"]],
@@ -562,21 +582,49 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 		],
 	);
 	const ctx = { session: b.session, selected: plantOf(w) };
-	const person = async (displayName: string) =>
+	const person = async (displayName: string, email: string | null = null) =>
 		ok(
 			await gatedTransaction(f.db, (tx) =>
 				peopleWriter.createPerson(tx, ctx, {
 					requestKey: randomUUID(),
-					input: { displayName, adultClassification: "adult" },
+					input: { displayName, adultClassification: "adult", email },
 				}),
 			),
 		).person;
 	const alex = await person("Alex Rivera"),
-		casey = await person("Casey Rivera");
-	await f.admin.execute(sql`UPDATE person SET linked_account_id=${a.id} WHERE id=${casey.id}`);
-	const team = randomUUID();
-	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
-		VALUES(${team},${w.id},'Plant leadership','active',1,${alex.id},'explicit')`);
+		casey = await person("Casey Rivera", a.email);
+	const linkTo = (who: Seated, to: typeof casey) =>
+		gatedTransaction(f.db, (tx) =>
+			accountPersonProducer.ensureAccountPerson(tx, {
+				accountId: who.id as never,
+				owner: plantOf(w),
+				selection: {
+					kind: "reviewed_contact",
+					person: { owner: plantOf(w), personId: to.id, revision: to.revision },
+				} as never,
+			}),
+		);
+	assert.deepEqual(ok(await linkTo(a, casey)), { status: "linked", personId: casey.id });
+	const owner = b.actor;
+	const team = ok(
+		await withTeamsWrite(f.db, owner, (tx, c) =>
+			teamsWriter.create(tx, c, { requestKey: randomUUID(), input: { name: "Plant leadership", description: null } }),
+		),
+	).team;
+	const appoint = async (personId: string) => {
+		const { revision } = ok(await teamsReader.readRevision(f.db, owner, { teamId: team.id }));
+		ok(
+			await withTeamsWrite(f.db, owner, (tx, c) =>
+				teamsWriter.appointLeader(tx, c, {
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { teamId: team.id, personId },
+				}),
+			),
+		);
+		assert.deepEqual(await one(sql`SELECT leader_person_id AS id FROM team WHERE id=${team.id}`), { id: personId });
+	};
+	await appoint(alex.id);
 	const review = ok(
 		await gatedTransaction(f.db, (tx) =>
 			peopleMerge.getMergeReview(tx, ctx, { sourceId: alex.id, survivorId: casey.id }),
@@ -590,21 +638,45 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 		review.references.some((r) => /week|care|private/i.test(r.kind)),
 		false,
 	);
-	ok(
-		await gatedTransaction(f.db, (tx) =>
+	const merged = await recorded(f.admin, () =>
+		gatedTransaction(f.db, (tx) =>
 			peopleMerge.mergePeople(tx, ctx, {
 				requestKey: randomUUID(),
 				input: { sourceId: alex.id, survivorId: casey.id, reviewDigest: review.reviewDigest, fieldChoices: {} },
 			}),
 		),
 	);
-	await f.admin.execute(sql`UPDATE person SET linked_account_id=${b.id} WHERE id=${casey.id}`);
-	await f.admin.execute(sql`UPDATE team SET leader_person_id=NULL,leader_source=NULL WHERE id=${team}`);
-	await f.admin.execute(sql`UPDATE person SET stage='core_group' WHERE id=${casey.id}`);
-	await f.admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${b.id}`);
-	await f.admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${a.id}`);
-	a.actor = await f.actor(a.session);
-	b.actor = await f.actor(b.session);
+	ok(merged.value);
+	assert.deepEqual(merged.added, { ...NOTHING, audits: ["people.merged"] });
+	const robin = await person("Robin Rivera", b.email);
+	assert.deepEqual(ok(await linkTo(b, robin)), { status: "linked", personId: robin.id });
+	const taken = await person("Taylor Rivera", a.email);
+	assert.deepEqual(
+		ok(await linkTo(a, taken)),
+		{ status: "linked", personId: casey.id },
+		"a linked account is never moved to another person",
+	);
+	await appoint(robin.id);
+	const seats = createSeatService(f.db);
+	const seatOf = () =>
+		one<{ id: string; revision: string; role: string }>(
+			sql`SELECT id,revision::text AS revision,role FROM seat WHERE account_id=${a.id} AND ended_at IS NULL`,
+		);
+	for (const [change, expectedRole, to] of [
+		["demote", "admin", "member"],
+		["appointAdmin", "member", "admin"],
+	] as const) {
+		const seat = await seatOf();
+		await seats[change](owner, plantOf(w), {
+			requestKey: randomUUID(),
+			expectedRevision: seat.revision,
+			input: { seatId: seat.id, expectedRole, to },
+		});
+		assert.equal((await seatOf()).role, to);
+		assert.deepEqual(await streams(), stored, change);
+		a.actor = await f.actor(a.session);
+		if (to === "member") refusedBare(await history(a), "access_denied");
+	}
 	const after = ok(await current(a));
 	assert.equal(after.week.id, saved.week.id);
 	assert.equal(after.week.answer!.note, "Mine.");
