@@ -1,7 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
+import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { meetingsWriter, venuesWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import {
 	responsibilityWriter,
@@ -10,6 +10,7 @@ import {
 	withTeamsWrite,
 } from "../../../packages/domain/src/teams/index.ts";
 import { approveProposal } from "../../../packages/evry/src/index.ts";
+import { ok } from "../../support/fixture.mts";
 import {
 	caseWorld,
 	proposes,
@@ -29,16 +30,11 @@ before(async () => {
 });
 after(() => w?.close());
 
-const ok = (reply: Reply) => {
-	assert.equal(reply.status, "ok", JSON.stringify(reply));
-	return reply.value;
-};
 type Op = (tx: WriteTx, context: never, raw: unknown) => Promise<unknown>;
 async function native(c: Church, op: unknown, raw: object, gate: unknown = withTeamsWrite) {
-	const authority = await RequestActor.resolve(w.db, c.A.session);
-	assert.ok(authority instanceof RequestActor);
+	const authority = await w.authorityOf(c.A);
 	const through = gate as (db: unknown, a: RequestActor, body: (tx: never, ctx: never) => unknown) => Promise<Reply>;
-	return ok(await through(w.db, authority, (tx, ctx) => (op as Op)(tx, ctx, raw)));
+	return ok(await through(w.db, authority, (tx, ctx) => (op as Op)(tx, ctx, raw))) as Reply;
 }
 const created = (c: Church, op: unknown, input: object, gate?: unknown) =>
 	native(c, op, { requestKey: randomUUID(), input }, gate);

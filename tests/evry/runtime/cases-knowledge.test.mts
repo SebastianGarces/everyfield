@@ -1,7 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { readReview, submitTurn } from "../../../packages/evry/src/index.ts";
 import { seedDocument } from "../adapters/documents/seed.mts";
@@ -133,8 +132,7 @@ test("AC:GAP-EVR-417 a search gives the network's version only while it is share
 });
 
 test("AC:GAP-EVR-418 a cited network article's surrounding text and sections are withheld once sharing ends, and the reader's own credit stays and never grows from Evry's reading", async () => {
-	const authority = await RequestActor.resolve(w.db, wiki.A.session);
-	assert.ok(authority instanceof RequestActor);
+	const authority = await w.authorityOf(wiki.A);
 	const viewed = await createWikiProducer().recordView(w.db, authority, {
 		requestKey: randomUUID(),
 		input: { articleId: ids.vision.article },

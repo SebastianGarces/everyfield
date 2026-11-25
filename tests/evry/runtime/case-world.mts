@@ -8,7 +8,7 @@ import type {
 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
-import { readViewer } from "../../../packages/domain/src/access/session.ts";
+import { readViewer, RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim, type Claim } from "../../../packages/domain/src/jobs/queue.ts";
 import {
@@ -77,6 +77,11 @@ export const proposes =
 	(operation: string, input: unknown): Step =>
 	() =>
 		propose(operation, input);
+export const refusal = (attempt: Promise<unknown>) =>
+	attempt.then(
+		() => "answered",
+		(e: { code?: string }) => e.code,
+	);
 export const rowsOf = (reply: Reply, kind?: string): Reply[] =>
 	(reply?.rows ?? []).filter((r: Row) => !kind || r.kind === kind);
 
@@ -244,6 +249,13 @@ export async function caseWorld(
 		assert.ok(actor, "a live session");
 		return actor;
 	};
+	const authorityOf = async (a: Actor) => {
+		const authority = await RequestActor.resolve(db, a.session);
+		assert.ok(authority instanceof RequestActor);
+		return authority;
+	};
+	const finish = (claim: Claim, outcome: string) =>
+		transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	const lease = (claim: Claim) => ({
 		turnId: claim.id,
 		tenantId: claim.tenant_id,
@@ -303,8 +315,7 @@ export async function caseWorld(
 			lease(claim),
 			{ claimStart: new Date(), claimEnd: new Date() },
 		);
-		if (outcome !== "lost")
-			await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+		if (outcome !== "lost") await finish(claim, outcome);
 		return { played, outcome };
 	}
 	async function ask(a: Actor, text: string, play: Play, options: Options = {}): Promise<Turn> {
@@ -351,8 +362,7 @@ export async function caseWorld(
 			mail,
 			ports,
 		);
-		if (outcome !== "lost")
-			await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+		if (outcome !== "lost") await finish(claim, outcome);
 		return outcome;
 	}
 	const witness = (p: Proposal) => ({ revision: p.revision, digest: p.digest });
@@ -401,9 +411,9 @@ export async function caseWorld(
 			const id = randomUUID();
 			const plant = extra.plant ?? P.id;
 			await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,city,email,source,stage,adult_classification,
-				commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${id},${plant},${plant},${name},
+				commitment_state,pipeline_position,state,created_at) VALUES(${id},${plant},${plant},${name},
 				${extra.city ?? null},${extra.email ?? null},'other',${extra.stage ?? "prospect"},'adult','unknown',${position++},'live',
-				clock_timestamp(),${extra.account ?? null})`);
+				clock_timestamp())`);
 			return id;
 		}
 		const rivera = await person("Alex Rivera", { city: "Chicago" });
@@ -434,31 +444,26 @@ export async function caseWorld(
 		}
 		async function foreignReview(p: Proposal) {
 			const stranger = await actorOf(F);
-			const code = (attempt: Promise<unknown>) =>
-				attempt.then(
-					() => "answered",
-					(e: { code?: string }) => e.code,
-				);
 			for (const [id, wit] of [
 				[p.id, witness(p)],
 				[randomUUID(), witness(p)],
 			] as const)
 				assert.deepEqual(
 					await untouched(admin, async () => [
-						await code(readReview(db, stranger, id)),
-						await code(approveProposal(db, stranger, id, wit, null)),
-						await code(cancelProposal(db, stranger, id)),
-						await code(retryUnresolvedEffects(db, stranger, id)),
+						await refusal(readReview(db, stranger, id)),
+						await refusal(approveProposal(db, stranger, id, wit, null)),
+						await refusal(cancelProposal(db, stranger, id)),
+						await refusal(retryUnresolvedEffects(db, stranger, id)),
 					]),
 					["not_found", "not_found", "not_found", "not_found"],
 					"a real review answers as a made-up one",
 				);
 			assert.equal(await effect(), null);
 		}
-		async function effectOutage(p: Proposal, table: string, revision = p) {
+		async function effectOutage(p: Proposal, table: string) {
 			const kept = await rows(sql`SELECT * FROM proposal WHERE tenant_id=${P.id} AND outcome='completed' ORDER BY id`);
 			const before = await touched(admin, async () => {
-				await approveProposal(db, Aa, p.id, witness(revision), null);
+				await approveProposal(db, Aa, p.id, witness(p), null);
 				await admin.execute(sql.raw(`ALTER TABLE ${table} RENAME TO ${table}_away`));
 				try {
 					assert.equal(await effect(), "failed");
@@ -525,13 +530,8 @@ export async function caseWorld(
 						for await (const _ of observeConversation(db, stranger, C, 0, AbortSignal.timeout(500))) void _;
 					},
 					...before.reviews.map((r) => () => readReview(db, stranger, r!.id)),
-				]) {
-					const same = await attempt().then(
-						() => "answered",
-						(e: { code?: string }) => e.code,
-					);
-					assert.equal(same, "not_found");
-				}
+				])
+					assert.equal(await refusal(attempt()), "not_found");
 			});
 			const own = new Set([F.id, Q.id, ...shared]);
 			const guesses = new Map<string, string>();
@@ -629,8 +629,8 @@ export async function caseWorld(
 		rows,
 		one,
 		count,
-		freshActor,
 		actorOf,
+		authorityOf,
 		eventsOf,
 		converse,
 		work,

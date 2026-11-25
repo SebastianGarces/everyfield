@@ -1,7 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { createTaskWriter, taskReader, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { listConversations } from "../../../packages/evry/src/index.ts";
@@ -281,8 +280,7 @@ async function parityWorld() {
 	const revision = async (id: string) =>
 		(await w.one<{ r: string }>(sql`SELECT revision::text AS r FROM task WHERE id=${id}`)).r;
 	const native = async (who: Actor, op: keyof typeof writer, id: string, input: object): Promise<Result> => {
-		const authority = await RequestActor.resolve(w.db, who.session);
-		assert.ok(authority instanceof RequestActor);
+		const authority = await w.authorityOf(who);
 		const expectedRevision = await revision(id);
 		const reply: Reply = await withTaskWrite(w.db, authority, (tx, ctx) =>
 			(writer[op] as (t: unknown, c: unknown, i: unknown) => Promise<never>)(tx, ctx, {
@@ -418,8 +416,7 @@ for (const mode of MODES)
 			mode === "Evry"
 				? p.evry(B, "tasks.setSubtaskCompletion", { parentId: PM, tick: [{ taskId: X, complete: true }] }, change)
 				: (async () => {
-						const authority = await RequestActor.resolve(w.db, B.session);
-						assert.ok(authority instanceof RequestActor);
+						const authority = await w.authorityOf(B);
 						const expectedRevision = await p.revision(X);
 						await change();
 						const reply: Reply = await withTaskWrite(w.db, authority, (tx, ctx) =>
@@ -524,8 +521,7 @@ for (const mode of MODES)
 		assert.equal(await p.native(B, "delete", Q, { taskId: Q }), "ok");
 		const after = await tallied();
 		assert.deepEqual(after.rows, [], "Evry names no deleted prerequisite as blocking");
-		const authority = await RequestActor.resolve(w.db, B.session);
-		assert.ok(authority instanceof RequestActor);
+		const authority = await w.authorityOf(B);
 		const graph: Reply = await gatedTransaction(w.db, (tx) =>
 			taskReader.listPrerequisites(tx, authority, { taskId: T }),
 		);

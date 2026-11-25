@@ -19,7 +19,7 @@ test("AC:INH-INTELLIGENCE-06 an operational suggestion already covered by a task
 		w.rows(sql`SELECT id,title FROM task WHERE plant_id=${c.P.id} AND title=${FOLLOW_UP} AND deleted_at IS NULL`);
 	const draft: Play = [
 		...look,
-		(r) => (rowsOf(r[1]).length ? "A task already covers w." : propose("tasks.create", { title: FOLLOW_UP })),
+		(r) => (rowsOf(r[1]).length ? "A task already covers it." : propose("tasks.create", { title: FOLLOW_UP })),
 	];
 	const first = await w.ask(c.A, said, draft);
 	assert.match(JSON.stringify(first.replies[0]), new RegExp(FOLLOW_UP));

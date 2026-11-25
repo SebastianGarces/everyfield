@@ -7,7 +7,6 @@ const live = <RowName extends string>(row: SqlLiteral<RowName>) =>
 
 const usable = <RowName extends string>(row: SqlLiteral<RowName>) =>
 	rowUsable(sql.raw(row), sql.raw("c.tenant_id"), sql.raw("c.account_id"));
-const endedFacts = (body: SQL) => namesEndedLink(sql`(${body}->'result'->'facts')::text`, sql`c.tenant_id`);
 
 export function retainedEvents(events: SQL, use: "reader" | "model" = "reader"): SQL {
 	return sql`SELECT e.sequence,e.turn_id,e.kind,e.created_at,
@@ -28,7 +27,7 @@ export function retainedEvents(events: SQL, use: "reader" | "model" = "reader"):
 				WHERE t.conversation_id=e.conversation_id AND t.turn_id=e.turn_id AND t.kind='tool_result' AND NOT ${use === "model" ? usable("r") : live("r")})${
 					use === "model"
 						? sql` OR EXISTS(SELECT FROM conversation_event t WHERE t.conversation_id=e.conversation_id AND t.turn_id=e.turn_id
-					AND t.kind='tool_result' AND ${endedFacts(sql`t.body`)})`
+					AND t.kind='tool_result' AND ${namesEndedLink(sql`(t.body->'result'->'facts')::text`, sql`c.tenant_id`)})`
 						: sql``
 				} AS gone
 		) g ON e.kind IN ('assistant_text','status')`;

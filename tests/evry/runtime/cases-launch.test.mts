@@ -2,7 +2,6 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { runDueFeedbackPublication } from "../../../packages/domain/src/jobs/feedback-publication.ts";
 import { createLaunchReader } from "../../../packages/domain/src/launch/reads.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.ts";
@@ -30,12 +29,6 @@ before(async () => {
 	w = await caseWorld("caselaunch", { native: nativePorts() });
 });
 after(() => w?.close());
-
-const authorityOf = async (a: Actor) => {
-	const authority = await RequestActor.resolve(w.db, a.session);
-	assert.ok(authority instanceof RequestActor);
-	return authority;
-};
 
 async function notice(
 	account: string,
@@ -146,7 +139,7 @@ test("AC:INH-NOTIFICATIONS-04 feedback is stored privately after its exact revie
 	const care = createPrivateCare();
 	const planter = await w.seated(c.P, "owner");
 	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${planter.id}`);
-	const authority = await authorityOf(planter);
+	const authority = await w.authorityOf(planter);
 	const current = ok(await care.readCurrent(w.db, authority, {}));
 	const answers = { spiritual: "struggling", family: "struggling", financial: "struggling", pace: "struggling" };
 	ok(
@@ -203,13 +196,13 @@ test("AC:INH-NOTIFICATIONS-04 feedback is stored privately after its exact revie
 });
 
 const planNow = async (c: Church) => {
-	const reply = ok(await createLaunchReader().readPlan(w.db, await authorityOf(c.A)));
+	const reply = ok(await createLaunchReader().readPlan(w.db, await w.authorityOf(c.A)));
 	return (reply as Reply).plan;
 };
 async function scheduled(c: Church, date: string, reason: string | null = null) {
 	const plan = await planNow(c);
 	ok(
-		await createLaunchWriter({ notices: async () => undefined }).schedule(w.db, await authorityOf(c.A), {
+		await createLaunchWriter({ notices: async () => undefined }).schedule(w.db, await w.authorityOf(c.A), {
 			requestKey: randomUUID(),
 			expectedRevision: plan.launch?.revision ?? plan.revision,
 			input: { date, reason },
@@ -233,7 +226,7 @@ test("AC:INH-LAUNCH-02 a milestone is blocked only by its own linked overdue tas
 	])
 		await w.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date)
 			VALUES(${id},${c.P.id},${title},'general','medium','not_started',clock_timestamp(),'date_only','2026-09-01')`);
-	const actor = await authorityOf(c.A);
+	const actor = await w.authorityOf(c.A);
 	const { r } = await w.one<{ r: string }>(sql`SELECT revision::text AS r FROM task WHERE id=${T}`);
 	ok(
 		await withTaskWrite(w.db, actor, (tx, ctx) =>
@@ -399,7 +392,7 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 	const readAs = async (who: Actor, some: string[], fraction: string) => {
 		for (const articleId of some)
 			ok(
-				await wiki.updateProgress(w.db, await authorityOf(who), {
+				await wiki.updateProgress(w.db, await w.authorityOf(who), {
 					requestKey: randomUUID(),
 					input: { articleId, fraction },
 				}),
@@ -423,7 +416,7 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 	const metric = async (who: Actor) => {
 		const asked = await w.quiet(() => w.ask(who, said, [reads("wiki.reading.stats", {})]));
 		const { discoveryRead, discoveryTotal, discoveryComplete, churchPhase } = asked.replies[0].facts;
-		const stats = ok(await wiki.readingStats(w.db, await authorityOf(who), {})) as Reply;
+		const stats = ok(await wiki.readingStats(w.db, await w.authorityOf(who), {})) as Reply;
 		return [discoveryRead, discoveryTotal, discoveryComplete, churchPhase, stats.qualifyingReader];
 	};
 	assert.deepEqual(await metric(C), [0, 6, false, 1, false]);

@@ -1,7 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import {
 	cancelTurn,
@@ -19,7 +18,17 @@ import { resolveReferences } from "../../../packages/evry/src/context/compile.ts
 import { ok, type Actor } from "../../support/fixture.mts";
 import { untouched } from "../../support/recorded.mts";
 import { NETWORK_LINE, seedWiki, VISION_SLUG, wikiIds } from "../adapters/wiki/corpus.mts";
-import { caseWorld, proposes, reads, rowsOf, sql, type CaseWorld, type Church, type Play } from "./case-world.mts";
+import {
+	caseWorld,
+	proposes,
+	reads,
+	refusal,
+	rowsOf,
+	sql,
+	type CaseWorld,
+	type Church,
+	type Play,
+} from "./case-world.mts";
 
 let w: CaseWorld;
 before(async () => {
@@ -27,11 +36,6 @@ before(async () => {
 });
 after(() => w?.close());
 
-const code = (attempt: Promise<unknown>) =>
-	attempt.then(
-		() => "answered",
-		(e: { code?: string }) => e.code,
-	);
 const threads = async (a: Actor) => (await listConversations(w.db, await w.actorOf(a), {})).total;
 const navigate = async (c: Church, conversation: string) => {
 	const panel = await openLatestConversation(w.db, c.Aa);
@@ -71,8 +75,8 @@ test("AC:INH-REGRESSION-FOREIGN-SESSION another account, or the same account in 
 				retryTurn(w.db, who, conversation, { requestKey: randomUUID() }),
 			];
 			const [real, unknown] = await untouched(w.admin, async () => [
-				await Promise.all(calls(id).map(code)),
-				await Promise.all(calls(randomUUID()).map(code)),
+				await Promise.all(calls(id).map(refusal)),
+				await Promise.all(calls(randomUUID()).map(refusal)),
 			]);
 			assert.deepEqual(real, unknown, "a real conversation answers as a made-up one");
 			assert.ok(
@@ -107,7 +111,7 @@ test("AC:INH-REGRESSION-SESSION-NAVIGATION opening a task and returning to the f
 	assert.deepEqual([panel?.conversation.id, full.conversation.id, full.run], [conversation, conversation, null]);
 	await submitTurn(w.db, c.Aa, conversation, { requestKey: randomUUID(), text: said[2] });
 	assert.equal(
-		await code(submitTurn(w.db, c.Aa, conversation, { requestKey: randomUUID(), text: said[2] })),
+		await refusal(submitTurn(w.db, c.Aa, conversation, { requestKey: randomUUID(), text: said[2] })),
 		"run_active",
 		"one controller at a time",
 	);
@@ -217,8 +221,7 @@ test("AC:UI45-006 continuing after navigation re-checks every kept reference: fo
 	const foreignPerson = await c.person("Quinn Foreign", { plant: c.Q.id, city: "Peoria" });
 	const planter = await w.seated(c.P, "owner");
 	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${planter.id}`);
-	const authority = await RequestActor.resolve(w.db, planter.session);
-	assert.ok(authority instanceof RequestActor);
+	const authority = await w.authorityOf(planter);
 	const care = createPrivateCare();
 	const current = ok(await care.readCurrent(w.db, authority, {}));
 	ok(

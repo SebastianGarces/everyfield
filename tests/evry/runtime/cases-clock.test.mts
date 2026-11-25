@@ -1,7 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { meetingsReader, meetingsWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import { createTaskWriter, taskReader, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
@@ -27,17 +26,12 @@ before(async () => {
 });
 after(() => w?.close());
 
-const authorityOf = async (c: Church) => {
-	const authority = await RequestActor.resolve(w.db, c.A.session);
-	assert.ok(authority instanceof RequestActor);
-	return authority;
-};
 const schedule = async (c: Church, input: object): Promise<Reply> =>
-	withMeetingsWrite(w.db, await authorityOf(c), (tx, ctx) =>
+	withMeetingsWrite(w.db, await w.authorityOf(c.A), (tx, ctx) =>
 		meetingsWriter.schedule(tx, ctx, { requestKey: randomUUID(), input: { type: "orientation", ...input } }),
 	);
 const createTask = async (c: Church, local: string, offsetSeconds?: number): Promise<Reply> =>
-	withTaskWrite(w.db, await authorityOf(c), (tx, ctx) =>
+	withTaskWrite(w.db, await w.authorityOf(c.A), (tx, ctx) =>
 		createTaskWriter({ reminders: async () => undefined as never }).create(tx, ctx, {
 			requestKey: randomUUID(),
 			input: {
@@ -47,7 +41,7 @@ const createTask = async (c: Church, local: string, offsetSeconds?: number): Pro
 		}),
 	);
 const meetingOf = async (c: Church, meetingId: string): Promise<Reply> =>
-	(ok(await meetingsReader.get(w.db, await authorityOf(c), { meetingId })) as Reply).meeting;
+	(ok(await meetingsReader.get(w.db, await w.authorityOf(c.A), { meetingId })) as Reply).meeting;
 const appointments = () =>
 	w.one(sql`SELECT (SELECT count(*)::int FROM meeting) AS meetings,(SELECT count(*)::int FROM task) AS tasks`);
 const instant = (at: string) => new Date(at).toISOString().replace(".000", "");
@@ -115,7 +109,7 @@ test("AC:B03-009 a time that happens twice offers both instants, needs one chose
 		const saved = await meetingOf(c, meeting.id);
 		const held = (
 			ok(
-				await gatedTransaction(w.db, async (tx) => taskReader.get(tx, await authorityOf(c), { taskId: task.id })),
+				await gatedTransaction(w.db, async (tx) => taskReader.get(tx, await w.authorityOf(c.A), { taskId: task.id })),
 			) as Reply
 		).task;
 		assert.deepEqual(
@@ -134,7 +128,7 @@ test("AC:B03-016 changing the church's zone keeps a one-time meeting's instant, 
 		const revision = async () => (await w.one(sql`SELECT revision::text AS r FROM meeting WHERE id=${meeting.id}`)).r;
 		const held = await revision();
 		if (mode === "native") {
-			const authority = await authorityOf(c);
+			const authority = await w.authorityOf(c.A);
 			const plant = { kind: "plant" as const, id: c.P.id };
 			const context = { session: c.A.session, selected: plant } as never;
 			const preview = ok(

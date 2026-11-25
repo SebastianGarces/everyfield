@@ -22,7 +22,17 @@ import {
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/index.ts";
 import type { Actor } from "../../support/fixture.mts";
-import { caseWorld, proposes, reads, rowsOf, sql, type CaseWorld, type Church, type Reply } from "./case-world.mts";
+import {
+	caseWorld,
+	proposes,
+	reads,
+	refusal,
+	rowsOf,
+	sql,
+	type CaseWorld,
+	type Church,
+	type Reply,
+} from "./case-world.mts";
 
 let w: CaseWorld;
 before(async () => {
@@ -37,11 +47,6 @@ const lease = (claim: Reply) => ({
 	generation: claim.claim_generation,
 });
 const PORTS = { reminders: async () => undefined as never, phaseNotices: async () => undefined };
-const refusal = (attempt: Promise<unknown>) =>
-	attempt.then(
-		() => "none",
-		(e: { code?: string }) => e.code,
-	);
 async function review(c: Church, said: string, operation: string, input: object, who: Actor = c.A) {
 	const asked = await w.ask(who, said, [proposes(operation, input)]);
 	assert.ok(asked.proposals[0], JSON.stringify(asked.replies));
