@@ -1,5 +1,5 @@
 import { ownResidencyLinks } from "../organizations/mount";
-import { evryAvailable } from "@everyfield/db/deployment";
+import { evryAvailable } from "@everyfield/db/provider";
 import { serverEnv } from "@/server/config";
 import { getViewer } from "@/server/request-context";
 import { avatarRoute } from "@everyfield/contracts/settings";

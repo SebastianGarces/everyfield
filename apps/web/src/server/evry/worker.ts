@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { evryAvailable } from "@everyfield/db/deployment";
+import { evryAvailable } from "@everyfield/db/provider";
 import { readViewer } from "@everyfield/domain/access";
 import { sessionId } from "@everyfield/contracts/common";
 import { switchedOff, type Switches } from "@everyfield/domain/flags";

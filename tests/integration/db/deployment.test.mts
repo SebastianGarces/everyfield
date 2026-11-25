@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { EMBEDDING_PATH, evryAvailable, providerAllowed, providerVerified } from "../../../packages/db/src/provider.ts";
 import { CHAT, EMBEDDING, RECORD, recorded, UNVERIFIED } from "../../evry/runtime/provider.mts";
 import {
-	EMBEDDING_PATH,
-	evryAvailable,
 	isProduction,
 	isTestDeployment,
-	providerAllowed,
-	providerVerified,
 	runsOffVercel,
 	trustsVercelForwardedFor,
 } from "../../../packages/db/src/deployment.ts";

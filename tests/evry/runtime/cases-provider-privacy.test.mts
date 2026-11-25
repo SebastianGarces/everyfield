@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { claimDue, finishJob } from "../../../packages/domain/src/jobs/queue.ts";
 import { assessmentDrafter, evryModel } from "../../../apps/web/src/server/models.ts";
 import { wikiEmbeddingMount } from "../../../apps/web/src/features/wiki/embedding.ts";
-import { chatPath, EMBEDDING_PATH, providerVerified } from "../../../packages/db/src/deployment.ts";
+import { chatPath, EMBEDDING_PATH, providerVerified } from "../../../packages/db/src/provider.ts";
 import { search } from "../../../packages/domain/src/wiki/reads.ts";
 import {
 	approveProposal,

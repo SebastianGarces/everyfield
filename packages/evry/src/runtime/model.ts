@@ -1,6 +1,6 @@
 import type { LanguageModelV4, LanguageModelV4Middleware } from "@ai-sdk/provider";
 import { createOpenAI } from "@ai-sdk/openai";
-import { chatPath, evryAvailable, providerAllowed } from "@everyfield/db/deployment";
+import { chatPath, evryAvailable, providerAllowed } from "@everyfield/db/provider";
 import { APICallError, wrapLanguageModel } from "ai";
 import { LIMITS } from "../context/limits.ts";
 

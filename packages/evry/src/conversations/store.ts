@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { evryAvailable } from "@everyfield/db/deployment";
+import { evryAvailable } from "@everyfield/db/provider";
 import { readSwitches, switchedOff } from "@everyfield/domain/flags";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { queueJobsFor } from "@everyfield/domain/jobs";

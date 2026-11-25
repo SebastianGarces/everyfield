@@ -28,7 +28,7 @@ flowchart LR
 
 ### evry.panel
 
-The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. Production with no provider record says Evry isn't available yet. Nothing in the app calls the catalog endpoint.
+The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. Production with no provider record says Evry isn't available yet. Nothing calls the catalog endpoint.
 
 - Routes: none
 - Endpoints: `/api/evry/catalog`, `/api/evry/open`, `/api/evry/conversations`, `/api/evry/conversations/[id]`, `/api/evry/conversations/[id]/attachments`, `/api/evry/conversations/[id]/turns`, `/api/evry/conversations/[id]/stream`, `/api/evry/conversations/[id]/cancel`, `/api/evry/conversations/[id]/retry`, `/api/evry/photos`

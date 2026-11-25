@@ -1,4 +1,4 @@
-import { EMBEDDING_PATH, providerAllowed } from "@everyfield/db/deployment";
+import { EMBEDDING_PATH, providerAllowed } from "@everyfield/db/provider";
 import { EmbeddingRefusal, openAiWikiEmbedding, type WikiEmbedFetch } from "./openai.ts";
 
 export { EmbeddingRefusal } from "./openai.ts";

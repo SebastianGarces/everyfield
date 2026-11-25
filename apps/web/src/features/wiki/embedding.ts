@@ -1,6 +1,6 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
-import { EMBEDDING_PATH, providerAllowed } from "@everyfield/db/deployment";
+import { EMBEDDING_PATH, providerAllowed } from "@everyfield/db/provider";
 import { runDueWikiEmbedding, wikiPassageEmbedder } from "@everyfield/domain/wiki";
 import { serverEnv, type ServerEnv } from "../../server/config.ts";
 

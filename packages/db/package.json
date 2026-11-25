@@ -11,6 +11,7 @@
 		"./columns": "./src/columns.ts",
 		"./migrate": "./src/schema/migrate.ts",
 		"./deployment": "./src/deployment.ts",
+		"./provider": "./src/provider.ts",
 		"./development": "./src/development.ts"
 	},
 	"scripts": {

@@ -1,4 +1,4 @@
-import { EMBEDDING_PATH } from "@everyfield/db/deployment";
+import { EMBEDDING_PATH } from "@everyfield/db/provider";
 
 const PROFILE = "openai-text-embedding-3-small";
 const DIMENSIONS = 1536;
