@@ -27,6 +27,7 @@ import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/doma
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { recorded } from "../../support/recorded.mts";
 import type { OnboardingContext, OnboardingProducer } from "../../../packages/contracts/src/onboarding/server.ts";
 import type { Tx } from "../../../packages/domain/src/onboarding/core.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -1915,7 +1916,9 @@ test("AC:ROLE43-004 a yes to the lead question adds or reuses the one shown ordi
 					},
 			(await resume(f)).revision,
 		);
-		const result = ok(await call("answerLead", f.a, q, f.p));
+		const { value, added } = await recorded(admin, () => call("answerLead", f.a, q, f.p));
+		const result = ok(value);
+		assert.deepEqual(added, { audits: ["attestation.recorded", "roles.changed"], jobs: [], notices: 0, mail: 0 });
 		const { assignment, seniorPastor } = yes(result.lead);
 		assert.equal(assignment.personId, f.result.ownerSeat.personId);
 		assert.equal(seniorPastor, container === "absent" ? "occupied" : undefined);
@@ -1960,7 +1963,9 @@ test("AC:ROLE43-005 a no or a skip leaves the Owner's person, seat and full auth
 			).rows;
 		const people = await person();
 		const q = command({ answer }, (await resume(f)).revision);
-		const result = ok(await call("answerLead", f.a, q, f.p));
+		const { value, added } = await recorded(admin, () => call("answerLead", f.a, q, f.p));
+		const result = ok(value);
+		assert.deepEqual(added, { audits: ["attestation.recorded"], jobs: [], notices: 0, mail: 0 });
 		assert.deepEqual(ok(await call("answerLead", f.a, q, f.p)), result);
 		assert.equal(result.lead.answer, answer);
 		assert.equal((await leadOf(f.p.id)).rows[0]!.n, 0);
@@ -2295,8 +2300,38 @@ test("AC:TARGET-IDN-015 finishing twice with no new date keeps Phase 1 and the l
 		await failingRow(table, when, () => call("declareJourney", f.a, command(journey, r.revision), f.p));
 		assert.deepEqual(await state(), before, table);
 	}
+	const planned = {
+		...journey,
+		launch: { answer: "planned", date: "2026-12-01", expectedScheduleRevision: String(before.launch!.revision) },
+	};
+	for (const [table, when] of [
+		["launch", "INSERT"],
+		["phase_transition", "INSERT"],
+		["onboarding_setup", "UPDATE"],
+	] as const) {
+		await failingRow(table, when, () => call("declareJourney", f.a, command(planned, r.revision), f.p));
+		assert.deepEqual(await state(), before, `a launch date saved with a failing ${table}`);
+	}
+	const other = await makePlant();
+	const reached = ok(
+		await call(
+			"declareJourney",
+			other.a,
+			command(
+				{ ...planned, launch: { ...planned.launch, expectedScheduleRevision: "1" } },
+				(await resume(other)).revision,
+			),
+			other.p,
+		),
+	);
+	assert.deepEqual(
+		[reached.currentPhase, reached.scheduledLaunchDate],
+		[4, "2026-12-01"],
+		"the same answer with no fault",
+	);
+	const untouched = await state();
 	await failingRow("audit_event", "INSERT", () => call("complete", f.a, command({}, r.revision), f.p));
-	assert.deepEqual(await state(), before);
+	assert.deepEqual(await state(), untouched);
 	const saved = ok(
 		await call(
 			"declareJourney",
