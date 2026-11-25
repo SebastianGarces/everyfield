@@ -939,7 +939,7 @@ test("a message edited in Messages after the review refuses the approval and cal
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt });
 	assert.ok(proposal);
 	await inMessages.edit(owner, draft.id);
-	assert.equal((await readReview(db, owner, proposal.id)).stale, true);
+	assert.equal((await readReview(db, owner, proposal.id)).stale, "message");
 	await assert.rejects(
 		approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
 		{ code: "review_changed" },
@@ -958,7 +958,7 @@ test("a message edited in Messages after the review refuses the approval and cal
 		},
 		service.port,
 	);
-	assert.equal(again.stale, false);
+	assert.equal(again.stale, null);
 	assert.equal(change(again, "subject")!.after, "Edited in Messages");
 	await approveProposal(db, owner, again.id, { revision: again.revision, digest: again.digest }, null);
 	await inMessages.edit(owner, draft.id);
@@ -986,10 +986,10 @@ for (const [name, changeIt] of [
 			const t = await turn(owner, service.port);
 			const proposal = await t.propose(operation, input(id));
 			assert.ok(proposal);
-			assert.equal((await readReview(db, owner, proposal.id)).stale, false);
+			assert.equal((await readReview(db, owner, proposal.id)).stale, null);
 			await changeIt(owner, id, service);
 			const before = [service.calls.send.length, service.calls.cancel.length, service.calls.reschedule.length];
-			assert.equal((await readReview(db, owner, proposal.id)).stale, true);
+			assert.equal((await readReview(db, owner, proposal.id)).stale, "message");
 			await assert.rejects(
 				approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
 				{ code: "review_changed" },

@@ -464,6 +464,8 @@ export function problemText(
 			return "That person, meeting, team or assignee cannot be chosen here. Pick another one.";
 		case "protected_source":
 			return "This task was created by a meeting, so its category and link stay as they are.";
+		case "combined_follow_up":
+			return "Two people were merged, so this follow-up became one with the other from the same meeting. Use the one that is left.";
 		case "nonexistent_local_time":
 			return "That time does not exist on this day because the clocks move forward. Pick another time.";
 		case "ambiguous_local_time":

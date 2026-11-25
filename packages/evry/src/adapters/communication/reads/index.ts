@@ -4,6 +4,7 @@ import { meetingType } from "@everyfield/contracts/meetings";
 import { sql, type SQL } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { communicationWriter, optedOutSql } from "@everyfield/domain/communication";
+import { currentPersonJoin, lineageOf } from "@everyfield/domain/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
@@ -254,7 +255,7 @@ export const getMessage: ReadAdapter<z.infer<typeof getInput>> = {
 			SELECT ${messageFacts} AS message,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',p.display_name,'result',${sql.raw(RESULT)},
 					'delivered_at',${sql.raw(local("m.delivered_at"))},'opened_at',${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))}) ORDER BY lower(p.display_name) COLLATE "C",p.id)
-					FROM mail m JOIN person p ON p.id=m.recipient_person_id AND p.tenant_id=m.tenant_id
+					FROM mail m ${currentPersonJoin(sql`m.recipient_person_id`, sql`m.tenant_id`)}
 					WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id),'[]'::jsonb) AS recipients
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			WHERE c.plant_id=${actor.owner.id}::uuid AND ${live(actor)}
@@ -316,7 +317,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 			const r = await tx.execute(sql`
 				SELECT p.id,p.display_name AS name,count(*) OVER()::int AS total FROM person p
 				WHERE p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid AND p.state='live' AND ${live(actor)}
-					AND NOT EXISTS(SELECT FROM mail m WHERE m.tenant_id=p.tenant_id AND m.recipient_person_id=p.id
+					AND NOT EXISTS(SELECT FROM mail m WHERE m.tenant_id=p.tenant_id AND m.recipient_person_id IN ${lineageOf(sql`p.id`, sql`p.tenant_id`)}
 						AND m.purpose='communication' AND ${sql.raw(WENT_OUT)})
 				ORDER BY lower(p.display_name) COLLATE "C",p.id LIMIT ${limit}`);
 			const rows = z.array(z.strictObject({ id: z.uuid(), name: z.string(), total: z.number() })).parse(r.rows);
@@ -342,7 +343,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 						${sql.raw(local("coalesce(m.sent_at,m.accepted_at,m.created_at)"))} AS sent_at,
 						${sql.raw(local("m.delivered_at"))} AS delivered_at,${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))} AS opened_at
 					FROM mail m JOIN communication c ON c.id=m.communication_id AND c.plant_id=m.tenant_id
-					WHERE m.tenant_id=${plant}::uuid AND m.recipient_person_id=${input.personId}::uuid AND m.purpose='communication'
+					WHERE m.tenant_id=${plant}::uuid AND m.recipient_person_id IN ${lineageOf(sql`${input.personId}::uuid`, sql`${plant}::uuid`)} AND m.purpose='communication'
 					ORDER BY at DESC LIMIT ${limit}) x),'[]'::jsonb) AS emails
 			FROM plant pl WHERE pl.id=${plant}::uuid AND ${live(actor)}`);
 		const found = z
@@ -455,7 +456,7 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 							WHEN ${optedOutSql(sql`c.plant_id`, sql`p.id`)} THEN 'unsubscribed'
 							WHEN EXISTS(SELECT FROM suppression s WHERE s.address_hash=m.address_hash AND s.cleared_at IS NULL) THEN 'blocked'
 							WHEN m.state IN ('unknown','dispatched') AND m.delivered_at IS NULL THEN 'still_checking' END AS hard_reason
-						FROM mail m JOIN person p ON p.id=m.recipient_person_id AND p.tenant_id=m.tenant_id
+						FROM mail m ${currentPersonJoin(sql`m.recipient_person_id`, sql`m.tenant_id`)}
 						WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id ORDER BY p.id,m.created_at DESC) y) z),'[]'::jsonb) AS people
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			WHERE c.id=${input.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND ${live(actor)}`);
@@ -611,12 +612,13 @@ export const meetingRecipientTracking: ReadAdapter<MeetingInput> = {
 			throw nativeRefusal(reply.error.code);
 		}
 		const r = await tx.execute(sql`
-			SELECT DISTINCT ON (m.recipient_person_id) m.recipient_person_id AS id,${sql.raw(RESULT)} AS result,
+			SELECT DISTINCT ON (p.id) p.id,${sql.raw(RESULT)} AS result,
 				${sql.raw(local("m.delivered_at"))} AS delivered_at,${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))} AS opened_at
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			JOIN mail m ON m.tenant_id=c.plant_id AND m.communication_id=c.id
-			WHERE c.plant_id=${actor.owner.id}::uuid AND c.meeting_id=${meeting.id}::uuid AND m.recipient_person_id IS NOT NULL
-			ORDER BY m.recipient_person_id,m.created_at DESC,m.id DESC`);
+			${currentPersonJoin(sql`m.recipient_person_id`, sql`m.tenant_id`)}
+			WHERE c.plant_id=${actor.owner.id}::uuid AND c.meeting_id=${meeting.id}::uuid
+			ORDER BY p.id,m.created_at DESC,m.id DESC`);
 		const results = new Map(
 			z
 				.array(trackedRow)

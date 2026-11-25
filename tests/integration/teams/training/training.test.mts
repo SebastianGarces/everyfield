@@ -879,7 +879,7 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 	).rows;
 	const back = restored.find((row) => row.id === leftRow.id)!;
 	assert.equal(back.person_id, left.id);
-	assert.equal(back.state, "removed");
+	assert.equal(back.state, "active");
 	assert.equal(back.revision, leftRow.revision + 2);
 	const keptActive = restored.find((row) => row.id === rightId)!;
 	assert.equal(keptActive.person_id, right.id);

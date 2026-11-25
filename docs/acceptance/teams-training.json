@@ -1412,7 +1412,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -1745,7 +1748,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -2084,7 +2090,10 @@
         "WP-018",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -2409,7 +2418,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -2761,7 +2773,10 @@
         "WP-019",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3085,7 +3100,10 @@
         "WP-019",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3413,7 +3431,10 @@
         "WP-019",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -3739,7 +3760,10 @@
         "WP-019",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {

@@ -13,6 +13,8 @@ import {
 import { getPlant, listPlants } from "../../../packages/domain/src/oversight/index.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { peopleMerge } from "../../../packages/domain/src/people/index.ts";
 import { church, type Church } from "./assessment-church.mts";
 
 const HOUR = 3_600_000;
@@ -142,6 +144,27 @@ test("a fact citation opens the exact value and date from the run's own snapshot
 	assert.equal(fact.people.hidden, 1);
 	assert.ok(!fact.people.shown.some((x) => x.personId === gone), "no link to a record the reader cannot open");
 	assert.ok(!JSON.stringify(fact).includes(gone));
+	const [from, into] = await c0.rows<{ id: string }>(
+		sql`SELECT id FROM person WHERE plant_id=${p.id} AND display_name IN ('Adult 08','Adult 09') ORDER BY display_name`,
+	);
+	const context = { session: p.actor.session, selected: p.actor.actor.context.owner } as never;
+	const pair = { sourceId: from!.id, survivorId: into!.id };
+	const row = await runRow(run.runId);
+	const { reviewDigest } = ok(await gatedTransaction(c0.db, (tx) => peopleMerge.getMergeReview(tx, context, pair)));
+	ok(
+		await gatedTransaction(c0.db, (tx) =>
+			peopleMerge.mergePeople(tx, context, { requestKey: randomUUID(), input: { ...pair, reviewDigest } }),
+		),
+	);
+	assert.deepEqual(await runRow(run.runId), row, "the recorded assessment is unchanged");
+	const merged = ok(
+		await assessments.resolveCitation(c0.db, p.actor, { runId: run.runId, key: "committedAdults.atLeast" }),
+	);
+	assert.deepEqual(merged, fact, "the citation still names the person it counted");
+	const landing = ok(
+		await gatedTransaction(c0.db, (tx) => peopleMerge.mergedPersonDestination(tx, context, { personId: from!.id })),
+	);
+	assert.equal(landing.destinationId, into!.id, "and the link opens the survivor");
 	const stored = (await runRow(run.runId)).row as {
 		result: { citations: Record<string, { kind: string; text?: string }> };
 	};

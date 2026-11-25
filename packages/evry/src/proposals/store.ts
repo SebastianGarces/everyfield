@@ -31,14 +31,13 @@ import {
 	proposalRow,
 	readable,
 	REVIEWED_WRITES,
-	staleMessage,
+	REVIEW_MINUTES,
+	stale,
 	type Operation,
 	type Proposal,
 } from "./review.ts";
 
-export { allowedWrites, everyOperation, REVIEWED_WRITES, staleMessage, type Offered, type Proposal } from "./review.ts";
-
-export const REVIEW_MINUTES = 15;
+export { allowedWrites, everyOperation, REVIEWED_WRITES, stale, type Offered, type Proposal } from "./review.ts";
 
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const r = schema.safeParse(raw);
@@ -250,7 +249,7 @@ export async function approveProposal(
 					job_id=CASE WHEN p.operation=ANY(${sql.param(NOW_WRITES)}::text[]) THEN NULL ELSE ${job}::uuid END,updated_at=clock_timestamp()
 				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.revision=${witness.revision}
 					AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.approveProposal", "approved", queued))}::text[])
-					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(staleMessage("p"))}
+					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(stale("p"))}
 					AND (p.operation<>ALL(${sql.param([...PHOTO_WRITES])}::text[]) OR p.input->'input'->>'uploadId'=${shownUpload}::text)
 					AND (p.operation<>ALL(${sql.param(REASON_WRITES)}::text[]) OR ${reason !== null})
 				RETURNING p.*

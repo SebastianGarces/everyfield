@@ -510,6 +510,7 @@ export const ASSESSMENT_COMMANDS = {
 				...(u.restores.length ? [change("movesBack", listText(u.restores.map((r) => counted(r.kind, r.count))))] : []),
 				...(u.fields.length ? [change("detailsGoBack", u.fields.join(", "))] : []),
 				...(u.attendanceBack ? [change("attendanceGoesBack", u.attendanceBack)] : []),
+				...(u.staysWithKept ? [change("staysWithKept", u.staysWithKept)] : []),
 			];
 			return sql`SELECT jsonb_build_object('target',${person},'changes',${changes(list)})
 					||${u.blocked ? sql`jsonb_build_object('refusal',${u.blocked}::text)` : sql`'{}'::jsonb`} AS review,

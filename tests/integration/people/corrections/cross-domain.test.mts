@@ -406,7 +406,7 @@ test("AC:TARGET-PPL-025 Unmerge after a moved record changed names it and change
 	);
 	const state = { people: await people_(brooks, morgan), history: await history(brooks, morgan) };
 	const error = refused(await unmerge(merged.mergeId, p.reviewRevision), "inverse_conflict");
-	assert.deepEqual(error.details, { causes: ["references_changed"], changed: ["task"] });
+	assert.deepEqual(error.details, { causes: ["references_changed"], changed: ["task"], changedFields: [] });
 	assert.deepEqual({ people: await people_(brooks, morgan), history: await history(brooks, morgan) }, state);
 });
 

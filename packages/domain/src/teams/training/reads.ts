@@ -3,12 +3,13 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../../access/session.ts";
+import { lineageOf } from "../../people/lineage.ts";
 import { deny, parse, read, type Reader } from "../core.ts";
 import { owner, row, unique } from "../reads.ts";
 import { rosterDigest } from "./digest.ts";
 export const compatible = sql`(SELECT c.kind = 'earned' AND c.version = g.version
 	FROM training_credit c
-	WHERE c.plant_id = g.plant_id AND c.program_id = g.id AND c.person_id = a.person_id
+	WHERE c.plant_id = g.plant_id AND c.program_id = g.id AND c.person_id IN ${lineageOf(sql`a.person_id`, sql`a.plant_id`)}
 	ORDER BY c.recorded_at DESC, c.id DESC
 	LIMIT 1)`;
 
@@ -200,7 +201,7 @@ export const trainingReader = {
 						WHERE a.person_id = ${input.personId}::uuid AND a.plant_id = ${viewer.plantId}::uuid AND a.state = 'active'
 							AND NOT coalesce(${compatible}, false))) AS "currentTrainingComplete",
 					EXISTS (SELECT 1 FROM training_credit c
-						WHERE c.person_id = ${input.personId}::uuid AND c.plant_id = ${viewer.plantId}::uuid AND c.kind = 'earned') AS "earnedHistoryRetained",
+						WHERE c.person_id IN ${lineageOf(sql`${input.personId}::uuid`, sql`${viewer.plantId}::uuid`)} AND c.plant_id = ${viewer.plantId}::uuid AND c.kind = 'earned') AS "earnedHistoryRetained",
 					(SELECT count(*)::int FROM person p WHERE p.id = ${input.personId}::uuid AND p.tenant_id = ${viewer.plantId}::uuid) AS "distinctPeople"`,
 			);
 			owner(viewer.plantId, found.owner);
@@ -228,7 +229,7 @@ export const trainingReader = {
 						'attendanceDays', c.attendance_days, 'volunteerDays', c.volunteer_days)
 						ORDER BY c.recorded_at, c.id)
 					FROM (SELECT * FROM training_credit c
-						WHERE c.person_id = ${input.personId}::uuid AND c.plant_id = ${viewer.plantId}::uuid
+						WHERE c.person_id IN ${lineageOf(sql`${input.personId}::uuid`, sql`${viewer.plantId}::uuid`)} AND c.plant_id = ${viewer.plantId}::uuid
 						ORDER BY c.recorded_at DESC, c.id DESC LIMIT 200) c), '[]'::json) AS credits`,
 			);
 			owner(viewer.plantId, found.owner);

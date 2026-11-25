@@ -79,10 +79,19 @@ const SEATING = ["onboarding.createPlant", "discovery.convertToPlant"];
 const ownSeating = (actor: EvryActor) =>
 	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.accountId}::uuid AND p.operation=ANY(${sql.param(SEATING)}::text[])
 		AND ${liveRead({ session: actor.session, owner: { kind: "account", id: actor.accountId } as never })}`;
+export const REVIEW_MINUTES = 15;
 export const staleMessage = (alias: string) =>
 	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
 		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint
 		AND ${untouchedMail("t")}=(${alias}.input->>'untouched')::int),false)`;
+export const staleMerge = (alias: string) =>
+	`EXISTS(SELECT FROM person_merge pm WHERE pm.tenant_id=${alias}.tenant_id
+		AND greatest(pm.merged_at,pm.unmerged_at)>${alias}.expires_at-interval '${REVIEW_MINUTES} minutes'
+		AND (strpos(${alias}.input::text,pm.source_id::text)>0 OR strpos(${alias}.input::text,pm.survivor_id::text)>0
+			OR ${alias}.review->'target'->>'id' IN (pm.source_id::text,pm.survivor_id::text)))`;
+export const stale = (alias: string) => `(${staleMessage(alias)} OR ${staleMerge(alias)})`;
+const staleCause = (alias: string) =>
+	`CASE WHEN ${alias}.state='pending' THEN CASE WHEN ${staleMessage(alias)} THEN 'message' WHEN ${staleMerge(alias)} THEN 'merge' END END`;
 export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
@@ -111,7 +120,7 @@ export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName
 			AND ${alias}.approved_at<clock_timestamp()-interval '2 minutes' THEN 'unknown' END),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
-		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
+		'stale',${staleCause(alias)},
 		'receipt',${alias}.receipt,'now',clock_timestamp())`)}`;
 
 const targetKind = z.enum([
@@ -180,7 +189,7 @@ export const proposalRow = z.strictObject({
 	review,
 	outcome: z.enum(["completed", "failed", "refused", "unknown"]).nullable(),
 	executing: z.boolean(),
-	stale: z.boolean(),
+	stale: z.enum(["message", "merge"]).nullable(),
 	receipt: z
 		.strictObject({
 			receiptId: z.uuid().optional(),

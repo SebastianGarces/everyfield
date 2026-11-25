@@ -28,6 +28,7 @@ export {
 	kindTitle,
 	listText,
 	unmergeAdvice,
+	unmergeStaysText,
 	type ReferenceKind,
 } from "@everyfield/contracts/people";
 import type { ReferenceKind } from "@everyfield/contracts/people";

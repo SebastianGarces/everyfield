@@ -373,7 +373,7 @@ function PairReview({
 						</div>
 					) : null}
 					<ReviewList
-						title="Meeting attendance that changes"
+						title="Meeting records that change"
 						items={review.attendance.map((a) => ({
 							key: `${a.change}-${a.meeting}`,
 							text: attendanceText(a, review),
