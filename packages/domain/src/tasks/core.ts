@@ -2,7 +2,7 @@ import { owner, requestIdentity, sameOwner, timeZone, type Owner } from "@everyf
 import * as c from "@everyfield/contracts/tasks";
 import type { Database } from "@everyfield/db/client";
 import { randomUUID } from "node:crypto";
-import { hash } from "../operations/canonical.ts";
+import { actorToken, hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { boundWrite, RequestActor, type WriteTx } from "../access/session.ts";
@@ -83,7 +83,7 @@ async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
 }
 export const administers = (v: Viewer) => v.role !== "member";
 
-export { hash };
+export { actorToken, hash };
 
 export type Command = AuditWrite & { actor: Writer };
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
@@ -155,7 +155,7 @@ export function auditRow(
 		id: first ? cmd.id : randomUUID(),
 		tenant_id: cmd.actor.plantId,
 		actor_id: cmd.actor.accountId,
-		actor_token: hash([cmd.actor.plantId, cmd.actor.accountId]),
+		actor_token: actorToken(cmd.actor.plantId, cmd.actor.accountId),
 		action: entry.action,
 		kind: entry.kind,
 		subject_type: "task",

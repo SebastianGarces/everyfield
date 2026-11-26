@@ -1,6 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { instant } from "../../../packages/contracts/src/common/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
@@ -18,6 +18,7 @@ import {
 	withMeetingsWrite,
 	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { captureInputs } from "../../../packages/domain/src/intelligence/facts.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import {
 	commitments,
@@ -410,4 +411,21 @@ test("INV-freshness: undoing a change clears the mark, Refresh publishes a fresh
 	refused(await facts.readFactsSinceRun(c0.db, asMember, {}), "access_denied");
 	const other = await c0.plant("Never Assessed");
 	assert.equal(ok(await facts.readFactsSinceRun(c0.db, other.actor, {})).outOfDateRunId, null);
+});
+
+test("INV-freshness: a run published before the phase input stays fresh until an input it read changes", async () => {
+	const { p, adults } = await church30("Before Phase");
+	const current = await assess(p);
+	const inputs = await captureInputs(c0.db, p.id, current.asOf);
+	assert.ok(inputs, "the inputs at the run's as-of");
+	const { phase, ...older } = inputs;
+	assert.equal(typeof phase, "number", "the current inputs carry the plant's phase");
+	const stored = createHash("sha256").update(JSON.stringify(older)).digest("hex");
+	await c0.admin.transaction(async (tx) => {
+		await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+		await tx.execute(sql`UPDATE assessment_run SET source_revision=${stored} WHERE id=${current.runId}`);
+	});
+	assert.equal(await outOfDate(p), false, "a run stored without the phase key is not out of date");
+	ok(await commit(p, adults[1]!));
+	assert.equal(await outOfDate(p), true, "a commitment since still marks the older run");
 });

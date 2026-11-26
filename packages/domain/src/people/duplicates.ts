@@ -8,7 +8,7 @@ import {
 	authorize,
 	authorizeRead,
 	deny,
-	hash,
+	actorToken,
 	lockOwner,
 	parse,
 	readReply,
@@ -257,7 +257,7 @@ function pairWrite(change: "dismiss" | "restore", tx: Tx, ctx: WriteContext, raw
   FOR SHARE OF p,m
 ), changed AS (${write}), audit AS (
   INSERT INTO audit_event (tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
-  SELECT ${plant}::uuid,${actor}::uuid,${hash([plant, actor])},${action},${change === "dismiss" ? "hide" : "restore"},
+  SELECT ${plant}::uuid,${actor}::uuid,${actorToken(plant, actor)},${action},${change === "dismiss" ? "hide" : "restore"},
    'person',person_id,jsonb_build_object('withPersonId',with_person_id) FROM changed RETURNING 1
 ) SELECT EXISTS(SELECT FROM pair) AS found,EXISTS(SELECT FROM audit) AS changed`);
 		const row = changeRow.parse(r.rows[0]);

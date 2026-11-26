@@ -673,9 +673,9 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 			.toReversed(),
 	);
 
-	await f.admin
-		.execute(sql`UPDATE audit_event SET actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||actor_id::text,'UTF8')),'hex')),
-		actor_id=NULL WHERE actor_id=${c.admin.id}`);
+	await f.admin.execute(
+		sql`UPDATE audit_event SET actor_token=audit_actor_token(tenant_id,actor_id),actor_id=NULL WHERE actor_id=${c.admin.id}`,
+	);
 	const moved = (await journal(c.owner)).find((e) => e.change.kind === "date" && e.change.event === "moved")!;
 	assert.equal(moved.actor, null);
 	assert.deepEqual(moved.change, {

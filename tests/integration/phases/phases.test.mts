@@ -8,7 +8,9 @@ import {
 	DECLARATION_REASON,
 	type CriterionStatus,
 } from "../../../packages/contracts/src/phases/index.ts";
-import { accountId } from "../../../packages/contracts/src/common/index.ts";
+import { accountId, frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
+import { createLaunchReader, createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
+import { caseOf } from "../target/sql/core/support.mts";
 import {
 	authorizePhaseNotices,
 	createPhaseWriter,
@@ -540,4 +542,66 @@ test("AC:CASE-NTF-009 a phase notice mails no organization seat that has not acc
 	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day'
 		WHERE account_id=${linked.owner.id} AND organization_id=${linked.org.id}`);
 	assert.equal((await allowed()).size, 0, "the Owner's seat is not accepted yet");
+});
+
+test("AC:PI-CASE-021 the journey reads creation, the one declaration, the reasoned backward correction and the recorded Launch Sunday, with nothing in between", async () => {
+	const k = caseOf("intelligence", "PI-CASE-021") as ReturnType<typeof caseOf> & { clock: { now: string } };
+	type Event = { kind: string; to?: number; from?: number | null; reason?: string; actual_day?: string };
+	const events = (k.given.events as { value: Event[] }).value;
+	const [creation, declaration, backward, launch] = events as [Event, Event, Event, Event];
+	const today = frozenClock(instant.parse(new Date(k.clock.now).toISOString()));
+	const launches = createLaunchWriter({ notices: async () => {}, clock: today });
+	const plan = async (who: Seated) => ok(await createLaunchReader(today).readPlan(f.db, who.actor)).plan;
+	const { plant, owner } = await church("Case 021 Church");
+	assert.equal(creation.to, 1);
+	ok(await declare(owner, declaration.to, await revisionOf(plant)));
+	ok(await move(owner, backward.to, backward.reason!, await revisionOf(plant)));
+	ok(
+		await launches.schedule(f.db, owner.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: (await plan(owner)).revision,
+			input: { date: launch.actual_day, reason: null },
+		}),
+	);
+	ok(
+		await launches.recordOutcome(f.db, owner.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: (await plan(owner)).revision,
+			input: { actualDate: launch.actual_day, attendance: null, decisions: null, note: null },
+		}),
+	);
+	const h = await historyOf(owner);
+	const KIND: Record<string, string> = {
+		creation: "church_creation",
+		movement: "backward",
+		launch_sunday: "launch_recorded",
+	};
+	assert.deepEqual(
+		h.entries.map((e) => KIND[e.kind] ?? e.kind),
+		k.expected.result.events,
+	);
+	const [c0, d0, m0, l0] = h.entries;
+	assert.ok(c0 && d0 && m0 && l0);
+	assert.deepEqual(c0.kind === "creation" && [c0.fromPhase, c0.toPhase], [creation.from, creation.to]);
+	assert.deepEqual(d0.kind === "initial_declaration" && d0.toPhase, declaration.to);
+	assert.deepEqual(m0.kind === "movement" && [m0.fromPhase, m0.toPhase, m0.direction, m0.reason], [
+		backward.from,
+		backward.to,
+		"backward",
+		backward.reason,
+	]);
+	assert.equal(l0.kind === "launch_sunday" && l0.actualDate, launch.actual_day);
+	assert.equal(h.state.phase, k.expected.result.current_phase);
+	assert.equal(h.entries.length - events.length, k.expected.result.invented_intervening_events);
+	const stored = await rows(sql`SELECT kind FROM phase_transition WHERE plant_id=${plant.id} ORDER BY occurred_at,id`);
+	assert.deepEqual(
+		stored.map((r) => r.kind),
+		["creation", "initial_declaration", "movement"],
+		"no synthetic ladder of moves",
+	);
+	assert.equal(
+		(await one(sql`SELECT count(*)::int AS n FROM meeting WHERE plant_id=${plant.id}`)).n,
+		0,
+		"no meeting made",
+	);
 });

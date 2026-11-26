@@ -386,6 +386,7 @@ export async function church(
 		vision,
 		role,
 		checkIn,
+		humanRecords,
 		harvest,
 		portfolio,
 		unknownCount,

@@ -7,6 +7,7 @@ import type { Actor } from "../../support/fixture.mts";
 import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligence-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { caseWorld, propose, reads, rowsOf, sql, type CaseWorld, type Play } from "./case-world.mts";
+import { caseOf } from "../../integration/target/sql/core/support.mts";
 
 let ch: IntelligenceChurch;
 let w: CaseWorld;
@@ -42,6 +43,129 @@ async function leadOf(plant: string, account: string, name: string) {
 		VALUES(${plant},${account},${created},${JSON.stringify({ answer: "yes", assignment, savedAt: "2026-01-01T00:00:00.000Z" })}::jsonb,
 			'{"status":"pending"}'::jsonb,'{"status":"pending"}'::jsonb,'pending')`);
 }
+
+const niCase = (id: string) => caseOf("intelligence", id);
+const niResult = (id: string) => (niCase(id).expected as { result: Record<string, unknown> }).result;
+
+test("AC:NI-029 AC:NI-030 Evry reads Network Intelligence without review, but a refresh, a rating or a sharing change does nothing until its exact current review is approved; the model gets the named rows and no directory, raw snapshot or assessment body", async () => {
+	const P = ch.plants["Harvest Point"]!;
+	const Q = ch.plants["Redeemer Church"]!;
+	const [director, member] = [seat("director"), seat("networkMember")];
+	const planter = P.owner as unknown as Actor;
+	assert.deepEqual(niCase("NI-029").action.arguments, {
+		...niCase("NI-029").action.arguments,
+		operation: ["read findings", "request durable run", "submit feedback", "change shared_findings"],
+		approval: ["none", "exact current reviewed proposal"],
+	});
+	const footprint = async () =>
+		w.one<{
+			runs: number;
+			feedback: number;
+			audits: number;
+			findings: boolean;
+			revision: string;
+		}>(sql`SELECT (SELECT count(*)::int FROM network_intelligence_run) AS runs,
+			(SELECT count(*)::int FROM network_intelligence_feedback) AS feedback,
+			(SELECT count(*)::int FROM audit_event WHERE action NOT LIKE 'evry.%') AS audits,
+			(SELECT shared_findings FROM affiliation WHERE id=${P.affiliation}) AS findings,
+			(SELECT revision::text FROM affiliation WHERE id=${P.affiliation}) AS revision`);
+	const before = await footprint();
+
+	const asked = await w.ask(member, "What do our patterns say?", [
+		reads("organizationIntelligence.readHistory", { level: "portfolio" }),
+		() => "PATTERN-ANSWER",
+	]);
+	const history = asked.replies[0];
+	assert.equal(history.status, "available", "the read runs without any review");
+	assert.equal(asked.proposals.length, 0);
+	const pattern = rowsOf(history).find((r) => r.fields.row === "pattern")!;
+	assert.ok(pattern, JSON.stringify(rowsOf(history)));
+	assert.equal(niResult("NI-029").unreviewed_read, true);
+
+	const feedback = { runId: history.facts.runId, patternKey: pattern.fields.patternKey, rating: "useful" };
+	const sharing = { organizationId: ch.network.id, category: "shared_findings", enabled: false };
+	const proposals = {
+		refresh: await w.prepare(director, "organizationIntelligence.requestRefresh", {}),
+		rate: await w.prepare(member, "organizationIntelligence.submitFeedback", feedback),
+		share: await w.prepare(planter, "privacy.setSharing", sharing),
+	};
+	for (const p of Object.values(proposals)) assert.equal(p.review.refusal ?? null, null);
+	assert.deepEqual(await footprint(), before, "proposed and not approved: no run, rating, audit or sharing change");
+	assert.equal(niResult("NI-029").unreviewed_durable_effects, 0);
+
+	const forged = await w.approve(director, { ...proposals.refresh, digest: "0".repeat(64) }).catch((e: Error) => e);
+	assert.ok(forged instanceof Error || forged.review.outcome !== "completed", "a different review is not approval");
+	await w.admin.execute(sql`UPDATE affiliation SET revision=revision+1 WHERE id=${P.affiliation}`);
+	const stale = await w.approve(planter, proposals.share);
+	assert.notEqual(stale.review.outcome, "completed", "a review the link has moved past is not current");
+	const moved = await footprint();
+	assert.deepEqual({ ...moved, revision: before.revision }, before, "neither changed anything");
+
+	const share = await w.prepare(planter, "privacy.setSharing", sharing);
+	for (const [who, p] of [
+		[director, proposals.refresh],
+		[member, proposals.rate],
+		[planter, share],
+	] as const) {
+		const { review } = await w.approve(who, p);
+		assert.equal(review.outcome, "completed", JSON.stringify(review));
+	}
+	const applied = await footprint();
+	assert.deepEqual(
+		[applied.runs - before.runs, applied.feedback - before.feedback, applied.findings],
+		[1, 1, false],
+		"the exact current reviews apply",
+	);
+	assert.ok(applied.audits > before.audits);
+	await w.admin.execute(sql`UPDATE affiliation SET shared_findings=true WHERE id=${P.affiliation}`);
+
+	await w.admin.execute(sql`UPDATE plant SET street='77 Canary Court' WHERE id IN(${P.id},${Q.id})`);
+	await w.admin.execute(
+		sql`UPDATE person SET email='canary.contact@example.test',phone='555-0177' WHERE plant_id=${P.id}`,
+	);
+	const drafts = await w.rows<{ d: { summary: string; focus: { title: string; body: string } } }>(
+		sql`SELECT result->'draft' AS d FROM assessment_run WHERE plant_id IN(${P.id},${Q.id}) AND result IS NOT NULL`,
+	);
+	assert.ok(drafts.length > 0);
+	const told = await w.ask(member, "What do the network's patterns say?", [
+		reads("organizationIntelligence.read", { level: "portfolio" }),
+		() => "PATTERN-ANSWER",
+	]);
+	const model = JSON.stringify(told.prompts);
+	const payload = JSON.stringify(told.replies);
+	const named = rowsOf(told.replies[0]).map((r) => r.fields.plants);
+	assert.ok(named.length > 0, "a pattern reaches the model");
+	for (const plants of named)
+		assert.equal(
+			plants,
+			(niResult("NI-030").server_named_rows as string[]).map((x) => ({ P: P.name, Q: Q.name })[x]).join(", "),
+		);
+	assert.match(payload, /pattern|plants/);
+	for (const secret of [
+		...(await ch.names()),
+		"77 Canary Court",
+		"canary.contact@example.test",
+		"555-0177",
+		...drafts.flatMap((r) => [r.d.summary, r.d.focus.title, r.d.focus.body]),
+		P.id,
+		Q.id,
+	])
+		assert.equal(model.includes(secret), false, `the model got ${secret}`);
+	for (const place of ["Fort Worth", "Dallas", "Austin", ", TX", ", OK"])
+		assert.equal(payload.includes(place), false, place);
+	assert.doesNotMatch(
+		payload,
+		/"(leadPlanter|city|stateProvince|street|email|phone|snapshot|concerns|assessment|summary|body|plantId)"/,
+	);
+	const provenance = await w.rows<{ plant_id: string }>(sql`SELECT plant_id FROM network_intelligence_plant
+		WHERE run_id=(SELECT id FROM network_intelligence_run ORDER BY ran_at DESC, id DESC LIMIT 1)`);
+	assert.ok(
+		[P.id, Q.id].every((id) => provenance.some((r) => r.plant_id === id)),
+		"the server keeps the plant ids",
+	);
+	const e = niResult("NI-030");
+	assert.deepEqual([e.model_input, e.raw_snapshot, e.model_named_directory], ["permitted_aggregate", null, null]);
+});
 
 test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of two directly linked sharing plants only, with no person, street, rank or lead, and loses them when sharing ends", async () => {
 	const c = await churchOf();

@@ -218,6 +218,11 @@ async function mover() {
 		end: () =>
 			admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id} AND ended_at IS NULL`),
 		moveTo: (church: string) => seat(church),
+		move: (church: string) =>
+			admin.execute(sql`WITH ended AS (UPDATE seat SET ended_at=clock_timestamp()
+				WHERE account_id=${id} AND ended_at IS NULL RETURNING id)
+				INSERT INTO seat(account_id,plant_id,role,accepted_at)
+				SELECT ${id},${church},'member',clock_timestamp() FROM (SELECT count(*) FROM ended) AS done`),
 	};
 }
 
@@ -275,8 +280,7 @@ test("INV-church-changed: a run's stream that is re-read after the seat moves ch
 	const thrown = await (async () => {
 		for await (const e of observeConversation(db, before, c.id, 0, AbortSignal.timeout(5_000), 20)) {
 			seen.push(e.sequence);
-			await who.end();
-			await who.moveTo(otherPlant);
+			await who.move(otherPlant);
 		}
 	})().then(
 		() => assert.fail("the stream must end with a refusal"),

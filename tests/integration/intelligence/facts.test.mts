@@ -6,9 +6,11 @@ import type { Database } from "../../../packages/db/src/client.ts";
 import { SQL, sql, type SQLWrapper } from "../../../packages/db/src/query.ts";
 import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import {
+	captureFacts,
 	createFacts,
 	createPrivateCare,
 	createSignals,
+	criteriaOf,
 	factInputs,
 	type PrivateCare,
 	type Signals,
@@ -16,6 +18,10 @@ import {
 import { commitments, peopleWriter, recordCorrections } from "../../../packages/domain/src/people/index.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { instant } from "../../../packages/contracts/src/common/index.ts";
+import { readCatalog } from "../../../packages/domain/src/phases/index.ts";
+import { createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
+import { caseOf, type Case } from "../target/sql/core/support.mts";
 
 let f: Fixture;
 let facts: ReturnType<typeof createFacts>;
@@ -449,6 +455,7 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 
 	const changes = {
 		"plant.timezone": sql`UPDATE plant SET timezone='America/Denver' WHERE id=${o.w.id}`,
+		"plant.phase": sql`UPDATE plant SET phase=phase+1 WHERE id=${o.w.id}`,
 		"person.display_name": sql`UPDATE person SET display_name='Rowan Renamed' WHERE id=${p.id}`,
 		"person.adult_classification (no birth date)": sql`UPDATE person SET adult_classification='child' WHERE id=${q.id}`,
 		"person.birth_date": sql`UPDATE person SET birth_date='2015-02-03' WHERE id=${born.id}`,
@@ -517,9 +524,426 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"launch",
 		"nextVision",
 		"people",
+		"phase",
 		"roles",
 		"training",
 		"vision",
 		"zone",
 	]);
+});
+
+type PiCase = Case & { clock: { now: string; zone: string } };
+const piCase = (id: string) => caseOf("intelligence", id) as PiCase;
+const valueOf = <T,>(k: PiCase, name: string) => (k.given[name] as { value: T }).value;
+const pinnedFacts = (iso: string) => createFacts({ clock: { now: () => instant.parse(new Date(iso).toISOString()) } });
+const readAt = async (o: Pick<Plant, "actor">, iso: string) => ok(await pinnedFacts(iso).readFacts(f.db, o.actor, {}));
+const shiftDays = (on: string, n: number) =>
+	new Date(Date.parse(on + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
+async function zoned(zone: string, phase?: number) {
+	const o = await plant();
+	await f.admin.execute(
+		sql`UPDATE plant SET timezone=${zone},phase=coalesce(${phase ?? null}::int,phase) WHERE id=${o.w.id}`,
+	);
+	return o;
+}
+async function heldOn(
+	o: Plant,
+	on: string,
+	attended: string[],
+	{ type = "vision_meeting", status = "completed" }: { type?: string; status?: string } = {},
+) {
+	const id = randomUUID();
+	await record(id, "meeting", o.w.id);
+	const at = `${on}T09:00:00-05:00`;
+	await f.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision,actual_occurrence_at,vision_number)
+		VALUES(${id},${o.w.id},${type},${on},'09:00',${ZONE},${at}::timestamptz,'r1',${status},1,
+		${status === "completed" ? at : null}::timestamptz,${type === "vision_meeting" ? ++visionNumber : null})`);
+	for (const personId of attended) await attend(o, id, personId);
+	return id;
+}
+const revisionOfPerson = async (personId: string) =>
+	(await one<{ r: string }>(sql`SELECT revision::text AS r FROM person WHERE id=${personId}`)).r;
+const withdraw = async (o: Plant, personId: string, effectiveOn: string) =>
+	ok(
+		await tx(async (t) =>
+			commitments.withdrawCommitment(t, o.ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: await revisionOfPerson(personId),
+				input: { personId, effectiveOn },
+			}),
+		),
+	);
+
+test("AC:PI-CASE-001 one capture at a pinned as-of reads one database state, before or after a concurrent writer, never a mix", async () => {
+	const k = piCase("PI-CASE-001");
+	const asOf = valueOf<string>(k, "as_of");
+	const peopleBefore = valueOf<number>(k, "people_before");
+	const attendanceBefore = valueOf<number>(k, "attendance_before");
+	const during = valueOf<{ people_after: number; attendance_after: number }>(k, "writer_during_capture");
+	assert.equal(valueOf<boolean>(k, "clock_advances_during_queries"), true);
+	const o = await plant();
+	const people: Committed[] = [];
+	for (let i = 0; i < peopleBefore; i++) people.push(await committed(o, `Snapshot ${i + 1}`, "2026-09-01"));
+	const vision = await heldOn(
+		o,
+		"2026-10-06",
+		people.slice(0, attendanceBefore).map((p) => p.id),
+	);
+	const catalog = await readCatalog();
+	const capture = async () => {
+		const snapshot = await captureFacts(f.db, o.w.id, asOf);
+		assert.ok(snapshot);
+		return {
+			people: snapshot.committedAdults.known,
+			attendance: snapshot.vision.lastAttendance[0],
+			revision: snapshot.sourceRevision,
+			asOf: snapshot.asOf,
+			committed: criteriaOf(catalog, 3, snapshot).find((x) => x.key === "committed_adults")?.status,
+		};
+	};
+	const first = await capture();
+	assert.deepEqual([first.people, first.attendance], [peopleBefore, attendanceBefore]);
+	assert.equal(Date.parse(first.asOf), Date.parse(String(k.expected.result.as_of)));
+	const seen: (SQLWrapper | string)[] = [];
+	const spy: Pick<Database, "execute"> = {
+		execute: <T extends Record<string, unknown>>(q: SQLWrapper | string) => {
+			seen.push(q);
+			return f.db.execute<T>(q);
+		},
+	};
+	await captureFacts(spy, o.w.id, asOf);
+	assert.equal(seen.length, 1, "the whole snapshot is one statement");
+
+	const late = await person(o, "Late Writer");
+	let written!: () => void;
+	let release!: () => void;
+	const wrote = new Promise<void>((r) => (written = r));
+	const gate = new Promise<void>((r) => (release = r));
+	const writer = f.admin.transaction(async (t) => {
+		const card = randomUUID(),
+			seen = randomUUID();
+		await t.execute(sql`INSERT INTO record(id,kind,tenant_id) VALUES(${card},'commitment',${o.w.id}),
+			(${seen},'participation',${o.w.id})`);
+		await t.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at)
+			VALUES(${card},${o.w.id},${late.id},'core_group','2026-10-01',clock_timestamp())`);
+		await t.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,presence)
+			VALUES(${seen},${o.w.id},${vision},${late.id},true,'attended')`);
+		written();
+		await gate;
+	});
+	await wrote;
+	const mid = await capture();
+	assert.deepEqual(mid, first, "an uncommitted writer is invisible to the capture");
+	const racing = [capture(), capture(), capture()];
+	release();
+	await writer;
+	racing.push(capture());
+	const after = await capture();
+	assert.deepEqual([after.people, after.attendance], [during.people_after, during.attendance_after]);
+	assert.notEqual(after.revision, first.revision, "the writer's commit is a new source revision");
+	const legal = k.expected.result.legal_snapshots as { people: number; attendance: number }[];
+	assert.deepEqual(
+		legal.map((s) => [s.people, s.attendance]),
+		[
+			[first.people, first.attendance],
+			[after.people, after.attendance],
+		],
+	);
+	assert.equal(k.expected.result.mixed_snapshots_allowed, false);
+	for (const r of await Promise.all(racing)) {
+		assert.ok(
+			[first, after].some((s) => JSON.stringify(s) === JSON.stringify(r)),
+			`a mixed snapshot: ${JSON.stringify(r)}`,
+		);
+		assert.equal(Date.parse(r.asOf), Date.parse(asOf));
+	}
+	assert.deepEqual(await capture(), after, "the same state at the same as-of reads the same snapshot");
+	const read = await readAt(o, asOf);
+	assert.deepEqual(
+		[read.asOf, read.committedAdults.known, read.vision.lastAttendance[0], read.sourceRevision],
+		[after.asOf, after.people, after.attendance, after.revision],
+	);
+});
+
+test("AC:PI-CASE-003 Vision cadence reads 21 days as watch and 28 as direct, weekly rhythm warns of nothing, a scheduled meeting is not held", async () => {
+	const k = piCase("PI-CASE-003");
+	const now = k.clock.now;
+	const today = now.slice(0, 10);
+	const gaps = valueOf<number[]>(k, "computed_gaps_days");
+	const read = [];
+	for (const gap of gaps) {
+		const o = await plant();
+		const p = await committed(o, `Cadence ${gap}`, "2026-08-01");
+		await heldOn(o, shiftDays(today, -gap), [p.id]);
+		read.push((await readAt(o, now)).vision);
+	}
+	assert.deepEqual(
+		read.map((v) => v.daysSince),
+		k.expected.result.gaps_days,
+	);
+	assert.deepEqual(
+		read.map((v) => v.status === "watch" || v.status === "direct"),
+		k.expected.result.watch_allowed,
+	);
+	assert.deepEqual(
+		read.map((v) => v.status === "direct"),
+		k.expected.result.direct_allowed,
+	);
+	const o = await plant();
+	const p = await committed(o, "Weekly Regular", "2026-08-01");
+	for (const on of valueOf<string[]>(k, "predictable_weekly_completed_dates")) await heldOn(o, on, [p.id]);
+	const future = valueOf<string>(k, "scheduled_only_future");
+	await heldOn(o, future, [], { status: "ready" });
+	const weekly = (await readAt(o, now)).vision;
+	assert.deepEqual(
+		[weekly.status, weekly.lastHeldOn, weekly.daysSince, weekly.nextScheduledOn, weekly.lastAttendance],
+		["on_target", today, 0, future, [1, 1]],
+	);
+	assert.equal(k.expected.result.weekly_overmeeting_warning, false);
+	assert.doesNotMatch(JSON.stringify(weekly), /over_target|warn|too often/i);
+	const scheduledOnly = await plant();
+	const q = await committed(scheduledOnly, "Scheduled Only", "2026-08-01");
+	await heldOn(scheduledOnly, "2026-09-01", [q.id], { type: "orientation" });
+	await heldOn(scheduledOnly, future, [q.id], { status: "ready" });
+	const none = (await readAt(scheduledOnly, now)).vision;
+	assert.deepEqual(
+		[none.status, none.reason, none.lastHeldOn, none.nextScheduledOn],
+		["unknown", "no_vision_meeting", null, future],
+	);
+});
+
+test("AC:PI-CASE-004 the last two completed Vision meetings count distinct attendees; other types and future plans do not count", async () => {
+	const k = piCase("PI-CASE-004");
+	const now = k.clock.now;
+	const o = await plant();
+	const named = new Map<string, string>();
+	for (const label of ["P", "Q", "R"]) named.set(label, (await committed(o, `Attendee ${label}`, "2026-08-01")).id);
+	const meetings = valueOf<{ actual: string; attended: string[] }[]>(k, "completed_vision_meetings");
+	for (const m of meetings) {
+		const id = await heldOn(o, m.actual, []);
+		const repeated: string[] = [];
+		for (const label of m.attended) {
+			if (repeated.includes(label)) {
+				await assert.rejects(attend(o, id, named.get(label)!), (e: Error) =>
+					/participation_uq_1/.test(String((e.cause as Error | undefined)?.message)),
+				);
+				continue;
+			}
+			repeated.push(label);
+			await attend(o, id, named.get(label)!);
+		}
+	}
+	const others: string[] = [];
+	const planned = valueOf<number>(k, "future_vision_attendance_plan");
+	for (let i = 0; i < planned; i++) others.push((await person(o, `Guest ${i + 1}`)).id);
+	await heldOn(o, "2026-10-12", others.slice(0, valueOf<number>(k, "other_type_attendance")), { type: "orientation" });
+	const plan = await heldOn(o, "2026-10-20", [], { status: "ready" });
+	for (const id of others) await attend(o, plan, id);
+	const v = (await readAt(o, now)).vision;
+	const [current, previous] = v.lastAttendance;
+	const r = k.expected.result;
+	assert.deepEqual(
+		{ previous_attendance: previous, current_attendance: current, change: current! - previous! },
+		{ previous_attendance: r.previous_attendance, current_attendance: r.current_attendance, change: r.change },
+	);
+	assert.equal(r.future_headcount_included, false);
+	assert.deepEqual([v.lastHeldOn, v.nextScheduledOn], [meetings[1]!.actual, "2026-10-20"]);
+});
+
+test("AC:PI-CASE-007 Launch facts count down in the church's zone; first service, guest data and debrief stay Unknown before Launch Sunday", async () => {
+	const k = piCase("PI-CASE-007");
+	const now = k.clock.now;
+	const o = await zoned(valueOf<string>(k, "plant_zone"), valueOf<number>(k, "phase"));
+	const writer = createLaunchWriter({ notices: async () => {}, clock: { now: () => instant.parse(now) } });
+	const planned = valueOf<string>(k, "planned_day");
+	ok(
+		await writer.schedule(f.db, o.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: "1",
+			input: { date: planned, reason: null },
+		}),
+	);
+	const seeded = await one<{ milestones: number; tasks: number }>(sql`SELECT
+		(SELECT count(*)::int FROM launch_milestone WHERE plant_id=${o.w.id}) milestones,
+		(SELECT count(*)::int FROM task WHERE plant_id=${o.w.id} AND launch_task_key IS NOT NULL) tasks`);
+	assert.deepEqual(seeded, {
+		milestones: valueOf<number>(k, "current_milestones"),
+		tasks: valueOf<number>(k, "seed_tasks"),
+	});
+	await f.admin.execute(
+		sql`UPDATE launch SET attendance=${valueOf<number>(k, "attendance_headcount")},actual_date=${valueOf<string | null>(k, "actual_day")} WHERE plant_id=${o.w.id}`,
+	);
+	for (let i = 0; i < valueOf<number>(k, "named_guest_links"); i++) {
+		const guest = await person(o, `Launch Guest ${i + 1}`);
+		await f.admin.execute(
+			sql`INSERT INTO launch_guest(plant_id,person_id,recorded_by) VALUES(${o.w.id},${guest.id},${o.id})`,
+		);
+	}
+	assert.equal(valueOf<string>(k, "debrief"), "draft");
+	await f.admin.execute(sql`INSERT INTO launch_debrief(plant_id,version,went_well,saved_at,saved_by)
+		VALUES(${o.w.id},1,'Draft notes',${now}::timestamptz,${o.id})`);
+	const r = await readAt(o, now);
+	const catalog = await readCatalog();
+	const after = criteriaOf(catalog, 5, r);
+	const status = (key: string) => after.find((x) => x.key === key)?.status;
+	const e = k.expected.result;
+	assert.deepEqual(
+		{
+			countdown_days: r.launch.daysToLaunch,
+			first_service_complete: status("first_service_complete"),
+			guest_data_entered: status("guest_data_entered"),
+			debrief_done: status("debrief_done"),
+			phase: (await one<{ phase: number }>(sql`SELECT phase FROM plant WHERE id=${o.w.id}`)).phase,
+		},
+		e,
+	);
+	assert.deepEqual(
+		[r.launch.targetOn, r.today, r.firstService],
+		[planned, "2026-10-13", { path: "launch_sunday", status: "unknown", heldOn: null }],
+	);
+});
+
+test("AC:PI-CASE-029 acquisitions fall in 28-day windows by the church's local date; the recording date never moves them", async () => {
+	const k = piCase("PI-CASE-029");
+	const now = k.clock.now;
+	const o = await zoned(valueOf<string>(k, "plant_zone"));
+	const dates = valueOf<string[]>(k, "acquisition_dates");
+	const recorded = `${valueOf<string>(k, "as_of_local_date")}T15:00:00Z`;
+	assert.equal(valueOf<string>(k, "recording_dates"), `all ${valueOf<string>(k, "as_of_local_date")}`);
+	const people: Committed[] = [];
+	for (const on of dates) {
+		const p = await committed(o, `Acquired ${on}`, on);
+		await f.admin.execute(sql`UPDATE commitment SET recorded_at=${recorded}::timestamptz WHERE id=${p.cardId}`);
+		people.push(p);
+	}
+	assert.equal(valueOf<boolean>(k, "one_genuine_recent_adult_withdrawn"), true);
+	await withdraw(o, people[0]!.id, "2026-10-12");
+	const r = await readAt(o, now);
+	const g = r.growth;
+	assert.equal(r.today, valueOf<string>(k, "as_of_local_date"));
+	const inWindow = (on: string) => on >= g.priorStart && on <= r.today;
+	const e = k.expected.result;
+	assert.deepEqual(
+		{
+			current_window_count: g.current,
+			prior_window_count: g.prior,
+			outside_dates: dates.filter((on) => !inWindow(on)),
+			recording_date_replaces_occurrence: g.current === dates.length,
+		},
+		e,
+	);
+	assert.deepEqual([g.windowStart, g.priorStart, g.currentWithdrawn], ["2026-09-16", "2026-08-19", 1]);
+	assert.equal(r.committedAdults.known, dates.length - 1);
+});
+
+test("AC:PI-GROW-001 a withdrawal lowers committed adults but keeps the latest genuine acquisition's clock", async () => {
+	const k = piCase("PI-GROW-001");
+	const now = k.clock.now;
+	const o = await plant();
+	const newest = valueOf<string>(k, "genuine_first_acquisition");
+	const before = valueOf<number>(k, "known_active_before");
+	for (let i = 0; i < before - 1; i++) await committed(o, `Grow ${i + 1}`, "2026-09-01");
+	const recent = await committed(o, "Grow Newest", newest);
+	assert.equal((await readAt(o, now)).committedAdults.known, before);
+	await withdraw(o, recent.id, valueOf<string>(k, "withdrawal"));
+	const r = await readAt(o, now);
+	assert.equal(r.today, valueOf<string>(k, "as_of"));
+	assert.deepEqual(
+		{
+			committed_adults: r.committedAdults.known,
+			latest_genuine_acquisition: r.growth.lastAcquiredOn,
+			elapsed_days: r.growth.daysSince,
+			trajectory: r.criteria.growth_trajectory,
+			slowed: r.growth.status === "slowed",
+			stalled: r.growth.status === "stalled",
+		},
+		k.expected.result,
+	);
+	assert.equal(r.growth.status, "on_track");
+});
+
+test("AC:PI-GROW-002 a corrected erroneous acquisition gives way to the prior valid one and its history stays", async () => {
+	const k = piCase("PI-GROW-002");
+	const now = k.clock.now;
+	const o = await plant();
+	await committed(o, "Grow Valid", valueOf<string>(k, "prior_valid_acquisition"));
+	const wrong = await committed(o, "Grow Erroneous", valueOf<string>(k, "erroneous_first_acquisition"));
+	const before = await readAt(o, now);
+	assert.equal(before.growth.lastAcquiredOn, valueOf<string>(k, "erroneous_first_acquisition"));
+	assert.equal(valueOf<boolean>(k, "correction_invalidates"), true);
+	ok(
+		await tx((t) =>
+			commitments.correctCommitmentLifecycle(t, o.ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: wrong.cardRevision,
+				input: { commitmentId: wrong.cardId, correction: { action: "void" }, reason: "Recorded in error" },
+			}),
+		),
+	);
+	const r = await readAt(o, now);
+	const history = ok(await tx((t) => recordCorrections.listRecordCorrections(t, o.ctx, { personId: wrong.id })));
+	const audit = await one<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${o.w.id}
+		AND action='people.corrected' AND metadata->>'event'='commitment_corrected' AND subject_id=${wrong.id}`);
+	const kept = await one<{ signed_on: string; voided: boolean }>(
+		sql`SELECT signed_on::text,voided_at IS NOT NULL AS voided FROM commitment WHERE id=${wrong.cardId}`,
+	);
+	assert.deepEqual(
+		{
+			latest_valid_acquisition: r.growth.lastAcquiredOn,
+			elapsed_days: r.growth.daysSince,
+			correction_history_retained:
+				audit.n === 1 &&
+				kept.voided &&
+				kept.signed_on === valueOf<string>(k, "erroneous_first_acquisition") &&
+				history.items.some(
+					(x) =>
+						x.recordId === wrong.cardId &&
+						JSON.stringify(x.changes) === JSON.stringify([{ field: "voided", old: false, new: true }]),
+				),
+		},
+		k.expected.result,
+	);
+	assert.notEqual(r.sourceRevision, before.sourceRevision);
+	assert.equal(r.committedAdults.known, 1);
+});
+
+test("AC:PI-GROW-003 a reactivation is not a new acquisition; a same-day join and withdrawal net zero and the clock reads one day", async () => {
+	const k = piCase("PI-GROW-003");
+	const now = k.clock.now;
+	const o = await plant();
+	const returning = await committed(o, "Grow Returning", valueOf<string>(k, "first_valid_commitment"));
+	await withdraw(o, returning.id, valueOf<string>(k, "withdrawal"));
+	const leaving = await committed(o, "Grow Leaving", valueOf<string>(k, "first_valid_commitment"));
+	const behavior = k.given["behavior-inputs"] as {
+		new_adult_on: string;
+		withdrawn_adult_on: string;
+		net_delta: number;
+	};
+	const before = (await readAt(o, now)).committedAdults.known;
+	ok(
+		await tx(async (t) =>
+			commitments.reactivateCommitment(t, o.ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: await revisionOfPerson(returning.id),
+				input: { personId: returning.id, effectiveOn: valueOf<string>(k, "reactivation") },
+			}),
+		),
+	);
+	const reactivated = await readAt(o, now);
+	assert.equal(reactivated.growth.lastAcquiredOn, valueOf<string>(k, "first_valid_commitment"));
+	assert.equal(reactivated.committedAdults.known, before + 1);
+	await committed(o, "Grow Joining", behavior.new_adult_on);
+	await withdraw(o, leaving.id, behavior.withdrawn_adult_on);
+	const r = await readAt(o, now);
+	assert.equal(r.committedAdults.known - reactivated.committedAdults.known, behavior.net_delta);
+	assert.deepEqual(
+		{ days_since_acquisition: r.growth.daysSince, stalled: r.growth.status === "stalled" },
+		k.expected.result,
+	);
+	assert.deepEqual(
+		[r.growth.lastAcquiredOn, r.growth.current, r.growth.status],
+		[behavior.new_adult_on, 1, "on_track"],
+	);
 });

@@ -6,7 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
 import { organizationSeatContext } from "../access/organization-seat.ts";
-import { hash } from "../operations/canonical.ts";
+import { actorToken } from "../operations/canonical.ts";
 import { WriteUnavailable } from "../operations/refusals.ts";
 import { declareWrite, lockedWrite, nativeWrite } from "../operations/writes.ts";
 
@@ -90,7 +90,7 @@ export async function write<T, R extends Refusal = C.PipelineRefusal>(
 			if (administratorOnly && !administrator) refuse();
 			const organization = selected.id;
 			const actor = locked.actor.accountId;
-			const token = hash([organization, actor]);
+			const token = actorToken(organization, actor);
 			return run({
 				tx,
 				organization,

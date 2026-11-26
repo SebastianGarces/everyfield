@@ -16340,7 +16340,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-001-current-target",
       "given": {
         "P": {
@@ -16469,7 +16472,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-002-current-target",
       "given": {
         "P": {
@@ -16602,7 +16608,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-003-current-target",
       "given": {
         "P": {
@@ -16724,7 +16733,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-004-current-target",
       "given": {
         "P": {
@@ -16846,7 +16858,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-005-current-target",
       "given": {
         "P": {
@@ -16973,7 +16988,10 @@
         "WP-047",
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-006-current-target",
       "given": {
         "P": {
@@ -17091,7 +17109,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-007-current-target",
       "given": {
         "P": {
@@ -17221,7 +17242,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-008-current-target",
       "given": {
         "P": {
@@ -17361,7 +17385,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-009-current-target",
       "given": {
         "P": {
@@ -17488,7 +17515,10 @@
         "WP-047",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-010-current-target",
       "given": {
         "P": {
@@ -17617,7 +17647,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-011-current-target",
       "given": {
         "P": {
@@ -17739,7 +17772,10 @@
         "WP-043",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-012-current-target",
       "given": {
         "P": {
@@ -17855,7 +17891,10 @@
         "WP-043",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-013-current-target",
       "given": {
         "P": {
@@ -17984,7 +18023,10 @@
         "WP-047",
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-014-current-target",
       "given": {
         "P": {
@@ -18119,7 +18161,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-015-current-target",
       "given": {
         "P": {
@@ -18261,7 +18306,10 @@
         "WP-043",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-016-current-target",
       "given": {
         "P": {
@@ -18383,7 +18431,10 @@
         "WP-047",
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-017-current-target",
       "given": {
         "P": {
@@ -18516,7 +18567,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "li-018-current-target",
       "given": {
         "P": {
@@ -18642,7 +18696,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-001-plant-settings-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -19295,7 +19352,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-002-people-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -19911,7 +19971,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-003-commitments-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -20511,7 +20574,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-004-people-correction-and-merge-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -21198,7 +21264,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-005-human-judgments-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -21937,7 +22006,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-006-teams-and-responsibility-mappings-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -22084,13 +22156,11 @@
             "filledResponsibilityCount": 0
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -22613,7 +22683,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-007-role-and-team-participants-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -23236,7 +23309,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-008-training-configuration-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -23860,7 +23936,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-009-saved-required-training-roster-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -24618,7 +24697,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-010-training-earned-evidence-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -25263,7 +25345,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-011-meeting-occurrence-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -25872,7 +25957,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-012-attendance-and-finalization-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -26623,7 +26711,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-013-tasks-and-recurrence-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -27224,7 +27315,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-014-follow-up-obligations-and-contact-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -27841,7 +27935,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-015-phase-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -28451,7 +28548,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-016-plant-and-criterion-attestations-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -29109,7 +29209,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-017-native-values-documents-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -29242,13 +29345,11 @@
             "documentedValuesEvidence": "recorded_native_document"
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -29736,7 +29837,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-018-Discovery-reading-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -29882,13 +29986,11 @@
             "DiscoveryCompletion": true
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -30431,7 +30533,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-019-Launch-planning-and-readiness-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -31081,7 +31186,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-020-Launch-occurrence-and-guest-participation-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -31226,13 +31334,11 @@
             "missingGuestNamesAnswer": "yes"
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -31753,7 +31859,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-021-Launch-debrief-and-summary-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -31890,13 +31999,11 @@
             "publishedSummary": null
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -33068,7 +33175,10 @@
         "WP-096",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-023-membership-and-lifecycle-authority-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -34339,7 +34449,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-025-reference-and-geography-activation-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -34967,7 +35080,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "Plant reporting-geography correction advances plant assessment freshness; organization publication compares contributor source revisions.",
       "given": {
         "P": {
@@ -35113,13 +35229,13 @@
             "chosenAreaAttested": false
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
+          "assessment_input_state": "fixture-state-11",
+          "organization_A_state": {
+            "different_from": "fixture-state-21"
           },
-          "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -35661,7 +35777,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Two actual shared concerns",
       "given": {
         "P": {
@@ -35923,7 +36042,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Singleton stays bounded lens",
       "given": {
         "P": {
@@ -36098,7 +36220,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Two directory members one relevant observation",
       "given": {
         "P": {
@@ -36331,7 +36456,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Health OFF never denominator zero",
       "given": {
         "P": {
@@ -36584,7 +36712,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Exact-org independence",
       "given": {
         "P": {
@@ -36836,7 +36967,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Mixed category restriction",
       "given": {
         "P": {
@@ -37083,7 +37217,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Repeated contribution is one plant",
       "given": {
         "P": {
@@ -37609,7 +37746,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Near date alone cannot warn",
       "given": {
         "P": {
@@ -37841,7 +37981,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Near-launch compound actual gap",
       "given": {
         "P": {
@@ -38082,7 +38225,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Near launch missing gap or completed/past excluded",
       "given": {
         "P": {
@@ -38440,7 +38586,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Overdue ownership different from contact",
       "given": {
         "P": {
@@ -38895,7 +39044,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Growth 20/21/27/28 boundaries",
       "given": {
         "P": {
@@ -39313,7 +39465,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Unresolved newer growth blocks negative timing",
       "given": {
         "P": {
@@ -39537,7 +39692,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Withdrawal preserves genuine acquisition",
       "given": {
         "P": {
@@ -39768,7 +39926,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Saved required training obligations",
       "given": {
         "P": {
@@ -40008,7 +40169,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Empty/missing training Unknown",
       "given": {
         "P": {
@@ -40239,7 +40403,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Regional singletons and whole support",
       "given": {
         "P": {
@@ -40514,7 +40681,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Intact cross-state Region",
       "given": {
         "P": {
@@ -40799,7 +40969,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Country singletons whole international cohort",
       "given": {
         "P": {
@@ -41068,7 +41241,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Missing region does not exclude known country",
       "given": {
         "P": {
@@ -41341,7 +41517,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Revocation before publish/read",
       "given": {
         "P": {
@@ -42375,7 +42554,10 @@
         "WP-043",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-001-current-target",
       "given": {
         "P": {
@@ -42507,7 +42689,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-002-current-target",
       "given": {
         "P": {
@@ -42608,7 +42793,10 @@
         "WP-042",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-003-current-target",
       "given": {
         "P": {
@@ -42718,7 +42906,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-004-current-target",
       "given": {
         "P": {
@@ -42841,7 +43032,10 @@
         "WP-047",
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-005-current-target",
       "given": {
         "P": {
@@ -42967,7 +43161,10 @@
         "WP-047",
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-006-current-target",
       "given": {
         "P": {
@@ -43090,7 +43287,10 @@
         "WP-043",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-007-current-target",
       "given": {
         "P": {
@@ -43224,7 +43424,10 @@
         "WP-047",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-008-current-target",
       "given": {
         "P": {
@@ -43346,7 +43549,10 @@
         "WP-043",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-009-current-target",
       "given": {
         "P": {
@@ -43481,7 +43687,10 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-010-current-target",
       "given": {
         "P": {
@@ -43628,7 +43837,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-011-current-target",
       "given": {
         "P": {
@@ -43756,7 +43968,10 @@
         "WP-047",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-012-current-target",
       "given": {
         "P": {
@@ -43876,7 +44091,10 @@
         "WP-042",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-013-current-target",
       "given": {
         "P": {
@@ -44005,7 +44223,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-014-current-target",
       "given": {
         "P": {
@@ -44128,7 +44349,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-015-current-target",
       "given": {
         "P": {
@@ -44254,7 +44478,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-016-current-target",
       "given": {
         "P": {
@@ -44376,7 +44603,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-017-current-target",
       "given": {
         "P": {
@@ -44503,7 +44733,10 @@
         "WP-043",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-018-current-target",
       "given": {
         "P": {
@@ -44622,7 +44855,10 @@
         "WP-047",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-019-current-target",
       "given": {
         "P": {
@@ -44754,7 +44990,10 @@
       "work_packages": [
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-020-current-target",
       "given": {
         "P": {
@@ -44981,7 +45220,10 @@
         "WP-042",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-022-current-target",
       "given": {
         "P": {
@@ -45097,7 +45339,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-023-current-target",
       "given": {
         "P": {
@@ -45216,7 +45461,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-024-current-target",
       "given": {
         "P": {
@@ -45594,7 +45842,10 @@
         "WP-044",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-027-current-target",
       "given": {
         "P": {
@@ -45712,7 +45963,10 @@
         "WP-044",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-028-current-target",
       "given": {
         "P": {
@@ -45842,7 +46096,10 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-insight.test.mts"
+      ],
       "description": "ni-029-current-target",
       "given": {
         "P": {
@@ -45975,7 +46232,10 @@
         "WP-042",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-insight.test.mts"
+      ],
       "description": "ni-030-current-target",
       "given": {
         "P": {
@@ -46108,7 +46368,10 @@
         "WP-047",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/intelligence-surfaces-cases.test.mts"
+      ],
       "description": "ni-031-current-target",
       "given": {
         "P": {
@@ -46248,7 +46511,10 @@
         "WP-047",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-032-current-target",
       "given": {
         "P": {
@@ -46377,7 +46643,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-033-current-target",
       "given": {
         "P": {
@@ -46495,7 +46764,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-034-current-target",
       "given": {
         "P": {
@@ -46615,7 +46887,10 @@
       "work_packages": [
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-035-current-target",
       "given": {
         "P": {
@@ -46734,7 +47009,10 @@
         "WP-047",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-036-current-target",
       "given": {
         "P": {
@@ -46876,7 +47154,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-037-current-target",
       "given": {
         "P": {
@@ -47015,7 +47296,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-038-current-target",
       "given": {
         "P": {
@@ -47143,7 +47427,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-039-current-target",
       "given": {
         "P": {
@@ -47270,7 +47557,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-040-current-target",
       "given": {
         "P": {
@@ -47408,7 +47698,10 @@
         "WP-042",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-041-current-target",
       "given": {
         "P": {
@@ -47522,7 +47815,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-042-current-target",
       "given": {
         "P": {
@@ -47656,7 +47952,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-043-current-target",
       "given": {
         "P": {
@@ -47783,7 +48082,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-044-current-target",
       "given": {
         "P": {
@@ -50237,7 +50539,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "pi-care-001",
       "given": {
         "P": {
@@ -50670,7 +50975,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "pi-care-003",
       "given": {
         "P": {
@@ -50770,7 +51078,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "one-clock-consistent-source-snapshot",
       "given": {
         "P": {
@@ -51016,7 +51327,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "cadence-boundaries-and-weekly-rhythm",
       "given": {
         "P": {
@@ -51138,7 +51452,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "distinct-last-two-attendance",
       "given": {
         "P": {
@@ -51544,7 +51861,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "native-launch-facts-independent-of-guest-debrief",
       "given": {
         "P": {
@@ -52140,7 +52460,10 @@
       "work_packages": [
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-cases.test.mts"
+      ],
       "description": "dual-audience-schema-numeric-and-pairing-denial",
       "given": {
         "P": {
@@ -52298,7 +52621,10 @@
         "WP-042",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-cases.test.mts"
+      ],
       "description": "three-drafts-one-snapshot-accumulated-violations",
       "given": {
         "P": {
@@ -52399,7 +52725,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-cases.test.mts"
+      ],
       "description": "provider-retry-after-exceeds-deadline",
       "given": {
         "P": {
@@ -52503,7 +52832,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-cases.test.mts"
+      ],
       "description": "sql-latest-eligibility-and-fair-selection",
       "given": {
         "P": {
@@ -52649,7 +52981,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "cached-read-explicit-first-open-ack",
       "given": {
         "P": {
@@ -52867,7 +53202,10 @@
         "WP-041",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "manual-index-citation-preserves-stored-value",
       "given": {
         "P": {
@@ -52979,7 +53317,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "eight-tiles-no-insight-does-not-pass",
       "given": {
         "P": {
@@ -53229,7 +53570,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/phases/phases.test.mts"
+      ],
       "description": "journey-creation-declaration-correction-launch",
       "given": {
         "P": {
@@ -53355,7 +53699,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "oversight-four-states-mixed-source-revocation",
       "given": {
         "P": {
@@ -53493,7 +53840,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "same-concern-release-seventy-two-hour-boundary",
       "given": {
         "P": {
@@ -53602,7 +53952,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "own-feedback-version-prefill-replay",
       "given": {
         "P": {
@@ -53718,7 +54071,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "cold-start-quiet-versus-queued",
       "given": {
         "P": {
@@ -53831,7 +54187,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/read-cases.test.mts"
+      ],
       "description": "optional-trace-sink-failure-and-minimal-fields",
       "given": {
         "P": {
@@ -53966,7 +54325,10 @@
       "work_packages": [
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-cases.test.mts"
+      ],
       "description": "isolated-synthetic-fleet-evaluation-rollout-gate",
       "given": {
         "P": {
@@ -54085,7 +54447,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-cases.test.mts"
+      ],
       "description": "last-rejected-draft-diagnostic-differs",
       "given": {
         "P": {
@@ -54189,7 +54554,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "genuine-acquisition-local-date-window-edges",
       "given": {
         "P": {
@@ -54584,7 +54952,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "pi-grow-001",
       "given": {
         "P": {
@@ -54685,7 +55056,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "pi-grow-002",
       "given": {
         "P": {
@@ -54782,7 +55156,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/facts.test.mts"
+      ],
       "description": "pi-grow-003",
       "given": {
         "P": {
