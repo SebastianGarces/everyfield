@@ -19,11 +19,12 @@ test("the /discovery copy keeps its Evry claim off until Evry in Discovery passe
 	);
 });
 
-test("the /discovery copy carries no draft marker, price or banned claim", () => {
+test("the /discovery copy carries no draft marker, price or banned claim, and says 'trial' only in 'No trial clock'", () => {
 	const banned = [/\[DRAFT\]/, /\bPrototype\b/, /\bforever\b/i, /\bno time limit\b/i, /\bDiscovery tasks\b/i];
 	const amount = /[$€£]\s?\d|\b\d+(?:\.\d+)?\s?(?:dollars|usd)\b|\bper (?:month|year|seat)\b|\/mo\b/i;
 	for (const s of shown) {
 		for (const re of banned) assert.doesNotMatch(s, re, s);
+		assert.doesNotMatch(s.replace("No trial clock", ""), /\btrial/i, s);
 		assert.doesNotMatch(s, amount, s);
 	}
 });
