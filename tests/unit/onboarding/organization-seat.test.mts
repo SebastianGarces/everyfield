@@ -32,7 +32,12 @@ mock.module(at("server/request-context.ts"), {
 	},
 });
 mock.module(at("server/sign-in.ts"), { namedExports: { signIn: () => assert.fail("nobody is signed out here") } });
-mock.module(at("features/onboarding/mount.ts"), { namedExports: { onboardingEntry: recorded("onboardingEntry", {}) } });
+mock.module(at("features/onboarding/mount.ts"), {
+	namedExports: {
+		onboardingEntry: recorded("onboardingEntry", {}),
+		onboardingCommand: () => assert.fail("no command runs here"),
+	},
+});
 mock.module(at("features/organizations/mount.ts"), {
 	namedExports: { viewerOf: recorded("viewerOf", { kind: "signed_out" }), namesFor: recorded("namesFor", {}) },
 });
