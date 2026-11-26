@@ -1,11 +1,11 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { AsyncResource } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import type {
 	LanguageModelV4,
 	LanguageModelV4CallOptions,
 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
+import { fakeProvider, grounded, sent } from "./fake-provider.mts";
 import { APICallError } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import { instant } from "../../../packages/contracts/src/common/index.ts";
 import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
@@ -22,42 +22,6 @@ import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { scriptedAssessmentDrafter, scriptedDraft } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church, type ChurchPlant, type StoredRun } from "./assessment-church.mts";
-
-type Reply = { text: string; usage?: { input: number; output: number } } | Error;
-function fakeProvider(reply: (params: LanguageModelV4CallOptions, n: number) => Reply, during?: () => Promise<void>) {
-	const requests: LanguageModelV4CallOptions[] = [];
-	const hook = during && AsyncResource.bind(during);
-	const model: LanguageModelV4 = {
-		specificationVersion: "v4",
-		provider: "fake",
-		modelId: "gpt-6-luna",
-		supportedUrls: {},
-		async doGenerate(params) {
-			requests.push(params);
-			await hook?.();
-			const r = reply(params, requests.length);
-			if (r instanceof Error) throw r;
-			return {
-				content: [{ type: "text", text: r.text }],
-				finishReason: { unified: "stop", raw: "stop" },
-				usage: {
-					inputTokens: { total: r.usage?.input, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
-					outputTokens: { total: r.usage?.output, text: undefined, reasoning: undefined },
-				},
-				warnings: [],
-			};
-		},
-		async doStream() {
-			throw Error("the assessment never streams");
-		},
-	};
-	return { model, requests };
-}
-const sent = (params: LanguageModelV4CallOptions) => {
-	const user = params.prompt.find((m) => m.role === "user")!;
-	return JSON.parse((user.content[0] as { text: string }).text);
-};
-const grounded = (params: LanguageModelV4CallOptions) => scriptedDraft(sent(params).input);
 
 const CAP = 20_000_000;
 const { spend } = paidModel({ EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" })!;

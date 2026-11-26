@@ -13,7 +13,7 @@ import {
 	type SQLWrapper,
 } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { hash } from "../operations/canonical.ts";
+import { actorToken, hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { effectiveAdult, plantTodaySql } from "./adult.ts";
@@ -29,7 +29,7 @@ import {
 	type AuditWrite,
 	type WritePath,
 } from "../operations/writes.ts";
-export { hash };
+export { actorToken, hash };
 
 import { revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
@@ -423,7 +423,13 @@ const auditedValues = new Map<string, z.ZodType>([
 	["skill", z.object({ id: z.uuid(), category: z.string(), proficiency: z.string().nullable() }).nullable()],
 ]);
 export function peopleValues(before?: Revisioned, after?: Revisioned) {
-	const delta = personChanges(before, after);
+	return allowedPeopleValues(personChanges(before, after));
+}
+type ChangedValues = Record<string, unknown>;
+export function allowedPeopleValues(
+	delta: { before: ChangedValues | null; after: ChangedValues | null },
+	named: readonly string[] = [],
+) {
 	const changed = Object.keys({ ...delta.before, ...delta.after });
 	const kept = (value: Record<string, unknown>) =>
 		Object.fromEntries(
@@ -432,7 +438,7 @@ export function peopleValues(before?: Revisioned, after?: Revisioned) {
 				return schema && Object.hasOwn(value, key) ? [[key, schema.parse(value[key])]] : [];
 			}),
 		);
-	const fields = changed.filter((key) => !auditedValues.has(key)).sort();
+	const fields = [...new Set([...named, ...changed.filter((key) => !auditedValues.has(key))])].sort();
 	return {
 		before: delta.before && kept(delta.before),
 		after: delta.after && { ...kept(delta.after), ...(delta.before && fields.length ? { fields } : {}) },
@@ -557,7 +563,7 @@ export async function mutation<T>(
 		id: operationId,
 		tenant_id: context.selected.id,
 		actor_id: actor.accountId,
-		actor_token: hash([context.selected.id, actor.accountId]),
+		actor_token: actorToken(context.selected.id, actor.accountId),
 		subject_type: result.subjectType ?? (result.subject === context.selected.id ? context.selected.kind : "person"),
 		subject_id: result.subject,
 		action: result.action,

@@ -16,3 +16,4 @@ export function canonical(value: unknown): string {
 	return JSON.stringify(value);
 }
 export const hash = (value: unknown) => createHash("sha256").update(canonical(value)).digest("hex");
+export const actorToken = (tenant: string, account: string) => hash([tenant, account]);
