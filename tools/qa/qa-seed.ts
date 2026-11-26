@@ -1324,12 +1324,13 @@ async function discoveryPlanter(
 		);
 		done.push(`Discovery document ${title}`);
 	}
-	const stored = await rows(
+	const [profile] = await rows(
 		admin,
-		sql`SELECT s->>'key' AS key FROM discovery d CROSS JOIN jsonb_array_elements(d.steps) s
-		WHERE d.account_id=${jo} AND d.converted_at IS NULL`,
+		sql`SELECT d.converted_at IS NOT NULL AS converted, ARRAY(SELECT s->>'key' FROM jsonb_array_elements(d.steps) s) AS keys
+		FROM discovery d WHERE d.account_id=${jo}`,
 	);
-	const open = DISCOVERY_STEPS_DONE.filter((key) => !stored.some((r) => r.key === key));
+	if (!profile || profile.converted) return;
+	const open = DISCOVERY_STEPS_DONE.filter((key) => !(profile.keys as string[]).includes(key));
 	if (!open.length) return;
 	const c = { session: await m.sessionOf(DISCOVERY_PLANTER.login), selected };
 	for (const stepKey of open) {
