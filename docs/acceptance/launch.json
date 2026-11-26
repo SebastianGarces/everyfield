@@ -4213,7 +4213,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Actual occurrence before/after planned date, single-name new guest, Yes 3 debrief and separate summary publish.",
       "given": {
         "P": {
