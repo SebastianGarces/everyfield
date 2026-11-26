@@ -79,10 +79,11 @@ test("people.created and people.updated audit rows hold no name, contact, addres
 		}),
 	);
 
-	const added = await write(async (t, c) =>
+	const revision1 = await revisionOf(person.id);
+	const added = await write((t, c) =>
 		people.addNote(t, c, {
 			requestKey: key(),
-			expectedRevision: await revisionOf(person.id),
+			expectedRevision: revision1,
 			input: { personId: person.id, body: CANARY.note },
 		}),
 	);
@@ -103,10 +104,11 @@ test("people.created and people.updated audit rows hold no name, contact, addres
 
 	const guardian = await create({ displayName: CANARY.guardian, adultClassification: "adult" });
 	const child = await create({ displayName: CANARY.child, adultClassification: "child" });
-	const home = await write(async (t, c) =>
+	const revision2 = await revisionOf(guardian.id);
+	const home = await write((t, c) =>
 		fields.createHouseholdWithHead(t, c, {
 			requestKey: key(),
-			expectedRevision: await revisionOf(guardian.id),
+			expectedRevision: revision2,
 			input: { name: CANARY.household, street: CANARY.street, city: CANARY.city, headPersonId: guardian.id },
 		}),
 	);
@@ -115,28 +117,32 @@ test("people.created and people.updated audit rows hold no name, contact, addres
 	for (const [member, role] of [
 		[child, "child"],
 		[person, "other"],
-	] as const)
-		await write(async (t, c) =>
+	] as const) {
+		const expectedRevision = await revisionOf(member.id);
+		await write((t, c) =>
 			fields.addToHousehold(t, c, {
 				requestKey: key(),
-				expectedRevision: await revisionOf(member.id),
+				expectedRevision,
 				input: { householdId, personId: member.id, role },
 			}),
 		);
-	await write(async (t, c) =>
+	}
+	const revision3 = await revisionOf(child.id);
+	await write((t, c) =>
 		fields.setGuardianContact(t, c, {
 			requestKey: key(),
-			expectedRevision: await revisionOf(child.id),
+			expectedRevision: revision3,
 			input: { personId: child.id, guardianPersonId: guardian.id, contact: true },
 		}),
 	);
 	const householdRevision = async () =>
 		(await admin.execute<{ r: string }>(sql`SELECT revision::text r FROM household WHERE id=${sql.param(householdId)}`))
 			.rows[0]!.r;
-	await write(async (t, c) =>
+	const revision4 = await householdRevision();
+	await write((t, c) =>
 		fields.updateHousehold(t, c, {
 			requestKey: key(),
-			expectedRevision: await householdRevision(),
+			expectedRevision: revision4,
 			input: { householdId, patch: { name: CANARY.renamedHousehold, street: CANARY.renamed } },
 		}),
 	);
@@ -152,24 +158,27 @@ test("people.created and people.updated audit rows hold no name, contact, addres
 			input: { householdId, members },
 		}),
 	);
-	await write(async (t, c) =>
+	const revision5 = await revisionOf(person.id);
+	await write((t, c) =>
 		fields.setHouseholdRole(t, c, {
 			requestKey: key(),
-			expectedRevision: await revisionOf(person.id),
+			expectedRevision: revision5,
 			input: { personId: person.id, role: "spouse" },
 		}),
 	);
-	await write(async (t, c) =>
+	const revision6 = await revisionOf(child.id);
+	await write((t, c) =>
 		fields.setGuardianContact(t, c, {
 			requestKey: key(),
-			expectedRevision: await revisionOf(child.id),
+			expectedRevision: revision6,
 			input: { personId: child.id, guardianPersonId: guardian.id, contact: false },
 		}),
 	);
-	await write(async (t, c) =>
+	const revision7 = await revisionOf(person.id);
+	await write((t, c) =>
 		fields.removeFromHousehold(t, c, {
 			requestKey: key(),
-			expectedRevision: await revisionOf(person.id),
+			expectedRevision: revision7,
 			input: { personId: person.id },
 		}),
 	);
