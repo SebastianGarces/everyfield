@@ -17,7 +17,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEvryOpener } from "../../components/evry-opener.ts";
 
-export type DiscoveryHomeData = {
+type DiscoveryHomeData = {
 	firstName: string | null;
 	foundations: { id: string; title: string; href: string; read: boolean }[];
 	links: { id: string; name: string; kind: string; sharesFoundations: boolean }[];

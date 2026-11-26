@@ -25,7 +25,7 @@ import {
 	type Reader,
 } from "./core.ts";
 
-export const ordinaryLink = (id: ReturnType<typeof sql>) =>
+const ordinaryLink = (id: ReturnType<typeof sql>) =>
 	sql<boolean>`NOT EXISTS(SELECT FROM residency_link r WHERE r.affiliation_id=${id})`;
 
 export function discoverySharingOperations(

@@ -9,7 +9,7 @@ import { documentProblem } from "./model.ts";
 import { NativeDocuments } from "./native.tsx";
 import { ONLY_YOU } from "./written/notes.tsx";
 
-export type DiscoveryTemplate = { id: string; title: string; description: string };
+type DiscoveryTemplate = { id: string; title: string; description: string };
 
 export function DiscoveryDocuments({ templates }: { templates: DiscoveryTemplate[] }) {
 	return (
