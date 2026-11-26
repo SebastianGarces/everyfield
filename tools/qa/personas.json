@@ -1,8 +1,27 @@
 {
-	"owner": { "says": "Daniel Reyes, Owner of Harvest Point (QA)", "context": "plant", "role": "owner", "seed": "qa" },
-	"admin": { "says": "Lena Park, Admin of Harvest Point (QA)", "context": "plant", "role": "admin", "seed": "qa" },
-	"member": { "says": "Ruth Allen, Member of Harvest Point (QA)", "context": "plant", "role": "member", "seed": "qa" },
-	"network": { "says": "Marcus Bell, Admin of Harvest Network (QA)", "context": "organization", "seed": "qa" },
+	"owner": {
+		"says": "Daniel Reyes, Owner of Harvest Point (QA)",
+		"context": "plant",
+		"role": "owner",
+		"seed": "qa"
+	},
+	"admin": {
+		"says": "Lena Park, Admin of Harvest Point (QA)",
+		"context": "plant",
+		"role": "admin",
+		"seed": "qa"
+	},
+	"member": {
+		"says": "Ruth Allen, Member of Harvest Point (QA)",
+		"context": "plant",
+		"role": "member",
+		"seed": "qa"
+	},
+	"network": {
+		"says": "Marcus Bell, Admin of Harvest Network (QA)",
+		"context": "organization",
+		"seed": "qa"
+	},
 	"graceOwner": {
 		"says": "Dana Brooks, Owner of Grace Austin (QA), a sending church with a pipeline and a residency",
 		"context": "organization",
@@ -22,9 +41,27 @@
 		"says": "Casey Lee, a seatless account linked to a sending church's residency",
 		"context": "account",
 		"residencyLinked": true,
+		"seed": "qa",
+		"discovery": true
+	},
+	"discovery": {
+		"says": "Jo Rivera, a Discovery planter with two foundations read, two private documents and an ordinary link to Grace Church (QA)",
+		"context": "account",
+		"discovery": true,
 		"seed": "qa"
 	},
-	"signup": { "says": "Hannah Cole, a verified sign-up with no church yet", "context": "pending", "seed": "qa" },
-	"triage": { "says": "Tess Morgan, a seatless account that triages feedback", "context": "account", "seed": "qa" },
-	"visitor": { "says": "Nobody signed in", "context": "signed-out" }
+	"signup": {
+		"says": "Hannah Cole, a verified sign-up with no church yet",
+		"context": "pending",
+		"seed": "qa"
+	},
+	"triage": {
+		"says": "Tess Morgan, a seatless account that triages feedback",
+		"context": "account",
+		"seed": "qa"
+	},
+	"visitor": {
+		"says": "Nobody signed in",
+		"context": "signed-out"
+	}
 }

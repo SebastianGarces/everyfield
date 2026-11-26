@@ -261,7 +261,7 @@ export async function caseWorld(
 
 	const freshActor = async (session: string) => {
 		const viewer = await readViewer(db, session as never);
-		return viewer?.authority ? evryActor(viewer.authority) : null;
+		return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 	};
 	const actorOf = async (a: Actor) => {
 		const actor = await freshActor(a.session);

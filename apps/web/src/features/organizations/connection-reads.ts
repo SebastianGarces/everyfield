@@ -6,8 +6,10 @@ import {
 	namesFor,
 	pendingFor,
 	readHistory,
+	readDiscoverySharing,
 	readPipelineConsents,
 	readPlantSharing,
+	readSharedFoundations,
 	residencyLinks,
 	scopeOf,
 	viewerOf,
@@ -29,18 +31,28 @@ export async function loadHistoryPage(w: Who | null, after: string | null) {
 }
 
 export async function loadConnections(w: Who | null) {
-	if (!w) return { history: { status: "unavailable" as const }, pending: [], sharing: {}, names: {} };
-	const [first, pending, sharing] = await Promise.all([
+	if (!w)
+		return {
+			history: { status: "unavailable" as const },
+			pending: [],
+			sharing: {},
+			discovery: {},
+			foundations: {},
+			names: {},
+		};
+	const [first, pending, sharing, discovery, foundations] = await Promise.all([
 		loadHistoryPage(w, null),
 		pendingFor(w.mount.db, w.viewer),
 		readPlantSharing(w.mount.db, w.authority),
+		readDiscoverySharing(w.mount.db, w.authority),
+		readSharedFoundations(w.mount.db, w.authority),
 	]);
 	const extra = await namesFor(
 		w.mount.db,
 		w.viewer,
 		pending.map((p) => p.pair.organization.id),
 	);
-	return { history: first.page, pending, sharing, names: { ...first.names, ...extra } };
+	return { history: first.page, pending, sharing, discovery, foundations, names: { ...first.names, ...extra } };
 }
 
 export async function loadDisclosure(w: Who | null, pair: unknown) {
@@ -68,4 +80,9 @@ export async function loadSharing(
 ): Promise<{ sharing: Ops["privacy.getSharing"]["output"]; relationshipRevision: string }> {
 	const row = w ? (await readPlantSharing(w.mount.db, w.authority, organizationId))[relationshipId] : null;
 	return row ?? { sharing: { status: "unavailable" as const }, relationshipRevision: "0" };
+}
+
+export async function loadDiscoverySharing(w: Who | null, relationshipId: string) {
+	const rows = w ? await readDiscoverySharing(w.mount.db, w.authority) : {};
+	return rows[relationshipId] ?? null;
 }

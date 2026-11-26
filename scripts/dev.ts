@@ -49,6 +49,17 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev checklist [--base <ref>]   prints each docs/reliability-checklist.json item whose trigger matches the diff since
         the merge base of origin/main (else main): path globs match changed paths, the regex matches added lines.
         Verifiers answer each printed item in the review report; it never blocks landing
+  dev pg up [--name <n>]    a scratch Postgres of this worktree: CI's image in Docker on 127.0.0.1, migrated by this
+        head and labeled, so the containers sweep removes it when the task ends. Never start a database container by hand
+  dev pg run [--name <n>] -- <command> [args...]   runs a command with its DATABASE_URL settings, never printed
+  dev pg status | down [--name <n>]                this worktree's scratch databases; down without a name removes all
+  dev containers sweep      removes the containers, with their anonymous volumes, of landed and abandoned tasks and of
+        worktrees that are gone. It keeps every open task's and whatever it cannot decide, and says why. bin/app up and
+        dev check run it first
+  dev containers status     lists this repository's containers with owner, age and keep or remove; exits 1 on an orphan
+  dev containers install    installs the launchd agent com.everyfield.containers: the main checkout's sweep every 5
+        minutes, only while that checkout holds landed code; running it again replaces the one agent
+  dev containers uninstall  boots the agent out and deletes its plist
   app help                                 interactive browser checks of this worktree's app (bin/app: agent-browser
         underneath, one line per result, one session, a local seeded app with app up)
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
@@ -167,6 +178,10 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return (await import("./check.ts")).checkCommand(args, root);
 		case "census":
 			return (await import("./check.ts")).censusCommand(args, root);
+		case "containers":
+			return (await import("./containers-command.ts")).containersCommand(args, root);
+		case "pg":
+			return (await import("./scratch-postgres.ts")).pgCommand(args, root, (await import("./check.ts")).spawnRunner);
 		case "nightly":
 			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":

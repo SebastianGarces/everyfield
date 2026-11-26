@@ -38,7 +38,7 @@ def scope_exception_name(table, fk):
             f"{fk['references']['table']}({', '.join(fk['references']['columns'])})")
 
 
-def owner_columns(table):
+def direct_owner_columns(table):
     """Recognize tenant aliases from root FKs and unconditional (id, owner) keys."""
     if table['name'] in OWNER_ROOTS:
         return {'id'}
@@ -51,6 +51,24 @@ def owner_columns(table):
     for key in table['unique_keys']:
         if not key.get('where') and len(key['columns']) == 2 and 'id' in key['columns']:
             owners.update(set(key['columns']) & OWNER_COLUMNS)
+    return owners
+
+
+def owner_columns(tables):
+    """D-2870: a composite FK pairing an owner column with a parent's owner column makes it owned, transitively."""
+    owners = {t['name']: direct_owner_columns(t) for t in tables}
+    changed = True
+    while changed:
+        changed = False
+        for table in tables:
+            for fk in table['foreign_keys']:
+                if len(fk['columns']) < 2:
+                    continue
+                parent = owners.get(fk['references']['table'], set())
+                for left, right in zip(fk['columns'], fk['references']['columns']):
+                    if left in OWNER_COLUMNS and right in parent and left not in owners[table['name']]:
+                        owners[table['name']].add(left)
+                        changed = True
     return owners
 
 
@@ -111,6 +129,7 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
     errors = []
     tables = schema['tables']
     by_name = {t['name']: t for t in tables}
+    owners = owner_columns(tables)
     if len(by_name) != len(tables):
         errors.append(f'{label}: duplicate table name')
     domains = {d['id'] for d in schema.get('domains', [])}
@@ -197,7 +216,7 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
             target = by_name[target_name]
             target_columns = {c['name']: c for c in target['columns']}
             if authority:
-                child_owners, parent_owners = owner_columns(table), owner_columns(target)
+                child_owners, parent_owners = owners[name], owners[target_name]
                 exception = fk.get('scope_exception', '').strip()
                 exception_name = scope_exception_name(name, fk)
                 if (exception and documented_exceptions is not None
@@ -208,7 +227,7 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
                 # Root targets identify owners or actors, not same-owner child bodies.
                 if (target_name not in OWNER_ROOTS and child_owners and parent_owners
                         and not paired and not exception):
-                    errors.append(f'{prefix}: tenant-owned parent {target_name} lacks compound owner FK or named scope exception')
+                    errors.append(f'{prefix}: tenant-owned parent {target_name} lacks compound owner FK or named scope exception: {exception_name}')
             missing_remote = sorted(set(remote) - target_columns.keys())
             if missing_remote:
                 errors.append(f'{prefix}: FK names missing {target_name} columns {missing_remote}')
@@ -408,6 +427,7 @@ def self_test(root):
         ('INV-tenancy: mail Person FK without plant owner', 'plant_fk', 1, 'tenant-owned parent person lacks compound owner FK'),
         ('INV-tenancy: editor revision FK without organization owner', 'organization_fk', 1, 'tenant-owned parent article_revision lacks compound owner FK'),
         ('INV-tenancy: root avatar FK without account owner', 'root_fk', 1, 'authority.account: tenant-owned parent file_object lacks compound owner FK'),
+        ('INV-tenancy: owner only through a composite FK', 'composite_owner', 1, 'development_reading(revision_id) -> article_revision(id)'),
         ('INV-tenancy: invented scope exception', 'undocumented_exception', 1, 'scope exception not named in README: mail(recipient_person_id) -> person(id)'),
         ('INV-tenancy: documented cross-owner source', 'documented_exception', 0, 'PASS: structural keys'),
         ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation document_id has no FK'),
@@ -473,6 +493,9 @@ def self_test(root):
                         readme += '\n- `' + scope_exception_name(table_name, parent) + '`: ' + parent['scope_exception'] + '\n'
                         registered = next(r for r in candidate['person_references'] if r['table'] == 'mail')
                         registered['columns'], registered['target_columns'] = [column], ['id']
+            elif fault == 'composite_owner':
+                reading = next(t for t in candidate['tables'] if t['name'] == 'development_reading')
+                next(f for f in reading['foreign_keys'] if f['columns'] == ['revision_id']).pop('scope_exception')
             elif fault == 'missing_parent':
                 entry = next(t for t in candidate['tables'] if t['name'] == 'document_revision')
                 entry['foreign_keys'] = [f for f in entry['foreign_keys'] if f['references']['table'] != 'document']

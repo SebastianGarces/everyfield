@@ -84,7 +84,7 @@ export async function smallChurch<A extends string>(spec: SmallChurchSpec<A>): P
 		for (const who of names) {
 			const viewer = await readViewer(db, accounts.get(who)!.session as never);
 			if (!viewer?.authority) throw Error(`No live authority for the ${who} actor`);
-			const actor = evryActor(viewer.authority);
+			const actor = evryActor(viewer.authority, viewer.discovery);
 			actors[who] = { ...actor, selfPersonId: await resolveSelf(db, actor) };
 		}
 		return { db, actors, close: database.close };

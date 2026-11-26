@@ -54,7 +54,8 @@ const now: ProposalSubject = { ...queued, now: true };
 export const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
 export const digest = (revision: SQL, review: SQL = sql`r.review`) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',${review})::text,'UTF8')),'hex')`;
-export const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
+const expiresFrom = (at: SQL) => sql`${at}+make_interval(mins=>${REVIEW_MINUTES})`;
+export const expiry = expiresFrom(sql`clock_timestamp()`);
 const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<AliasName>) =>
 	queueJobsFor(sql`FROM ${sql.raw(alias)}`, {
 		kind: "evry_effect",
@@ -117,11 +118,12 @@ export async function prepareProposal(
 		), applied AS (
 			SELECT FROM c,r JOIN proposal q ON true WHERE q.conversation_id=c.id AND q.operation=${write.operation}
 				AND q.outcome='completed' AND coalesce(q.input->'input',q.input)=coalesce(r.args->'input',r.args)
-		), p AS (
-			INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,revision,input,review,digest,state,expires_at)
+		), t AS MATERIALIZED (SELECT clock_timestamp() AS at),
+		p AS (
+			INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,revision,input,review,digest,state,created_at,updated_at,expires_at)
 			SELECT c.tenant_id,c.account_id,c.id,${write.operation},1,r.args,r.review,
 				encode(sha256(convert_to(jsonb_build_object('operation',${write.operation}::text,'revision',1,'args',r.args,'review',r.review)::text,'UTF8')),'hex'),
-				'pending',${expiry} FROM c,r WHERE NOT EXISTS(SELECT FROM applied)
+				'pending',t.at,t.at,${expiresFrom(sql`t.at`)} FROM c,r,t WHERE NOT EXISTS(SELECT FROM applied)
 			RETURNING *
 		), audit AS (${audit("evry.proposal_prepared", "create", "p")})
 		SELECT (SELECT ${projection("p")} FROM p) AS proposal, EXISTS(SELECT FROM applied) AS applied`);

@@ -62,13 +62,13 @@ Documents: fill a template and download or save it, and open what was written fo
 
 - Routes: `/documents`
 - Endpoints: `/documents/files/[documentId]`, `/documents/preview`, `/documents/read`
-- Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` none, `triage` write, `visitor` none
+- Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` none, `triage` write, `visitor` none, `discovery` write
 - Catalog: DOC-001, DOC-002, DOC-003, DOC-016
 - Polls: the template list keeps fetching PDF page previews, so the page never goes network-idle. No network-idle wait here: each step waits on the check after it.
 
 Reach:
 
-- Rail "Documents" for `owner`, `admin`, `member`, `resident`, `triage`
+- Rail "Documents" for `owner`, `admin`, `member`, `resident`, `triage`, `discovery`
 
 States:
 

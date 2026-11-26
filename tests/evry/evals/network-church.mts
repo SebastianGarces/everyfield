@@ -13,7 +13,7 @@ import { linkResident, markMilestone, PEOPLE, seedPipeline, sessionOf, type Pipe
 async function actorOf(db: Database, session: string): Promise<EvryActor> {
 	const viewer = await readViewer(db, session as never);
 	if (!viewer?.authority) throw Error("No live authority for the network church actor");
-	return evryActor(viewer.authority);
+	return evryActor(viewer.authority, viewer.discovery);
 }
 async function actorsOf<K extends string>(db: Database, sessions: Record<K, string>) {
 	const actors = {} as Record<K, EvryActor>;

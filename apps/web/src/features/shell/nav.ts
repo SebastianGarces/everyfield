@@ -18,7 +18,7 @@ import {
 	UserGroupIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
-import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
+import { DASHBOARD_HOME, DISCOVERY_HOME } from "@everyfield/contracts/identity";
 import type { ShellLink } from "@everyfield/ui/shell";
 
 const OVERVIEW = {
@@ -28,6 +28,13 @@ const OVERVIEW = {
 	href: DASHBOARD_HOME,
 	icon: DashboardSquare01Icon,
 	prefetch: false,
+} as const;
+const DISCOVERY = {
+	kind: "link",
+	key: "discovery",
+	label: "Home",
+	href: DISCOVERY_HOME,
+	icon: DashboardSquare01Icon,
 } as const;
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
 const MEETINGS = {
@@ -121,7 +128,7 @@ const MY_RESIDENCY = {
 export type NavViewer =
 	| { context: "plant"; role: "owner" | "admin" | "member" }
 	| { context: "organization" }
-	| { context: "account"; residencyLinked: boolean }
+	| { context: "account"; residencyLinked: boolean; discovery?: boolean }
 	| { context: "pending" };
 
 export type RailNav = { main: readonly ShellLink[]; pages: readonly ShellLink[]; guide: boolean };
@@ -130,6 +137,12 @@ export function shellNav(viewer: NavViewer): RailNav {
 	if (viewer.context === "organization")
 		return { main: [PLANTS, PIPELINE, REVIEWS], pages: ORGANIZATION_PAGES, guide: false };
 	if (viewer.context === "pending") return { main: [SET_UP], pages: [], guide: false };
+	if (viewer.context === "account" && viewer.discovery)
+		return {
+			main: viewer.residencyLinked ? [DISCOVERY, MY_RESIDENCY, WIKI, DOCUMENTS] : [DISCOVERY, WIKI, DOCUMENTS],
+			pages: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, LAUNCH, INTELLIGENCE],
+			guide: true,
+		};
 	if (viewer.context === "account")
 		return { main: viewer.residencyLinked ? [MY_RESIDENCY, WIKI] : [WIKI], pages: [DOCUMENTS], guide: true };
 	return {

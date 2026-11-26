@@ -401,9 +401,11 @@ test("AC:AI44-007 an unapproved review saves nothing, before and after it expire
 	);
 	const [review] = asked.proposals;
 	assert.ok(review);
-	const { created, expires } = await w.one<{ created: string; expires: string }>(
-		sql`SELECT created_at::text AS created,expires_at::text AS expires FROM proposal WHERE id=${review.id}`,
+	const { created, expires, exact } = await w.one<{ created: string; expires: string; exact: boolean }>(
+		sql`SELECT created_at::text AS created,expires_at::text AS expires,
+			expires_at-created_at=make_interval(mins=>${REVIEW_MINUTES}) AS exact FROM proposal WHERE id=${review.id}`,
 	);
+	assert.equal(exact, true, `expires_at ${expires} is not exactly ${REVIEW_MINUTES} minutes after ${created}`);
 	assert.equal(Date.parse(expires) - Date.parse(created), REVIEW_MINUTES * 60_000);
 	assert.equal(await w.effect(), null);
 	await w.at(new Date(Date.parse(expires) + 1).toISOString());

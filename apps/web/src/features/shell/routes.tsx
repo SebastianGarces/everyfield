@@ -28,6 +28,7 @@ export async function ProductFrameLayout({
 			settings={settings}
 			settingsDialog={settingsDialog}
 			residency={residency}
+			discovery={v.discovery}
 			evryAvailable={evryAvailable(serverEnv())}
 		>
 			{children}

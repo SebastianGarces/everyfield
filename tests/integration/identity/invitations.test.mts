@@ -135,7 +135,7 @@ test("AC:TARGET-IDN-030 INV-atomicity: required outbox or receipt failure rolls 
 	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
 	assert.equal(accepted.status, "accepted");
 });
-test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 AC:TARGET-IDN-003 AC:TARGET-IDN-017 INV-claim: wrong mailbox unverified account and deletion witness cannot claim", async () => {
+test("AC:TEN-005 AC:SEC-02 AC:TARGET-IDN-003 AC:TARGET-IDN-017 INV-claim: wrong mailbox unverified account and deletion witness cannot claim", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),
 		other = await f.account();
