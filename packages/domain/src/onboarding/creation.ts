@@ -99,12 +99,23 @@ async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery"
 	if (!a.principal?.verified) deny("unavailable");
 	return { ...a, principal: a.principal };
 }
+async function leadRole(tx: Tx, plantId: string, personId: string) {
+	const lead = { teamId: randomUUID(), roleId: randomUUID(), personId };
+	await tx.execute(sql`WITH tm AS (INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source,leader_role_id)
+ VALUES (${lead.teamId}::uuid,${plantId}::uuid,'Leadership','forming',0,${personId}::uuid,'role_derived',${lead.roleId}::uuid)),
+ rl AS (INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+ VALUES (${lead.roleId}::uuid,${plantId}::uuid,${lead.teamId}::uuid,'Lead pastor',true,0))
+ INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) SELECT ${plantId}::uuid,${lead.roleId}::uuid,${personId}::uuid,
+ (clock_timestamp() AT TIME ZONE timezone)::date FROM plant WHERE id=${plantId}::uuid`);
+	return lead;
+}
 async function provision(
 	tx: Tx,
 	cx: NewCommand,
 	account: typeof t.account.$inferSelect,
 	input: z.infer<typeof c.plantBasics>,
 	displayName: string,
+	leads: boolean,
 ) {
 	const plantId = randomUUID(),
 		seatId = randomUUID(),
@@ -124,6 +135,7 @@ async function provision(
 			city: input.locality?.city ?? null,
 			state_province: input.locality?.stateProvince ?? null,
 			country: input.locality?.country ?? null,
+			lead_answer: leads ? "yes" : null,
 		})
 		.getSQL()} RETURNING id),
  s AS (INSERT INTO seat(id,account_id,plant_id,role,accepted_at) SELECT ${seatId}::uuid, ${account.id}::uuid, p.id, 'owner', clock_timestamp() FROM p RETURNING id),
@@ -137,12 +149,15 @@ async function provision(
 	});
 	if (linked.status !== "ok" || linked.value.status !== "linked") deny("unavailable");
 	const creation = await entry.recorded(new Date(row.recorded));
+	const assignment = leads ? await leadRole(tx, plantId, linked.value.personId) : null;
 	cx.writes.push(
 		tx.insert(t.onboarding_setup).values({
 			plant_id: plantId,
 			account_id: account.id,
 			creation_operation_id: cx.id,
-			lead: { answer: "pending" },
+			lead: assignment
+				? { answer: "yes", assignment, savedAt: new Date(row.recorded).toISOString() }
+				: { answer: "pending" },
 			journey: pending,
 			launch: pending,
 			people_step: "pending",
@@ -154,6 +169,7 @@ async function provision(
 	);
 	await event(tx, cx, plantId, "plant.created", "create");
 	await event(tx, cx, seatId, "membership.created", "create");
+	if (assignment) await event(tx, cx, assignment.roleId, "roles.changed", "assign", plantId);
 	return {
 		plant: plantOwner.parse({ kind: "plant", id: plantId }),
 		revision: "1",
@@ -199,7 +215,7 @@ export function creation(effects: OnboardingEffects) {
 				if (state.seats || state.setup) deny("active_seat_conflict");
 				if (state.discovery) deny("association_resolution_required");
 				revision(q.expectedRevision, a.account.revision);
-				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
+				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name, false);
 				await effects.enqueue(
 					tx,
 					{
@@ -335,7 +351,7 @@ export function creation(effects: OnboardingEffects) {
 				for (const ending of q.input.ended) revision(ending.expectedRelationshipRevision, matched(ending).revision);
 				const decided = new Set([...q.input.relationships, ...q.input.ended].map((r) => r.relationshipId));
 				if (links.some((link) => link.active && !decided.has(link.id))) deny("conflict");
-				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
+				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name, true);
 				const relationships: z.infer<typeof c.conversionRelationship>[] = [];
 
 				const notices: RelationshipNotice[] = [];
