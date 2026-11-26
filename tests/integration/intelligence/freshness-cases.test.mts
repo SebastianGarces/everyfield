@@ -17,7 +17,7 @@ import {
 import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
-import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { commitments, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok, waitingOnLock } from "../../support/fixture.mts";
@@ -167,8 +167,8 @@ test("AC:ASMT-002 INV-freshness: a correction that commits after capture with th
 		scripted({
 			during: once(async () => {
 				ok(
-					await gatedTransaction(c0.db, (t) =>
-						commitments.correctCommitmentLifecycle(t, p.ctx as never, {
+					await withPeopleWrite(c0.db, p.actor, (t, ctx) =>
+						commitments.correctCommitmentLifecycle(t as never, ctx as never, {
 							requestKey: randomUUID(),
 							expectedRevision: card.revision,
 							input: {
@@ -421,10 +421,10 @@ test("AC:ASMT-006 an assessment-relevant updatePerson whose audit, freshness inp
 			birth_date::text FROM person WHERE id=${who.id}`);
 	const update = async () => {
 		const { revision } = await person();
-		return gatedTransaction(c0.db, (t) =>
+		return withPeopleWrite(c0.db, p.actor, (t, ctx) =>
 			peopleWriter.updatePerson(
 				t as never,
-				p.ctx as never,
+				ctx as never,
 				{
 					requestKey: randomUUID(),
 					expectedRevision: revision,

@@ -22,6 +22,7 @@ import {
 	peopleReader,
 	peopleWriter,
 	recordCorrections,
+	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/index.ts";
 import { readCatalog, readinessOf } from "../../../packages/domain/src/phases/index.ts";
@@ -89,7 +90,7 @@ async function plantOf(options: Parameters<Church["plant"]>[1] = {}): Promise<Pl
 	};
 }
 const write = <T,>(p: Plant, body: (t: WriteTx, ctx: Seat["ctx"]) => Promise<T>) =>
-	gatedTransaction(c.db, (t) => body(t, p.a.ctx));
+	withPeopleWrite(c.db, p.a.actor, (t, ctx) => body(t as never, ctx as never) as never) as Promise<T>;
 const revisionOf = async (table: string, id: string) =>
 	(await c.one<{ r: string }>(sql`SELECT revision::text AS r FROM ${sql.identifier(table)} WHERE id=${id}`)).r;
 
@@ -127,11 +128,12 @@ async function lifecycle(p: Plant, e: Given) {
 	const operation = e.kind === "withdrawn" ? "withdrawCommitment" : "reactivateCommitment";
 	if (e.recorded_at) await at(e.recorded_at);
 	try {
+		const revision = await revisionOf("person", personId);
 		return ok(
-			await write(p, async (t, ctx) =>
+			await write(p, (t, ctx) =>
 				commitments[operation](t, ctx as never, {
 					requestKey: randomUUID(),
-					expectedRevision: await revisionOf("person", personId),
+					expectedRevision: revision,
 					input: { personId, effectiveOn: e.effective_date!, reason: e.reason ?? null },
 				}),
 			),
@@ -292,11 +294,12 @@ test("AC:CA007 an Owner's linked person at an advanced stage on a leading team c
 		account: p.a.id,
 	});
 	assert.equal(r.committedAdults.needsClassifying.length, 0);
+	const revision = await revisionOf("person", id);
 	ok(
-		await write(p, async (t, ctx) =>
+		await write(p, (t, ctx) =>
 			peopleWriter.recordAdultClassification(t, ctx as never, {
 				requestKey: randomUUID(),
-				expectedRevision: await revisionOf("person", id),
+				expectedRevision: revision,
 				input: { personId: id, classification: "adult", occurredOn: TODAY, reason: "Adult" },
 			}),
 		),
@@ -408,11 +411,12 @@ test("AC:CA010 AC:CA011 AC:CA012 a repeat card, team move or edit keeps the firs
 	const moved = await role(p10, id, "Hospitality");
 	await c.admin.execute(sql`UPDATE team_tenure SET ended_on=${TODAY} WHERE id=${moved}`);
 	await role(p10, id, "Greeters");
+	const revision = await revisionOf("person", id);
 	ok(
-		await write(p10, async (t, ctx) =>
+		await write(p10, (t, ctx) =>
 			peopleWriter.updatePerson(t, ctx as never, {
 				requestKey: randomUUID(),
-				expectedRevision: await revisionOf("person", id),
+				expectedRevision: revision,
 				input: { personId: id, patch: { displayName: "Person adult-01 edited" } },
 			}),
 		),
@@ -540,14 +544,15 @@ test("AC:CA020 a person and commitment of another plant, a deleted person and a 
 	const review = ok(
 		await write(p, (t, ctx) => peopleReader.getStatusWarnings(t, ctx as never, { personId: gone as never })),
 	);
+	const revision = await revisionOf("person", gone);
 	ok(
-		await write(p, async (t, ctx) =>
+		await write(p, (t, ctx) =>
 			peopleWriter.retirePerson(
 				t,
 				ctx as never,
 				{
 					requestKey: randomUUID(),
-					expectedRevision: await revisionOf("person", gone),
+					expectedRevision: revision,
 					input: { personId: gone, reason: "Deleted", reviewRevision: review.reviewRevision, handoffs: [] },
 				},
 				async () => undefined as never,
@@ -637,7 +642,7 @@ test("AC:CA013 correcting the first occurrence from September 20 to September 1 
 	);
 	const [cardAfter] = (await held(p, id)).items;
 	const history = ok(
-		await write(p, (t, ctx) => recordCorrections.listRecordCorrections(t, ctx as never, { personId: id })),
+		await gatedTransaction(c.db, (t) => recordCorrections.listRecordCorrections(t, p.a.ctx as never, { personId: id })),
 	);
 	const state = {
 		occurrence_date: cardAfter?.occurredOn,
@@ -667,11 +672,12 @@ test("AC:CA014 classifying an unknown person as an adult counts their recorded f
 	const before = await readOf(p);
 	assert.deepEqual([before.committedAdults.known, before.committedAdults.needsClassifying.length], [0, 1]);
 	const run = await snapshot(p);
+	const revision = await revisionOf("person", id);
 	const done = ok(
-		await write(p, async (t, ctx) =>
+		await write(p, (t, ctx) =>
 			peopleWriter.correctAdultClassification(t, ctx as never, {
 				requestKey: randomUUID(),
-				expectedRevision: await revisionOf("person", id),
+				expectedRevision: revision,
 				input: { personId: id, classification: args.classification, occurredOn: args.occurred_on, reason: args.reason },
 			}),
 		),
@@ -774,22 +780,24 @@ test("AC:CA022 a reviewed merge counts the survivor once with the earliest card,
 	for (const [personId, email] of [
 		[survivor, "alex@example.test"],
 		[duplicate, "Alex@Example.test"],
-	])
+	]) {
+		const revision = await revisionOf("person", personId!);
 		ok(
-			await write(p, async (t, ctx) =>
+			await write(p, (t, ctx) =>
 				peopleWriter.updatePerson(t, ctx as never, {
 					requestKey: randomUUID(),
-					expectedRevision: await revisionOf("person", personId!),
+					expectedRevision: revision,
 					input: { personId, patch: { displayName: "Alex Rivera", email } },
 				}),
 			),
 		);
+	}
 	const before = await readOf(p);
 	assert.equal(before.committedAdults.known, 2, "two people with one name stay two until merged");
 	const run = await snapshot(p);
 	const merge = async (sourceId: string, survivorId: string) => {
 		const review = ok(
-			await write(p, (t, ctx) => peopleMerge.getMergeReview(t, ctx as never, { sourceId, survivorId })),
+			await gatedTransaction(c.db, (t) => peopleMerge.getMergeReview(t, p.a.ctx as never, { sourceId, survivorId })),
 		);
 		return ok(
 			await write(p, (t, ctx) =>
