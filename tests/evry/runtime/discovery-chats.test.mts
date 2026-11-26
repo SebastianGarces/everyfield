@@ -152,7 +152,10 @@ test("INV-discovery-chats: a Discovery chat refuses a new message, retry, cancel
 			await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${planter.id}`);
 		const as = await planter.as();
 		const before = await counts();
-		await refused(() => submitTurn(db, as, pending, { requestKey: randomUUID(), text: "One more thing" }), "discovery_read_only");
+		await refused(
+			() => submitTurn(db, as, pending, { requestKey: randomUUID(), text: "One more thing" }),
+			"discovery_read_only",
+		);
 		await refused(() => retryTurn(db, as, pending, { requestKey: randomUUID() }), "discovery_read_only");
 		await refused(() => cancelTurn(db, as, pending), "discovery_read_only");
 		await refused(() => files.attach(as, pending, "notes.txt", Buffer.from("notes")), "discovery_read_only");
@@ -208,7 +211,10 @@ test("INV-tenancy: only the planter reaches their Discovery chats; church seats,
 		seated.push(await other.as());
 	}
 	const before = await counts();
-	const others = [...seated, ...(await Promise.all((["owner", "member", "foreign", "orgOwner", "seatless"] as const).map(actor)))];
+	const others = [
+		...seated,
+		...(await Promise.all((["owner", "member", "foreign", "orgOwner", "seatless"] as const).map(actor))),
+	];
 	for (const other of others) {
 		const who = `${other.owner.kind}:${other.role}`;
 		await refused(() => readConversation(db, other, pending), "not_found");
@@ -219,7 +225,10 @@ test("INV-tenancy: only the planter reaches their Discovery chats; church seats,
 		await refused(() => readReview(db, other, review), "not_found");
 		const seen = (await listConversations(db, other, { search: "sending budget" })).items;
 		assert.deepEqual(seen, [], who);
-		assert.ok((await listConversations(db, other, {})).items.every((c) => !c.discovery), `${who} has no Discovery group`);
+		assert.ok(
+			(await listConversations(db, other, {})).items.every((c) => !c.discovery),
+			`${who} has no Discovery group`,
+		);
 	}
 	assert.deepEqual(await counts(), before, "no refused call wrote anything");
 });

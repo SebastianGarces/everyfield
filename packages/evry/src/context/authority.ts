@@ -1,4 +1,4 @@
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { liveRead, writeVisibility } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
 import { owner } from "@everyfield/contracts/common";
@@ -38,12 +38,12 @@ export function movedChurch(actor: EvryActor, conversation: SQL): SQL {
 			ELSE NOT EXISTS(SELECT FROM seat s WHERE s.id=${actor.seatId}::uuid AND s.ended_at IS NULL) AND ${activeSession(actor)} AND ${elsewhere} END)`;
 }
 
-export const fromDiscovery = (alias: string) =>
+export const fromDiscovery = <A extends string>(alias: SqlLiteral<A>) =>
 	`(${alias}.context_kind='account' AND ${alias}.tenant_id=${alias}.account_id AND EXISTS(SELECT FROM discovery dc
 		WHERE dc.account_id=${alias}.account_id AND dc.converted_at IS NOT NULL AND ${alias}.created_at<dc.converted_at))`;
-export const discoveryChat = (alias: string) => sql.raw(fromDiscovery(alias));
+export const discoveryChat = <A extends string>(alias: SqlLiteral<A>) => sql.raw(fromDiscovery(alias));
 
-export function discoveryRead(actor: EvryActor, alias: string): SQL {
+export function discoveryRead<A extends string>(actor: EvryActor, alias: SqlLiteral<A>): SQL {
 	const account = owner.parse({ kind: "account", id: actor.accountId });
 	return sql`(${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${discoveryChat(alias)}
 		AND ${liveRead({ session: actor.session, owner: account })})`;

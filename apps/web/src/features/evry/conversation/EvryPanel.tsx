@@ -956,7 +956,7 @@ function History({
 							<h4 id={discoveryGroup} className="font-body text-sm font-semibold text-ink">
 								From Discovery
 							</h4>
-							<p className="text-xs text-text-3">Read-only. New chats with Evry don't use them.</p>
+							<p className="text-xs text-text-3">{"Read-only. New chats with Evry don't use them."}</p>
 							<Conversations
 								items={items.filter((item) => item.discovery)}
 								current={current}

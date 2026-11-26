@@ -81,7 +81,7 @@ export const mine = (actor: EvryActor) =>
 export const readable = (actor: EvryActor) =>
 	sql`((${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })})
 		OR (${ownSeating(actor)}) OR EXISTS(SELECT FROM conversation pc WHERE pc.id=p.conversation_id AND ${discoveryRead(actor, "pc")}))`;
-export const inDiscoveryChat = (alias: string) =>
+export const inDiscoveryChat = <A extends string>(alias: SqlLiteral<A>) =>
 	`EXISTS(SELECT FROM conversation pc WHERE pc.id=${alias}.conversation_id AND ${fromDiscovery("pc")})`;
 const SEATING = ["onboarding.createPlant", "discovery.convertToPlant"];
 const ownSeating = (actor: EvryActor) =>

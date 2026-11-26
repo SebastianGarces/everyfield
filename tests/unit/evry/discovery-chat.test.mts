@@ -20,7 +20,10 @@ const review = (operation: string, over: Record<string, unknown> = {}) => ({
 	expiresAt: "2026-11-26T12:10:00Z",
 	approvedAt: null,
 	status: "pending",
-	review: { target: { kind: "document", id: "doc", label: "Vision statement", href: "/documents/written/doc" }, changes: [] },
+	review: {
+		target: { kind: "document", id: "doc", label: "Vision statement", href: "/documents/written/doc" },
+		changes: [],
+	},
 	outcome: null,
 	executing: false,
 	receipt: null,
@@ -79,7 +82,14 @@ test("INV-discovery-chats: approving the start of a church tells the panel its c
 	}
 });
 
-const conversation = { id: "d1", title: "Vision", context: "account", lastSequence: 1, activeTurnId: null, updatedAt: NOW };
+const conversation = {
+	id: "d1",
+	title: "Vision",
+	context: "account",
+	lastSequence: 1,
+	activeTurnId: null,
+	updatedAt: NOW,
+};
 const page = (discovery: boolean) => ({
 	conversation: { ...conversation, discovery },
 	run: null,
