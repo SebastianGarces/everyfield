@@ -154,6 +154,17 @@
 				"Prepare turning your Discovery space into a church for your review, with you as its Owner."
 			],
 			"absent": ["Coming later", "Prepare a private Discovery space", "Prepare starting a new church"]
+		},
+		{
+			"id": "ACC-15",
+			"criterion": 13,
+			"ask": "find Alex",
+			"calls": [],
+			"answer": [
+				"Ask me about your own documents, the Wiki or your Discovery space",
+				"People and other church records open when you start your church."
+			],
+			"absent": ["people in this church", "find Alex"]
 		}
 	]
 }

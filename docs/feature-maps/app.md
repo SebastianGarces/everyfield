@@ -7,11 +7,12 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 flowchart LR
   s0_link0(["link /api/cron/jobs"])
   s1_link0(["link /"])
-  s3_link2(["link /access?role={role}"])
-  s5_link0(["link /robots.txt"])
-  s5_link1(["link /sitemap.xml"])
-  s5_link2(["link /apple-icon"])
-  s6_link0(["link /api/webhooks/resend"])
+  s3_link0(["link /discovery"])
+  s4_link2(["link /access?role={role}"])
+  s6_link0(["link /robots.txt"])
+  s6_link1(["link /sitemap.xml"])
+  s6_link2(["link /apple-icon"])
+  s7_link0(["link /api/webhooks/resend"])
   s0["app.cron-jobs<br/>no page"]
   s0_link0 --> s0
   s0 -.- s0_st0(("refused"))
@@ -22,32 +23,35 @@ flowchart LR
   s1 -- "link #quot;Churches & Networks#quot;" --> s2
   s1 -- "link #quot;Learn more about the oversight view#quot;" --> s2
   s2 -.- s2_st0(("visitor"))
-  s3["app.access-request<br/>/access"]
-  s1 -- "link #quot;Request early access#quot;" --> s3
-  s2 -- "link #quot;Talk to us about your network#quot;" --> s3
-  s3_link2 --> s3
-  s3 -.- s3_st0(("choose"))
-  s3 -.- s3_st1(("choose-required"))
-  s3 -.- s3_st2(("contact"))
-  s3 -.- s3_st3(("email-invalid"))
-  s3 -.- s3_st4(("network-from-link"))
-  s3 --- s3_b0["send<br/>tests"]
-  s4["app.legal<br/>/privacy /terms"]
-  s1 -- "link #quot;Privacy policy#quot;" --> s4
-  s1 -- "link #quot;Terms#quot;" --> s4
-  s4 -.- s4_st0(("privacy"))
-  s4 -.- s4_st1(("terms"))
-  s5["app.site-files<br/>no page"]
-  s5_link0 --> s5
-  s5_link1 --> s5
-  s5_link2 --> s5
-  s5 -.- s5_st0(("robots"))
-  s5 -.- s5_st1(("sitemap"))
-  s5 -.- s5_st2(("apple-icon"))
-  s6["app.resend-webhook<br/>no page"]
+  s3["app.discovery-page<br/>/discovery"]
+  s3_link0 --> s3
+  s3 -.- s3_st0(("visitor"))
+  s4["app.access-request<br/>/access"]
+  s1 -- "link #quot;Request early access#quot;" --> s4
+  s2 -- "link #quot;Talk to us about your network#quot;" --> s4
+  s4_link2 --> s4
+  s4 -.- s4_st0(("choose"))
+  s4 -.- s4_st1(("choose-required"))
+  s4 -.- s4_st2(("contact"))
+  s4 -.- s4_st3(("email-invalid"))
+  s4 -.- s4_st4(("network-from-link"))
+  s4 --- s4_b0["send<br/>tests"]
+  s5["app.legal<br/>/privacy /terms"]
+  s1 -- "link #quot;Privacy policy#quot;" --> s5
+  s1 -- "link #quot;Terms#quot;" --> s5
+  s5 -.- s5_st0(("privacy"))
+  s5 -.- s5_st1(("terms"))
+  s6["app.site-files<br/>no page"]
   s6_link0 --> s6
-  s6 -.- s6_st0(("refused"))
-  s6 --- s6_b0["record-delivery<br/>tests + cases"]
+  s6_link1 --> s6
+  s6_link2 --> s6
+  s6 -.- s6_st0(("robots"))
+  s6 -.- s6_st1(("sitemap"))
+  s6 -.- s6_st2(("apple-icon"))
+  s7["app.resend-webhook<br/>no page"]
+  s7_link0 --> s7
+  s7 -.- s7_st0(("refused"))
+  s7 --- s7_b0["record-delivery<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -136,6 +140,30 @@ agent-browser wait --url "**/oversight"
 agent-browser find role heading text --name "See every church plant you send." --exact
 agent-browser find role columnheader text --name "Church plant" --exact
 agent-browser find role link text --name "Talk to us about your network" --exact
+```
+
+### app.discovery-page
+
+The public page for planters still discerning a call: Discovery is always free, a four-tab tour of sample Discovery screens (Wiki, Documents, Templates, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Nothing links to it yet.
+
+- Routes: `/discovery`
+- Personas: `visitor` read
+- Catalog: ADM-006
+
+Reach:
+
+- Link `/discovery`
+
+States:
+
+- **visitor**: heading "Still discerning a call to plant? Start here, free."; tab "Wiki"; link "Start exploring free". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/discovery"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Still discerning a call to plant? Start here, free." --exact
+agent-browser find role tab text --name "Wiki" --exact
+agent-browser find role link text --name "Start exploring free" --exact
 ```
 
 ### app.access-request

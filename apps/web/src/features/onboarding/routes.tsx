@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { onboardingEntry } from "./mount";
+import { onboardingCommand, onboardingEntry } from "./mount";
 import { namesFor, viewerOf } from "../organizations/mount";
 import { getViewer, organizationSeatOf } from "@/server/request-context";
 import { signIn } from "@/server/sign-in";
@@ -34,6 +34,14 @@ export async function OnboardingPage({ searchParams }: { searchParams: Search })
 					)
 				: {};
 		return <RealOnboarding entry={load.entry} step={null} articles={FOUNDATION_ARTICLES} linkNames={names} />;
+	}
+	if (load.entry.kind === "start" && load.entry.offer === "discovery") {
+		const made = await onboardingCommand("createDiscovery", {
+			requestKey: crypto.randomUUID(),
+			expectedRevision: load.entry.accountRevision,
+			input: {},
+		});
+		if (made.status === "ok") redirect(DISCOVERY_HOME);
 	}
 	const step = addressStep(initialState(load.entry, requested));
 	if (step !== (raw ?? null)) redirect(step ? `/onboarding?step=${step}` : "/onboarding");

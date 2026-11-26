@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 156 of 156. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 157 of 157. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -148,10 +148,11 @@ flowchart LR
     f25s0["app.cron-jobs"]
     f25s1["app.home"]
     f25s2["app.oversight-page"]
-    f25s3["app.access-request"]
-    f25s4["app.legal"]
-    f25s5["app.site-files"]
-    f25s6["app.resend-webhook"]
+    f25s3["app.discovery-page"]
+    f25s4["app.access-request"]
+    f25s5["app.legal"]
+    f25s6["app.site-files"]
+    f25s7["app.resend-webhook"]
   end
   links -.-> f0s0
   links -.-> f0s1
@@ -256,12 +257,13 @@ flowchart LR
   links -.-> f25s0
   links -.-> f25s1
   f25s1 --> f25s2
-  f25s1 --> f25s3
-  f25s2 --> f25s3
   links -.-> f25s3
   f25s1 --> f25s4
-  links -.-> f25s5
+  f25s2 --> f25s4
+  links -.-> f25s4
+  f25s1 --> f25s5
   links -.-> f25s6
+  links -.-> f25s7
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
@@ -291,7 +293,7 @@ flowchart LR
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 3 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 4 | 6 | 3 | 1 |
-| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 7 | 10 | 2 | 0 | 0 |
+| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 8 | 11 | 2 | 0 | 0 |
 
 ## Become a persona
 

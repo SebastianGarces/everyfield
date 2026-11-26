@@ -413,6 +413,38 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
 	};
 }
 
+const auditedValues = new Map<string, z.ZodType>([
+	["stage", c.stage.nullable()],
+	["commitment", z.object({ state: z.string().nullable(), effectiveOn: z.string().nullable() }).nullable()],
+	["membership", z.object({ householdId: z.uuid(), role: z.string() }).nullable()],
+	["guardian", z.object({ personId: z.uuid() }).nullable()],
+	["propagated", z.object({ people: z.array(z.uuid()) }).nullable()],
+	["photo", z.uuid().nullable()],
+	["skill", z.object({ id: z.uuid(), category: z.string(), proficiency: z.string().nullable() }).nullable()],
+]);
+export function peopleValues(before?: Revisioned, after?: Revisioned) {
+	return allowedPeopleValues(personChanges(before, after));
+}
+type ChangedValues = Record<string, unknown>;
+export function allowedPeopleValues(
+	delta: { before: ChangedValues | null; after: ChangedValues | null },
+	named: readonly string[] = [],
+) {
+	const changed = Object.keys({ ...delta.before, ...delta.after });
+	const kept = (value: Record<string, unknown>) =>
+		Object.fromEntries(
+			changed.flatMap((key) => {
+				const schema = auditedValues.get(key);
+				return schema && Object.hasOwn(value, key) ? [[key, schema.parse(value[key])]] : [];
+			}),
+		);
+	const fields = [...new Set([...named, ...changed.filter((key) => !auditedValues.has(key))])].sort();
+	return {
+		before: delta.before && kept(delta.before),
+		after: delta.after && { ...kept(delta.after), ...(delta.before && fields.length ? { fields } : {}) },
+	};
+}
+
 const peopleWritePaths = {
 	"orgPeople.merge": "established",
 	"orgPeople.unmerge": "established",
@@ -523,7 +555,9 @@ export async function mutation<T>(
 	const operationId = claim.id;
 	const result = await body(actor.accountId, operationId, claim);
 	const outcome = result.outcome ?? "changed";
-	const delta = personChanges(result.before, result.after);
+	const delta = (
+		result.action === "people.created" || result.action === "people.updated" ? peopleValues : personChanges
+	)(result.before, result.after);
 	const entry = claim.events.find((entry) => entry.id === operationId);
 	const audit = {
 		id: operationId,
@@ -552,11 +586,7 @@ export async function mutation<T>(
 		before_value: note ? entry?.before_value : delta.before,
 		after_value: note ? entry?.after_value : delta.after,
 		reason: result.reason ?? entry?.reason ?? null,
-		...(note
-			? { metadata: entry?.metadata ?? { category: "note" } }
-			: result.metadata
-				? { metadata: result.metadata }
-				: {}),
+		...(note ? { metadata: entry?.metadata ?? result.metadata } : result.metadata ? { metadata: result.metadata } : {}),
 	};
 	if (entry) Object.assign(entry, audit);
 	else claim.events.push(audit);

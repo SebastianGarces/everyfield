@@ -36,4 +36,4 @@ jobs:
         with:
           script: |
             const promote = require('./.github/scripts/promote.cjs');
-            await promote({ github, context, core, exec });
+            await promote({ github, context, core });

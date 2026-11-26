@@ -1,10 +1,11 @@
 import { requestDatabase } from "@/server/database";
 import { viewerActor } from "@/server/request-context";
+import type { Database } from "@everyfield/db/client";
 import type { Lost, Outcome } from "@everyfield/contracts/common";
 import type { DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
 import { privateStorage } from "@everyfield/db/schema";
-import { documentsReader } from "@everyfield/domain/documents";
+import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
 import "server-only";
 import {
 	choose,
@@ -13,14 +14,23 @@ import {
 	type DocumentsQuery,
 	type Format,
 	type Resolved,
+	type OwnedView,
 	type Template,
 } from "./model.ts";
+import { presentOwned, refused, type DocumentOutcome } from "./outcome.ts";
 import { logLine } from "@everyfield/domain/log";
 import { LOST, transient } from "../../server/platform/transient.ts";
 import { readDb } from "../../server/platform/tx.ts";
 
 export type DocumentsLoad =
-	| { status: "ok"; templates: Template[]; version: string; context: Resolved | null; canPreview: boolean }
+	| {
+			status: "ok";
+			templates: Template[];
+			version: string;
+			context: Resolved | null;
+			canPreview: boolean;
+			mine: DocumentOutcome<OwnedView[]> | null;
+	  }
 	| { status: "refused" }
 	| Lost;
 
@@ -92,22 +102,24 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 		const templates = list.value.templates;
 		const chosen = choose(filterTemplates(templates, query), query.template);
 		const canPreview = hasPlantSeat(authority);
-		if (!chosen || !canPreview) {
-			return { status: "ok", templates, version: list.value.version, context: null, canPreview };
-		}
+		const mine = canPreview ? await mineOf(db, authority) : null;
+		const loaded = { status: "ok", templates, version: list.value.version, mine } as const;
+		if (!chosen || !canPreview) return { ...loaded, context: null, canPreview };
 		const resolved = await documentsReader.resolveContext(db, authority, {
 			templateId: chosen.id,
 			format: offeredFormat(chosen, query.format),
 		});
-		if (resolved.status === "ok") {
-			return { status: "ok", templates, version: list.value.version, context: present(resolved.value), canPreview };
-		}
-		if (resolved.error.code === "unavailable") {
-			return { status: "ok", templates, version: list.value.version, context: null, canPreview: false };
-		}
+		if (resolved.status === "ok") return { ...loaded, context: present(resolved.value), canPreview };
+		if (resolved.error.code === "unavailable") return { ...loaded, context: null, canPreview: false };
 		logLine({ component: "documents", outcome: "resolve_refused", code: resolved.error.code });
 		return LOST;
 	});
+}
+
+export async function mineOf(db: Database, authority: RequestActor): Promise<DocumentOutcome<OwnedView[]>> {
+	const listed = await documentsWriter.listMine(db, authority, {});
+	if (listed.status === "refused") return refused(listed.error);
+	return { status: "ok", value: listed.value.documents.map(presentOwned) };
 }
 
 export function writtenScope(authority: RequestActor): "church" | "account" | null {
