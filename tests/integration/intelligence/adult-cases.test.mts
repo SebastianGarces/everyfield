@@ -1205,7 +1205,8 @@ test("AC:PI-METRIC-001 the 48-hour rate counts only matured follow-ups with an a
 	const v = <T,>(name: string) => (givenOf(k)[name] as unknown as { value: T }).value;
 	const asOf = v<string>("asOf");
 	assert.equal(v<number>("contactedOutcomeCount"), 0);
-	const p = await plantOf({ phase: Number(String(givenOf(k).P!.phase).replace("Phase", "")) });
+	const plant = givenOf(k).P as unknown as { phase: string };
+	const p = await plantOf({ phase: Number(plant.phase.replace("Phase", "")) });
 	const byPerson = new Map<string, Origin>();
 	for (const o of v<Origin[]>("originObligations")) {
 		const personId = await person(p, o.id, { fixture_type: "person", classification: "adult" });

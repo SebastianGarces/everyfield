@@ -294,7 +294,7 @@ const CLAIM =
 const NEGATED =
 	/\b(not|nothing|no|neither|nor|yet|until|once|after|when|won['’]?t|isn['’]?t|hasn['’]?t|haven['’]?t|wasn['’]?t|never|if|before)\b/i;
 const CLARIFY =
-	/\?|let me know|tell me (which|what|who)|if you tell me|which one|please confirm|confirm (that|whether|if)/i;
+	/\?|let me know|tell me (which|what|who)|if you tell me|which one|please confirm|confirm (that|whether|if)|please (give|tell|send|share) me/i;
 const CONTACTS = PEOPLE.flatMap((p) => [p.email, p.phone?.slice(-8)].filter((v): v is string => !!v));
 
 const show = (s: string) => JSON.stringify(s.length > 140 ? s.slice(0, 137) + "…" : s);

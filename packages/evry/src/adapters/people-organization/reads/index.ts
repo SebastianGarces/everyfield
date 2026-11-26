@@ -425,6 +425,8 @@ const pipelineInput = z.strictObject({
 	column: pipelineColumn.optional().describe("Read this pipeline column only"),
 	...pageInput,
 });
+const PIPELINE_NOTE =
+	"Give each column's count from its column fact and, where stage facts are present, each of those stages' count too, not only their names.";
 export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 	operation: "people.getPipelineData",
 	description:
@@ -448,6 +450,7 @@ export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 		const core = found.groups.find((group) => group.column === "core_group");
 		if (core && core.total !== null && core.cards.length === core.total)
 			for (const s of COMMITTED) facts[`stage.${s}`] = core.cards.filter((card) => card.person.stage === s).length;
+		facts.note = PIPELINE_NOTE;
 		return {
 			...result(
 				"people.getPipelineData",
