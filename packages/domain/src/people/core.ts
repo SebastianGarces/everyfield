@@ -580,11 +580,7 @@ export async function mutation<T>(
 		before_value: note ? entry?.before_value : delta.before,
 		after_value: note ? entry?.after_value : delta.after,
 		reason: result.reason ?? entry?.reason ?? null,
-		...(note
-			? { metadata: entry?.metadata ?? result.metadata }
-			: result.metadata
-				? { metadata: result.metadata }
-				: {}),
+		...(note ? { metadata: entry?.metadata ?? result.metadata } : result.metadata ? { metadata: result.metadata } : {}),
 	};
 	if (entry) Object.assign(entry, audit);
 	else claim.events.push(audit);
