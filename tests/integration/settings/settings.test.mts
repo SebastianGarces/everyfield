@@ -3888,7 +3888,9 @@ test("AC:TARGET-IDN-014 the Owner of a church converted from Discovery hands the
 		.where(eq(t.account.id, a.id));
 	const as = { session: a.session, selected: { kind: "account" as const, id: a.id } };
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
-	const started = ok(await gatedTransaction(db, (tx) => onboarding.createDiscovery(tx, as, command({}, row!.revision))));
+	const started = ok(
+		await gatedTransaction(db, (tx) => onboarding.createDiscovery(tx, as, command({}, row!.revision))),
+	);
 	if (started.status !== "active") assert.fail(JSON.stringify(started));
 	const converted = ok(
 		await gatedTransaction(db, (tx) =>
@@ -3896,7 +3898,13 @@ test("AC:TARGET-IDN-014 the Owner of a church converted from Discovery hands the
 				tx,
 				as,
 				command(
-					{ discoveryId: started.profile.discoveryId, name: "Grace Hill", confirmed: true, relationships: [], ended: [] },
+					{
+						discoveryId: started.profile.discoveryId,
+						name: "Grace Hill",
+						confirmed: true,
+						relationships: [],
+						ended: [],
+					},
 					started.profile.revision,
 				),
 			),
