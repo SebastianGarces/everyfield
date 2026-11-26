@@ -123,6 +123,7 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 		"stage.core_group": 0,
 		"stage.launch_team": 0,
 		"stage.leader": 0,
+		note: "Give each column's count from its column fact and, where stage facts are present, each of those stages' count too, not only their names.",
 	});
 	hidden(board, secrets);
 
@@ -199,9 +200,10 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 		"stage.core_group": 0,
 		"stage.launch_team": 1,
 		"stage.leader": 2,
+		note: "Give each column's count from its column fact and, where stage facts are present, each of those stages' count too, not only their names.",
 	});
 	const paged = await invokeRead(db, member, getPipelineData, { search: "Core count", column: "core_group", limit: 2 });
-	assert.deepEqual([paged.facts, paged.next], [{ "column.core_group": 3 }, 2]);
+	assert.deepEqual([paged.facts, paged.next], [{ "column.core_group": 3, note: column.facts?.note }, 2]);
 	await admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(core)}::uuid[])`);
 });
 

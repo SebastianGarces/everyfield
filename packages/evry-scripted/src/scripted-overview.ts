@@ -126,7 +126,7 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 			"",
 			`I couldn't read ${failed.join(", ")} just now, so this answer doesn't cover ${failed.length === 1 ? "it" : "them"}. Ask again in a moment.`,
 		);
-	const coverage = /Not covered yet: [^\n]*/.exec(systemText(prompt))?.[0];
+	const coverage = /Not covered: [^\n]*/.exec(systemText(prompt))?.[0];
 	if (coverage) lines.push("", coverage);
 	return say(...lines);
 }

@@ -508,9 +508,18 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 			input: { key: "systems_tested", value: "yes" },
 		}),
 	);
+	const signalled = await read(o);
+	assert.notEqual(signalled.sourceRevision, last);
+	ok(
+		await signals.attestReadiness(f.db, o.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { key: "community", area: "Eastside" },
+		}),
+	);
 	const answered = await read(o);
-	assert.notEqual(answered.sourceRevision, last);
-	assert.equal(answered.criteria.systems_tested, "met");
+	assert.notEqual(answered.sourceRevision, signalled.sourceRevision, "readiness did not change the facts' revision");
+	assert.deepEqual([answered.criteria.systems_tested, answered.criteria.geographic_area], ["met", "met"]);
 	await checkIn(o);
 	await f.admin.execute(sql`UPDATE person SET email='rowan@example.test',notes='unrelated' WHERE id=${p.id}`);
 	const quiet = await read(o);
@@ -529,6 +538,7 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"nextVision",
 		"people",
 		"phase",
+		"readiness",
 		"roles",
 		"roster",
 		"sources",

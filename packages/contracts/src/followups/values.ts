@@ -27,6 +27,7 @@ export const measurementReason = z.enum([
 	"superseded",
 	"future_origin",
 	"invalid_completion",
+	"missing_completion",
 ]);
 export const measurement = z.strictObject({
 	eligible: z.boolean(),
@@ -42,7 +43,8 @@ export function measure(
 	if (o.state === "superseded") return excluded("superseded");
 	if (o.state === "no_longer_needed") return excluded("waived");
 	if (Date.parse(o.originAt) > Date.parse(asOf)) return excluded("future_origin");
-	if (o.state === "complete" && o.completion !== null) {
+	if (o.state === "complete") {
+		if (o.completion === null) return excluded("missing_completion");
 		if (Date.parse(o.completion) < Date.parse(o.originAt) || Date.parse(o.completion) > Date.parse(asOf))
 			return excluded("invalid_completion");
 		return { eligible: true, success: within48Hours(o.originAt, o.completion), reason: "measured" };

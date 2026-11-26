@@ -109,7 +109,7 @@ const LATER = new Set<string>([
 	...Object.keys(SETTINGS_COMMANDS).filter((op) => !RECORDED_SETTINGS.has(op)),
 	...ONBOARDING_READS.map((a) => a.operation),
 	...Object.keys(ONBOARDING_COMMANDS),
-	...DASHBOARD_READS.map((a) => a.operation),
+	...DASHBOARD_READS.map((a) => a.operation).filter((op) => op !== "dashboard.availableActions"),
 	...FEEDBACK_READS.map((a) => a.operation),
 	...Object.keys(FEEDBACK_COMMANDS),
 	...[...PIPELINE_READS.map((a) => a.operation), ...Object.keys(PIPELINE_COMMANDS)].filter(

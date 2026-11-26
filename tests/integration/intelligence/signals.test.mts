@@ -905,3 +905,224 @@ test("AC:PI-DISC-001 AC:PI-DISC-002 Foundational modules complete needs one curr
 	);
 	assert.equal(await criterion(B2), "not_met");
 });
+
+const readiness = (who: Seated, input: unknown, expectedRevision = "0", requestKey: string = randomUUID()) =>
+	signals.attestReadiness(f.db, who.actor, { requestKey, expectedRevision, input });
+const correctReadiness = (who: Seated, input: unknown, expectedRevision: string, requestKey: string = randomUUID()) =>
+	signals.correctReadiness(f.db, who.actor, { requestKey, expectedRevision, input });
+const readinessPage = async (who: Seated, key: string | null = null) =>
+	ok(await signals.readReadiness(f.db, who.actor, { key }));
+const day = (days: number) => at(days).slice(0, 10);
+
+test("AC:PI-028 a dated relationship, worship agreement and community are recorded by an Owner or Admin, replay by request key and refuse a Member, a future date and a stale revision", async () => {
+	now = at(0);
+	const w = await f.workspace();
+	const admin = await seated(w);
+	const owner = await seated(w, "owner");
+	const member = await seated(w, "member");
+	const dana = await person(admin, "Dana Worship");
+	assert.equal(
+		(await one<{ linked: string | null }>(sql`SELECT linked_account_id AS linked FROM person WHERE id=${dana.id}`))
+			.linked,
+		null,
+	);
+	const seen = await readinessPage(admin);
+	assert.deepEqual(
+		seen.attestations.map((x) => [x.key, x.state, x.revision]),
+		[
+			["relationship", "unanswered", "0"],
+			["worship_agreement", "unanswered", "0"],
+			["community", "unanswered", "0"],
+		],
+	);
+	const roots = () =>
+		one(sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM seat) seats,
+			(SELECT count(*)::int FROM affiliation) affiliations,(SELECT count(*)::int FROM platform_grant) grants,
+			(SELECT count(*)::int FROM invitation) invitations`);
+	const plain = await f.workspace();
+	const plainAdmin = await seated(plain);
+	const before = await roots();
+
+	const key = randomUUID();
+	const relationship = {
+		key: "relationship",
+		organization: "Hill Country Network",
+		mentor: "Pat Mentor",
+		asOf: day(-30),
+	};
+	const first = ok(await readiness(admin, relationship, "0", key)).attestation;
+	assert.deepEqual(
+		[first.state, first.named, first.reference, first.asOf, first.revision, first.personId, first.statement],
+		["answered", "Hill Country Network", "Pat Mentor", day(-30), "1", null, null],
+	);
+	assert.deepEqual(ok(await readiness(admin, relationship, "0", key)).attestation, first, "a retry replays");
+	refusedBare(await readiness(admin, { ...relationship, mentor: "Someone else" }, "0", key), "idempotency_conflict");
+	refusedBare(await readiness(owner, { key: "relationship", organization: "Other Network" }), "revision_conflict");
+	const noMentor = ok(await readiness(plainAdmin, { key: "relationship", organization: "Grace Church" })).attestation;
+	assert.deepEqual([noMentor.reference, noMentor.asOf], [null, day(0)], "the mentor is optional; the date defaults");
+
+	const worship = ok(
+		await readiness(owner, {
+			key: "worship_agreement",
+			personId: dana.id,
+			statement: "Agreed at lunch",
+			asOf: day(-5),
+		}),
+	).attestation;
+	assert.deepEqual(
+		[worship.named, worship.personId, worship.statement, worship.authorName],
+		[
+			"Dana Worship",
+			dana.id,
+			"Agreed at lunch",
+			(await one<{ n: string }>(sql`SELECT display_name AS n FROM person WHERE linked_account_id=${owner.id}`)).n,
+		],
+	);
+	const area = ok(
+		await readiness(admin, { key: "community", area: "  East Riverside  ", plan: "Plan v2" }),
+	).attestation;
+	assert.deepEqual([area.named, area.reference, area.asOf], ["East Riverside", "Plan v2", day(0)]);
+
+	const kept = await counts(w);
+	assert.deepEqual(kept, { attestations: 3, revisions: 3, audits: 3 });
+	refusedBare(await readiness(member, { key: "community", area: "Elsewhere" }, "1"), "access_denied");
+	refusedBare(
+		await correctReadiness(member, { action: "retract", key: "relationship" }, first.revision),
+		"access_denied",
+	);
+	refusedBare(await signals.readReadiness(f.db, member.actor, { key: null }), "access_denied");
+	refusedBare(await readiness(plainAdmin, { key: "community", area: "Tomorrow town", asOf: day(1) }), "invalid_input");
+	refusedBare(
+		await correctReadiness(admin, { action: "correct", attestation: { ...relationship, asOf: day(1) } }, "1"),
+		"invalid_input",
+	);
+	refusedBare(await readiness(plainAdmin, { key: "community", area: "  " }), "invalid_input");
+	refusedBare(await readiness(plainAdmin, { key: "worship_agreement", personId: randomUUID() }), "not_found");
+	refusedBare(await readiness(plainAdmin, { key: "worship_agreement", personId: dana.id }), "not_found");
+	refusedBare(
+		await readiness(plainAdmin, { key: "relationship", organization: "X", mentor: "x".repeat(501) }),
+		"invalid_input",
+	);
+	refusedBare(
+		await correctReadiness(admin, { action: "correct", attestation: { key: "community", area: "Westside" } }, "7"),
+		"revision_conflict",
+	);
+	assert.deepEqual(await counts(w), kept, "refusals write nothing");
+
+	const audits = await rows<{ action: string; kind: string; key: string }>(
+		sql`SELECT action, kind, metadata->>'key' AS key FROM audit_event WHERE tenant_id=${w.id}
+			AND action LIKE 'attestation.%' ORDER BY recorded_at, metadata->>'key'`,
+	);
+	assert.deepEqual(
+		audits.map((a) => [a.action, a.kind]),
+		[
+			["attestation.recorded", "create"],
+			["attestation.recorded", "create"],
+			["attestation.recorded", "create"],
+		],
+	);
+	assert.deepEqual(await roots(), before, "the attestations add no plant, seat, affiliation, grant or invitation");
+
+	const old = await page(admin);
+	assert.equal(old.signals.length, 7);
+	assert.deepEqual(old.history, [], "the manual-signal page lists none of the new attestations");
+	assert.deepEqual(ok(await signals.getHistory(f.db, admin.actor, { key: null })).revisions, []);
+});
+
+test("AC:PI-028 the three attestations correct and retract with their history kept; a retracted one answers again only from its revision", async () => {
+	now = at(0);
+	const w = await f.workspace();
+	const a = await seated(w);
+	const sam = await person(a, "Sam Singer");
+	const lee = await person(a, "Lee Leader");
+	const area = ok(await readiness(a, { key: "community", area: "Northside", asOf: day(-20) })).attestation;
+	refusedBare(
+		await correctReadiness(
+			a,
+			{ action: "correct", attestation: { key: "community", area: "Northside", asOf: day(-20) } },
+			area.revision,
+		),
+		"no_change",
+	);
+	const moved = ok(
+		await correctReadiness(
+			a,
+			{ action: "correct", attestation: { key: "community", area: "Southside", plan: "Plan B", asOf: day(-2) } },
+			area.revision,
+		),
+	).attestation;
+	assert.deepEqual([moved.named, moved.reference, moved.asOf, moved.revision], ["Southside", "Plan B", day(-2), "2"]);
+
+	const worship = ok(await readiness(a, { key: "worship_agreement", personId: sam.id, asOf: day(-10) })).attestation;
+	const swapped = ok(
+		await correctReadiness(
+			a,
+			{ action: "correct", attestation: { key: "worship_agreement", personId: lee.id, asOf: day(-10) } },
+			worship.revision,
+		),
+	).attestation;
+	assert.deepEqual([swapped.named, swapped.personId], ["Lee Leader", lee.id]);
+	const gone = ok(
+		await correctReadiness(a, { action: "retract", key: "worship_agreement" }, swapped.revision),
+	).attestation;
+	assert.deepEqual(
+		[gone.state, gone.named, gone.personId, gone.asOf, gone.revision],
+		["retracted", null, null, day(0), "3"],
+	);
+	refusedBare(await correctReadiness(a, { action: "retract", key: "worship_agreement" }, gone.revision), "not_current");
+	refusedBare(await correctReadiness(a, { action: "retract", key: "relationship" }, "0"), "not_current");
+	refusedBare(await readiness(a, { key: "worship_agreement", personId: sam.id }, "0"), "revision_conflict");
+	const again = ok(await readiness(a, { key: "worship_agreement", personId: sam.id }, gone.revision)).attestation;
+	assert.deepEqual([again.state, again.named, again.revision], ["answered", "Sam Singer", "4"]);
+
+	const history = (await readinessPage(a, "worship_agreement")).history;
+	assert.deepEqual(
+		history.map((h) => [h.kind, h.revision, h.asOf, h.named, h.questionVersion]),
+		[
+			["answered", 4, day(0), "Sam Singer", "readiness-attestations/1"],
+			["retracted", 3, day(0), "Lee Leader", "readiness-attestations/1"],
+			["corrected", 2, day(-10), "Lee Leader", "readiness-attestations/1"],
+			["answered", 1, day(-10), "Sam Singer", "readiness-attestations/1"],
+		],
+	);
+	const all = await readinessPage(a);
+	assert.equal(all.history.length, 6);
+	assert.deepEqual(
+		all.attestations.map((x) => [x.key, x.state, x.named]),
+		[
+			["relationship", "unanswered", null],
+			["worship_agreement", "answered", "Sam Singer"],
+			["community", "answered", "Southside"],
+		],
+	);
+	assert.deepEqual(await counts(w), { attestations: 2, revisions: 6, audits: 6 });
+	const both = await Promise.all([
+		correctReadiness(a, { action: "retract", key: "community" }, moved.revision),
+		correctReadiness(a, { action: "correct", attestation: { key: "community", area: "Westside" } }, moved.revision),
+	]);
+	assert.equal(both.filter((r) => r.status === "ok").length, 1);
+	assert.equal(both.find((r) => r.status === "refused")!.error.code, "revision_conflict");
+	const racers = await Promise.all([
+		readiness(a, { key: "relationship", organization: "First Network" }),
+		readiness(a, { key: "relationship", organization: "Second Network" }),
+	]);
+	assert.equal(racers.filter((r) => r.status === "ok").length, 1);
+	assert.equal(racers.find((r) => r.status === "refused")!.error.code, "revision_conflict");
+	const fresh = await f.workspace();
+	const b = await seated(fresh);
+	const [one1, two] = [await person(b, "First Singer"), await person(b, "Second Singer")];
+	const singers = await Promise.all([
+		readiness(b, { key: "worship_agreement", personId: one1.id }),
+		readiness(b, { key: "worship_agreement", personId: two.id }),
+	]);
+	assert.equal(singers.filter((r) => r.status === "ok").length, 1, "one worship agreement per church");
+	assert.equal(singers.find((r) => r.status === "refused")!.error.code, "revision_conflict");
+	assert.equal(
+		(
+			await one<{ n: number }>(
+				sql`SELECT count(*)::int n FROM attestation WHERE plant_id=${fresh.id} AND key='worship_agreement'`,
+			)
+		).n,
+		1,
+	);
+});

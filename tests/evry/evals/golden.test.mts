@@ -114,7 +114,7 @@ type Eval = Checks & {
 		futureCapability?: string;
 		proposalsAll?: { operation: string; targets: string };
 	};
-	targetProbe?: { history: Turn[]; text: string; require: string[] };
+	targetProbe?: Checks & { history: Turn[]; text: string };
 	setup?: {
 		followUp?: string;
 		task?: string;
@@ -298,7 +298,7 @@ const CLAIM =
 const NEGATED =
 	/\b(not|nothing|no|neither|nor|yet|until|once|after|when|won['’]?t|isn['’]?t|hasn['’]?t|haven['’]?t|wasn['’]?t|never|if|before)\b/i;
 const CLARIFY =
-	/\?|let me know|tell me (which|what|who)|if you tell me|which one|please confirm|confirm (that|whether|if)/i;
+	/\?|let me know|tell me (which|what|who)|if you tell me|which one|please confirm|confirm (that|whether|if)|please (give|tell|send|share) me/i;
 const CONTACTS = PEOPLE.flatMap((p) => [p.email, p.phone?.slice(-8)].filter((v): v is string => !!v));
 
 const show = (s: string) => JSON.stringify(s.length > 140 ? s.slice(0, 137) + "…" : s);
@@ -730,10 +730,9 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		if (spec.targetProbe) {
 			const probe = await converse(at, as, spec.targetProbe.text, spec.targetProbe.history);
 			row.keys.push(...probe.keys);
-			const checks = spec.targetProbe.require.map((p) => ({
-				name: `after "${spec.targetProbe!.text}", says ${p}`,
-				ok: pattern(p).test(probe.answer),
-				detail: `answer: ${show(probe.answer)}`,
+			const checks = score(spec.targetProbe, probe, { area, given }).map((x) => ({
+				...x,
+				name: `after "${spec.targetProbe!.text}", ${x.name}`,
 			}));
 			row.target = {
 				checks: [...(row.target?.checks ?? []), ...checks],

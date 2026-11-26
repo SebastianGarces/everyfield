@@ -2230,10 +2230,16 @@
 	"signals.attestCandidate": {
 		"limit": 1
 	},
+	"signals.attestReadiness": {
+		"limit": 1
+	},
 	"signals.correct": {
 		"limit": 1
 	},
 	"signals.correctCandidate": {
+		"limit": 1
+	},
+	"signals.correctReadiness": {
 		"limit": 1
 	},
 	"signals.getHistory": {
@@ -2243,6 +2249,9 @@
 		"limit": 0
 	},
 	"signals.readAttestations": {
+		"limit": 1
+	},
+	"signals.readReadiness": {
 		"limit": 1
 	},
 	"signals.reaffirm": {
