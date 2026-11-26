@@ -217,6 +217,12 @@
 	--animate-mk-caret: mk-caret 1s steps(1) infinite;
 
 	--animate-mk-ov-rise: mk-ov-rise 0.9s cubic-bezier(0.33, 1, 0.68, 1) 0.2s both;
+	--animate-mk-tab-in: mk-tab-in 0.18s ease-out;
+	@keyframes mk-tab-in {
+		from {
+			opacity: 0.2;
+		}
+	}
 	@keyframes mk-ov-rise {
 		from {
 			opacity: 0;

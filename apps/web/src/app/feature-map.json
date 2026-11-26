@@ -149,6 +149,45 @@
 			"behaviors": []
 		},
 		{
+			"id": "app.discovery-page",
+			"says": "The public page for planters still discerning a call: Discovery is always free, a four-tab tour of sample Discovery screens (Wiki, Documents, Templates, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Nothing links to it yet.",
+			"routes": ["/discovery"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"link": "/discovery"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "visitor",
+					"reach": {
+						"persona": "visitor",
+						"open": "/discovery",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Still discerning a call to plant? Start here, free."
+						},
+						{
+							"role": "tab",
+							"name": "Wiki"
+						},
+						{
+							"role": "link",
+							"name": "Start exploring free"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
 			"id": "app.access-request",
 			"says": "The one early access form: the visitor says who they are, then gives contact and church or network details step by step, and sends. Each step is checked on the server before the next. Sending emails the Everyfield owner through the mail provider directly, with no capture outbox, so no browser step here presses the final send; the tests prove it.",
 			"routes": ["/access"],
