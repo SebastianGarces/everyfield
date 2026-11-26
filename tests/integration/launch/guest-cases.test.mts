@@ -20,6 +20,7 @@ import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts"
 import { fixture } from "../identity/invitations-support.mts";
 import { ok, raced, refused, type Workspace } from "../../support/fixture.mts";
 import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
+import { BLANK } from "./debrief-world.mts";
 
 type Case = {
 	id: string;
@@ -77,15 +78,6 @@ async function launched(L: Row, attendance: number | null = null) {
 }
 const guest = (who: Seated, input: Row, requestKey: string = key()) =>
 	writer.addGuestAttendance(f.db, who.actor, { requestKey, input });
-const BLANK = {
-	wentWell: null,
-	toChange: null,
-	operations: null,
-	followUpPlan: null,
-	supportNeeded: null,
-	missingNames: null,
-	missingCount: null,
-};
 const debrief = (who: Seated, p: Plan, answers: Partial<DebriefAnswers>, submit = true) =>
 	writer[submit ? "submitDebrief" : "saveDebriefDraft"](f.db, who.actor, {
 		requestKey: key(),

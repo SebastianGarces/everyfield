@@ -136,7 +136,7 @@ export async function flight(model: unknown): Promise<string> {
 	return Buffer.concat(chunks).toString("utf8") + errors.join("\n");
 }
 
-export const APP_SECRET = "security-cases-secret-".padEnd(48, "x");
+const APP_SECRET = "security-cases-secret-".padEnd(48, "x");
 export function useApp(databaseUrl: string) {
 	setServerEnv({
 		IDENTITY_ORIGIN: APP_ORIGIN,

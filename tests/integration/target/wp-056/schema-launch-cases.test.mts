@@ -18,6 +18,7 @@ import { gatedTransaction } from "../../../../packages/domain/src/operations/wri
 import { fixture } from "../../identity/invitations-support.mts";
 import { ok } from "../../../support/fixture.mts";
 import { accepts, schemaCase } from "./schema-probe.mts";
+import { BLANK } from "../../launch/debrief-world.mts";
 
 const c = schemaCase("SCHEMA-005");
 const NOW = new Date(String(c.clock?.now));
@@ -49,15 +50,6 @@ after(() => f?.close());
 
 const key = () => randomUUID();
 const one = async (q: SQL) => (await f.admin.execute<Record<string, unknown>>(q)).rows[0]!;
-const BLANK = {
-	wentWell: null,
-	toChange: null,
-	operations: null,
-	followUpPlan: null,
-	supportNeeded: null,
-	missingNames: null,
-	missingCount: null,
-};
 
 async function person(plant: string, name: string) {
 	const id = randomUUID();
