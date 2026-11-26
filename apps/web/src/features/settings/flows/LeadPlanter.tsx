@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Combobox, Skeleton } from "@everyfield/ui/controls";
+import { Button, Combobox, Field, Skeleton } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { useRead } from "../../../components/read.tsx";
 import { loadProblem } from "../../../components/read-failed.ts";
@@ -64,15 +64,16 @@ function LeadChooser({ read, plant, onSaved }: { read: Ready; plant: PlantOwner;
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-wrap items-center gap-3">
-				<Combobox
-					className="w-full max-w-[320px]"
-					options={read.people.map((p) => ({ value: p.personId, label: p.name }))}
-					value={chosen ? [chosen] : []}
-					onValueChange={(next) => next[0] && setChosen(next[0])}
-					searchLabel="Search people"
-					placeholder="Choose a person"
-					emptyText="No one in your church matches."
-				/>
+				<Field label={<span className="sr-only">Lead planter</span>} className="w-full max-w-[320px]">
+					<Combobox
+						options={read.people.map((p) => ({ value: p.personId, label: p.name }))}
+						value={chosen ? [chosen] : []}
+						onValueChange={(next) => next[0] && setChosen(next[0])}
+						searchLabel="Search people"
+						placeholder="Choose a person"
+						emptyText="No one in your church matches."
+					/>
+				</Field>
 				{changed ? (
 					<Button size="sm" onClick={() => void save()} loading={pending}>
 						Save lead planter
