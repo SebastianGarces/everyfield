@@ -116,7 +116,7 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 	});
 }
 
-async function mineOf(db: Database, authority: RequestActor) {
+export async function mineOf(db: Database, authority: RequestActor) {
 	const listed = await documentsWriter.listMine(db, authority, {});
 	if (listed.status === "refused") return refused(listed.error);
 	return { status: "ok" as const, value: listed.value.documents.map(presentOwned) };
