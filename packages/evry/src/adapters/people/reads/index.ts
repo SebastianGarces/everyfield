@@ -96,7 +96,7 @@ const matchFields = (m: Match) => ({
 });
 const PAGE = 24;
 const CHURCH_WIDE =
-	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name this page's people, say how many of the total they are and offer the next page under the same filter.";
+	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name every one of this page's people, say they are onThisPage of the total and offer the next page under the same filter. Any number you give for this page is onThisPage: never count the names yourself.";
 const CHILD_NOTE =
 	"Say that people with no adult or child recorded aren't counted. A household no page names has no child recorded.";
 const MOVE_NOTE =
@@ -139,13 +139,14 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			: null;
 		if (everyone && everyone.status !== "ok") throw new EvryRefusal("source_unavailable");
 		const matches = new Map((page.matches ?? []).map((m) => [m.personId, matchFields(m)]));
+		const rows = page.items.map((p) => {
+			const found = row(actor, p);
+			return { ...found, fields: { ...found.fields, ...matches.get(p.id) } };
+		});
 		return {
 			operation: "people.listPeople",
 			status: "available",
-			rows: page.items.map((p) => {
-				const found = row(actor, p);
-				return { ...found, fields: { ...found.fields, ...matches.get(p.id) } };
-			}),
+			rows,
 			total: page.total,
 			page: request.page,
 			next: page.next,
@@ -159,6 +160,7 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			...(everyone && {
 				facts: {
 					peopleInChurch: everyone.value.total,
+					onThisPage: rows.length,
 					...(page.next !== null && page.total !== null && { pages: Math.ceil(page.total / limit) }),
 					note: [
 						CHURCH_WIDE,

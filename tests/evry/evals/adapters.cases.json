@@ -426,7 +426,8 @@
 			],
 			"only": ["people.listPeople"],
 			"names": {
-				"allowed": ["photo=none&slice=24:100"]
+				"allowed": ["photo=none&slice=24:100"],
+				"pageOf": 79
 			},
 			"derivation": "Page 2 of the people with no photo starts at the 25th, so no page-1 name repeats."
 		}
@@ -459,7 +460,8 @@
 			],
 			"only": ["people.listPeople"],
 			"names": {
-				"allowed": ["household=none&slice=24:100"]
+				"allowed": ["household=none&slice=24:100"],
+				"pageOf": 66
 			},
 			"derivation": "Page 2 of the people in no household starts at the 25th, so no page-1 name repeats."
 		}
