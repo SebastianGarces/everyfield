@@ -31,7 +31,12 @@ export function writeAction(operation: string): string {
 	if (domain === "churches")
 		return verb === "requestWorkspaceDeletion" ? "plant.deletion_requested" : "deletion.cancelled";
 	if (domain === "plant") return verb === "setDigestSchedule" ? "church.digestSchedule.set" : "plant.profile_changed";
-	if (domain === "discovery") return verb === "convertToPlant" ? "plant.created" : "identity.domain_accepted";
+	if (domain === "discovery")
+		return verb === "convertToPlant"
+			? "plant.created"
+			: verb === "setStep"
+				? "tasks.changed"
+				: "identity.domain_accepted";
 	if (domain === "onboarding")
 		return verb === "createPlant"
 			? "plant.created"

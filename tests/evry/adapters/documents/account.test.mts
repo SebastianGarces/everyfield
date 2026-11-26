@@ -699,3 +699,41 @@ test("INV-account-conversion: once an account gains a church, its plant Evry car
 	assert.equal(JSON.stringify([asked.prompts, asked.saved]).includes(c.given.D.body), false);
 	assert.deepEqual(await documentsOf(A), before);
 });
+
+test("AC:TARGET-IDN-016 INV-discovery-steps: a church started through Evry carries the planter's starter steps as tasks, the done ones complete", async () => {
+	const A = await person("Sam Starter");
+	const doneAt = "2026-11-20T15:00:00.000Z";
+	await w.admin.execute(
+		sql`UPDATE discovery SET steps=${JSON.stringify([
+			{ key: "vision-summary", catalogVersion: 3, doneAt },
+			{ key: "meet-a-coach", catalogVersion: 3, doneAt },
+		])}::jsonb, steps_revision=3 WHERE account_id=${A.id}`,
+	);
+	const turned = only(
+		await w.ask(A, "Turn my Discovery space into a church", [
+			proposes("discovery.convertToPlant", { name: "New Hope" }),
+		]),
+	);
+	assert.equal((await w.approve(A, turned)).review.outcome, "completed");
+	const carried = await w.admin.execute(sql`SELECT t.title, t.status, t.due_kind,
+		to_char(t.completed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at,
+		(SELECT array_agg(a.account_id::text) FROM task_assignee a WHERE a.task_id=t.id) AS assignees
+		FROM task t JOIN discovery d ON d.converted_plant_id=t.plant_id WHERE d.account_id=${A.id} ORDER BY t.title`);
+	assert.deepEqual(
+		carried.rows,
+		[
+			["Agree the commitments this plant will ask of your family", null],
+			["Draft a budget for the first year", null],
+			["List the people already praying for this plant", null],
+			["Meet a potential coach", doneAt],
+			["Walk the neighbourhood and write down what you see", null],
+			["Write a one-page vision summary", doneAt],
+		].map(([title, at]) => ({
+			title,
+			status: at ? "complete" : "not_started",
+			due_kind: "undated",
+			completed_at: at,
+			assignees: [A.id],
+		})),
+	);
+});
