@@ -788,7 +788,7 @@ function relationshipReads(now: string) {
 				JOIN plant p ON p.id=s.plant_id WHERE s.plant_id=${c.P.id} AND s.role='owner'`,
 			)
 		).rows[0]!.on;
-	return { signals, roots, coach, attest, requested, createdOn, church };
+	return { roots, coach, attest, requested, createdOn, church };
 }
 
 test("AC:DC-019 an attested relationship with an optional mentor meets the coach criterion and gives the mentor no role", async () => {
