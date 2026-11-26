@@ -11,6 +11,7 @@ import { instant } from "../../../packages/contracts/src/common/index.ts";
 import { ASSESSMENT_BUDGET, draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
+	ASSESSMENT_TIMING,
 	createAssessmentJob,
 	createAssessments,
 	runAssessmentBatch,
@@ -297,7 +298,7 @@ test("AC:ASMT-010 INV-spend: the shipped paid drafter sends one HTTP request per
 	assert.equal((await view(p)).current, null);
 });
 
-test("AC:PI-PROVIDER-001 INV-spend: the shipped paid drafter answers 429, 503, 503 then 200 with four HTTP requests, each an accounted attempt of one draft, never an implicit one; a provider that stays down stops at the attempt budget; a Retry-After past the deadline makes one request and none after it", async (t) => {
+test("AC:PI-PROVIDER-001 INV-spend: with 180 seconds left the shipped paid drafter answers 429, 503, 503 then 200 with four HTTP requests 15, 30 and 60 seconds apart, each an accounted attempt of one draft, never an implicit one; a provider that stays down stops at the attempt budget; a Retry-After past the deadline makes one request and none after it; no retry setting exists", async (t) => {
 	const k = caseOf("intelligence", "PI-PROVIDER-001");
 	const e = k.expected.result as Record<string, number>;
 	const value = <T,>(name: string) => (k.given[name] as { value: T }).value;
@@ -349,7 +350,7 @@ test("AC:PI-PROVIDER-001 INV-spend: the shipped paid drafter answers 429, 503, 5
 		const requestId = randomUUID();
 		ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
 		const stored = () =>
-			c.one<StoredRun & { deadline_at: string }>(
+			c.one<StoredRun & { deadline_at: string; retry_at: string | null }>(
 				sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`,
 			);
 		return { p, stored };
@@ -365,9 +366,33 @@ test("AC:PI-PROVIDER-001 INV-spend: the shipped paid drafter answers 429, 503, 5
 	assert.deepEqual(responses, [429, 503, 503, 200]);
 	queue.push(...responses.map((s) => (s === 200 ? drafted() : busy(s))));
 	const main = await start("Ladder Chapel");
-	await ticks(responses.length + 1);
+	const budgetMs = value<number>("remainingRunTimeSeconds") * 1000;
+	const firstAt = clockMs;
+	const sentAfter: number[] = [];
+	onSend = () => sentAfter.push(clockMs - firstAt);
+	const timing = ASSESSMENT_TIMING as { deadlineMs: number };
+	const fullMs = timing.deadlineMs;
+	timing.deadlineMs = budgetMs;
+	try {
+		await runAssessmentBatch(clocked, c.db, drafter, 1);
+	} finally {
+		timing.deadlineMs = fullMs;
+	}
+	const captured = await main.stored();
+	assert.equal(new Date(captured.deadline_at).getTime() - firstAt, budgetMs, "the run starts with 180 seconds left");
+	for (let r = await main.stored(); r.outcome === "deferred" && sent < ceiling; r = await main.stored()) {
+		clockMs = new Date(r.retry_at!).getTime();
+		await runAssessmentBatch(clocked, c.db, drafter, 1);
+	}
+	onSend = () => {};
 	const run = await main.stored();
-	assert.deepEqual([run.outcome, run.drafts.length, run.drafts[0]!.attempts], ["published", 1, 4]);
+	assert.deepEqual(
+		[run.outcome, run.reason, run.drafts.length, run.drafts[0]!.attempts],
+		["published", null, 1, 4],
+		"the ladder finishes inside the 180 seconds left",
+	);
+	assert.deepEqual(sentAfter, [0, 15_000, 45_000, 105_000], "waits of 15, 30 and 60 seconds between the four requests");
+	assert.ok(sentAfter.at(-1)! < budgetMs);
 	assert.equal(sent, e.dispatches, "four HTTP requests");
 	assert.equal(run.attempts, e.accounted_attempts, "each one an accounted attempt");
 	assert.equal(sent - run.attempts, e.implicit_dispatches, "no request the worker did not account for");
@@ -415,5 +440,28 @@ test("AC:PI-PROVIDER-001 INV-spend: the shipped paid drafter answers 429, 503, 5
 	await ticks(3);
 	assert.equal(sent - (se.dispatches as number), se.calls_after_deadline, "no request after the deadline");
 	assert.equal((await view(late.p)).current, null);
+
+	const sdk = k.subcases!.find((s) => s.name === "no-retry-setting-every-dispatch-counted")!;
+	const de = sdk.expected.result as Record<string, unknown>;
+	const asked = sdk.action.arguments as { responses: number[]; sdkMaxRetries: number };
+	const read: string[] = [];
+	const env = new Proxy(
+		{ EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key", sdkMaxRetries: String(asked.sdkMaxRetries) },
+		{ get: (o, key: string) => (read.push(key), o[key as keyof typeof o]) },
+	);
+	const plain = paidAssessment(c.db, env)!;
+	assert.equal(
+		read.some((key) => /retr/i.test(key)),
+		de.retry_setting_exists,
+		`the paid path reads ${read.join(", ")} and no retry setting`,
+	);
+	sent = 0;
+	queue.push(...asked.responses.map((s) => busy(s)));
+	const once = await start("Once Chapel");
+	await runAssessmentBatch(clocked, c.db, plain.drafter, 1);
+	const counted = await once.stored();
+	assert.deepEqual([counted.outcome, counted.reason], ["deferred", "busy"]);
+	assert.equal(sent, de.dispatches, "the 503 is one HTTP request");
+	assert.equal(counted.attempts, de.accounted_attempts, "and one accounted attempt");
 	t.mock.restoreAll();
 });

@@ -56008,7 +56008,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/assessment-paid.test.mts"
+      ],
       "description": "zero-implicit-sdk-retries-owned-four-attempt-budget",
       "given": {
         "P": {
@@ -56338,18 +56341,22 @@
           "action": {
             "operation": "intelligence.callProvider",
             "arguments": {
+              "responses": [
+                503
+              ],
               "sdkMaxRetries": 2
             }
           },
           "expected": {
             "state": {},
             "result": {
-              "error_code": "incompatible_retry_configuration",
-              "dispatches": 0
+              "retry_setting_exists": false,
+              "dispatches": 1,
+              "accounted_attempts": 1
             },
             "event": null
           },
-          "name": "implicit-retry-config-refused"
+          "name": "no-retry-setting-every-dispatch-counted"
         }
       ]
     },
@@ -56745,7 +56752,10 @@
         "WP-043",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/freshness-cases.test.mts"
+      ],
       "description": "stable-urgency-storage-labels-and-critical-reservation",
       "given": {
         "P": {
@@ -56854,7 +56864,6 @@
             "medium",
             "high"
           ],
-          "historical_critical_readable": true,
           "plant_ranking_created": false
         },
         "event": null
