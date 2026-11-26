@@ -5,11 +5,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { instant } from "../../../packages/contracts/src/common/index.ts";
-import type { CareReply } from "../../../packages/contracts/src/intelligence/index.ts";
+import type { CareArea, CareReply } from "../../../packages/contracts/src/intelligence/index.ts";
 import type { DeletionRequest } from "../../../packages/domain/src/settings/deletion.ts";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import {
+	captureFacts,
 	createPrivateCare,
 	personalCalendar,
 	type PrivateCare,
@@ -454,7 +455,9 @@ test("AC:B03-035 the strip shows the latest twelve weeks, the thirteenth is on p
 		mondays.slice(1).reverse(),
 	);
 	assert.equal(strip.weeks[0]!.current, true);
-	assert.deepEqual(ok(await history(a, 1)), strip);
+	const { support, ...page } = strip;
+	assert.equal(support.question, false);
+	assert.deepEqual(ok(await history(a, 1)), page);
 	assert.deepEqual(
 		ok(await history(a, 2)).weeks.map((x) => x.startsOn),
 		["2026-07-20"],
@@ -721,7 +724,7 @@ test("AC:B03-034 AC:TARGET-IDN-033 three hard weeks in a row are shown back and 
 	await saveAt(a, "2026-10-07T18:00:00.000Z", hard[1]);
 	await saveAt(a, "2026-10-14T18:00:00.000Z", hard[2]);
 	const strip = ok(await trends(a));
-	assert.deepEqual(Object.keys(strip).sort(), ["page", "pageCount", "revision", "weeks", "zone"]);
+	assert.deepEqual(Object.keys(strip).sort(), ["page", "pageCount", "revision", "support", "weeks", "zone"]);
 	assert.deepEqual(
 		strip.weeks.map((x) => x.answer!.answers),
 		[hard[2], hard[1], hard[0]],
@@ -770,12 +773,12 @@ test("AC:TARGET-IDN-033 a missing week breaks a hard run, repeated date-line mov
 	);
 	assert.equal(await streak(a), 1);
 	assert.deepEqual(
-		Object.keys(strip).sort(),
-		["page", "pageCount", "revision", "weeks", "zone"],
+		strip.support,
+		{ question: false, ordinal: 3, streaks: { spiritual: 1, family: 0, financial: 0, pace: 0 } },
 		"no support question",
 	);
 	assert.deepEqual(Object.keys(ok(await current(a))).sort(), ["revision", "week", "zone"]);
-	assert.doesNotMatch(JSON.stringify([strip, ok(await current(a))]), /support|question|talk|streak|trust/i);
+	assert.doesNotMatch(JSON.stringify([strip.weeks, ok(await current(a))]), /support|question|talk|streak|trust/i);
 	assert.deepEqual(
 		await rows(
 			sql`SELECT ordinal,count(*)::int n FROM private_week WHERE author_id IN (${a.id},${b.id}) GROUP BY author_id,ordinal HAVING count(*)>1`,
@@ -1099,4 +1102,88 @@ test("AC:PI-CARE-003 two zone edits and a racing save keep the open week, its or
 		[next.id, next.ordinal, next.zone, next.startsOn],
 		[null, input.open_ordinal + 1, input.requested_zone, "2026-10-19"],
 	);
+});
+
+const WEEK_SAVES = ["2026-09-30T18:00:00.000Z", "2026-10-07T18:00:00.000Z"];
+async function withoutProvider<T>(run: () => Promise<T>) {
+	const original = globalThis.fetch;
+	let calls = 0;
+	globalThis.fetch = (async () => {
+		calls++;
+		throw new Error("no provider call from private care");
+	}) as typeof fetch;
+	try {
+		return { value: await run(), calls };
+	} finally {
+		globalThis.fetch = original;
+	}
+}
+
+test("AC:PI-CARE-002 three adjacent hard weeks on one area raise the author's support question at the current week; a missing or Steady week breaks the run; no mail, task, model call or PI change", async () => {
+	const k = careCase("PI-CARE-002");
+	type Args = { author: string; dimension: CareArea; ordinals: number[]; levels: (string | null)[] };
+	const scenarios = [
+		{ name: "case", args: k.action.arguments as Args, expected: k.expected.result as Record<string, unknown> },
+		...(k.subcases ?? []).map((s) => ({
+			name: s.name,
+			args: { dimension: (k.action.arguments as Args).dimension, ...(s.action.arguments as Partial<Args>) } as Args,
+			expected: s.expected.result as Record<string, unknown>,
+		})),
+	];
+	assert.deepEqual(
+		scenarios.map((s) => s.name),
+		["case", "missing-week", "steady-week"],
+	);
+	for (const s of scenarios) {
+		assert.deepEqual([s.args.author, s.args.ordinals], ["A", [1, 2, 3]], s.name);
+		const w = await f.workspace();
+		const a = await seated(w, "admin");
+		const piBefore = (await captureFacts(f.admin, w.id, null))!.sourceRevision;
+		const before = await sideEffects(w);
+		const { value: strip, calls } = await withoutProvider(async () => {
+			for (const [i, level] of s.args.levels.entries()) {
+				now = i < WEEK_SAVES.length ? WEEK_SAVES[i]! : k.clock.now;
+				if (level !== null) ok(await save(a, { ...STEADY, [s.args.dimension]: level }, await revisionOf(a)));
+			}
+			now = new Date(k.clock.now).toISOString();
+			return ok(await trends(a));
+		});
+		assert.deepEqual(
+			strip.weeks.map((x) => [x.ordinal, x.answer?.answers[s.args.dimension] ?? null]),
+			[...s.args.levels.entries()].map(([i, level]) => [s.args.ordinals[i], level]).reverse(),
+			s.name,
+		);
+		const support = strip.support;
+		if (s.name === "case")
+			assert.deepEqual(
+				{ support_question: support.question, current_ordinal: support.ordinal },
+				{ support_question: s.expected.support_question, current_ordinal: s.expected.current_ordinal },
+			);
+		else
+			assert.deepEqual(
+				{ support_question: support.question, streak_length: support.streaks[s.args.dimension] },
+				s.expected,
+				s.name,
+			);
+		assert.equal(support.streaks[s.args.dimension], s.name === "case" ? 3 : 1, s.name);
+		const after = await sideEffects(w);
+		assert.deepEqual(after, before, `${s.name}: no audit, job, notice, mail, task, conversation or plant revision`);
+		if (s.name === "case")
+			assert.deepEqual(
+				{
+					email_count: Number(after.mail) - Number(before.mail),
+					task_count: Number(after.tasks) - Number(before.tasks),
+					model_calls: calls,
+					PI_revision_changes: Number((await captureFacts(f.admin, w.id, null))!.sourceRevision !== piBefore),
+				},
+				{
+					email_count: s.expected.email_count,
+					task_count: s.expected.task_count,
+					model_calls: s.expected.model_calls,
+					PI_revision_changes: s.expected.PI_revision_changes,
+				},
+			);
+		else assert.equal((await captureFacts(f.admin, w.id, null))!.sourceRevision, piBefore);
+		assert.equal(calls, 0);
+	}
 });
