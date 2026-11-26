@@ -223,6 +223,12 @@
 			opacity: 0.2;
 		}
 	}
+	--animate-mk-tab-fill: mk-tab-fill var(--mk-tab-time, 7s) linear both;
+	@keyframes mk-tab-fill {
+		from {
+			transform: scaleX(0);
+		}
+	}
 	@keyframes mk-ov-rise {
 		from {
 			opacity: 0;
