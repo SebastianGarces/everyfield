@@ -1,6 +1,6 @@
 import "server-only";
 import type { Metadata } from "next";
-import type { LIVE_PAGES } from "@/site";
+import { HIDDEN_PAGES, type LIVE_PAGES } from "@/site";
 import { COPY } from "./copy";
 
 export const SITE_NAME = "Everyfield";
@@ -11,7 +11,8 @@ function shareAlt(headline: string, subhead: string) {
 const TITLE_MAX = 60;
 const DESCRIPTION_MAX = 160;
 
-type Page = { path: (typeof LIVE_PAGES)[number]; title: string; description: string; shareImage: "own" | "home" };
+type Path = (typeof LIVE_PAGES)[number] | (typeof HIDDEN_PAGES)[number];
+type Page = { path: Path; title: string; description: string; shareImage: "own" | "home" };
 
 const strip = (s: string) => s.replace(/\.$/, "");
 const J = COPY.journey.hero;
@@ -49,6 +50,7 @@ export function pageMetadata(p: Page): Metadata {
 	const title = fullTitle(p);
 	const home = p.shareImage === "home";
 	return {
+		...((HIDDEN_PAGES as readonly Path[]).includes(p.path) && { robots: { index: false, follow: false } }),
 		title: { absolute: title },
 		description: p.description,
 		alternates: { canonical: p.path },

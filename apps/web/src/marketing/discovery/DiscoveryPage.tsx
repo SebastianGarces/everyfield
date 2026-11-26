@@ -45,7 +45,7 @@ export function DiscoveryPage() {
 			<How h={D.how} />
 			<Ready r={D.ready} />
 			<Senders s={D.senders} />
-			<Faq f={D.faq} />
+			<Faq f={{ ...D.faq, items: D.faq.items.filter((i) => i.shown !== false) }} />
 			<CtaSection c={D.cta} href={{ primary: start }} />
 		</Site>
 	);

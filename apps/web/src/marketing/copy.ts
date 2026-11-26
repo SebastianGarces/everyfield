@@ -79,6 +79,8 @@ const accessPage = z.object({
 	}),
 });
 const eyebrowHead = z.object({ eyebrow: text, headline: text });
+// A claim held off the page until the T-661 criterion behind it passes QA.
+const held = z.object({ shown: z.boolean(), line: text });
 const discoveryPage = z.object({
 	hero: z.object({ eyebrow: text, headline: text, subhead: text, cta_primary: text, note: text }),
 	tour: z.object({
@@ -90,12 +92,15 @@ const discoveryPage = z.object({
 			z.object({ id: z.literal("ready"), label: text, line: text }),
 		]),
 	}),
-	free: eyebrowHead.extend({ evry: z.object({ shown: z.boolean(), line: text }) }),
+	free: eyebrowHead.extend({ evry: held }),
 	privacy: eyebrowHead.extend({ body: text }),
 	how: z.object({ headline: text, steps: z.array(text).length(3) }),
-	ready: headBody.extend({ seat: z.object({ headline: text, items: z.tuple([text, text]) }) }),
+	ready: headBody.extend({
+		carry: held,
+		seat: z.object({ headline: text, items: z.tuple([text, text]) }),
+	}),
 	senders: eyebrowHead.extend({ body: text, link: text }),
-	faq: z.object({ headline: text, items: z.array(faqItem).min(1) }),
+	faq: z.object({ headline: text, items: z.array(faqItem.extend({ shown: z.boolean().optional() })).min(1) }),
 	cta: z.object({ headline: text, cta_primary: text, note: text }),
 });
 const legalPage = z.object({

@@ -9,12 +9,27 @@ const page = shared.discovery_page;
 const strings = (value) =>
 	typeof value === "string" ? [value] : value && typeof value === "object" ? Object.values(value).flatMap(strings) : [];
 
-const shown = strings({ ...page, free: { ...page.free, evry: page.free.evry.shown ? page.free.evry.line : "" } });
+const held = ({ shown, line }) => (shown ? line : "");
+const shown = strings({
+	...page,
+	free: { ...page.free, evry: held(page.free.evry) },
+	ready: { ...page.ready, carry: held(page.ready.carry) },
+	faq: { ...page.faq, items: page.faq.items.filter((i) => i.shown !== false) },
+});
 
 test("the /discovery copy keeps its Evry claim off until Evry in Discovery passes QA", () => {
 	assert.equal(page.free.evry.shown, false);
 	assert.equal(
 		shown.some((s) => /\bEvry\b/.test(s) && !s.includes("Evry with your church's context")),
+		false,
+	);
+});
+
+test("the /discovery copy keeps its notes-carry-over claims off until documents after starting a church pass QA", () => {
+	assert.equal(page.ready.carry.shown, false);
+	assert.equal(page.faq.items.find((i) => i.id === "notes")?.shown, false);
+	assert.equal(
+		shown.some((s) => /comes? with you/i.test(s)),
 		false,
 	);
 });

@@ -397,7 +397,11 @@
       },
       "ready": {
         "headline": "When you're ready to start your church plant",
-        "body": "Start your church plant in Everyfield and the rest opens up: your people, meetings, tasks, your launch journey toward Launch Sunday, and Evry with your church's context. Everything you wrote in Discovery comes with you and stays private to you.",
+        "body": "Start your church plant in Everyfield and the rest opens up: your people, meetings, tasks, your launch journey toward Launch Sunday, and Evry with your church's context.",
+        "carry": {
+          "shown": false,
+          "line": "Everything you wrote in Discovery comes with you and stays private to you."
+        },
         "seat": {
           "headline": "Starting a church plant is when a seat comes in.",
           "items": [
@@ -443,7 +447,8 @@
           {
             "id": "notes",
             "q": "What happens to my notes when I start my church plant?",
-            "a": "They come with you and stay private to you."
+            "a": "They come with you and stay private to you.",
+            "shown": false
           }
         ]
       },

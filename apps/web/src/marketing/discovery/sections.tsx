@@ -103,7 +103,10 @@ export function Ready({ r }: { r: D["ready"] }) {
 					<Display as="h2" size="h2">
 						{r.headline}
 					</Display>
-					<p className={cn("mt-5 max-w-[54ch]", LEAD)}>{r.body}</p>
+					<p className={cn("mt-5 max-w-[54ch]", LEAD)}>
+						{r.body}
+						{r.carry.shown ? ` ${r.carry.line}` : null}
+					</p>
 				</Reveal>
 				<Reveal delay={120}>
 					<Stage tone="g-field">

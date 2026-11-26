@@ -26,6 +26,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { Mark } from "@/components/Logo";
+import { COPY } from "@/marketing/copy";
 
 type RailItem = { key: string; icon: IconSvgElement };
 
@@ -57,6 +58,8 @@ const DIRECTOR = {
 	initials: "GC",
 } as const;
 
+// The shell's Ask Evry button is held with the page's Evry line until Evry in Discovery passes QA.
+const EVRY_SHOWN = COPY.shared.discovery_page.free.evry.shown;
 const PILL = "bg-surface-raised shadow-nav";
 const ON = "bg-ink text-on-ink shadow-nav-active";
 
@@ -140,10 +143,12 @@ export function Shell({
 							<span className="grid size-11 place-items-center text-ink-2">
 								<Icon icon={BellIcon} size={24} stroke={1.5} />
 							</span>
-							<span className="inline-flex h-11 items-center gap-[9px] bg-surface-2 pr-3 pl-2.5 text-ink @max-[639px]:px-2.5">
-								<EvryBot size="sm" />
-								<span className="font-medium @max-[639px]:hidden">Ask Evry</span>
-							</span>
+							{EVRY_SHOWN ? (
+								<span className="inline-flex h-11 items-center gap-[9px] bg-surface-2 pr-3 pl-2.5 text-ink @max-[639px]:px-2.5">
+									<EvryBot size="sm" />
+									<span className="font-medium @max-[639px]:hidden">Ask Evry</span>
+								</span>
+							) : null}
 						</span>
 						<span
 							className={cn(
