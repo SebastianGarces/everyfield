@@ -262,7 +262,7 @@
 			"ask": "show me our people",
 			"calls": [],
 			"answer": [
-				"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first."
+				"Not yet: People, meetings, teams, tasks and other church records open when you start your church. I can help you start your church from your Discovery space whenever you're ready."
 			]
 		},
 		{
@@ -271,7 +271,7 @@
 			"actor": "discovery",
 			"ask": "what meetings do we have this week?",
 			"calls": [],
-			"answer": ["Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church"]
+			"answer": ["Not yet: People, meetings, teams, tasks and other church records open when you start your church."]
 		},
 		{
 			"id": "ONB-19",

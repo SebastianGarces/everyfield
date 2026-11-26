@@ -66,13 +66,8 @@ const READS = [
 	"documents.listOwned",
 	"documents.read",
 ];
-const WRITES = [
-	"discovery.create",
-	"discovery.convertToPlant",
-	"documents.saveNative",
-	"documents.archive",
-	"documents.importTextOrWord",
-];
+// A planter with an open Discovery space is never offered a second one (discovery.create), only the way to a church.
+const WRITES = ["discovery.convertToPlant", "documents.saveNative", "documents.archive", "documents.importTextOrWord"];
 
 let w: CaseWorld;
 let church: Church;

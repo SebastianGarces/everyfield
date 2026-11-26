@@ -5,6 +5,7 @@ import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
 import { phaseText, SHARING_CATEGORIES, type SharingCategory } from "../../../catalog/labels.ts";
 import type { EvryActor } from "../../../context/actor.ts";
+import type { ReviewedWrite } from "../../../proposals/types.ts";
 import { accountContext, change, nativeWrite, notes, plantOwner, settled, target } from "../../native.ts";
 import { JOURNEY_TEXT, LEAD_TEXT, linkKind, onboardingEntry } from "../reads/index.ts";
 
@@ -150,52 +151,59 @@ function plantBasics(value: Basics) {
 const NEXT_STEPS =
 	"Setup then goes on with: where you are, your launch date and your team. Ask me where you are in setup, or open setup.";
 
-/** A Discovery planter starts a church by converting the space, and never sets one up again. */
-const seatlessExplorer = (actor: EvryActor) => accountContext(actor) && !actor.discovery;
+/** A Discovery planter starts a church by converting the space, and is never offered a second start. */
+const notForDiscovery = <I>(write: ReviewedWrite<I>): ReviewedWrite<I> => ({
+	...write,
+	offered: (actor) => !actor.discovery,
+});
 
-export const createPlant = nativeWrite({
-	operation: "onboarding.createPlant",
-	description:
-		"Propose starting a new church in Everyfield with the user as its Owner: its name and, if given, its city, state or province and country. Only an account with no church seat can start one. Nothing changes until the user approves the exact review.",
-	input: z.strictObject(basics),
-	allowed: seatlessExplorer,
-	review(actor, value) {
-		const b = plantBasics(value);
-		const discovery =
-			"You have a Discovery space, so it becomes your church instead. Ask me to turn your Discovery space into a church.";
-		return sql`SELECT jsonb_build_object('target',${you},'changes',${b.changes},
+export const createPlant = notForDiscovery(
+	nativeWrite({
+		operation: "onboarding.createPlant",
+		description:
+			"Propose starting a new church in Everyfield with the user as its Owner: its name and, if given, its city, state or province and country. Only an account with no church seat can start one. Nothing changes until the user approves the exact review.",
+		input: z.strictObject(basics),
+		allowed: accountContext,
+		review(actor, value) {
+			const b = plantBasics(value);
+			const discovery =
+				"You have a Discovery space, so it becomes your church instead. Ask me to turn your Discovery space into a church.";
+			return sql`SELECT jsonb_build_object('target',${you},'changes',${b.changes},
 				'notes',${notes([`You become the Owner of ${value.name}. It starts in ${phaseText(1)}, from today.`, NEXT_STEPS])})
 				||CASE WHEN EXISTS(SELECT FROM discovery d WHERE d.account_id=a.id AND d.converted_at IS NULL)
 					THEN jsonb_build_object('refusal',${discovery}::text) ELSE '{}'::jsonb END AS review,
 			jsonb_build_object('expectedRevision',a.revision::text,'input',${JSON.stringify(b.input)}::jsonb) AS args
 			${seatless(actor)}`;
-	},
-	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.createPlant(tx, onboardingContext(context), request));
-		return { receiptId: r.plant.id, revision: r.revision };
-	},
-});
+		},
+		async run(tx, context, request, { ports }) {
+			const r = settled(await ports.onboarding.createPlant(tx, onboardingContext(context), request));
+			return { receiptId: r.plant.id, revision: r.revision };
+		},
+	}),
+);
 
-export const createDiscovery = nativeWrite({
-	operation: "discovery.create",
-	description:
-		"Propose a private Discovery space for the user to explore church planting first: the foundation articles at their own pace, with no church and nothing shared. Everyfield emails a receipt. Nothing changes until the user approves the exact review.",
-	input: z.strictObject({}),
-	allowed: seatlessExplorer,
-	review(actor) {
-		return sql`SELECT jsonb_build_object('target',${you},'changes',jsonb_build_array(${change("discovery", sql`'null'::jsonb`, "Discovery space")}),
+export const createDiscovery = notForDiscovery(
+	nativeWrite({
+		operation: "discovery.create",
+		description:
+			"Propose a private Discovery space for the user to explore church planting first: the foundation articles at their own pace, with no church and nothing shared. Everyfield emails a receipt. Nothing changes until the user approves the exact review.",
+		input: z.strictObject({}),
+		allowed: accountContext,
+		review(actor) {
+			return sql`SELECT jsonb_build_object('target',${you},'changes',jsonb_build_array(${change("discovery", sql`'null'::jsonb`, "Discovery space")}),
 				'notes',${notes([
 					"A private space to read the foundations at your own pace. No church is created and nothing is shared.",
 					"Everyfield emails you a receipt. You can turn it into a church whenever you are ready.",
 				])}) AS review,
 			jsonb_build_object('expectedRevision',a.revision::text,'input','{}'::jsonb) AS args
 			${seatless(actor)} AND NOT EXISTS(SELECT FROM discovery d WHERE d.account_id=a.id)`;
-	},
-	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.createDiscovery(tx, onboardingContext(context), request));
-		return { receiptId: r.profile.discoveryId, revision: r.profile.revision };
-	},
-});
+		},
+		async run(tx, context, request, { ports }) {
+			const r = settled(await ports.onboarding.createDiscovery(tx, onboardingContext(context), request));
+			return { receiptId: r.profile.discoveryId, revision: r.profile.revision };
+		},
+	}),
+);
 
 type Choices = Record<SharingCategory, boolean>;
 const sharedNow = (choices: Choices) => SHARING_CATEGORIES.filter((k) => choices[k]);

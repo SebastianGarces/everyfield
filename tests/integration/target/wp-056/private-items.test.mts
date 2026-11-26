@@ -406,7 +406,7 @@ async function ask(v: Viewer, ids: Ids) {
 			model: probing(calls, offered, prompts),
 			freshActor: async (session) => {
 				const viewer = await readViewer(w.db, session as never);
-				return viewer?.authority ? evryActor(viewer.authority) : null;
+				return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 			},
 		},
 		{ turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },

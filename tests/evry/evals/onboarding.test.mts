@@ -56,7 +56,7 @@ const native: NativePorts = nativePorts(mail);
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: SetupName) => (await freshActor(SETUP_SPECS[who].session))!;
 const noReminders = async () => {

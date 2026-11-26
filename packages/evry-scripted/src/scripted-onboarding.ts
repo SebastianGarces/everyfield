@@ -115,7 +115,8 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 			if (!convert[1]) return say("What should the church be called?");
 			const ending = convert[2]?.trim().toLowerCase();
 			const ended = ending ? (profile.rows ?? []).find((r) => r.label.toLowerCase() === ending) : undefined;
-			if (ending && !ended) return say(`${convert[2]?.trim()} is not linked to your Discovery space, so there is no link to end.`);
+			if (ending && !ended)
+				return say(`${convert[2]?.trim()} is not linked to your Discovery space, so there is no link to end.`);
 			return propose("discovery.convertToPlant", {
 				name: convert[1].trim(),
 				...(ended ? { end: [String(ended.fields.organizationId)] } : {}),
@@ -157,7 +158,8 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 			);
 		}
 		if (EXPLORE.test(text) && offers("discovery.create")) return propose("discovery.create", {});
-		if (CHURCH_RECORDS.test(text)) return quote(options.prompt, "Finish setup first:", true);
+		if (CHURCH_RECORDS.test(text))
+			return quote(options.prompt, "Finish setup first:", true) ?? quote(options.prompt, "Not yet:", true);
 		return null;
 	}
 
