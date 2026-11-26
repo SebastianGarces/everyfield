@@ -2,12 +2,13 @@
 
 import type { AppAssetPath } from "@everyfield/contracts/common";
 import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
-import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
+import { DASHBOARD_HOME, DISCOVERY_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { toast, Toaster } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { EvryOpenerContext } from "../../components/evry-opener.ts";
 import { useEvryPanel } from "../evry/conversation/panel.tsx";
 import { FeedbackOverlay, whenFeedbackLoaded } from "../feedback/FeedbackOverlay.tsx";
 import { OwnSeatContext } from "../identity/seat-context.ts";
@@ -33,6 +34,7 @@ type FrameProps = {
 	settings: SettingsViewer | null;
 	settingsDialog?: ReactNode;
 	residency?: { organizationName: string } | null;
+	discovery?: boolean;
 	evryAvailable: boolean;
 	children: ReactNode;
 };
@@ -81,6 +83,7 @@ function Frame({
 	settings,
 	settingsDialog,
 	seedFits,
+	discovery = false,
 	evryAvailable,
 	children,
 }: FrameProps & { seedFits: boolean }) {
@@ -100,6 +103,10 @@ function Frame({
 					? `organization:${settings.organization.id}`
 					: "account",
 	});
+	const { open: evryOpen, toggle: toggleEvry } = evry;
+	const openEvry = useCallback(() => {
+		if (!evryOpen) toggleEvry();
+	}, [evryOpen, toggleEvry]);
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);
@@ -141,7 +148,7 @@ function Frame({
 			: settings?.context === "plant"
 				? { context: "plant", role: settings.role }
 				: settings
-					? { context: "account", residencyLinked: linked }
+					? { context: "account", residencyLinked: linked, discovery }
 					: { context: "pending" },
 	);
 	const guide = {
@@ -169,10 +176,19 @@ function Frame({
 					detail={seat}
 					onAccount={() => dialog.open("account")}
 					checkIn={hasCheckIn(settings)}
+					seats={!discovery}
 				/>
 			}
 			homeHref={
-				organization ? ORGANIZATION_HOME : account ? (linked ? "/my-residency" : LANDING_ROUTE) : DASHBOARD_HOME
+				organization
+					? ORGANIZATION_HOME
+					: discovery
+						? DISCOVERY_HOME
+						: account
+							? linked
+								? "/my-residency"
+								: LANDING_ROUTE
+							: DASHBOARD_HOME
 			}
 			unread={bell.unread}
 			width="wide"
@@ -192,7 +208,9 @@ function Frame({
 			askEvryShortcut="Meta+J Control+J"
 			banner={banner}
 		>
-			<SettingsOpenerContext value={dialog.open}>{children}</SettingsOpenerContext>
+			<SettingsOpenerContext value={dialog.open}>
+				<EvryOpenerContext value={privatePage ? null : openEvry}>{children}</EvryOpenerContext>
+			</SettingsOpenerContext>
 			<SettingsDialogContext value={dialog.parts}>
 				{settingsDialog ?? <ProductSettingsDialog seed={null} />}
 			</SettingsDialogContext>

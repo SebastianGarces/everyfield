@@ -22,7 +22,11 @@ export async function OverviewPage() {
 	const db = requestDatabase();
 	const framing = loadFrame();
 	const plant =
-		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
+		viewer.status === "active" && viewer.discovery
+			? "discovery"
+			: viewer.status === "active" && db
+				? await dashboardReader.resolveHome(db, viewer.authority ?? null)
+				: "none";
 	const home = landingFor({ status: viewer.status, plant });
 	if (home !== DASHBOARD_HOME) redirect(home);
 

@@ -60,6 +60,13 @@ export const GET = defineReads(
 					};
 				}),
 		),
+		mine: get(z.undefined(), ({ actor }): Promise<DocumentOutcome<OwnedView[]>> =>
+			runAs(actor, async (db, a) => {
+				const listed = await documentsWriter.listMine(db, a, {});
+				if (listed.status === "refused") return refused(listed.error);
+				return { status: "ok", value: listed.value.documents.map(presentOwned) };
+			}),
+		),
 		sources: get(z.undefined(), ({ actor }): Promise<DocumentOutcome<CopySource[]>> =>
 			runAs(actor, async (db, a) => {
 				const reply = await documentsWriter.listCopySources(db, a, {});

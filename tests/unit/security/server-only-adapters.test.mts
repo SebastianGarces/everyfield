@@ -39,6 +39,9 @@ const ADAPTERS = {
 	"storage-adapter": "packages/db/src/schema/storage.ts",
 	"mail-adapter": "apps/web/src/server/mail/transport.ts",
 	"model-adapter": "apps/web/src/server/models.ts",
+	"server-config": "apps/web/src/server/config.ts",
+	"database-client": "packages/db/src/client.ts",
+	"cron-route": "apps/web/src/server/platform/cron.ts",
 } as const;
 const LAYERS = { browser: "app-pages-browser", ssr: "ssr", server: "rsc" } as const;
 

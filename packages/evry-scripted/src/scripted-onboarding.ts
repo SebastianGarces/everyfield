@@ -49,7 +49,8 @@ const LEAD: [RegExp, unknown][] = [
 	[/\bi(?:'m| am) the (lead pastor|pastor|lead|leader)\b|\bi lead (?:it|the church|our church)\b/i, { answer: "yes" }],
 ];
 const NEW_CHURCH = /\b(?:set up|start|create)\s+a\s+(?:new\s+)?church\s+called\s+(.+?)[.!]?\s*$/i;
-const CONVERT = /\b(?:turn|convert|make)\s+my\s+discovery\s+space\s+into\s+a\s+church(?:\s+called\s+(.+?))?[.!]?\s*$/i;
+const CONVERT =
+	/\b(?:turn|convert|make)\s+my\s+discovery\s+space\s+into\s+a\s+church(?:\s+called\s+(.+?))?(?:,?\s+and\s+end\s+my\s+(?:link|connection)\s+(?:to|with)\s+(.+?))?[.!]?\s*$/i;
 const EXPLORE = /\b(?:explore first|just (?:want to )?explore|discovery space for me|set up a discovery space)\b/i;
 const PROFILE = /\bwhat(?:'s| is) in my discovery space\b|\bmy discovery space\b\??\s*$/i;
 const PRIVACY = /\bwhat (?:can|does) (.+?) see\b/i;
@@ -112,7 +113,14 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 			if (profile.status !== "available")
 				return say("You have no Discovery space to turn into a church. I can start a new church for you instead.");
 			if (!convert[1]) return say("What should the church be called?");
-			return propose("discovery.convertToPlant", { name: convert[1].trim() });
+			const ending = convert[2]?.trim().toLowerCase();
+			const ended = ending ? (profile.rows ?? []).find((r) => r.label.toLowerCase() === ending) : undefined;
+			if (ending && !ended)
+				return say(`${convert[2]?.trim()} is not linked to your Discovery space, so there is no link to end.`);
+			return propose("discovery.convertToPlant", {
+				name: convert[1].trim(),
+				...(ended ? { end: [String(ended.fields.organizationId)] } : {}),
+			});
 		}
 		const named = NEW_CHURCH.exec(text);
 		if (named && offers("onboarding.createPlant"))
@@ -150,7 +158,8 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 			);
 		}
 		if (EXPLORE.test(text) && offers("discovery.create")) return propose("discovery.create", {});
-		if (CHURCH_RECORDS.test(text)) return quote(options.prompt, "Finish setup first:", true);
+		if (CHURCH_RECORDS.test(text))
+			return quote(options.prompt, "Finish setup first:", true) ?? quote(options.prompt, "Not yet:", true);
 		return null;
 	}
 

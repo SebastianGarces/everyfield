@@ -562,7 +562,7 @@ test("INV-qa-seed: article C has church versions from Grace Fellowship (QA) and 
 	await orderCaseHolds(await development(), "Dev training/overview r1");
 });
 
-test("INV-qa-seed: the seed's own wiki has three articles, and a release with fewer than three stops the seed", async () => {
+test("INV-qa-seed: the seed's own wiki has three articles and the six Discovery foundations, and a release with fewer than three stops the seed", async () => {
 	const b = await fresh();
 	assert.deepEqual(
 		await b.query(
@@ -570,7 +570,7 @@ test("INV-qa-seed: the seed's own wiki has three articles, and a release with fe
 			AND release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)`,
 			[GLOBAL],
 		),
-		[{ n: 3 }],
+		[{ n: 9 }],
 	);
 	const db = startQuietDatabase(source, "qa-wiki-two");
 	started.push(db);

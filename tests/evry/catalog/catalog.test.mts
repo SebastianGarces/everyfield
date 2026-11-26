@@ -12,6 +12,7 @@ import {
 	SELECT_RETURNED_ROWS,
 } from "../../../packages/evry/src/catalog/catalog.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
+import { capabilitiesAnswer } from "../../../packages/evry/src/context/compile.ts";
 import { rowLive } from "../../../packages/evry/src/conversations/liveness.ts";
 import { allowedWrites, REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
@@ -282,6 +283,38 @@ const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): Evr
 	seatId: role ? "5b6d1f0e-0000-4000-8000-000000000f31" : null,
 	selfPersonId: null,
 });
+test("INV-discovery-offers: a Discovery planter is offered starting a church from the space, never a second space or a new church beside it, and the answer says so; a plain seatless account and a church seat keep theirs", () => {
+	const starts = ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"];
+	const offered = (actor: EvryActor) =>
+		readCatalog(actor)
+			.reviewedWrites.map((w) => w.operation)
+			.filter((o) => starts.includes(o));
+	const planter = { ...as("account", null), discovery: true };
+	assert.deepEqual(offered(planter), ["discovery.convertToPlant"]);
+	assert.deepEqual(offered(as("account", null)), starts);
+	assert.ok(allowedWrites(planter).every((w) => w.operation !== "discovery.create"));
+	assert.doesNotMatch(
+		JSON.stringify(
+			Object.values(modelTools(planter, {} as never)).map((t) => asSchema(t.inputSchema as never).jsonSchema),
+		),
+		/"discovery\.create"|"onboarding\.createPlant"/,
+	);
+	const answer = capabilitiesAnswer(readCatalog(planter), planter);
+	assert.match(answer, /public Wiki/);
+	assert.match(answer, /your own documents/);
+	assert.match(answer, /turning your Discovery space into a church/);
+	assert.doesNotMatch(answer, /Coming later|Prepare a private Discovery space|starting a new church/);
+	assert.match(
+		capabilitiesAnswer(readCatalog(as("account", null)), as("account", null)),
+		/Prepare a private Discovery space/,
+	);
+	const owner = as("plant", "owner");
+	assert.equal(
+		capabilitiesAnswer(readCatalog({ ...owner, discovery: true }), owner),
+		capabilitiesAnswer(readCatalog(owner), owner),
+	);
+});
+
 const PHASE_TOOLS = {
 	phases: [
 		"phases.readCatalog",

@@ -14,7 +14,7 @@ export function plist(job: typeof DAILY, input: ScheduleInput) {
 		job === DAILY
 			? "<key>StartCalendarInterval</key>\n\t<dict>\n\t\t<key>Hour</key>\n\t\t<integer>3</integer>\n\t\t<key>Minute</key>\n\t\t<integer>30</integer>\n\t</dict>"
 			: "<key>StartInterval</key>\n\t<integer>3600</integer>";
-	const args = ["/usr/bin/env", "node", input.cli, job.command, "--config", input.config];
+	const args = ["/usr/bin/env", "node", "--conditions=react-server", input.cli, job.command, "--config", input.config];
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

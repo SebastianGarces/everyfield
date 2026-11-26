@@ -1,13 +1,7 @@
+import "server-only";
 import { asLogNames, logLine } from "@everyfield/domain/log";
 import { z } from "zod";
-
-const hexKey = z.string().regex(/^[a-f0-9]{64}$/);
-
-export const mailKeys = z.object({
-	IDENTITY_MAIL_KEY: hexKey,
-	IDENTITY_ADDRESS_KEY: hexKey,
-	IDENTITY_MAIL_FROM: z.email(),
-});
+import { mailKeys } from "./mail-keys.ts";
 
 const required = mailKeys.extend({
 	IDENTITY_DATABASE_URL: z.string().min(1),

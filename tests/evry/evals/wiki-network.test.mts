@@ -56,7 +56,7 @@ let admin: Database;
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: EditorName) => (await freshActor(sessionOf(who)))!;
 const authority = (who: EditorName) => RequestActor.resolve(db, sessionOf(who) as never) as Promise<RequestActor>;
