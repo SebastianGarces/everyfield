@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineSafeError, recordId, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 import { criterionKey, criterionStatus } from "../phases/index.ts";
-import { renewal, signalKey, signalValue } from "./signals.ts";
+import { readinessKey, renewal, signalKey, signalValue } from "./signals.ts";
 
 export const FACTS_FORMULA_VERSION = "plant-facts/3";
 const formulaVersion = z.enum(["plant-facts/1", "plant-facts/2", FACTS_FORMULA_VERSION]);
@@ -122,6 +122,13 @@ const attestationFact = z.strictObject({
 	renewal,
 });
 
+const readinessFact = z.strictObject({
+	key: readinessKey,
+	state: z.enum(["answered", "retracted"]),
+	asOf: localDate,
+	named: z.string().nullable(),
+});
+
 export const firstService = z.discriminatedUnion("path", [
 	z.strictObject({
 		path: z.literal("milestone"),
@@ -172,6 +179,7 @@ export const plantFacts = z.strictObject({
 	firstService: firstService.optional(),
 	debrief: debriefFact.optional(),
 	criteria: z.partialRecord(criterionKey, criterionStatus),
+	readiness: z.array(readinessFact).min(1).optional(),
 });
 export type PlantFacts = z.infer<typeof plantFacts>;
 

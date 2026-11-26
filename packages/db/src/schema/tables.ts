@@ -434,6 +434,10 @@ export const attestation = pgTable(
 			"attestation_ck_5",
 			sql`((key <> ALL (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text])) OR (((state = 'answered'::text) AND (answer IS NOT NULL)) OR ((state = ANY (ARRAY['unanswered'::text, 'retracted'::text])) AND (answer IS NULL))))`,
 		),
+		check(
+			"attestation_ck_6",
+			sql`(((key <> 'worship_agreement'::text) OR (person_id IS NOT NULL)) AND ((key <> ALL (ARRAY['community'::text, 'relationship'::text])) OR ((person_id IS NULL) AND (statement IS NOT NULL))))`,
+		),
 		index("attestation_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
 		index("attestation_ref_2").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		uniqueIndex("attestation_uq_1")
@@ -514,7 +518,7 @@ export const attestation_revision = pgTable(
 		),
 		check(
 			"attestation_revision_ck_5",
-			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text]))`,
+			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text, 'worship_agreement'::text, 'community'::text, 'relationship'::text]))`,
 		),
 		check(
 			"attestation_revision_ck_6",
@@ -1303,6 +1307,12 @@ export const discovery = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		steps: jsonb("steps")
+			.notNull()
+			.default(sql`'[]'::jsonb`),
+		steps_revision: int64("steps_revision")
+			.notNull()
+			.default(sql`1`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "discovery_fk_0", columns: [table.account_id], foreignColumns: [account.id] })
@@ -1332,6 +1342,8 @@ export const discovery = pgTable(
 			sql`(journey_answer = ANY (ARRAY['existing'::text, 'unsure'::text, 'discerning'::text, 'skip'::text]))`,
 		),
 		check("discovery_ck_4", sql`(launch_answer = ANY (ARRAY['planned'::text, 'no_date'::text, 'skip'::text]))`),
+		check("discovery_ck_5", sql`(jsonb_typeof(steps) = 'array'::text)`),
+		check("discovery_ck_6", sql`(steps_revision >= 1)`),
 		index("discovery_ref_1").using("btree", table.converted_plant_id.asc().nullsLast()),
 		index("discovery_ref_2").using("btree", table.conversion_operation_id.asc().nullsLast()),
 	],

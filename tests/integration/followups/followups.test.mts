@@ -59,6 +59,7 @@ import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { caseOf } from "../target/sql/core/support.mts";
 import type { SQL } from "../../../packages/db/src/query.ts";
 
 const present = <T,>(value: T | null | undefined, what: string): T => {
@@ -297,22 +298,65 @@ before(async () => {
 after(() => f?.close());
 
 test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time across both clock changes", async () => {
+	const due = caseOf("intelligence", "B03-004");
+	const meetingDates = (due.action.arguments as { meeting_dates: string[] }).meeting_dates;
 	assert.deepEqual(
-		["2026-03-07", "2026-10-31", "2026-12-31"].map((d) => followUpDueDate(localDate.parse(d))),
-		["2026-03-09", "2026-11-02", "2027-01-02"],
+		meetingDates.map((d) => followUpDueDate(localDate.parse(d))),
+		due.expected.result.followup_due_dates,
 	);
 	const c = await church();
 	const read48 = async (m: string) =>
 		ok(await read(c.owner, "readObligations", { meetingId: m, asOf: "2026-11-10T00:00:00Z" })).items[0];
+	const evening: Record<string, string> = {
+		"2026-03-07": "2026-03-08T00:00:00Z",
+		"2026-10-31": "2026-10-31T23:00:00Z",
+		"2026-12-31": "2027-01-01T00:00:00Z",
+	};
+	const produced: [boolean, string][] = [];
+	for (const date of meetingDates) {
+		const origin = { at: present(evening[date], date), date, zone: "America/Chicago" };
+		const { obligation } = await generated(c, await person(c, "Guest " + date), "Vision " + date, origin);
+		const task = present(obligation.task, "task");
+		const shown = ok(await gatedTransaction(f.db, (tx) => taskReader.get(tx, c.owner.actor, { taskId: task.id })));
+		assert.ok(shown.status === "available");
+		assert.deepEqual(shown.task.due, { kind: "local_date", date: obligation.dueDate });
+		produced.push([origin.at.slice(0, 10) !== date, obligation.dueDate]);
+	}
+	assert.deepEqual({ followup_due_dates: produced.map(([, d]) => d) }, due.expected.result);
+	assert.deepEqual(
+		produced.map(([shifted]) => shifted),
+		[true, false, true],
+		"two of the meetings fall on the next UTC day",
+	);
+	const window = caseOf("intelligence", "B03-005");
+	const exact = window.action.arguments as { origin: string; contact: string[] };
+	const measured: { success: boolean | null | undefined; overdueAtContact: boolean | null; dueDate: string }[] = [];
+	for (const [n, occurredAt] of exact.contact.entries()) {
+		const origin = { at: exact.origin, date: "2026-03-07", zone: "America/Chicago" };
+		const { meetingId, obligation } = await generated(c, await person(c, "Window " + n), "Window " + n, origin);
+		const task = present(obligation.task, "task");
+		const open = ok(
+			await gatedTransaction(f.db, (tx) => taskReader.get(tx, c.owner.actor, { taskId: task.id, asOf: occurredAt })),
+		);
+		assert.ok(open.status === "available");
+		ok(await record(c.owner, onTask(obligation.task), "contacted", { occurredAt, completeTask: true }));
+		const o = present(await read48(meetingId), "obligation");
+		measured.push({ success: o.measurement?.success, overdueAtContact: open.task.overdue, dueDate: o.dueDate });
+	}
+	assert.deepEqual(
+		measured.map((x) => x.overdueAtContact),
+		[false, false],
+		"the due day is still open at both contacts",
+	);
+	assert.deepEqual(
+		{ within_48h: measured.map((x) => x.success), due_date: [...new Set(measured.map((x) => x.dueDate))].join() },
+		window.expected.result,
+	);
 	for (const { origin, dueDate, rows: expected } of [
 		{
 			origin: { at: "2026-03-07T15:00:00Z", date: "2026-03-07", zone: "America/Chicago" },
 			dueDate: "2026-03-09",
-			rows: [
-				["2026-03-09T14:59:59.999Z", true],
-				["2026-03-09T15:00:00.000Z", true],
-				["2026-03-09T15:00:00.001Z", false],
-			],
+			rows: [["2026-03-09T14:59:59.999Z", true]],
 		},
 		{
 			origin: { at: "2026-10-31T23:00:00Z", date: "2026-10-31", zone: "America/Chicago" },
@@ -350,6 +394,53 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:B03-004 AC:B03-005 INV-dates: due d
 			at,
 		);
 	}
+});
+
+test("AC:B03-006 completing, attempting or waiving a follow-up is never contact; only a contacted outcome sets the person's last contact", async () => {
+	const k = caseOf("intelligence", "B03-006");
+	const { outcomes, occurred_at } = k.action.arguments as { outcomes: string[]; occurred_at: string };
+	const asOf = (k as typeof k & { clock: { now: string } }).clock.now;
+	const c = await church();
+	const origin = { at: "2026-10-11T23:00:00Z", date: "2026-10-11", zone: "America/Chicago" };
+	const latest: (string | null)[] = [];
+	const evidence: unknown[] = [];
+	for (const outcome of outcomes) {
+		const personId = await person(c, "Person " + outcome);
+		const { meetingId, obligation } = await generated(c, personId, "Vision " + outcome, origin);
+		const task = present(obligation.task, "task");
+		if (outcome === "waived")
+			ok(
+				await taskWrite(c.owner, "waive", {
+					requestKey: key(),
+					expectedRevision: task.revision,
+					input: { taskId: task.id },
+				}),
+			);
+		else {
+			const shipped: Record<string, string> = {
+				administrative_complete: "administrative_completion",
+				attempted: "attempted_no_contact",
+				contacted: "contacted",
+			};
+			ok(
+				await record(c.owner, onTask(task), present(shipped[outcome], outcome), {
+					occurredAt: occurred_at,
+					completeTask: outcome !== "attempted",
+				}),
+			);
+		}
+		const log = ok(await read(c.member, "listContactHistory", { personId }));
+		const [o] = ok(await read(c.owner, "readObligations", { meetingId, asOf })).items;
+		evidence.push([outcome, o?.state, o?.contacted, log.items.map((i) => [i.outcome, i.contact])]);
+		latest.push(log.lastConfirmedContactAt && new Date(log.lastConfirmedContactAt).toISOString().replace(".000Z", "Z"));
+	}
+	assert.deepEqual({ latest_contact: latest }, k.expected.result);
+	assert.deepEqual(evidence, [
+		["administrative_complete", "complete", false, [["administrative_completion", false]]],
+		["attempted", "open", false, [["attempted_no_contact", false]]],
+		["contacted", "complete", true, [["contacted", true]]],
+		["waived", "no_longer_needed", false, []],
+	]);
 });
 
 test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC:ROLE43-015 AC:TARGET-TSK-004 obligations measure 48 hours at a frozen asOf, separate from contact and waiver", async () => {
@@ -441,7 +532,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		future: ["open", false, null, "future_origin", false],
 		preOrigin: ["complete", false, null, "invalid_completion", false],
 		afterAsOf: ["complete", false, null, "invalid_completion", true],
-		checkbox: ["complete", true, false, "measured", false],
+		checkbox: ["complete", false, null, "missing_completion", false],
 		retired: ["complete", true, true, "measured", true],
 		accepted: ["open", true, false, "measured", false],
 	});
@@ -462,10 +553,10 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	const report = {
 		status: "measured",
 		onTime: 3,
-		measured: 7,
+		measured: 6,
 		noLongerNeeded: 1,
 		pending: 3,
-		unmeasured: 3,
+		unmeasured: 4,
 		contacted: 4,
 		total: 14,
 	};

@@ -6,7 +6,7 @@ import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from "reac
 import { shortcutMark } from "../save/leave.ts";
 import { buttonClass } from "../ButtonLink";
 
-type NavLink = { href: string; label: string; current: boolean };
+type NavLink = { href: string; label: string; current: boolean; tag?: string };
 type Which = "inflow" | "pill";
 
 type Props = {
@@ -87,6 +87,8 @@ type BarProps = {
 const LINK =
 	"whitespace-nowrap rounded-nav-item px-[11px] py-2 text-text-2 no-underline hover:bg-mk-line hover:text-ink " +
 	"aria-[current=page]:font-semibold aria-[current=page]:text-ink max-mk-nav:px-2 max-mk-nav:py-3 max-mk-nav:type-lg";
+const TAG =
+	"ml-1.5 inline-block rounded-nav-item bg-mk-ink-05 px-1.5 py-[3px] align-[1px] type-xs leading-none font-medium text-text-3";
 const MENU = {
 	inflow:
 		"max-mk-nav:absolute max-mk-nav:inset-x-0 max-mk-nav:top-[70px] max-mk-nav:flex-col max-mk-nav:border-b max-mk-nav:border-mk-line " +
@@ -119,10 +121,12 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, onToggle, onLi
 						key={l.href}
 						href={l.href}
 						aria-current={l.current ? "page" : undefined}
+						aria-label={l.tag ? `${l.label}, ${l.tag}` : undefined}
 						onClick={onLinkClick}
 						className={LINK}
 					>
 						{l.label}
+						{l.tag ? <span className={TAG}>{l.tag}</span> : null}
 					</Link>
 				))}
 				{pill ? null : (

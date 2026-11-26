@@ -309,7 +309,7 @@ test("AC:CA008 AC:CA019 a withdrawal lowers the count but keeps the growth clock
 	assert.equal(audit.n, 1);
 });
 
-test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-002 AC:B01-020 AC:B01-026 vision, follow-ups, coverage, training and answers", async () => {
+test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-026 vision, follow-ups, coverage, training and answers", async () => {
 	const o = await plant();
 	const people = [];
 	for (let i = 0; i < 10; i++) people.push(await committed(o, `Member ${i + 1}`));
@@ -510,9 +510,18 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 			input: { key: "systems_tested", value: "yes" },
 		}),
 	);
+	const signalled = await read(o);
+	assert.notEqual(signalled.sourceRevision, last);
+	ok(
+		await signals.attestReadiness(f.db, o.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { key: "community", area: "Eastside" },
+		}),
+	);
 	const answered = await read(o);
-	assert.notEqual(answered.sourceRevision, last);
-	assert.equal(answered.criteria.systems_tested, "met");
+	assert.notEqual(answered.sourceRevision, signalled.sourceRevision, "readiness did not change the facts' revision");
+	assert.deepEqual([answered.criteria.systems_tested, answered.criteria.geographic_area], ["met", "met"]);
 	await checkIn(o);
 	await f.admin.execute(sql`UPDATE person SET email='rowan@example.test',notes='unrelated' WHERE id=${p.id}`);
 	await f.admin.execute(sql`UPDATE launch_debrief SET went_well='unrelated' WHERE plant_id=${o.w.id}`);
@@ -533,6 +542,7 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"nextVision",
 		"people",
 		"phase",
+		"readiness",
 		"roles",
 		"training",
 		"vision",

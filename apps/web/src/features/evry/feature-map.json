@@ -16,7 +16,7 @@
 	"surfaces": [
 		{
 			"id": "evry.panel",
-			"says": "The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. Production with no provider record says Evry isn't available yet. Nothing calls the catalog endpoint.",
+			"says": "The Evry panel beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own chats; Discovery chats go read-only when a church starts. With no provider record, Evry says it is not live. Nothing calls the catalog endpoint.",
 			"routes": [],
 			"endpoints": [
 				"/api/evry/catalog",

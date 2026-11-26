@@ -27,7 +27,7 @@ export const ASSESSMENT_TIMING = {
 	staleDays: 7,
 	leaseMs: 5 * 60_000,
 	deadlineMs: 60 * 60_000,
-	backoffMs: [30_000, 60_000, 120_000, 240_000],
+	backoffMs: [15_000, 30_000, 60_000],
 } as const;
 
 const CAPTURE_TRIES = 3;

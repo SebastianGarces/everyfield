@@ -471,7 +471,9 @@
     "operations": [
       "discovery.convertToPlant",
       "discovery.create",
-      "discovery.getProfile"
+      "discovery.getProfile",
+      "discovery.getSteps",
+      "discovery.setStep"
     ],
     "work_packages": [
       "WP-007",

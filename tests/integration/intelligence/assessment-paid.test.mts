@@ -8,9 +8,10 @@ import type {
 import { fakeProvider, grounded, sent } from "./fake-provider.mts";
 import { APICallError } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import { instant } from "../../../packages/contracts/src/common/index.ts";
-import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
+import { ASSESSMENT_BUDGET, draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
+	ASSESSMENT_TIMING,
 	createAssessmentJob,
 	createAssessments,
 	runAssessmentBatch,
@@ -21,6 +22,7 @@ import { paidModel } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { scriptedAssessmentDrafter, scriptedDraft } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
+import { caseOf } from "../target/sql/core/support.mts";
 import { CANARY, church, type Church, type ChurchPlant, type StoredRun } from "./assessment-church.mts";
 
 const CAP = 20_000_000;
@@ -207,6 +209,12 @@ test("AC:PI-CASE-027 the paid judge grades plain, warm and useful wording, lists
 });
 
 test("AC:ASMT-010 INV-spend: the shipped paid drafter sends one HTTP request per dispatch on 429 and 5xx, and with 1000 ms left a bad number and a bad citation use it up: no request starts past the deadline", async (t) => {
+	const k = caseOf("intelligence", "ASMT-010");
+	const e = k.expected.result as Record<string, unknown>;
+	const value = <T,>(name: string) => (k.given[name] as { value: T }).value;
+	assert.deepEqual(value<string[]>("provider_failures"), ["429", "5xx"]);
+	assert.deepEqual(value<string[]>("invalid_drafts"), ["bad_numeric", "bad_citation"]);
+	const remaining = value<number>("remaining_deadline_ms");
 	const p = await c.harvest("Deadline Chapel");
 	await setCounter(0);
 	await c.admin.execute(sql`DELETE FROM job WHERE kind='assessment'`);
@@ -267,7 +275,7 @@ test("AC:ASMT-010 INV-spend: the shipped paid drafter sends one HTTP request per
 	const second = await stored();
 	assert.deepEqual([second.outcome, second.reason, second.attempts, sentAt.length], ["deferred", "busy", 2, 2]);
 
-	clockMs = deadline - 1000;
+	clockMs = deadline - remaining;
 	const uncited = (text: string) => {
 		const d = JSON.parse(text) as Draft;
 		return JSON.stringify({ ...d, focus: { ...d.focus, citations: ["not.a.fact"] } });
@@ -283,8 +291,177 @@ test("AC:ASMT-010 INV-spend: the shipped paid drafter sends one HTTP request per
 	const broke = last.drafts.map((d) => d.violations.map((v) => v.rule));
 	assert.equal(broke.length, 2);
 	assert.ok(broke[0]!.includes("invented_number") && broke[1]!.includes("invented_citation"), JSON.stringify(broke));
-	assert.deepEqual(sentAt.slice(2), [1000, 400], "no request starts past the deadline");
-	assert.equal(sentAt.length, last.attempts, "one request per dispatch: the SDK retries nothing");
+	assert.deepEqual(sentAt.slice(2), [remaining, remaining - 600], "no request starts past the deadline");
+	assert.equal(sentAt.filter((left) => left <= 0).length, e.calls_past_deadline);
+	assert.equal(sentAt.length - last.attempts, e.SDK_retries, "one request per dispatch: the SDK retries nothing");
 	assert.deepEqual(problems, []);
 	assert.equal((await view(p)).current, null);
+});
+
+test("AC:PI-PROVIDER-001 INV-spend: with 180 seconds left the shipped paid drafter answers 429, 503, 503 then 200 with four HTTP requests 15, 30 and 60 seconds apart, each an accounted attempt of one draft, never an implicit one; a provider that stays down stops at the attempt budget; a Retry-After past the deadline makes one request and none after it; no retry setting exists", async (t) => {
+	const k = caseOf("intelligence", "PI-PROVIDER-001");
+	const e = k.expected.result as Record<string, number>;
+	const value = <T,>(name: string) => (k.given[name] as { value: T }).value;
+	assert.equal(value("sdkMaxRetries"), 0);
+	assert.equal(value("providerImplicitRetries"), 0);
+	assert.equal(ASSESSMENT_BUDGET.attemptsPerDraft, value("workerAttemptLimitPerDraft"));
+	assert.equal(ASSESSMENT_BUDGET.drafts, value("draftLimit"));
+	assert.equal(ASSESSMENT_BUDGET.callMs, value<number>("requestTimeoutSeconds") * 1000);
+	const ceiling = e.absolute_dispatch_ceiling!;
+	assert.equal(ASSESSMENT_BUDGET.attemptsPerDraft * ASSESSMENT_BUDGET.drafts, ceiling);
+	await setCounter(0);
+	await c.admin.execute(sql`DELETE FROM job WHERE kind='assessment'`);
+	let clockMs = Date.now() + 5000;
+	const clocked = createAssessmentJob({ clock: { now: () => instant.parse(new Date(clockMs).toISOString()) } });
+	const reply = (status: number, body: object, headers: Record<string, string> = {}) =>
+		new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
+	const busy = (status: number, retryAfter?: number) => () =>
+		reply(
+			status,
+			{ error: { message: "busy", type: "server_error", param: null, code: null } },
+			retryAfter === undefined ? {} : { "retry-after": String(retryAfter) },
+		);
+	const drafted = () => (body: { input: { content: unknown }[] }) => {
+		const content = body.input.at(-1)!.content as { text: string }[];
+		const text = JSON.stringify(scriptedDraft(JSON.parse(content[0]!.text).input));
+		return reply(200, {
+			id: "resp_1",
+			object: "response",
+			created_at: 1,
+			model: "gpt-6-luna",
+			output: [
+				{ type: "message", role: "assistant", id: "m1", content: [{ type: "output_text", text, annotations: [] }] },
+			],
+			usage: { input_tokens: 900, output_tokens: 400 },
+		});
+	};
+	const queue: ((body: never) => Response)[] = [];
+	let sent = 0;
+	let onSend = () => {};
+	t.mock.method(globalThis, "fetch", async (_: unknown, init: { body: string }) => {
+		sent++;
+		onSend();
+		const next = queue.shift() ?? busy(400);
+		return next(JSON.parse(init.body) as never);
+	});
+	const { drafter } = paidAssessment(c.db, { EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" })!;
+	const start = async (name: string) => {
+		const p = await c.harvest(name);
+		const requestId = randomUUID();
+		ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
+		const stored = () =>
+			c.one<StoredRun & { deadline_at: string; retry_at: string | null }>(
+				sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`,
+			);
+		return { p, stored };
+	};
+	const ticks = async (n: number) => {
+		for (let i = 0; i < n; i++) {
+			await runAssessmentBatch(clocked, c.db, drafter, 1);
+			clockMs += 5 * 60_000;
+		}
+	};
+
+	const responses = value<number[]>("providerResponses");
+	assert.deepEqual(responses, [429, 503, 503, 200]);
+	queue.push(...responses.map((s) => (s === 200 ? drafted() : busy(s))));
+	const main = await start("Ladder Chapel");
+	const budgetMs = value<number>("remainingRunTimeSeconds") * 1000;
+	const firstAt = clockMs;
+	const sentAfter: number[] = [];
+	onSend = () => sentAfter.push(clockMs - firstAt);
+	const timing = ASSESSMENT_TIMING as { deadlineMs: number };
+	const fullMs = timing.deadlineMs;
+	timing.deadlineMs = budgetMs;
+	try {
+		await runAssessmentBatch(clocked, c.db, drafter, 1);
+	} finally {
+		timing.deadlineMs = fullMs;
+	}
+	const captured = await main.stored();
+	assert.equal(new Date(captured.deadline_at).getTime() - firstAt, budgetMs, "the run starts with 180 seconds left");
+	for (let r = await main.stored(); r.outcome === "deferred" && sent < ceiling; r = await main.stored()) {
+		clockMs = new Date(r.retry_at!).getTime();
+		await runAssessmentBatch(clocked, c.db, drafter, 1);
+	}
+	onSend = () => {};
+	const run = await main.stored();
+	assert.deepEqual(
+		[run.outcome, run.reason, run.drafts.length, run.drafts[0]!.attempts],
+		["published", null, 1, 4],
+		"the ladder finishes inside the 180 seconds left",
+	);
+	assert.deepEqual(sentAfter, [0, 15_000, 45_000, 105_000], "waits of 15, 30 and 60 seconds between the four requests");
+	assert.ok(sentAfter.at(-1)! < budgetMs);
+	assert.equal(sent, e.dispatches, "four HTTP requests");
+	assert.equal(run.attempts, e.accounted_attempts, "each one an accounted attempt");
+	assert.equal(sent - run.attempts, e.implicit_dispatches, "no request the worker did not account for");
+	assert.equal((await view(main.p)).current!.runId, run.id);
+
+	sent = 0;
+	queue.push(...Array.from({ length: ceiling + 1 }, () => busy(503)));
+	const down = await start("Down Chapel");
+	await ticks(ceiling + 2);
+	const failed = await down.stored();
+	assert.deepEqual([failed.outcome, failed.reason, failed.attempts], ["failed", "attempts", 4]);
+	assert.equal(sent, failed.attempts, "a provider that stays down gets the attempt budget and no more");
+	assert.ok(sent <= ceiling);
+	queue.length = 0;
+
+	const sub = k.subcases!.find((s) => s.name === "retry-after-exceeds-deadline")!;
+	const se = sub.expected.result as Record<string, unknown>;
+	const a = sub.action.arguments as {
+		responses: number[];
+		RetryAfter: number;
+		remaining_seconds: number;
+		sdkMaxRetries: number;
+	};
+	assert.equal(a.sdkMaxRetries, 0);
+	assert.ok(a.RetryAfter > a.remaining_seconds);
+	const late = await start("Late Chapel");
+	const early = (60 * 60_000 - a.remaining_seconds * 1000) / 1000;
+	queue.push(busy(429, early));
+	await runAssessmentBatch(clocked, c.db, drafter, 1);
+	const waiting = await late.stored();
+	assert.equal(waiting.outcome, "deferred", "an earlier busy reply waits until 47 seconds are left");
+	const lateDeadline = Date.parse(waiting.deadline_at);
+	clockMs = lateDeadline - a.remaining_seconds * 1000;
+	const leftAtSend: number[] = [];
+	onSend = () => leftAtSend.push(lateDeadline - clockMs);
+	sent = 0;
+	queue.push(...a.responses.map((s) => busy(s, a.RetryAfter)));
+	await runAssessmentBatch(clocked, c.db, drafter, 1);
+	const settled = await late.stored();
+	assert.equal(se.status, "deferred");
+	assert.deepEqual([settled.outcome, settled.reason], ["failed", "deadline"]);
+	assert.deepEqual(leftAtSend, [a.remaining_seconds * 1000], "the one request starts with 47 seconds left");
+	assert.equal(sent, se.dispatches);
+	clockMs = lateDeadline + a.RetryAfter * 1000;
+	await ticks(3);
+	assert.equal(sent - (se.dispatches as number), se.calls_after_deadline, "no request after the deadline");
+	assert.equal((await view(late.p)).current, null);
+
+	const sdk = k.subcases!.find((s) => s.name === "no-retry-setting-every-dispatch-counted")!;
+	const de = sdk.expected.result as Record<string, unknown>;
+	const asked = sdk.action.arguments as { responses: number[]; sdkMaxRetries: number };
+	const read: string[] = [];
+	const env = new Proxy(
+		{ EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key", sdkMaxRetries: String(asked.sdkMaxRetries) },
+		{ get: (o, key: string) => (read.push(key), o[key as keyof typeof o]) },
+	);
+	const plain = paidAssessment(c.db, env)!;
+	assert.equal(
+		read.some((key) => /retr/i.test(key)),
+		de.retry_setting_exists,
+		`the paid path reads ${read.join(", ")} and no retry setting`,
+	);
+	sent = 0;
+	queue.push(...asked.responses.map((s) => busy(s)));
+	const once = await start("Once Chapel");
+	await runAssessmentBatch(clocked, c.db, plain.drafter, 1);
+	const counted = await once.stored();
+	assert.deepEqual([counted.outcome, counted.reason], ["deferred", "busy"]);
+	assert.equal(sent, de.dispatches, "the 503 is one HTTP request");
+	assert.equal(counted.attempts, de.accounted_attempts, "and one accounted attempt");
+	t.mock.restoreAll();
 });

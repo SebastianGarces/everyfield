@@ -8,11 +8,15 @@ import { Fresh } from "./fresh.tsx";
 import { loadTasksPage } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { params } from "../../components/search-params.ts";
+import { discoverySteps } from "../onboarding/mount.ts";
+import { DiscoverySteps } from "./DiscoverySteps.tsx";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const tasksMetadata: Metadata = { title: "Tasks", robots: { index: false, follow: false } };
 
 export async function TasksPage({ searchParams }: { searchParams: Search }) {
+	const session = await getViewer();
+	if (session.discovery) return <DiscoveryStepsPage session={session} />;
 	const raw = params(await searchParams);
 	const query = parseQuery(raw);
 	const open = recordId.safeParse(raw.get("task"));
@@ -34,7 +38,7 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 		<Fresh loading={<TasksLoading />}>
 			<TasksScreen
 				loaded={loaded.value}
-				viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer()).displayName ?? null }}
+				viewer={{ accountId: viewer.accountId, role: viewer.role, name: session.displayName ?? null }}
 				year={new Date().getUTCFullYear()}
 			/>
 		</Fresh>
@@ -70,4 +74,15 @@ export function TasksLoading() {
 			</div>
 		</div>
 	);
+}
+
+async function DiscoveryStepsPage({ session }: { session: Awaited<ReturnType<typeof getViewer>> }) {
+	const steps = await discoverySteps(session);
+	if (!steps)
+		return (
+			<PageState page="Tasks" tone="error" title="Your starter steps didn't load">
+				This is a loading problem. Nothing was changed. Reload the page in a moment.
+			</PageState>
+		);
+	return <DiscoverySteps initial={steps} />;
 }

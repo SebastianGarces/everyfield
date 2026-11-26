@@ -496,7 +496,7 @@
 							},
 							{
 								"file": "tests/integration/intelligence/care.test.mts",
-								"name": "AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author and the earlier answer"
+								"name": "AC:B03-026 a correction keeps the week, its zone and author and the earlier answer"
 							}
 						],
 						"browser": {

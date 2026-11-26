@@ -266,7 +266,7 @@ const INTERVIEW = [
 	"Ben Cole's interview on Oct 2, 2026: spiritual maturity pass (Private interview words), gifted pass, chemistry pass, right reasons pass, season pass. Result: qualified.",
 ];
 const EVERYONE = [["people.listPeople"], "4 matched. Showing 4: Alma Reyes, Ben Cole, Lena Lead, Max Member."];
-const NO_PLANTS = [[], "Ask me about the people in this church, for example: find Alex."];
+const NO_PLANTS = [[], "I can't answer that question."];
 const TURNS: [ask: string, expected: Record<Role, unknown>, withheld: string[]][] = [
 	[
 		"Show Ben Cole's interviews",
