@@ -19,6 +19,7 @@ import {
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
+	readLeadPlanter,
 	withSettingsWrite,
 	type CredentialConfig,
 	type DeletionSubject,
@@ -3877,4 +3878,90 @@ test("AC:TARGET-IDN-028 a revoked or expired session reads no private check-in, 
 		assert.equal(answers[0], answers[1]);
 		assert.equal(answers[0]!.includes(canary), false);
 	}
+});
+
+test("AC:TARGET-IDN-014 the Owner of a church converted from Discovery hands the lead planter role to another live person in Settings", async () => {
+	const a = await actor();
+	await admin
+		.update(t.account)
+		.set({ registration_kind: "discovery", registration_state: "pending_domain" })
+		.where(eq(t.account.id, a.id));
+	const as = { session: a.session, selected: { kind: "account" as const, id: a.id } };
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	const started = ok(await gatedTransaction(db, (tx) => onboarding.createDiscovery(tx, as, command({}, row!.revision))));
+	if (started.status !== "active") assert.fail(JSON.stringify(started));
+	const converted = ok(
+		await gatedTransaction(db, (tx) =>
+			onboarding.convertDiscovery(
+				tx,
+				as,
+				command(
+					{ discoveryId: started.profile.discoveryId, name: "Grace Hill", confirmed: true, relationships: [], ended: [] },
+					started.profile.revision,
+				),
+			),
+		),
+	);
+	const p = converted.plant,
+		planter = converted.ownerSeat.personId;
+	const other = await plant(),
+		adminSeat = await seat(p),
+		member = await seat(p, "member");
+	const addPerson = async (plantId: string, name: string) => {
+		const id = randomUUID();
+		await admin.insert(t.person).values({
+			id,
+			tenant_id: plantId,
+			plant_id: plantId,
+			display_name: name,
+			source: "other",
+			stage: "prospect",
+			adult_classification: "adult",
+			commitment_state: "unknown",
+			pipeline_position: "1",
+			state: "live",
+			created_at: new Date(),
+		});
+		return id;
+	};
+	const ana = await addPerson(p.id, "Ana Lee"),
+		outsider = await addPerson(other.p.id, "Outside Person");
+	const present = <T,>(value: T | null) => value ?? assert.fail("no lead planter read");
+	const read = async (who: Session) => readLeadPlanter(db, (await seen(who)).authority);
+	const first = present(await read(a));
+	assert.equal(first.canEdit, true);
+	assert.deepEqual(first.lead?.holder, { personId: planter, name: "Synthetic" });
+	assert.deepEqual(
+		first.people.map((x) => x.name),
+		["Ana Lee", "Synthetic"],
+	);
+	const forMember = present(await read(member));
+	assert.deepEqual([forMember.canEdit, forMember.lead?.holder?.name, forMember.people], [false, "Synthetic", []]);
+
+	const hand = (personId: string, expected: string = first.revision) => command({ plant: p, personId }, expected);
+	const v = hand(ana);
+	denied(await call("setLeadPlanter", adminSeat, v, p));
+	denied(await call("setLeadPlanter", member, v, p));
+	denied(await call("setLeadPlanter", a, hand(outsider), p), "invalid_subject");
+	denied(await call("setLeadPlanter", a, hand(ana, "99"), p), "conflict");
+	assert.deepEqual(present(await read(a)), first, "refusals change nothing");
+
+	const saved = ok(await call("setLeadPlanter", a, v, p));
+	assert.deepEqual(saved, { plant: p, revision: String(BigInt(first.revision) + 1n), personId: ana });
+	assert.deepEqual(ok(await call("setLeadPlanter", a, v, p)), saved, "a replay returns the first answer");
+	const after = present(await read(a));
+	assert.deepEqual([after.revision, after.lead?.holder], [saved.revision, { personId: ana, name: "Ana Lee" }]);
+	const tenures = await admin.execute(sql`SELECT tn.person_id, tn.ended_on IS NULL AS open, tm.leader_person_id
+		FROM team_tenure tn JOIN team_role r ON r.id=tn.role_id JOIN team tm ON tm.id=r.team_id
+		WHERE tn.plant_id=${p.id}::uuid ORDER BY tn.ended_on NULLS LAST`);
+	assert.deepEqual(tenures.rows, [
+		{ person_id: planter, open: false, leader_person_id: ana },
+		{ person_id: ana, open: true, leader_person_id: ana },
+	]);
+	const audit = await admin.execute(
+		sql`SELECT tenant_id, kind FROM audit_event WHERE action='roles.changed' AND subject_id=${after.lead!.roleId}::uuid`,
+	);
+	assert.deepEqual(audit.rows, [{ tenant_id: p.id, kind: "assign" }]);
+	const same = ok(await call("setLeadPlanter", a, hand(ana, saved.revision), p));
+	assert.equal(same.revision, saved.revision, "naming the current lead again changes nothing");
 });

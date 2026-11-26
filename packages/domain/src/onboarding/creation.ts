@@ -99,14 +99,16 @@ async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery"
 	if (!a.principal?.verified) deny("unavailable");
 	return { ...a, principal: a.principal };
 }
-async function leadRole(tx: Tx, plantId: string, personId: string) {
+function leadRole(cx: NewCommand, plantId: string, personId: string) {
 	const lead = { teamId: randomUUID(), roleId: randomUUID(), personId };
-	await tx.execute(sql`WITH tm AS (INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source,leader_role_id)
- VALUES (${lead.teamId}::uuid,${plantId}::uuid,'Leadership','forming',0,${personId}::uuid,'role_derived',${lead.roleId}::uuid)),
- rl AS (INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
- VALUES (${lead.roleId}::uuid,${plantId}::uuid,${lead.teamId}::uuid,'Lead pastor',true,0))
- INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) SELECT ${plantId}::uuid,${lead.roleId}::uuid,${personId}::uuid,
- (clock_timestamp() AT TIME ZONE timezone)::date FROM plant WHERE id=${plantId}::uuid`);
+	cx.writes.push(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source,leader_role_id)
+ VALUES (${lead.teamId}::uuid,${plantId}::uuid,'Leadership','forming',0,${personId}::uuid,'role_derived',${lead.roleId}::uuid)`,
+		sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+ VALUES (${lead.roleId}::uuid,${plantId}::uuid,${lead.teamId}::uuid,'Lead pastor',true,0)`,
+		sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) SELECT ${plantId}::uuid,${lead.roleId}::uuid,
+ ${personId}::uuid,(clock_timestamp() AT TIME ZONE timezone)::date FROM plant WHERE id=${plantId}::uuid`,
+	);
 	return lead;
 }
 async function provision(
@@ -149,7 +151,7 @@ async function provision(
 	});
 	if (linked.status !== "ok" || linked.value.status !== "linked") deny("unavailable");
 	const creation = await entry.recorded(new Date(row.recorded));
-	const assignment = leads ? await leadRole(tx, plantId, linked.value.personId) : null;
+	const assignment = leads ? leadRole(cx, plantId, linked.value.personId) : null;
 	cx.writes.push(
 		tx.insert(t.onboarding_setup).values({
 			plant_id: plantId,
@@ -169,7 +171,7 @@ async function provision(
 	);
 	await event(tx, cx, plantId, "plant.created", "create");
 	await event(tx, cx, seatId, "membership.created", "create");
-	if (assignment) await event(tx, cx, assignment.roleId, "roles.changed", "assign", plantId);
+	if (assignment) await event(tx, cx, plantId, "roles.changed", "assign", tenantId.parse(plantId));
 	return {
 		plant: plantOwner.parse({ kind: "plant", id: plantId }),
 		revision: "1",

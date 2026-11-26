@@ -943,7 +943,7 @@ test("AC:TARGET-IDN-014 AC:TARGET-IDN-016 converting a Discovery names the plant
 		},
 	]);
 	const events = await admin.execute(
-		sql`SELECT tenant_id, kind FROM audit_event WHERE action='roles.changed' AND subject_id=${lead.assignment.roleId}::uuid`,
+		sql`SELECT tenant_id, kind FROM audit_event WHERE action='roles.changed' AND subject_id=${converted.plant.id}::uuid`,
 	);
 	assert.deepEqual(events.rows, [{ tenant_id: converted.plant.id, kind: "assign" }]);
 	const direct = await makePlant();

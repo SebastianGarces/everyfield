@@ -11,6 +11,7 @@ import { SaveError } from "../SaveError";
 import { useDraft, useSection, useSettings } from "../store";
 import { hourLabel, WEEKDAYS, zoneLabel } from "../../../components/time.ts";
 import { PlantTimezoneDialog } from "../flows/PlantTimezoneDialog";
+import { LeadPlanter } from "../flows/LeadPlanter";
 import { ReportingRegion } from "../flows/RegionPicker";
 import { WorkspaceDeletionDialog } from "../flows/DeletionDialogs";
 
@@ -184,6 +185,12 @@ function ChurchForm({
 							invalid={Boolean(visible.name)}
 						/>
 					</Field>
+				</SettingRow>
+				<SettingRow
+					label="Lead planter"
+					description="The person who leads your church. It is a role on your team list, not a permission."
+				>
+					<LeadPlanter plant={section.plant} onSaved={reload} />
 				</SettingRow>
 				<SettingRow
 					label="Address"

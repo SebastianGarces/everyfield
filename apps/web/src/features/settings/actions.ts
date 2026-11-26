@@ -13,6 +13,7 @@ import type {
 	PersonalTimezoneResult,
 	PlantTimezonePreview,
 	PlantTimezoneResult,
+	LeadSaved,
 	Reply,
 	SavedSection,
 } from "./port";
@@ -33,6 +34,15 @@ export async function saveChurch(request: unknown): Promise<Reply<SavedSection>>
 		request,
 		() => "plant",
 		(ops, tx, context, r) => ops.sections.saveChurch(tx, context, r),
+	);
+}
+
+export async function setLeadPlanter(request: unknown): Promise<Reply<LeadSaved>> {
+	return run(
+		S.setLeadPlanterRequest,
+		request,
+		() => "plant",
+		(ops, tx, context, r) => ops.lead.setLeadPlanter(tx, context, r),
 	);
 }
 

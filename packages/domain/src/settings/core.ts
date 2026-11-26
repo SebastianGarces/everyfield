@@ -121,6 +121,7 @@ export type SettingsWrite =
 	| "plant.setTimezone"
 	| "plant.updateProfile"
 	| "settings.saveChurch"
+	| "settings.setLeadPlanter"
 	| "settings.saveSection";
 export async function begin(tx: Tx, ctx: WriteContext, actorId: string, name: SettingsWrite, q: Command) {
 	const identity = requestIdentity.parse({
