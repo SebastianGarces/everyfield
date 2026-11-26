@@ -593,6 +593,8 @@ test("AC:PI-CASE-020 history reads the last 12 complete runs, 4 to 15, from thei
 	for (let i = 0; i < current; i++) await c0.committed(p, `History ${i + 1}`);
 	const base = await publish(p);
 	const ids = given<number[]>(k, "complete_run_ids");
+	await replica(sql`UPDATE assessment_run SET facts=jsonb_set(facts,'{followUps}',facts->'followUps'||
+		'{"status":"measured","onTime":1,"measured":1,"contacted":1,"total":2}'::jsonb) WHERE id=${base.id}`);
 	const label = new Map<string, number>([[base.id, ids.at(-1)!]]);
 	const hour = (n: number) =>
 		sql`(SELECT available_at FROM assessment_run WHERE id=${base.id})-make_interval(hours=>${n})`;
@@ -610,8 +612,6 @@ test("AC:PI-CASE-020 history reads the last 12 complete runs, 4 to 15, from thei
 		);
 	}
 	assert.equal(given<boolean>(k, "run4_has_contact_metric"), false);
-	await replica(sql`UPDATE assessment_run SET facts=jsonb_set(facts,'{followUps}',facts->'followUps'||
-		'{"status":"measured","onTime":2,"measured":2,"contacted":1,"total":2}'::jsonb) WHERE id=${base.id}`);
 	await cloneRun(
 		base.id,
 		randomUUID(),
@@ -637,6 +637,7 @@ test("AC:PI-CASE-020 history reads the last 12 complete runs, 4 to 15, from thei
 	assert.equal(given<number>(k, "run15_task48h_rate"), 1);
 	assert.equal(given<number>(k, "run15_actual_contact_rate"), 0.5);
 	assert.equal(value(run(5).values[committed]!), current);
+	assert.deepEqual(run(5).rates, { followUpWithin48Hours: 1, actualContact: 0.5 });
 	assert.equal(ok(await createFacts({ clock }).readFacts(c0.db, p.actor, {})).committedAdults.known, current);
 });
 const TREND_INDEX = (key: string) => c.TREND_FACTS.findIndex((t) => t.key === key);
