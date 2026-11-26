@@ -209,9 +209,7 @@ function Frame({
 			banner={banner}
 		>
 			<SettingsOpenerContext value={dialog.open}>
-				<EvryOpenerContext value={privatePage ? null : openEvry}>
-					{children}
-				</EvryOpenerContext>
+				<EvryOpenerContext value={privatePage ? null : openEvry}>{children}</EvryOpenerContext>
 			</SettingsOpenerContext>
 			<SettingsDialogContext value={dialog.parts}>
 				{settingsDialog ?? <ProductSettingsDialog seed={null} />}

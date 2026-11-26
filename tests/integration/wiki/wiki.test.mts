@@ -488,7 +488,9 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 	test("AC:CASE-WIKI-001 a Discovery account of any age reads the whole published global Wiki, not only the foundations", async () => {
 		const planter = await enroll("member", { kind: "account" });
 		await admin.execute(sql`INSERT INTO discovery(account_id) VALUES(${planter.id})`);
-		await admin.execute(sql`UPDATE auth_user SET created_at=clock_timestamp()-interval '3 years' WHERE id=${planter.user}`);
+		await admin.execute(
+			sql`UPDATE auth_user SET created_at=clock_timestamp()-interval '3 years' WHERE id=${planter.user}`,
+		);
 		const reader = await actor(planter);
 		const seen = new Set<string>();
 		for (let page = 1; page < 50; page++) {

@@ -18,7 +18,8 @@ export async function loadWritten(authority: RequestActor, raw: string): Promise
 		async () => {
 			const church = authority.actor.context.kind === "seat";
 			const shared = church ? await documentsWriter.read(db, authority, { documentId: id.data }) : null;
-			const mine = shared?.status === "ok" ? null : await documentsWriter.readMine(db, authority, { documentId: id.data });
+			const mine =
+				shared?.status === "ok" ? null : await documentsWriter.readMine(db, authority, { documentId: id.data });
 			const reply = shared?.status === "ok" ? shared : mine;
 			if (reply?.status !== "ok") return { status: "missing" };
 			if (reply.value.kind !== "native" && reply.value.kind !== "core_values") return { status: "missing" };

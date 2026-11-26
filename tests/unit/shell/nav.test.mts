@@ -46,5 +46,8 @@ test("a Discovery planter has a home, the Wiki and Documents, and sees the churc
 		],
 		guide: true,
 	});
-	assert.equal(shellNav({ context: "account", residencyLinked: false, discovery: true }).main[0]?.href, "/my-discovery");
+	assert.equal(
+		shellNav({ context: "account", residencyLinked: false, discovery: true }).main[0]?.href,
+		"/my-discovery",
+	);
 });
