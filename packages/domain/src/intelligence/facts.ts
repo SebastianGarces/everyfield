@@ -152,13 +152,12 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
 }
 
-const revisionOf = (inputs: FactInputs | Omit<FactInputs, "phase">) =>
+const revisionOf = (inputs: FactInputs | (Omit<FactInputs, "phase"> & { phase: undefined })) =>
 	createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
-const withoutPhase = (inputs: FactInputs): Omit<FactInputs, "phase"> =>
-	Object.fromEntries(Object.entries(inputs).filter(([key]) => key !== "phase")) as Omit<FactInputs, "phase">;
 
-export function revisionMatches(inputs: FactInputs, stored: string) {
-	return revisionOf(inputs) === stored || revisionOf(withoutPhase(inputs)) === stored;
+function revisionMatches(inputs: FactInputs, stored: string) {
+	const storedBeforePhase = { ...inputs, phase: undefined };
+	return revisionOf(inputs) === stored || revisionOf(storedBeforePhase) === stored;
 }
 
 export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.PlantFacts {

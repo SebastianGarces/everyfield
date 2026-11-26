@@ -1043,8 +1043,7 @@ async function mutateOwned(
 	);
 	const row = found[0];
 	if (!row?.ok || !row.found || !row.prior_revision) return "deny" as const;
-	const retriedDesignation = action === "designate" && row.retried && row.prior_kind === "core_values";
-	if (!sameRevision(row.prior_revision, expected) && !retriedDesignation) return "conflict" as const;
+	if (!sameRevision(row.prior_revision, expected) && !row.retried) return "conflict" as const;
 	if (action === "archive" && row.archived)
 		return ownedFrom(
 			{ ...row, id: row.found, kind: row.prior_kind ?? row.kind, revision: row.prior_revision },

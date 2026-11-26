@@ -5,7 +5,7 @@ import type {
 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { scriptedDraft } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 
-export type Reply = { text: string; usage?: { input: number; output: number } } | Error;
+type Reply = { text: string; usage?: { input: number; output: number } } | Error;
 
 export function fakeProvider(
 	reply: (params: LanguageModelV4CallOptions, n: number) => Reply,
