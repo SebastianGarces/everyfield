@@ -384,11 +384,11 @@
 						"tests": [
 							{
 								"file": "tests/integration/onboarding/onboarding.test.mts",
-								"name": "AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and phase commit together"
+								"name": "AC:DC-022 AC:DC-032 explicit journey allows 0..6 once with fixed reason; launch and phase commit together"
 							},
 							{
 								"file": "tests/integration/onboarding/onboarding.test.mts",
-								"name": "AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps"
+								"name": "AC:TARGET-IDN-015 AC:DC-030 unsure, discerning and skip preserve phase and launch; finish preserves real gaps"
 							}
 						],
 						"cases": ["DC-022", "TARGET-IDN-015"],
@@ -478,7 +478,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/onboarding/onboarding.test.mts",
-								"name": "AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps"
+								"name": "AC:TARGET-IDN-015 AC:DC-030 unsure, discerning and skip preserve phase and launch; finish preserves real gaps"
 							},
 							{
 								"file": "tests/integration/onboarding/onboarding.test.mts",

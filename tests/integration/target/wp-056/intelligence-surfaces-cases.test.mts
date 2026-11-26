@@ -25,7 +25,7 @@ const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
 const care = createPrivateCare();
 const CHECK_IN = `ni031-checkin-${randomUUID().slice(0, 8)}`;
-const BODY = `ni031-assessment-${randomUUID().slice(0, 8)}`;
+const BODY = `ni031-assessment-x${randomUUID().slice(0, 8)}`;
 const MANIFEST = [424242, 313131] as const;
 const canaries = [CHECK_IN, BODY, ...MANIFEST.map(String)];
 const drafter = () =>

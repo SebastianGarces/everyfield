@@ -24,6 +24,7 @@ import { gatedTransaction } from "../../../packages/domain/src/operations/writes
 import { DESCRIPTION_EXCERPT } from "../../../packages/contracts/src/tasks/index.ts";
 import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
 import { rejectsWithFault } from "./world.mts";
+import { caseOf } from "../target/sql/core/support.mts";
 
 type Who = { actor: RequestActor };
 type Row = Record<string, unknown>;
@@ -444,21 +445,73 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 the Owner accepts a subset dated from 
 	assert.deepEqual(ok(await read(d.owner, "readPhaseOffer", {})), { status: "none" });
 });
 
-test("AC:PHASE-CASE-006 a declined or accepted checklist never comes back in a later offer, but browse still lists it", async () => {
+test("AC:PHASE-CASE-006 a declined or accepted checklist never comes back in a later offer, a deleted task stays deleted, an edited one keeps its edits, and browse still lists it", async () => {
+	const k = caseOf("intelligence", "PHASE-CASE-006") as unknown as {
+		given: Record<string, { value: unknown }>;
+		expected: { result: Record<string, unknown> };
+	};
+	const given = <T,>(name: string) => k.given[name]!.value as T;
+	const expected = k.expected.result;
+	const phase = given<number>("phase");
+	const template = given<string>("offered_template");
+	assert.equal(given<string>("reading_source_entitlement"), "current");
 	const c = await church();
-	const first = await move(c, 2);
-	ok(await accept(c.owner, first.id, ["launch-date-planning"]));
+	const first = await move(c, phase);
+	const before = await footprint(c.w);
+	const offered = openOffer(ok(await read(c.owner, "readPhaseOffer", {})));
+	assert.equal(offered.checklists.length, given<number>("offered_rows"));
+	assert.ok(offered.checklists.some((x) => x.key === template));
+	assert.equal((await footprint(c.w)).tasks - before.tasks, expected.read_creates_tasks);
+	const answered = ok(await accept(c.owner, first.id, [template]));
+	const declined = answered.answer.declined;
+	assert.deepEqual(
+		declined,
+		offered.checklists.map((x) => x.key).filter((key) => key !== template),
+	);
+	const [t1, , t3] = answered.created;
+	assert.ok(t1 && t3);
+	ok(
+		await write(c.owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: t1.revision,
+			input: { taskId: t1.id, patch: { title: "Keep my edits" } },
+		}),
+	);
+	ok(
+		await write(c.owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: t3.revision,
+			input: { taskId: t3.id },
+		}),
+	);
 	await move(c, 3);
 	const third = ok(await read(c.owner, "readPhaseOffer", {}));
 	assert.equal(third.status, "open");
 	ok(await decline(c.owner, third.transition.id));
-	await move(c, 2);
-	assert.deepEqual(ok(await read(c.owner, "readPhaseOffer", {})), { status: "none" });
+	await move(c, phase);
+	const snapshot = () =>
+		rows<{ id: string; title: string; deleted_at: string | Date | null }>(
+			sql`SELECT id,title,deleted_at,revision::text FROM task WHERE plant_id=${c.w.id} ORDER BY id`,
+		);
+	const kept = await snapshot();
+	const again = ok(await read(c.owner, "readPhaseOffer", {}));
+	assert.deepEqual(again, { status: "none" });
+	assert.equal(JSON.stringify(again).includes(declined[0]!), expected.declined_T2_present);
+	assert.deepEqual(await snapshot(), kept);
+	assert.equal(kept.length - answered.created.length, expected.read_creates_tasks);
+	assert.equal(kept.find((r) => r.id === t1.id)?.title === "Keep my edits", expected.edited_T1_preserved);
+	assert.notEqual(kept.find((r) => r.id === t3.id)?.deleted_at, null);
+	const listed = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.owner.actor, { limit: 100 })));
+	assert.equal(
+		listed.items.some((t) => t.id === t3.id),
+		expected.deleted_T3_present,
+	);
+	assert.equal(listed.items.find((t) => t.id === t1.id)?.title, "Keep my edits");
 	await move(c, 3);
 	assert.deepEqual(ok(await read(c.owner, "readPhaseOffer", {})), { status: "none" });
 	await move(c, 4);
 	assert.deepEqual(
-		openOffer(ok(await read(c.owner, "readPhaseOffer", {}))).checklists.map((k) => k.key),
+		openOffer(ok(await read(c.owner, "readPhaseOffer", {}))).checklists.map((x) => x.key),
 		["promotion-campaign", "pre-launch-services", "final-preparation"],
 	);
 	assert.equal(ok(await read(c.owner, "listTemplates", {})).checklists.length, 20);

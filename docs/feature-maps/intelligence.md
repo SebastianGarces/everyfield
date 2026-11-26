@@ -260,7 +260,7 @@ Saving four answers records this week, which then offers a correction in the str
 - Operations: privateCare.save
 - Catalog: PI-038, PI-041
 - Test: `tests/integration/intelligence/care.test.mts`: `AC:B03-024 AC:PI-CARE-001 a save changes this week only, a same answer adds nothing and a key replays`
-- Test: `tests/integration/intelligence/care.test.mts`: `AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author and the earlier answer`
+- Test: `tests/integration/intelligence/care.test.mts`: `AC:B03-026 a correction keeps the week, its zone and author and the earlier answer`
 - Browser, behavior proof (acts and checks the result), from state this-week:
 
 ```bash
