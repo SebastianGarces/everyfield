@@ -122,7 +122,12 @@ export function recorded(
 	};
 }
 
-export function retracted(entry: ReadinessEntry, today: string, authorName: string, recordedAt: string): ReadinessEntry {
+export function retracted(
+	entry: ReadinessEntry,
+	today: string,
+	authorName: string,
+	recordedAt: string,
+): ReadinessEntry {
 	return {
 		...entry,
 		state: "retracted",
@@ -187,7 +192,7 @@ export const KIND_LABEL: Record<ReadinessRevision["kind"], string> = {
 	retracted: "Retracted",
 };
 export function noteLine(entry: Pick<ReadinessEntry, "key" | "statement" | "reference">): string | null {
-	const note = entry.key === "worship_agreement" ? entry.statement : entry.reference;
+	const note = noteOf(entry);
 	return note ? `${READINESS[entry.key].note}: ${note}` : null;
 }
 
@@ -213,9 +218,6 @@ export function readinessRefusal(error: SignalError | null): string {
 	}
 }
 
-export const stale = (error: SignalError | null) =>
-	error?.code === "revision_conflict" || error?.code === "not_current";
-
 export type Failure = { text: string; stale: boolean };
 
 export async function settleWrite(
@@ -230,7 +232,10 @@ export async function settleWrite(
 	if (result.status !== "ok") {
 		apply((v) => withReadiness(v, entry));
 		const error = result.status === "refused" ? result.error : null;
-		return { text: readinessRefusal(error), stale: stale(error) };
+		return {
+			text: readinessRefusal(error),
+			stale: error?.code === "revision_conflict" || error?.code === "not_current",
+		};
 	}
 	const confirmed = result.value.attestation;
 	apply((v) => withReadiness(v, confirmed, historyLine(confirmed, kind, entry)));

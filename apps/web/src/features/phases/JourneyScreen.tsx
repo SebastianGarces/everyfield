@@ -34,10 +34,11 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState, type ComponentProps } from "react";
+import { useRef, useState } from "react";
 import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import { FactsSection } from "../intelligence/FactsSection.tsx";
 import { ReadinessSection } from "../intelligence/ReadinessSection.tsx";
+import type { ReadinessView } from "../intelligence/readiness-model.ts";
 import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
 import { declarePhase, movePhase } from "./actions.ts";
 import {
@@ -68,7 +69,7 @@ type Props = {
 	readiness: Readiness[];
 	facts: PlantFacts;
 	launchDates: HistoryEntry[];
-	attested: ComponentProps<typeof ReadinessSection>["initial"];
+	attested: ReadinessView;
 	viewer: Viewer;
 };
 
