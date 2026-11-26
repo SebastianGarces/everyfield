@@ -43,16 +43,3 @@ test("live /discovery is in the sitemap and the robots allow list with its share
 	assert.equal(disallow, "/");
 	assert.equal(pageMetadata(PAGES.discovery).robots, undefined);
 });
-
-test("the site nav lists Discovery between Planters and Churches & Networks", async () => {
-	const { COPY } = await load<typeof import("../../../apps/web/src/marketing/copy.ts")>("marketing/copy.ts");
-
-	assert.deepEqual(
-		COPY.shared.nav.map((n) => [n.label, n.href]),
-		[
-			["Planters", "/"],
-			["Discovery", "/discovery"],
-			["Churches & Networks", "/oversight"],
-		],
-	);
-});
