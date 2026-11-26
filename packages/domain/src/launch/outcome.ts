@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import { auditTransaction } from "../operations/writes.ts";
-import { personChanges } from "../people/core.ts";
+import { peopleValues } from "../people/core.ts";
 import { columnsChanged, newPerson } from "../people/people.ts";
 import {
 	deny,
@@ -367,7 +367,7 @@ export function outcomeCommands(clock: Clock) {
 							adultClassification: "unknown",
 						},
 					);
-					const created = personChanges(undefined, row).after;
+					const created = peopleValues(undefined, row).after;
 					const personOp = randomUUID();
 					const { rows } = await tx.execute(
 						link(

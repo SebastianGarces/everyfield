@@ -113,8 +113,9 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
   WHERE l.tenant_id=m.tenant_id AND l.unmerged_at IS NOT NULL AND l.id<>m.id AND l.merged_at>=m.merged_at
   AND m.survivor_id IN (l.source_id,l.survivor_id)),
  'added_to_moved',${addedToMoved},
- 'edited',(SELECT coalesce(jsonb_agg(DISTINCT k),'[]') FROM audit_event e
-  CROSS JOIN LATERAL jsonb_object_keys(coalesce(e.before_value,'{}')||coalesce(e.after_value,'{}')) k
+ 'edited',(SELECT coalesce(jsonb_agg(DISTINCT k.key),'[]') FROM audit_event e
+  CROSS JOIN LATERAL (SELECT jsonb_object_keys(coalesce(e.before_value,'{}')||coalesce(e.after_value,'{}'))
+   UNION SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(e.after_value->'fields')='array' THEN e.after_value->'fields' ELSE '[]' END)) k(key)
   WHERE e.tenant_id=m.tenant_id AND e.subject_id=m.survivor_id AND e.recorded_at>m.merged_at
   AND e.action IN ('people.updated','people.stage_changed','people.recorded','people.corrected')))
  FROM person_merge m WHERE m.id=${mergeId}::uuid AND m.tenant_id=${owner}::uuid) AS merge,

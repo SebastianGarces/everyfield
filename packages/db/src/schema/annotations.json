@@ -14657,12 +14657,14 @@
 					}
 				},
 				"article_id->reference_item(id)": {
+					"scope_exception": "A reading pins an article of the global library or of the organization's own Wiki, never another owner's. The program-plan save in programs.ts takes the article from a published revision whose tenant_id is the global library or the organization. The row grants no library access.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
 					}
 				},
 				"revision_id->article_revision(id)": {
+					"scope_exception": "A reading pins a published revision of the global library or of the organization's own Wiki, never another owner's. The program-plan save in programs.ts accepts a revision only when its tenant_id is the global library or the organization. The row grants no library access.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
@@ -15069,7 +15071,7 @@
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
 					}
 				},
-				"staff_seat_id->seat(id)": {
+				"staff_seat_id,organization_id->seat(id,organization_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."

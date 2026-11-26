@@ -106,8 +106,7 @@ export function profileOperations(
 					.from(tables.plant_geography)
 					.where(eq(tables.plant_geography.plant_id, selected.id))
 					.orderBy(desc(tables.plant_geography.effective_at), desc(tables.plant_geography.id))
-					.limit(1)
-					.for("update");
+					.limit(1);
 				await tx.insert(tables.plant_geography).values({
 					plant_id: selected.id,
 					city: q.input.locality.city,

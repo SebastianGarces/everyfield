@@ -24,6 +24,7 @@ export async function resendWebhook(
 			return safeResponse({ code: "invalid_signature" }, 401);
 		}
 		const result = await applyMailCallback(resolveDb(), bytes, key);
+		if (result.result === "invalid") throw new Refusal("invalid_input", 400);
 		return safeResponse(result, result.result === "pending" ? 202 : 200);
 	});
 }
