@@ -221,8 +221,8 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	assert.deepEqual(
 		(await audit(alex.id)).filter((a) => a.kind !== "create").map((a) => [a.kind, a.after_value]),
 		[
-			["edit", { tags: ["family"] }],
-			["edit", { tags: ["family", "North  side"] }],
+			["edit", { fields: ["tags"] }],
+			["edit", { fields: ["tags"] }],
 			["noop", null],
 		],
 	);
@@ -329,7 +329,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	assert.deepEqual([ok(await remove()).tags, ok(await remove()).outcome], [[], "noop"]);
 	assert.equal(
 		(await audit(alex.id)).filter((a) => JSON.stringify(a.after_value ?? "").includes("North  side")).length,
-		2,
+		0,
 	);
 });
 
@@ -464,7 +464,7 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 	);
 	assert.deepEqual(
 		(await audit(alex.id)).filter((a) => a.after_value?.skill === null).map((a) => a.before_value),
-		[{ skill: { id: hospitality.id, name: "Hospitality", category: "other", proficiency: null, notes: null } }],
+		[{ skill: { id: hospitality.id, category: "other", proficiency: null } }],
 	);
 });
 
@@ -762,8 +762,8 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			.filter((a) => a.household)
 			.map((a) => [a.action, a.household?.from?.role ?? null, a.household?.to?.name, a.household?.to?.role]),
 		[
-			["updated", "child", "Rivera household", "other"],
-			["updated", null, "Rivera household", "child"],
+			["updated", "child", "a deleted household", "other"],
+			["updated", null, "a deleted household", "child"],
 		],
 	);
 	assert.equal((await audit(h.id)).at(-1)!.action, "people.retired");

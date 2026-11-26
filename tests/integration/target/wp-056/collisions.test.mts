@@ -193,7 +193,13 @@ for (const [name, kind] of Object.entries(KINDS)) {
 		assert.deepEqual([after.values[shared], after.values[theirs]], [MINE, "First notes"]);
 		assert.deepEqual((await writers(id)).slice(-2), [first.id, second.id]);
 		const last = await beforeValues(id);
-		assert.ok(last.before?.includes(SAVED) && last.after?.includes(MINE), JSON.stringify(last));
+		if (kind.table === "person")
+			assert.deepEqual(
+				[JSON.parse(last.before ?? "null"), JSON.parse(last.after ?? "null")],
+				[{}, { fields: [kind.columns[shared]] }],
+				"a person audit row names the changed field and holds no value",
+			);
+		else assert.ok(last.before?.includes(SAVED) && last.after?.includes(MINE), JSON.stringify(last));
 	});
 
 	test(`INV-collision ${name}: the second admin keeps the saved version and nothing more is written`, async () => {
