@@ -222,8 +222,8 @@ Picking the phase the church is already in and a launch answer saves both togeth
 - Operations: onboarding.declareJourney
 - Catalog: IDN-015
 - Cases: DC-022, TARGET-IDN-015
-- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and phase commit together`
-- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps`
+- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:DC-022 AC:DC-032 explicit journey allows 0..6 once with fixed reason; launch and phase commit together`
+- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-015 AC:DC-030 unsure, discerning and skip preserve phase and launch; finish preserves real gaps`
 - Browser, behavior proof (acts and checks the result), from state journey:
 
 ```bash
@@ -259,7 +259,7 @@ Finish setup records completion and keeps real gaps; a returning Owner picks up 
 - Operations: onboarding.complete, onboarding.getResume
 - Catalog: IDN-015
 - Cases: TARGET-IDN-015
-- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps`
+- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-015 AC:DC-030 unsure, discerning and skip preserve phase and launch; finish preserves real gaps`
 - Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume uses only actual current plant values`
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state owner-finished:
 

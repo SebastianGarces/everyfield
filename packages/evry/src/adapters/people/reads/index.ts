@@ -96,7 +96,7 @@ const matchFields = (m: Match) => ({
 });
 const PAGE = 24;
 const CHURCH_WIDE =
-	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name this page's people, say how many of the total they are and offer the next page under the same filter.";
+	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name every one of this page's people, say they are onThisPage of the total and offer the next page under the same filter. Any number you give for this page is onThisPage: never count the names yourself.";
 const CHILD_NOTE =
 	"Say that people with no adult or child recorded aren't counted. A household no page names has no child recorded.";
 const MOVE_NOTE =
@@ -159,6 +159,7 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			...(everyone && {
 				facts: {
 					peopleInChurch: everyone.value.total,
+					onThisPage: page.items.length,
 					...(page.next !== null && page.total !== null && { pages: Math.ceil(page.total / limit) }),
 					note: [
 						CHURCH_WIDE,

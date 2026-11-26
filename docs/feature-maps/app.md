@@ -25,6 +25,9 @@ flowchart LR
   s2 -.- s2_st0(("visitor"))
   s3["app.discovery-page<br/>/discovery"]
   s3_link0 --> s3
+  s1 -- "link #quot;Discovery#quot;" --> s3
+  s1 -- "link #quot;Start with Discovery, free.#quot;" --> s3
+  s2 -- "link #quot;Send them to Discovery, free.#quot;" --> s3
   s3 -.- s3_st0(("visitor"))
   s4["app.access-request<br/>/access"]
   s1 -- "link #quot;Request early access#quot;" --> s4
@@ -144,7 +147,7 @@ agent-browser find role link text --name "Talk to us about your network" --exact
 
 ### app.discovery-page
 
-The public page for planters still discerning a call: Discovery is always free, a four-tab tour of sample Discovery screens (Wiki, Documents, Templates, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Nothing links to it yet.
+The public page for planters still discerning a call: Discovery is always free, a four-tab tour of sample Discovery screens (Wiki, Documents, Templates, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.
 
 - Routes: `/discovery`
 - Personas: `visitor` read
@@ -153,6 +156,26 @@ The public page for planters still discerning a call: Discovery is always free, 
 Reach:
 
 - Link `/discovery`
+- From app.home as `visitor`:
+
+```bash
+agent-browser find role link click --name "Discovery" --exact
+agent-browser wait --load networkidle
+```
+
+- From app.home as `visitor`:
+
+```bash
+agent-browser find role link click --name "Start with Discovery, free." --exact
+agent-browser wait --load networkidle
+```
+
+- From app.oversight-page as `visitor`:
+
+```bash
+agent-browser find role link click --name "Send them to Discovery, free." --exact
+agent-browser wait --load networkidle
+```
 
 States:
 
@@ -328,7 +351,7 @@ agent-browser find role heading text --name "Your requests" --exact
 
 ### app.site-files
 
-The files search engines and phones fetch from the public site: robots.txt allows only the live public pages and their share images and points to the sitemap, the sitemap lists the five public pages, and the Apple touch icon is a 180 px PNG.
+The files search engines and phones fetch from the public site: robots.txt allows only the live public pages and their share images and points to the sitemap, the sitemap lists the six public pages, and the Apple touch icon is a 180 px PNG.
 
 - Routes: none
 - Endpoints: `/robots.txt`, `/sitemap.xml`, `/apple-icon`

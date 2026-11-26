@@ -239,3 +239,5 @@ export async function command<T>(
 	return change.value;
 }
 export const next = (revision: string) => String(BigInt(revision) + 1n);
+export const churchDate = (plantId: string) =>
+	sql`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id = ${plantId}::uuid))::date`;

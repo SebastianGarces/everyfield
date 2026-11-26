@@ -410,9 +410,11 @@ test("INV-account-wiki: an account browses and searches only published public ar
 	assert.deepEqual(await reading(), before);
 });
 
-test("INV-account-document: a document an account asks Evry to write is stored only on approval, word for word, as one private document", async () => {
+test("AC:DC-026 INV-account-document: a document an account asks Evry to write is stored only on approval, word for word, as one private document", async () => {
 	const A = await person();
 	const before = await everyDocument();
+	const none = { plant_grants: 0, organization_grants: 0, new_reading_credit: 0 };
+	assert.deepEqual(await grants(A), none, "no church, so Evry holds no church grant");
 	const proposed = await reviewing(() =>
 		w.ask(A, "Write down why I want to plant", [
 			proposes("documents.saveNative", { kind: "new", title: "Why plant", text: "# Why\n\nFor the city.\n\n- Hope" }),
@@ -422,8 +424,9 @@ test("INV-account-document: a document an account asks Evry to write is stored o
 		["title", null, "Why plant"],
 		["text", null, "Why\n\nFor the city.\n\n• Hope"],
 	]);
-	assert.deepEqual(await everyDocument(), before);
-	assert.equal((await w.approve(A, proposed)).review.outcome, "completed");
+	assert.deepEqual(await everyDocument(), before, "the write waits for the exact review");
+	assert.equal((await w.approve(A, proposed)).review.outcome, "completed", "one approval is the only approval");
+	assert.deepEqual(await grants(A), none);
 	const [saved, ...more] = await documentsOf(A);
 	assert.deepEqual([saved!.title, saved!.kind, more], ["Why plant", "native", []]);
 	assert.deepEqual(readNative(saved!.body).body, {
