@@ -439,7 +439,7 @@
 	},
 	"branding/files.readBrandAsset": {
 		"limit": 8,
-		"retry": 4
+		"retry": 8
 	},
 	"branding/files.uploadBrandAsset": {
 		"limit": 13,
@@ -475,7 +475,8 @@
 		"limit": 1
 	},
 	"documents.download": {
-		"limit": 9
+		"limit": 9,
+		"retry": 9
 	},
 	"documents.editChurchTemplate": {
 		"limit": 1
@@ -491,7 +492,8 @@
 		"limit": 30,
 		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 8 read, 12 transaction, 6 locked read, 4 write. With no kit: 4 read, 4 transaction, 2 locked read, 4 write.",
 		"reads": "putPrivateObject locks the file row, then calls the caller's authorizer again so access that ended while it waited for that lock is refused. A locking SELECT reads every other table as of its start, before that wait, so the check cannot join the locking read.",
-		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. A brand kit adds one read per theme image, the logo and the cover photo at most, so the check repeats at most seven times."
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. A brand kit adds one read per theme image, the logo and the cover photo at most, so the check repeats at most seven times.",
+		"retry": 13
 	},
 	"documents.history.get": {
 		"limit": 1
@@ -520,7 +522,8 @@
 	"documents.reconcileOrphans": {
 		"limit": 13,
 		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write.",
-		"reads": "deleteUnreferencedObject locks the file row, then asks file_is_referenced, so a reference committed by a transaction that held the lock is seen. A locking SELECT reads the reference tables as of its start, before that wait, so one statement could purge a file that just became referenced."
+		"reads": "deleteUnreferencedObject locks the file row, then asks file_is_referenced, so a reference committed by a transaction that held the lock is seen. A locking SELECT reads the reference tables as of its start, before that wait, so one statement could purge a file that just became referenced.",
+		"retry": 5
 	},
 	"documents.resolveContext": {
 		"limit": 1
@@ -556,7 +559,7 @@
 	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
-		"retry": 5,
+		"retry": 8,
 		"reason": "A public request with no session or seat to gate it. The outbound-mail kill switch read (T-472; with the switch off it is the whole request); BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; one statement counts the email's and the network key's attempts inside their rate windows; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after the count: 6 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write."
 	},
 	"feedback.admin.changeStatus": {
@@ -644,8 +647,9 @@
 	},
 	"identity.handle:resume-registration": {
 		"limit": 13,
-		"retry": 7,
-		"reason": "RT-6a: the session read (3: Better Auth's adapter reads of the session and its user, then readIdentitySession's account read with its lifecycle check in one statement) and invitations.resume (10, see that entry). Its largest first run: 2 transaction, 5 locked read, 4 read, 2 write."
+		"retry": 13,
+		"reason": "RT-6a: the session read (3: Better Auth's adapter reads of the session and its user, then readIdentitySession's account read with its lifecycle check in one statement) and invitations.resume (10, see that entry). A required write that fails in the last statement rolls back the whole run, so a retry can send as many as a first run. Its largest first run: 2 transaction, 5 locked read, 4 read, 2 write.",
+		"reads": "The workspace's seat advisory lock is taken with the invitation read, before any row lock; then one statement locks the workspace, the invitation and the account. A locking SELECT reads every other table as of its start, so only a statement that starts after the advisory lock sees what its last holder committed."
 	},
 	"identity.handle:revoke-other-sessions": {
 		"limit": 8,
@@ -884,7 +888,7 @@
 	},
 	"meetings.schedule": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"meetings.setAttendance": {
 		"limit": 2
@@ -902,11 +906,12 @@
 	},
 	"meetings/core.withMeetingsWrite": {
 		"limit": 5,
-		"retry": 9
+		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:meetings.finalizeAttendance": {
-		"limit": 6,
-		"retry": 11
+		"limit": 7,
+		"retry": 11,
+		"reason": "meetings.finalizeAttendance in its native write: BEGIN and COMMIT around the gate, the locked read and the one write, and the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10) for the dated, assigned follow-ups it makes. Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
 		"limit": 6,
@@ -914,7 +919,7 @@
 	},
 	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {
 		"limit": 5,
-		"retry": 9
+		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance": {
 		"limit": 5
@@ -1235,7 +1240,8 @@
 	"onboarding.answerLead": {
 		"limit": 13,
 		"retry": 7,
-		"reason": "Above the pattern: the lead role and Senior pastor fill write team rows. The answer, both revisions and the saved time share one plant UPDATE. Its largest first run: 2 transaction, 3 locked read, 1 read, 7 write."
+		"reason": "Above the pattern: the lead role and Senior pastor fill write team rows. The answer, both revisions and the saved time share one plant UPDATE. Its largest first run: 2 transaction, 3 locked read, 1 read, 7 write.",
+		"reads": "A yes that reuses an existing role locks the reviewed team, then its role, then the role's open tenure, checking each one's revision before the next. Each locking SELECT starts after the wait for the row before it, so it sees what the last holder of that lock committed."
 	},
 	"onboarding.complete": {
 		"limit": 7,
@@ -1325,14 +1331,16 @@
 	"people.changeStatus": {
 		"limit": 8,
 		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, the person locked, one locked read of its open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), and one statement with the stage change and its audit. Its largest first run: 1 transaction, 4 locked read, 3 write.",
-		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock."
+		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock.",
+		"retry": 5
 	},
 	"people.correctAdultClassification": {
 		"limit": 6,
 		"retry": 5
 	},
 	"people.correctCommitmentLifecycle": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"people.correctPersonRecord": {
 		"limit": 6,
@@ -1366,7 +1374,8 @@
 		"retry": 5
 	},
 	"people.deleteNote": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"people.deleteTag": {
 		"limit": 4
@@ -1493,7 +1502,8 @@
 	},
 	"people/core.withPeopleWrite:people.changeStatus": {
 		"limit": 9,
-		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 3 write."
+		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 3 write.",
+		"retry": 8
 	},
 	"people/core.withPeopleWrite:people.removeFromHousehold": {
 		"limit": 7,
@@ -1502,7 +1512,8 @@
 	},
 	"people/core.withPeopleWrite:people.retirePerson": {
 		"limit": 10,
-		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 4 write."
+		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 4 write.",
+		"retry": 5
 	},
 	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
 		"limit": 5,
@@ -1590,7 +1601,8 @@
 		"retry": 4
 	},
 	"pipeline.restorePerson": {
-		"limit": 4
+		"limit": 4,
+		"retry": 4
 	},
 	"pipeline.retirePerson": {
 		"limit": 4,
@@ -1632,8 +1644,8 @@
 		"reads": "On a release already saved, the release lock returns its id and verifyStored's re-read of what is stored under it (versions, then articles, then passages) passes that id. That re-read is the one check both paths share; on a new release it follows install's writes, so folding it into the lock would mean a second copy of it, or cutting the install path's statements as well."
 	},
 	"reference.rebuildEmbeddings": {
-		"limit": 23,
-		"reason": "Activates through reference.promote, after one write that adds the provider's reported tokens to embedding_spend. Its largest first run: 4 transaction, 4 locked read, 7 read, 8 write."
+		"limit": 21,
+		"reason": "Activates through reference.promote, after the publisher check and one write that adds the provider's reported tokens to embedding_spend. Its largest first run: 2 transaction, 4 locked read, 7 read, 8 write."
 	},
 	"seats.appointAdmin": {
 		"limit": 6
@@ -1663,15 +1675,17 @@
 		"reads": "2 reads in a row (the restricted proof read, then each open seat's contact): the contacts are read only after the deletion machine in code allows the cancel, so a cancel that is already done, at a stale revision or past its deadline returns without reading every member's address. Folding the contacts into the proof read would copy the machine's guards into SQL, and the status read shares that proof read without needing any contact."
 	},
 	"settings.changePassword": {
-		"limit": 13,
-		"reason": "The session read with its seats and the user's profile read; the attempt-budget reserve; Better Auth's session, user and password account reads; its transaction reads the sessions, deletes them, updates the password and inserts the new session; then the attempt's second budget statement. Better Auth owns the credentials, so its statements stay its own. Its largest first run: 2 transaction, 6 read, 5 write."
+		"limit": 14,
+		"reason": "The session read with its seats and the user's profile read; the attempt-budget reserve; Better Auth's session, user and password account reads; its transaction reads the sessions, deletes them, updates the password and inserts the new session; then the attempt's second budget statement and one statement with the audit and the security mail. Better Auth owns the credentials, so its statements stay its own. Its largest first run: 2 transaction, 6 read, 6 write.",
+		"retry": 12
 	},
 	"settings.confirmEmailChange": {
 		"limit": 8,
 		"reason": "The session read with its seats and the user's profile read; the email proof consumed; Better Auth's user, session and new-address reads and its user update; one statement with the audit. Better Auth owns the user row, so its statements stay its own. Its largest first run: 5 read, 3 write."
 	},
 	"settings.finalizeAvatar": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"settings.openAccountDeletion": {
 		"limit": 9,
@@ -1688,7 +1702,8 @@
 	},
 	"settings.previewPlantTimezone": {
 		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the clock read for the preview's expiry, the church's dated tasks locked (the preview lists the due dates the change moves), then the preview insert. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the clock read for the preview's expiry, the church's dated tasks locked (the preview lists the due dates the change moves), then the preview insert. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"retry": 4
 	},
 	"settings.removeAvatar": {
 		"limit": 5
@@ -1699,7 +1714,8 @@
 		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the sole-owner check locked, the witness insert, the subject suspended by its database function, then one statement with the purge job and its audit. A refused request rolls back after the check: 5 statements. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write."
 	},
 	"settings.requestAvatarUpload": {
-		"limit": 4
+		"limit": 4,
+		"retry": 2
 	},
 	"settings.requestEmailChange": {
 		"limit": 13,
@@ -1707,7 +1723,7 @@
 	},
 	"settings.requestWorkspaceDeletion": {
 		"limit": 9,
-		"retry": 3,
+		"retry": 5,
 		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the church and then its current witness with the open-request check, the witness insert, the workspace suspended by its database function, one read gives each open seat's contact, then one statement with the purge job, the notices (T-272) and the audit. Through the settings producer the app mounts, the request-key claim is not sent: 8 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"settings.saveChurch": {
@@ -1727,7 +1743,7 @@
 	},
 	"settings.saveSection:organization": {
 		"limit": 5,
-		"retry": 3
+		"retry": 4
 	},
 	"settings.saveSection:plant": {
 		"limit": 5,
@@ -1747,7 +1763,8 @@
 		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the preview at its expected revision and then the church's dated tasks (their due dates move with the zone), the reminder job planned, then one statement with the church change, the moved tasks and the audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"settings.updatePlantProfile": {
-		"limit": 4
+		"limit": 4,
+		"retry": 2
 	},
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,
@@ -1767,13 +1784,13 @@
 		"limit": 2
 	},
 	"tasks.bulkComplete": {
-		"limit": 4
+		"limit": 5
 	},
 	"tasks.bulkReschedule": {
-		"limit": 2
+		"limit": 4
 	},
 	"tasks.changeStatus": {
-		"limit": 2
+		"limit": 3
 	},
 	"tasks.complete": {
 		"limit": 4
@@ -1800,7 +1817,7 @@
 		"limit": 4
 	},
 	"tasks.importTemplate": {
-		"limit": 2
+		"limit": 4
 	},
 	"tasks.removeSubtask": {
 		"limit": 2
@@ -1815,7 +1832,7 @@
 		"limit": 2
 	},
 	"tasks.waive": {
-		"limit": 2
+		"limit": 3
 	},
 	"tasks.listTemplates": {
 		"limit": 1
@@ -1842,15 +1859,17 @@
 	},
 	"teams.archive": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"teams.assignRole": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"teams.attestCompletion": {
-		"limit": 6,
-		"retry": 5
+		"limit": 8,
+		"retry": 5,
+		"reason": "A ministry's linked leader attests: BEGIN, the gate, the read of the program's team, the read that the caller leads it, the receipt read, the locked training read, one write and COMMIT. An Owner or Admin needs neither authority read. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "The program's team is read before the caller can be judged as that team's linked leader, so the leader read takes the team id the first read returned. An Owner or Admin sends neither."
 	},
 	"teams.completeResponsibility": {
 		"limit": 7,
@@ -1866,15 +1885,17 @@
 		"retry": 6
 	},
 	"teams.create": {
-		"limit": 6
+		"limit": 6,
+		"retry": 3
 	},
 	"teams.createProgram": {
 		"limit": 6,
 		"retry": 5
 	},
 	"teams.createRole": {
-		"limit": 6,
-		"retry": 5
+		"limit": 7,
+		"retry": 5,
+		"reason": "A ministry's linked leader adds a role: BEGIN, the gate, the read that the caller leads the ministry, the receipt read, the locked ministry read, one write and COMMIT. An Owner or Admin needs no leader read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.deleteResponsibility": {
 		"limit": 7,
@@ -1900,7 +1921,7 @@
 	},
 	"teams.initialize": {
 		"limit": 6,
-		"retry": 4
+		"retry": 6
 	},
 	"teams.listResponsibilities": {
 		"limit": 1
@@ -1910,13 +1931,14 @@
 	},
 	"teams.offerResponsibilities": {
 		"limit": 6,
-		"retry": 5
+		"retry": 6
 	},
 	"teams.previewResponsibilities": {
 		"limit": 1
 	},
 	"teams.reactivateMembership": {
-		"limit": 6
+		"limit": 6,
+		"retry": 4
 	},
 	"teams.readPersonTraining": {
 		"limit": 1
@@ -1941,7 +1963,8 @@
 		"retry": 5
 	},
 	"teams.restore": {
-		"limit": 6
+		"limit": 6,
+		"retry": 6
 	},
 	"teams.retireRole": {
 		"limit": 7,
@@ -1955,7 +1978,8 @@
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,
 		"retry": 8,
-		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "The program is locked before its current roster is read, so a save that waited for the lock reads the roster the earlier save left. One statement would read the roster from a snapshot taken before the lock."
 	},
 	"venues.archive": {
 		"limit": 6
@@ -2026,7 +2050,7 @@
 	},
 	"wiki.updateProgress": {
 		"limit": 5,
-		"retry": 3
+		"retry": 9
 	},
 	"wiki.getMine": {
 		"limit": 1
@@ -2041,13 +2065,16 @@
 		"limit": 5
 	},
 	"wiki.editOrganizationArticle": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"wiki.hideOrganizationArticle": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"wiki.publishOrganizationArticle": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"wiki.emitUpstreamReview": {
 		"limit": 5
@@ -2233,7 +2260,8 @@
 		"reason": "A forward move with connected sending churches or networks queues their phase-advance notices in the move's transaction through the notification service (NTF-009): BEGIN, the move, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. Every other move sends BEGIN, the move and COMMIT. Its largest first run: 2 transaction, 3 locked read, 3 write."
 	},
 	"teams.removeRole": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"teams.readHealth": {
 		"limit": 1
@@ -2264,6 +2292,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.endEnrollment": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.enroll": {
 		"limit": 4,
 		"retry": 4
@@ -2280,13 +2312,17 @@
 		"limit": 5,
 		"retry": 5
 	},
+	"programs.updateEnrollment": {
+		"limit": 4,
+		"retry": 4
+	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
 		"limit": 5,
 		"retry": 3
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {
-		"limit": 4,
-		"retry": 3
+		"limit": 5,
+		"retry": 4
 	},
 	"residency.markMilestone": {
 		"limit": 5,

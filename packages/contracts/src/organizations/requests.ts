@@ -102,10 +102,15 @@ export const updateOrganizationProfileRequest = commandEnvelope(
 		patch: profileFields.partial().refine((v) => Object.keys(v).length > 0),
 	}),
 );
+export const reportingLocality = z.strictObject({
+	city: boundedText,
+	stateProvince: boundedText,
+	country: boundedText,
+});
 export const correctReportingLocationRequest = commandEnvelope(
 	z.strictObject({
 		plant: plantOwner,
-		locality: z.strictObject({ city: boundedText, stateProvince: boundedText, country: boundedText }),
+		locality: reportingLocality,
 		referenceVersionId: recordId,
 		regionItemId: recordId.nullable(),
 	}),

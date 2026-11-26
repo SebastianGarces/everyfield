@@ -15,7 +15,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Hospitality live with roles/members/training; prior membership history",
       "given": {
         "P": {
@@ -307,7 +310,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Alex serves Worship and Hospitality; program-A complete and program-B assigned incomplete",
       "given": {
         "P": {
@@ -628,7 +634,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Alex leader of team-A with current same-plant seat; team-B foreign; roster Casey+Jamie",
       "given": {
         "P": {
@@ -856,7 +865,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Childrens team renamed Hospitality; source `templateKey` mentions child-care; Person has a source-only background field",
       "given": {
         "P": {
@@ -1135,7 +1147,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Core Group Alex unassigned; Casey already Leader; first live team membership",
       "given": {
         "P": {
@@ -4111,7 +4126,10 @@
         "WP-019",
         "WP-070"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "P in 2 roles/two selected teams, Q member, R leader; preview program T saved exact P/Q/R roster, then membership changes.",
       "given": {
         "P": {
@@ -4233,7 +4251,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Required assignments P/T, Q/T with only P compatible nonrevoked completion; unrelated earned R/T and repeated roles; empty/missing roster.",
       "given": {
         "P": {
@@ -4333,7 +4354,11 @@
         "WP-040",
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Add/remove/correct assignment episode, revoke/redo completion, stale bulk preview, fail mid-roster transaction and repeat.",
       "given": {
         "P": {
@@ -4459,7 +4484,11 @@
         "WP-044",
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Compare same as-of instant and source facts Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
       "given": {
         "P": {
@@ -4571,7 +4600,11 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/evry/adapters/teams/attestation.test.mts"
+      ],
       "description": "Person P dated human attestation covers 60 days of both attendance and volunteering with exact question/source/actor.",
       "given": {
         "P": {
@@ -4684,7 +4717,11 @@
         "WP-040",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/evry/adapters/teams/attestation.test.mts"
+      ],
       "description": "P has 90 day tenure/lifetime attendance/active role only; Q has dated observations plus unobserved attestation and corrected contradiction.",
       "given": {
         "P": {
@@ -4775,7 +4812,10 @@
         "WP-040",
         "WP-041"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts"
+      ],
       "description": "59 vs 60 day period, attendance only, volunteering only and incomplete/contradictory evidence.",
       "given": {
         "P": {
@@ -4912,7 +4952,11 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/evry/adapters/teams/attestation.test.mts"
+      ],
       "description": "Established 60 day participation with missing interview/4 Cs; ask for promotion/readiness/phase update.",
       "given": {
         "P": {
@@ -5013,7 +5057,12 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/evry/adapters/teams/attestation.test.mts",
+        "tests/evry/adapters/teams/teams.test.mts"
+      ],
       "description": "Native and exact-reviewed Evry roster/attestation commands, stale authority/version, model-generated testimony and org/care access.",
       "given": {
         "P": {
@@ -5097,7 +5146,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Rename a predefined team, create a custom same-display-name team, forming/active/paused lists, multi-role staffing and foreign IDs.",
       "given": {
         "P": {
@@ -5207,7 +5259,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Archive a staffed team with program, meeting and current duty; include archived list/chart; stale edit; restore and retry.",
       "given": {
         "P": {
@@ -5318,7 +5373,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Partial/custom setup, renamed predefined team, independent roles selected, no selection/cancel, stale version, two concurrent imports and selected occupied pastor role.",
       "given": {
         "P": {
@@ -5438,7 +5496,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Explicit leader plus another leadership role; remove role; linked seat revoked racing appointment; unlinked contact; candidate 101.",
       "given": {
         "P": {
@@ -5543,7 +5604,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Retire occupied role, explicit versus derived leader, nullable clear, foreign role references and two active occupants.",
       "given": {
         "P": {
@@ -5654,7 +5718,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "P in 2 roles/3 teams, competing Q for one slot, repeat P assignment, remove/reactivate, cross-team role and advanced Person.",
       "given": {
         "P": {
@@ -5775,7 +5842,10 @@
       "work_packages": [
         "WP-018"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/responsibilities/responsibilities.test.mts"
+      ],
       "description": "Read/preview before acceptance, select 2 lines then crash/retry, delete/edit, declined offer and later reference revision.",
       "given": {
         "P": {
@@ -5906,7 +5976,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Multi-role current member, required explicit roster, churchwide program, former earned completion, team archive and foreign completion.",
       "given": {
         "P": {
@@ -6027,7 +6100,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Complete→revoke→redo with original verifier/date, stale program update, repeat revoke and cross-tenant record.",
       "given": {
         "P": {
@@ -6150,7 +6226,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Person 101 with 2 roles, archived former team, active required assignment and former earned/revoked completion.",
       "given": {
         "P": {
@@ -6266,7 +6345,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "P fills 2 slots, two distinct members attended plus guest; 0 roles, missing training applicability, archived team and measured 0 attendance.",
       "given": {
         "P": {
@@ -6396,7 +6478,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "All/single team, renamed Leadership template, no Leadership/custom teams, archived option and 200 character unbroken names in both exports.",
       "given": {
         "P": {
@@ -6502,7 +6587,11 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts",
+        "tests/integration/teams/ministry.test.mts"
+      ],
       "description": "Schedule by own vs other leader, P in 2 roles, membership change after create, global/team views and training subtype.",
       "given": {
         "P": {
@@ -6633,7 +6722,10 @@
       "work_packages": [
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/whole-ministry.test.mts"
+      ],
       "description": "Request children’s check status through renamed template/CSV/Evry and request specialized safety/rotation operation.",
       "given": {
         "P": {
@@ -6737,7 +6829,10 @@
       "work_packages": [
         "WP-019"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Assignment/leadership from exact vs advanced stages, retry, required freshness-update failure, training scheduling without subscriber.",
       "given": {
         "P": {
@@ -6877,7 +6972,10 @@
         "WP-069",
         "WP-070"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "Team T contains P in 2 roles and Q; another team also contains P. Select both plus leaders for required program R, confirm P/Q exact roster, then Q leaves and Z joins; explicit remove/add, stale preview, revoke and redo P completion.",
       "given": {
         "P": {
@@ -7029,7 +7127,11 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/teams/training/attestation.test.mts",
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "description": "P has 90 days CRM tenure and membership but no period evidence; Q has 59 days attendance+serving; R has 60 dated days of both, including human-attested unobserved behavior; S has one behavior or a corrected conflicting record.",
       "given": {
         "P": {

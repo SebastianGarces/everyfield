@@ -1,16 +1,37 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
+import { NOTHING, recorded, untouched } from "../../support/recorded.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { afterSignIn, landingFor } from "../../../packages/contracts/src/identity/navigation.ts";
 import { dashboardReader, dashboardWriter } from "../../../packages/domain/src/dashboard/index.ts";
 
+type Case = {
+	id: string;
+	given: Record<string, Record<string, unknown>>;
+	clock: { now: string };
+	expected: { result: Record<string, unknown>; event: null };
+};
+const { cases } = JSON.parse(
+	readFileSync(new URL("../../../docs/acceptance/operations.json", import.meta.url), "utf8"),
+) as { cases: Case[] };
+const caseOf = (id: string) => cases.find((c) => c.id === id) ?? assert.fail(`no case ${id}`);
+const ADM_004 = caseOf("CASE-ADM-004");
+const ADM_005 = caseOf("CASE-ADM-005");
+assert.equal(ADM_004.clock.now, ADM_005.clock.now);
+
 const database = await fixture({
 	prefix: "dashboard",
 	max: 6,
-	plant: { name: "Harvest Point", timezone: "America/Chicago", onboarding_completed_at: sql`clock_timestamp()` },
+	clock: new Date(ADM_005.clock.now),
+	plant: {
+		name: "Harvest Point",
+		timezone: "America/Chicago",
+		onboarding_completed_at: sql`clock_timestamp()`,
+	},
 });
 const { admin, tenant, actors } = database;
 const db = database.pools.runtime;
@@ -80,12 +101,43 @@ async function audit(row: {
 }
 
 test("AC:CASE-ADM-004 home comes from the seat and the saved setup, never from the address", async () => {
+	const { result, event } = ADM_004.expected;
+	const input = ADM_004.given["case-input"]!;
+	assert.deepEqual(
+		[input.active_seat, input.discovery, input.client_onboarding_complete, input.server_onboarding_complete],
+		[null, true, true, false],
+	);
 	const discovery = await database.actor(null);
-	const plants = await one(sql`SELECT count(*)::int AS n FROM plant`);
-	const none = await dashboardReader.resolveHome(db, await authority(discovery));
-	assert.equal(none, "none");
-	assert.equal(landingFor({ status: "active", plant: none }), "/onboarding");
-	assert.deepEqual(await one(sql`SELECT count(*)::int AS n FROM plant`), plants);
+	const tenants = () =>
+		one(sql`SELECT (SELECT count(*) FROM plant)::int AS plants,(SELECT count(*) FROM organization)::int AS organizations,
+			(SELECT count(*) FROM seat)::int AS seats`);
+	const before = await tenants();
+	const { value: home, added } = await recorded(admin, () =>
+		untouched(admin, async () => {
+			const signedIn = await authority(discovery);
+			const plant = await dashboardReader.resolveHome(db, signedIn);
+			assert.deepEqual([plant], ["none"]);
+			assert.equal(landingFor({ status: "active", plant }), "/onboarding");
+			for (const returnTo of ["/home?onboarding=complete", "/home?returnTo=%2Foverview%3Fsetup%3Ddone"])
+				assert.equal(landingFor({ status: "active", plant, returnTo }), "/onboarding");
+			refused(await dashboardReader.readMetrics(db, signedIn), "access_denied");
+			refused(await dashboardReader.readSetupGaps(db, signedIn), "access_denied");
+			return {
+				effective_onboarding_complete: plant === "complete",
+				context: signedIn.actor.context.kind,
+			};
+		}),
+	);
+	assert.deepEqual(
+		{ ...home, phantom_tenant_created: JSON.stringify(await tenants()) !== JSON.stringify(before) },
+		{
+			effective_onboarding_complete: result.effective_onboarding_complete,
+			context: result.context,
+			phantom_tenant_created: result.phantom_tenant_created,
+		},
+	);
+	assert.deepEqual(added, NOTHING);
+	assert.equal(event, null);
 
 	const done = await dashboardReader.resolveHome(db, await authority(actors.owner));
 	assert.equal(done, "complete");
@@ -93,15 +145,28 @@ test("AC:CASE-ADM-004 home comes from the seat and the saved setup, never from t
 
 	const unfinished = await database.plant({ name: "Eastside", onboarding_completed_at: null });
 	const planter = await database.actor(unfinished, "owner");
-	const home = await dashboardReader.resolveHome(db, await authority(planter));
-	assert.equal(home, "incomplete");
+	const unfinishedHome = await dashboardReader.resolveHome(db, await authority(planter));
+	assert.equal(unfinishedHome, "incomplete");
+	assert.equal(ok(await dashboardReader.readSetupGaps(db, await authority(planter))).setupComplete, false);
 	for (const returnTo of ["/overview", "/overview?setup=done", "/people", "/home?returnTo=%2Fpeople"])
-		assert.equal(landingFor({ status: "active", plant: home, returnTo }), "/onboarding");
-	assert.equal(landingFor({ status: "active", plant: home, returnTo: "/invitation" }), "/invitation");
+		assert.equal(landingFor({ status: "active", plant: unfinishedHome, returnTo }), "/onboarding");
+	assert.equal(landingFor({ status: "active", plant: unfinishedHome, returnTo: "/invitation" }), "/invitation");
 	assert.equal(landingFor({ status: "active", plant: done, returnTo: "/people" }), "/people");
 	assert.equal(landingFor({ status: "active", plant: done, returnTo: "/home" }), "/overview");
 	assert.equal(afterSignIn("/people?x=1"), "/home?returnTo=%2Fpeople%3Fx%3D1");
 	assert.equal(afterSignIn("https://evil.example"), "/home");
+
+	const created = await database.plant({
+		name: "Phase one",
+		phase: 1,
+		onboarding_completed_at: sql`clock_timestamp()`,
+	});
+	const starter = await database.actor(created, "owner");
+	assert.equal(await dashboardReader.resolveHome(db, await authority(starter)), "complete");
+	assert.deepEqual(await one(sql`SELECT count(*)::int AS met FROM attestation WHERE plant_id=${created.id}`), {
+		met: 0,
+	});
+	assert.equal(ok(await dashboardReader.readSetupGaps(db, await authority(starter))).setupComplete, true);
 
 	const church = await database.organization("sending_church");
 	const reader = await database.actor(church, "owner");
@@ -112,6 +177,9 @@ test("AC:CASE-ADM-004 home comes from the seat and the saved setup, never from t
 });
 
 test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, live People, my overdue, held Vision Meetings", async () => {
+	const { result, event } = ADM_005.expected;
+	const inputs = ADM_005.given["behavior-inputs"]!;
+	assert.deepEqual([inputs.seat_people, inputs.recruited_people, inputs.A_tasks, inputs.B_tasks], [2, 30, 3, 5]);
 	const w = await database.plant({ name: "Harvest Point", timezone: "America/Chicago" });
 	const owner = await database.actor(w, "owner");
 	const other = await database.actor(w, "admin");
@@ -121,7 +189,7 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	const former = await database.actor(w, "member");
 	await run(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${former.id}`);
 	await person(w.id, { stage: "core_group", linked: former.id });
-	for (let i = 0; i < 27; i++) await person(w.id, { stage: ["core_group", "launch_team", "leader"][i % 3] });
+	for (let i = 0; i < 29; i++) await person(w.id, { stage: ["core_group", "launch_team", "leader"][i % 3] });
 	for (let i = 0; i < 110; i++) await person(w.id, { stage: i % 2 ? "prospect" : "attendee" });
 	await person(w.id, { stage: "core_group", state: "retired" });
 	await person(w.id, { stage: "leader", state: "merged" });
@@ -142,14 +210,21 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	await meeting(w.id, "completed", { type: "orientation" });
 
 	assert.deepEqual(ok(await dashboardReader.readMetrics(db, await authority(owner))), {
-		recruited: 28,
-		people: 140,
+		recruited: 30,
+		people: 142,
 		myOverdueTasks: 3,
 		visionMeetings: 4,
 	});
+	const mine = ok(await dashboardReader.readMetrics(db, await authority(owner)));
+	const theirs = ok(await dashboardReader.readMetrics(db, await authority(other)));
+	assert.equal(mine.recruited, result.recruited_count);
+	assert.equal(mine.myOverdueTasks, result.A_task_count);
+	assert.equal(theirs.myOverdueTasks, 5);
+	assert.equal(mine.myOverdueTasks > 3, result.other_assignee_in_A_count);
+	assert.equal(event, null);
 	const seen = ok(await dashboardReader.readMetrics(db, await authority(member)));
 	assert.equal(seen.myOverdueTasks, 1);
-	assert.equal(seen.recruited, 28);
+	assert.equal(seen.recruited, 30);
 
 	const owners = ok(await dashboardReader.readAvailableActions(db, await authority(owner)));
 	assert.deepEqual(owners.actions, ["add_person", "import_people", "plan_meeting"]);
@@ -158,6 +233,17 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	assert.deepEqual(members.actions, []);
 	assert.deepEqual(members.prompts, []);
 	assert.equal(members.role, "member");
+
+	await run(
+		sql`UPDATE person SET linked_account_id=NULL WHERE plant_id=${w.id} AND linked_account_id IN (${owner.id},${other.id})`,
+	);
+	const unlinked = ok(await dashboardReader.readMetrics(db, await authority(owner)));
+	assert.equal(
+		unlinked.recruited - mine.recruited,
+		result.seat_count,
+		"the seat people left out of the recruited count",
+	);
+	assert.equal(unlinked.people, 142);
 
 	const ended = await authority(member);
 	await run(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${member.id}`);

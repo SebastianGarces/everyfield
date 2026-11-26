@@ -116,7 +116,6 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 								key={g.key}
 								group={g.key === "portfolio" ? { ...g, label: words.levels.portfolio } : g}
 								rate={rate}
-								canRate={view.canRefresh}
 							/>
 						))
 					) : (
@@ -143,7 +142,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 
 type Rate = (pattern: IntelligencePattern, rating: "useful" | "not_useful") => void;
 
-function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate; canRate: boolean }) {
+function Group({ group, rate }: { group: IntelligenceGroup; rate: Rate }) {
 	const shared = group.rows.filter((r) => r.status === "shared").length;
 	const id = `group-${group.key.replace(/\W/g, "-")}`;
 	return (
@@ -159,7 +158,7 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 			{group.patterns.length ? (
 				<div className="mb-4 flex flex-col gap-3">
 					{group.patterns.map((p) => (
-						<Pattern key={p.key} pattern={p} rate={rate} canRate={canRate} />
+						<Pattern key={p.key} pattern={p} rate={rate} />
 					))}
 				</div>
 			) : (
@@ -216,7 +215,7 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 	);
 }
 
-function Pattern({ pattern, rate, canRate }: { pattern: IntelligencePattern; rate: Rate; canRate: boolean }) {
+function Pattern({ pattern, rate }: { pattern: IntelligencePattern; rate: Rate }) {
 	const text = patternText(pattern);
 	return (
 		<Card variant="callout" tone="amber" data-pattern={pattern.key}>
@@ -244,29 +243,27 @@ function Pattern({ pattern, rate, canRate }: { pattern: IntelligencePattern; rat
 				<b className="font-semibold text-ink">Suggested next step.</b> {text.nextStep}
 			</CalloutText>
 			<p className="mt-1 text-sm text-text-3">{text.evidence}</p>
-			{canRate ? (
-				<div className="mt-3 flex flex-wrap items-center gap-2">
-					<span className="text-sm text-text-2">Was this useful? Only you see your answer.</span>
-					<Button
-						size="sm"
-						variant={pattern.rating === "useful" ? "primary" : "secondary"}
-						aria-pressed={pattern.rating === "useful"}
-						onClick={() => rate(pattern, "useful")}
-					>
-						<Icon icon={ThumbsUpIcon} size={16} />
-						Useful
-					</Button>
-					<Button
-						size="sm"
-						variant={pattern.rating === "not_useful" ? "primary" : "secondary"}
-						aria-pressed={pattern.rating === "not_useful"}
-						onClick={() => rate(pattern, "not_useful")}
-					>
-						<Icon icon={ThumbsDownIcon} size={16} />
-						Not useful
-					</Button>
-				</div>
-			) : null}
+			<div className="mt-3 flex flex-wrap items-center gap-2">
+				<span className="text-sm text-text-2">Was this useful? Only you see your answer.</span>
+				<Button
+					size="sm"
+					variant={pattern.rating === "useful" ? "primary" : "secondary"}
+					aria-pressed={pattern.rating === "useful"}
+					onClick={() => rate(pattern, "useful")}
+				>
+					<Icon icon={ThumbsUpIcon} size={16} />
+					Useful
+				</Button>
+				<Button
+					size="sm"
+					variant={pattern.rating === "not_useful" ? "primary" : "secondary"}
+					aria-pressed={pattern.rating === "not_useful"}
+					onClick={() => rate(pattern, "not_useful")}
+				>
+					<Icon icon={ThumbsDownIcon} size={16} />
+					Not useful
+				</Button>
+			</div>
 		</Card>
 	);
 }

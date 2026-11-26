@@ -242,8 +242,8 @@ test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs
 	assert.deepEqual(
 		of("enrollment", jordan).map((r) => [r.program, r.status, r.cohort, r.started_on, r.program_stage]),
 		[
-			["Grace Apprenticeship", "active", "Fall 2026", "2026-10-01", "Assimilating"],
-			["Grace Residency", "active", "Fall 2026", "2026-10-01", "Assimilating"],
+			["Grace Apprenticeship", "Active", "Fall 2026", "2026-10-01", "Assimilating"],
+			["Grace Residency", "Active", "Fall 2026", "2026-10-01", "Assimilating"],
 		],
 	);
 	assert.deepEqual(
@@ -447,6 +447,7 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 			notes: 0,
 			conversations: 1,
 			enrollments: 1,
+			withdrawnEnrollments: 0,
 			milestoneMarks: 1,
 			feedback: 0,
 			residencyLinkEnded: false,
@@ -794,4 +795,96 @@ test("INV-concurrency: a seat removed or lowered after its actor was read, or lo
 			}),
 		),
 	);
+});
+
+test("AC:ADR1-005 the export names each enrollment's status plainly, and removal deletes a withdrawn enrollment, counts it as withdrawn and keeps a completed one", async () => {
+	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
+	const person = randomUUID();
+	ok(
+		await pipelineWriter.addPerson(db, await authority(dana), {
+			personId: person,
+			displayName: "Three Programs",
+			email: null,
+			responsibleSeatId: null,
+			stageId: board.stages[0]!.id,
+		}),
+	);
+	const enrolled: Record<string, string> = {};
+	for (const [status, programId] of [
+		["withdrawn", residency],
+		["completed", residency],
+		["active", residency],
+	] as const) {
+		const p = ok(await readProgram(db, await authority(dana), { programId }));
+		const enrollmentId = randomUUID();
+		enrolled[status] = enrollmentId;
+		ok(
+			await programWriter.enroll(db, await authority(dana), {
+				enrollmentId,
+				programId,
+				personId: person,
+				cohort: status,
+				startedOn: "2026-10-01",
+				expectedEndOn: "2027-12-31",
+				stageId: p.published!.stages[0]!.id,
+				nextMeetingAt: null,
+			}),
+		);
+		const [first, second] = p.published!.milestones;
+		ok(
+			await programWriter.recordMilestone(db, await authority(ana), {
+				enrollmentId,
+				milestoneId: first!.id,
+				completedOn: today,
+			}),
+		);
+		ok(
+			await programWriter.addFeedback(db, await authority(ana), {
+				feedbackId: randomUUID(),
+				enrollmentId,
+				milestoneId: second!.id,
+				body: `FEEDBACK ${status}`,
+			}),
+		);
+		if (status !== "active")
+			ok(
+				await programWriter.endEnrollment(db, await authority(ana), {
+					enrollmentId,
+					expectedRevision: "1",
+					outcome: status,
+				}),
+			);
+	}
+	const { text } = await exported();
+	const exportedRows = text.split("\r\n").filter((l) => l.startsWith("enrollment,") && l.includes("Three Programs"));
+	assert.deepEqual(
+		exportedRows.map((l) => ["Active", "Completed", "Withdrawn"].find((s) => l.includes(`,${s},`))).sort(),
+		["Active", "Completed", "Withdrawn"],
+	);
+
+	const report = ok(
+		await pipelineDataWriter.removePerson(db, await authority(dana), {
+			personId: person,
+			expectedRevision: (await record(person)).revision,
+		}),
+	);
+	assert.deepEqual(
+		[
+			report.removed.enrollments,
+			report.removed.withdrawnEnrollments,
+			report.removed.milestoneMarks,
+			report.removed.feedback,
+		],
+		[1, 1, 3, 3],
+	);
+	assert.deepEqual(report.kept[0], { category: "program_completion_count", count: 1 });
+	assert.deepEqual(await rows(sql`SELECT id,status FROM development_enrollment WHERE person_id=${person}`), [
+		{ id: enrolled.completed, status: "completed" },
+	]);
+	for (const id of Object.values(enrolled))
+		assert.deepEqual(
+			await rows(sql`SELECT (SELECT count(*) FROM enrollment_milestone WHERE enrollment_id=${id})::int AS marks,
+				(SELECT count(*) FROM assignment_feedback WHERE enrollment_id=${id})::int AS feedback`),
+			[{ marks: 0, feedback: 0 }],
+		);
 });

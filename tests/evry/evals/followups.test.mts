@@ -12,6 +12,7 @@ type Case = {
 	expect: "followUp" | "count";
 	noneAssigned?: boolean;
 	rubric: Record<string, string>;
+	finding?: { checks: string[]; note: string };
 };
 const CASES = new URL("followups.cases.json", import.meta.url);
 const cases: Case[] = JSON.parse(readFileSync(CASES, "utf8"));
@@ -99,10 +100,11 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 		const me = c.actor === "lena" ? "Lena" : "Daniel";
 		const { calls, answer } = await converse(model, church.db, who, c.text, NOW);
 		const ops = calls.map((x) => x.operation);
+		const failed = new Map<string, string>();
 		if (!ops.some((op) => [c.operation, ...(c.alsoAccepted ?? [])].includes(op)))
-			failures.push(`${c.text}: called ${ops.join(", ") || "nothing"}`);
+			failed.set("calls the read", `called ${ops.join(", ") || "nothing"}`);
 		for (const call of calls.filter((x) => x.error))
-			failures.push(`${c.text}: ${call.operation} ${JSON.stringify(call.input)} was refused (${call.error})`);
+			failed.set("no refused read", `${call.operation} ${JSON.stringify(call.input)} was refused (${call.error})`);
 		if (c.expect === "followUp") {
 			const points = {
 				notYou: !answer
@@ -112,9 +114,13 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 					["Lena", "Daniel", "Maria", "Tom", "Priya"].some((n) => n !== me && answer.includes(n)) ||
 					(c.noneAssigned === true && /\b(0|no|none)\b[^.]*\bfollow-?ups?\b[^.]*\bassigned to you\b/i.test(answer)),
 			};
-			for (const [point, ok] of Object.entries(points))
-				if (!ok) failures.push(`${c.text} (${me}): rubric ${point} failed in "${answer}"`);
-		} else if (!/\b(5|five)\b/i.test(answer)) failures.push(`${c.text}: rubric countsYou failed in "${answer}"`);
+			for (const [point, ok] of Object.entries(points)) if (!ok) failed.set(point, `failed in "${answer}"`);
+		} else if (!/\b(5|five)\b/i.test(answer)) failed.set("countsYou", `failed in "${answer}"`);
+		const known = c.finding?.checks ?? [];
+		for (const [check, detail] of failed)
+			if (!known.includes(check)) failures.push(`${c.text} (${me}): ${check} ${detail}`);
+		for (const check of known)
+			if (!failed.has(check)) failures.push(`${c.text} (${me}): ${check} passes now; remove it from the finding`);
 	}
 	recorded.save();
 	assert.deepEqual(failures, []);

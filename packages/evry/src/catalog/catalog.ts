@@ -20,8 +20,14 @@ import { OVERSIGHT_READS } from "../adapters/oversight/reads/index.ts";
 import { WIKI_READS } from "../adapters/wiki/reads/index.ts";
 import { LAUNCH_READS } from "../adapters/launch/reads/index.ts";
 import { allowedWrites, everyOperation, type Offered } from "../proposals/store.ts";
-import { SEAT_READS, SHARING_READS } from "../adapters/settings/index.ts";
-import type { ReadAdapter } from "./types.ts";
+import {
+	CONNECTION_READS,
+	GEOGRAPHY_READS,
+	SEAT_READS,
+	SETTINGS_READS,
+	SHARING_READS,
+} from "../adapters/settings/index.ts";
+import { worded, type ReadAdapter } from "./types.ts";
 
 export const READ_DOMAINS = {
 	people: PEOPLE_READS,
@@ -48,6 +54,9 @@ export const READ_DOMAINS = {
 	wiki: WIKI_READS,
 	documents: DOCUMENTS_READS,
 	launch: LAUNCH_READS,
+	connections: CONNECTION_READS,
+	settings: SETTINGS_READS,
+	geography: GEOGRAPHY_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
@@ -65,8 +74,9 @@ export function readCatalog(actor: EvryActor, offered: Offered = everyOperation)
 	const domains = Object.entries(READ_DOMAINS)
 		.map(([domain, adapters]) => ({
 			domain,
-			operations: (adapters as readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[])
+			operations: (adapters as readonly ReadAdapter<unknown>[])
 				.filter((a) => offered(a.operation) && a.allowed(actor))
+				.map((a) => worded(actor, a))
 				.map((a) => ({ operation: a.operation, description: a.description })),
 		}))
 		.filter((d) => d.operations.length > 0);
@@ -74,7 +84,10 @@ export function readCatalog(actor: EvryActor, offered: Offered = everyOperation)
 		context: actor.contextKind,
 		domains,
 		selection: domains.length > 0 ? [SELECT_RETURNED_ROWS] : [],
-		reviewedWrites: allowedWrites(actor, offered).map((w) => ({ operation: w.operation, description: w.description })),
+		reviewedWrites: allowedWrites(actor, offered).map((w) => ({
+			operation: w.operation,
+			description: (actor.role === "member" && w.memberDescription) || w.description,
+		})),
 		withheld: actor.owner.kind === "plant" && actor.role === "member" ? [MEMBER_PHASES, MEMBER_INTELLIGENCE] : [],
 	};
 }

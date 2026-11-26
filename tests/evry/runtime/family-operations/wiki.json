@@ -1,0 +1,56 @@
+{
+	"family": "EVRY-FAMILY-WIKI",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-library.test.mts",
+			"test": "AC:EVRY-FAMILY-WIKI",
+			"operations": [
+				"wiki.article.exportPdf",
+				"wiki.article.print",
+				"wiki.articleNeighbors",
+				"wiki.articles.list",
+				"wiki.bookmarks.list",
+				"wiki.bookmarks.set",
+				"wiki.contextGuide",
+				"wiki.feedback.getMine",
+				"wiki.feedback.setMine",
+				"wiki.navigation",
+				"wiki.organizationArticles.add",
+				"wiki.organizationArticles.edit",
+				"wiki.organizationArticles.getDraft",
+				"wiki.organizationArticles.hide",
+				"wiki.organizationArticles.publish",
+				"wiki.reading.recent",
+				"wiki.reading.resume",
+				"wiki.reading.stats",
+				"wiki.recommendForPhase",
+				"wiki.referenceExcerpt",
+				"wiki.search",
+				"wiki.setSourceOrder",
+				"wiki.tableOfContents"
+			],
+			"through": {
+				"wiki.article.print": "wiki.article.exportPdf",
+				"wiki.organizationArticles.getDraft": "wiki.getOrganizationDraft"
+			}
+		}
+	],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["anonymous_public"],
+			"operations": ["wiki.publicPreviewMetadata", "wiki.renderGlobalPreview"]
+		},
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["authenticated_self"],
+			"operations": ["wiki.reading.recordView", "wiki.reading.updateProgress"]
+		}
+	],
+	"withheld": [
+		{
+			"decision": "D-2691",
+			"operations": ["wiki.articles.get"]
+		}
+	]
+}

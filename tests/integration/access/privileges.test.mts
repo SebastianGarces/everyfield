@@ -210,7 +210,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 	}
 });
 
-test("INV-membership: legacy inconsistent seats and current lifecycle witnesses fail closed", async () => {
+test("AC:TARGET-IDN-005 INV-membership: legacy inconsistent seats and current lifecycle witnesses fail closed", async () => {
 	const db = await database();
 	try {
 		const a = await account(db.admin),

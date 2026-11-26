@@ -414,8 +414,10 @@ const EVERYONE_IN_CHURCH = [
 	"wiki",
 	"documents",
 	"launch",
+	"connections",
+	"settings",
 ];
-const LEADERS_ONLY = ["peopleAssessments", "phases", "signals", "intelligence"];
+const LEADERS_ONLY = ["peopleAssessments", "phases", "signals", "intelligence", "geography"];
 test("INV-roles: each of the five roles opens Evry with its own conversations and its own reads", async () => {
 	const church = (...more: string[]) => [...EVERYONE_IN_CHURCH, ...more].sort();
 	const expected: Record<Role, { context: string; domains: string[] }> = {
@@ -425,7 +427,7 @@ test("INV-roles: each of the five roles opens Evry with its own conversations an
 		member: { context: "plant", domains: church() },
 		director: {
 			context: "sending_church",
-			domains: ["notifications", "oversight", "pipeline"],
+			domains: ["connections", "notifications", "oversight", "pipeline", "settings"],
 		},
 	};
 	const own = {} as Record<Role, string>;

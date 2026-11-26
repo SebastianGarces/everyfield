@@ -13,7 +13,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { present } from "../../../runtime/captured.ts";
-import { articleRow, inPlant, read, shown, value, wiki } from "../shared.ts";
+import { articleRow, inPlant, read, reader, shown, value, wiki } from "../shared.ts";
 
 const PER_PAGE = 20;
 const HEADINGS = 40;
@@ -64,7 +64,7 @@ export const navigation: ReadAdapter<Record<string, never>> = {
 	description:
 		"The Wiki's menu: its sections in the Wiki page's order, each with how many articles it holds. Use it for what is in the Wiki.",
 	input: z.strictObject({}),
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx, actor): Promise<SourceResult> {
 		const { groups } = await menu(tx, actor);
 		const rows = groups.map((group, n): SourceRow => ({
@@ -89,7 +89,7 @@ export const articlesList: ReadAdapter<z.infer<typeof listInput>> = {
 	description:
 		"List the Wiki's articles, all of them or one section's or phase's, with titles and links and no search words. Use it to browse; wiki.search finds a topic. When sectionFound is false the Wiki has no such section; with no rows the section is empty.",
 	input: listInput,
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const { groups, articles } = await menu(tx, actor);
 		const group = input.section === undefined ? null : findGroup(groups, input.section);
@@ -117,7 +117,7 @@ export const tableOfContents: ReadAdapter<z.infer<typeof tocInput>> = {
 	description:
 		"One Wiki article's section headings, in order. To quote a section, pass its heading exactly to wiki.referenceExcerpt.",
 	input: tocInput,
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const article = await shown(tx, actor, input.articleId);
 		if (!article) return notFound("wiki.tableOfContents");

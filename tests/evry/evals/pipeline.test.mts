@@ -8,10 +8,12 @@ import { readViewer, RequestActor } from "../../../packages/domain/src/access/se
 import {
 	pipelineWriter,
 	readPipelineBoard,
+	readPipelineGoals,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
 import {
 	programWriter,
+	readEnrollment,
 	readProgram,
 	readPrograms,
 	readVersionReview,
@@ -29,15 +31,30 @@ import {
 	type EvryActor,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
+import { scriptedModel, scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { dayText } from "../../../packages/contracts/src/common/index.ts";
-import { listPeople, readProgram as programRead } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
+import {
+	draftPlan,
+	listPeople,
+	readProgram as programRead,
+} from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
+import { recorded, touched, untouched } from "../../support/recorded.mts";
+import type { Database as TestDatabase } from "../../support/test-database.mts";
 import { evalDatabase, seedHope } from "./golden-church.mts";
-import { ANA_NOTE, PEOPLE, RESIDENCY_READING, seedPipeline, sessionOf, type PipelineName } from "./pipeline-church.mts";
+import {
+	ANA_NOTE,
+	linkResident,
+	markMilestone,
+	PEOPLE,
+	RESIDENCY_READING,
+	seedPipeline,
+	sessionOf,
+	type PipelineName,
+} from "./pipeline-church.mts";
 
 type Change = { field: string; before: unknown; after: unknown };
 type Case = {
@@ -61,7 +78,7 @@ const { cases } = JSON.parse(readFileSync(new URL("./pipeline.cases.json", impor
 
 let close: () => Promise<void>;
 let db: Database;
-let admin: Database;
+let admin: TestDatabase;
 let stages: Awaited<ReturnType<typeof seedPipeline>>;
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
@@ -86,12 +103,12 @@ before(async () => {
 });
 after(() => close?.());
 
-async function ask(actor: EvryActor, conversationId: string, text: string) {
+async function ask(actor: EvryActor, conversationId: string, text: string, using = model) {
 	await submitTurn(db, actor, conversationId, { requestKey: randomUUID(), text, references: [] });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	assert.ok(claim, "the turn is queued");
 	const outcome = await runTurn(
-		{ db, model, freshActor, native: null },
+		{ db, model: using, freshActor, native: null },
 		{ turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
 		{ claimStart: new Date(), claimEnd: new Date() },
 	);
@@ -462,7 +479,81 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 			);
 		},
 	},
+	"NET-02": { after: async () => assert.equal((await goals()).length, 1) },
+	"NET-03": {
+		after: async () =>
+			assert.deepEqual(
+				(await goals()).map((g) => [g.leaderTarget, g.plantTarget, g.targetYear, g.rationale]),
+				[[8, 2, 2028, "two campuses are full"]],
+			),
+	},
+	"NET-07": {
+		after: async () =>
+			assert.deepEqual(
+				(await board("dana")).stages.map((x) => x.label),
+				["Potential leader", "Assessed", "Apprentice", "Resident", "Commissioned", "Stepped back"],
+			),
+	},
+	"NET-16": { after: async () => assert.deepEqual(await versions(), { "Casey Lee": 2, "Jordan Reyes": 2 }) },
+	"NET-17": {
+		after: async () => {
+			const account = await linkResident(admin, PEOPLE.casey, "Casey Lee");
+			await markMilestone(admin, stages.residency.enrollmentId, "Lead a vision night", account, "2026-10-01");
+		},
+	},
+	"NET-23": {
+		after: async () => {
+			const e = (await residency()).enrollments.find((x) => x.name === "Jordan Reyes")!;
+			assert.equal(e.status, "withdrawn");
+		},
+	},
+	"NET-25": {
+		after: async () => {
+			const personId = randomUUID();
+			ok(
+				await pipelineWriter.addPerson(db, await authority("dana"), {
+					personId,
+					displayName: "Casey Nguyen",
+					email: null,
+					responsibleSeatId: null,
+					stageId: stages.grace.Apprentice!,
+				}),
+			);
+			const p = await residency("dana");
+			ok(
+				await programWriter.enroll(db, await authority("dana"), {
+					enrollmentId: randomUUID(),
+					programId: p.id,
+					personId,
+					cohort: "Fall cohort",
+					startedOn: p.today,
+					expectedEndOn: `${Number(p.today.slice(0, 4)) + 2}${p.today.slice(4, 8)}01`,
+					stageId: p.published!.stages[0]!.id,
+					nextMeetingAt: null,
+				}),
+			);
+		},
+	},
+	"NET-27": {
+		after: async () =>
+			assert.deepEqual(
+				(await residency()).enrollments.map((e) => [e.name, e.status]),
+				[
+					["Casey Nguyen", "active"],
+					["Casey Lee", "completed"],
+					["Jordan Reyes", "withdrawn"],
+				],
+			),
+	},
+	"NET-18": {
+		after: async () => {
+			const e = ok(await readEnrollment(db, await authority("ana"), { enrollmentId: stages.residency.enrollmentId }));
+			assert.equal(e.milestones.find((m) => m.title === "Lead a vision night")?.completion?.confirmer, "Ana Ruiz");
+		},
+	},
 };
+const goals = async () => ok(await readPipelineGoals(db, await authority("dana"))).goals;
+const versions = async () => Object.fromEntries((await residency()).enrollments.map((e) => [e.name, e.versionNumber]));
 
 test("AC:ADR1-015 INV-evry-pipeline: every pipeline and program case passes on the scripted model, each asker's answers and refusals match their own Pipeline page and native writes, and each approved change reads back on the Pipeline and Programs pages", async () => {
 	for (const who of ["dana", "ana", "ben"] as const)
@@ -575,7 +666,16 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 	for (const who of ["ana", "ben"] as const)
 		assert.deepEqual(
 			readCatalog(await actorOf(who)).reviewedWrites.map((w) => w.operation),
-			["development.draftNextVersion"],
+			[
+				"settings.saveSection",
+				"account.removeAvatar",
+				"development.draftNextVersion",
+				"development.updateEnrollment",
+				"development.applyVersion",
+				"development.confirmMilestone",
+				"development.completeMilestone",
+				"organizationIntelligence.submitFeedback",
+			],
 			who,
 		);
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {
@@ -596,12 +696,8 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 			"pipeline.correctConversation",
 			"pipeline.moveStage",
 			"pipeline.recordAssessmentOccurrence",
-			"development.completeMilestone",
-			"development.confirmMilestone",
 			"development.recordFeedback",
 			"development.publishVersion",
-			"development.enroll",
-			"development.applyVersion",
 			"development.recordMilestone",
 			"development.addFeedback",
 		])
@@ -655,4 +751,211 @@ test("INV-evry-program-read: the program read returns plans and who directs them
 			{ code: "invalid_input" },
 			JSON.stringify(input),
 		);
+});
+
+type LanguageModel = ReturnType<typeof scriptedModel>;
+type StreamPart = Awaited<ReturnType<LanguageModel["doStream"]>>["stream"] extends ReadableStream<infer P> ? P : never;
+const USAGE = {
+	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+	outputTokens: { total: 1, text: 1, reasoning: 0 },
+};
+function recorder(steps?: { toolName: string; input: object }[]) {
+	const base = scriptedModel();
+	const asked = { calls: 0 };
+	let step = 0;
+	const recording: LanguageModel = {
+		...base,
+		async doGenerate(options) {
+			asked.calls++;
+			return base.doGenerate(options);
+		},
+		async doStream(options) {
+			asked.calls++;
+			if (!steps || options.responseFormat?.type === "json") return base.doStream(options);
+			const next = steps[step++];
+			const parts: StreamPart[] = next
+				? [
+						{
+							type: "tool-call",
+							toolCallId: randomUUID(),
+							toolName: next.toolName,
+							input: JSON.stringify(next.input),
+						},
+						{ type: "finish", finishReason: { unified: "tool-calls", raw: undefined }, usage: USAGE },
+					]
+				: [
+						{ type: "text-start", id: "t" },
+						{ type: "text-delta", id: "t", delta: "The plan is ready to review." },
+						{ type: "text-end", id: "t" },
+						{ type: "finish", finishReason: { unified: "stop", raw: undefined }, usage: USAGE },
+					];
+			return { stream: new ReadableStream({ start: (c) => (parts.forEach((p) => c.enqueue(p)), c.close()) }) };
+		},
+	};
+	return { asked, model: { ...model, model: recording } as typeof model };
+}
+const DURABLE = /^(development_|pipeline_|person|seat|sending_goal|mail|notice)/;
+async function domainEffects<T>(body: () => Promise<T>) {
+	const { value, tables } = await touched(admin, () => recorded(admin, body));
+	return {
+		value: value.value,
+		effects: {
+			tables: tables.filter((table) => DURABLE.test(table)),
+			audits: value.added.audits.filter((action) => !action.startsWith("evry.")),
+		},
+	};
+}
+const NO_EFFECTS = { tables: [], audits: [] };
+
+test("AC:ADR1-015 Evry drafts a program and a stage move that change nothing, and refuses a lost seat, an Admin who does not direct the program and any free text before a model is asked", async (t) => {
+	const actor = await actorOf("luis");
+	const conversation = async (a = actor) => (await createConversation(db, a, { requestKey: randomUUID() })).id;
+	const lease = (a = actor) => ({ turnId: randomUUID(), tenantId: a.owner.id, leaseOwner: "test", generation: "0" });
+	const milestones = ["Lead a small group", "Raise a replacement"];
+	await t.test(
+		"a drafted apprenticeship is a pending review: nothing is published and nobody is enrolled",
+		async () => {
+			const { asked, model: planner } = recorder([
+				{ toolName: "pipeline_read", input: { operation: "development.draftPlan", input: {} } },
+				{
+					toolName: "propose_change",
+					input: {
+						operation: "development.saveProgram",
+						input: {
+							kind: "apprenticeship",
+							name: "Leaders apprenticeship",
+							directorSeatId: stages.anaSeat,
+							expectedMonths: 12,
+							rhythm: "monthly",
+							stages: [],
+							milestones: milestones.map((title) => ({ title })),
+						},
+					},
+				},
+			]);
+			const id = await conversation();
+			const { value: turn, effects } = await domainEffects(() =>
+				ask(actor, id, "draft a 12-month apprenticeship plan", planner),
+			);
+			assert.ok(asked.calls > 0);
+			assert.deepEqual(turn.reads, ["development.draftPlan"]);
+			assert.equal(turn.proposals.length, 1);
+			const [proposal] = turn.proposals as [Proposal];
+			assert.deepEqual([proposal.operation, proposal.status], ["development.saveProgram", "pending"]);
+			assert.deepEqual(proposal.review.changes.find((c) => c.field === "milestones")?.after, milestones);
+			assert.deepEqual(proposal.review.changes.find((c) => c.field === "expectedLength")?.after, "12 months");
+			assert.ok(proposal.review.notes?.some((n) => n.includes("Nothing is published and no one is enrolled")));
+			assert.deepEqual(effects, NO_EFFECTS);
+			assert.equal(await programNamed("dana", "Leaders apprenticeship"), undefined);
+		},
+	);
+	await t.test("a seat that ended drafts nothing and asks no model", async () => {
+		const account = randomUUID(),
+			user = randomUUID(),
+			session = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${user + "@example.test"},true,'Lee')`,
+		);
+		await admin.execute(sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind)
+			VALUES(${account},${user},'active','sending_church')`);
+		await admin.execute(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
+			VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`);
+		await admin.execute(sql`INSERT INTO seat(account_id,organization_id,role,accepted_at)
+			VALUES(${account},${actor.owner.id},'admin',clock_timestamp())`);
+		const lost = (await freshActor(session))!;
+		const id = await conversation(lost);
+		assert.ok((await invokeRead(db, lost, draftPlan as never, {})).rows.length > 0);
+		await submitTurn(db, lost, id, {
+			requestKey: randomUUID(),
+			text: "draft a 15-month residency plan",
+			references: [],
+		});
+		await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${account}`);
+		await untouched(admin, async () => {
+			await assert.rejects(invokeRead(db, lost, draftPlan as never, {}), { code: "access_denied" });
+		});
+		const { asked, model: silent } = recorder();
+		const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
+		const { value: outcome, effects } = await domainEffects(() =>
+			runTurn(
+				{ db, model: silent, freshActor, native: null },
+				{
+					turnId: claim!.id,
+					tenantId: claim!.tenant_id,
+					leaseOwner: claim!.lease_owner,
+					generation: claim!.claim_generation,
+				},
+				{ claimStart: new Date(), claimEnd: new Date() },
+			),
+		);
+		assert.notEqual(outcome, "succeeded");
+		assert.equal(asked.calls, 0, "no model is asked");
+		assert.deepEqual(effects, NO_EFFECTS);
+		await transaction(db, (tx) => finishClaim(tx, claim!, { state: "failed" }));
+	});
+	const personId = randomUUID();
+	ok(
+		await pipelineWriter.addPerson(db, await authority("dana"), {
+			personId,
+			displayName: "Riley Stone",
+			email: null,
+			responsibleSeatId: null,
+			stageId: (await board("dana")).stages.find((s) => s.kind === "potential_leader")!.id,
+		}),
+	);
+	const labels = Object.fromEntries((await board("dana")).stages.map((s) => [s.kind, s]));
+	await t.test("a stage move is a draft that waits for a human's own reason", async () => {
+		const { value: turn, effects } = await domainEffects(async () =>
+			ask(actor, await conversation(), `move Riley Stone to ${labels.resident!.label}`),
+		);
+		assert.equal(turn.proposals.length, 1, turn.answer);
+		const [proposal] = turn.proposals as [Proposal];
+		assert.deepEqual([proposal.operation, proposal.status], ["pipeline.proposeStageMove", "pending"]);
+		assert.equal(proposal.review.target?.label, "Riley Stone");
+		assert.deepEqual(proposal.review.changes, [
+			{ field: "pipelineStage", before: labels.potential_leader!.label, after: labels.resident!.label },
+		]);
+		assert.deepEqual(effects, NO_EFFECTS);
+		await assert.rejects(
+			approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
+			{ code: "invalid_input" },
+			"a human reason is required",
+		);
+		assert.deepEqual(await movesOf(personId), []);
+	});
+	await t.test("a move with a reason, note or text is refused before any model is asked", async () => {
+		const id = await conversation();
+		for (const extra of [
+			{ reason: "Private human discussion" },
+			{ note: "Private human discussion" },
+			{ text: "Private human discussion" },
+		])
+			await untouched(admin, () =>
+				assert.rejects(
+					prepareProposal(db, actor, lease(), id, {
+						operation: "pipeline.proposeStageMove",
+						input: { personId, stageId: labels.resident!.id, ...extra },
+					}),
+					{ code: "invalid_input" },
+				),
+			);
+		assert.deepEqual(await kept("Private human discussion"), { events: 0, proposals: 0, audit: 0 });
+	});
+	await t.test("an Admin who does not direct the program is refused its next-version draft", async () => {
+		const id = await conversation();
+		const read = await residency("luis");
+		assert.deepEqual(read.viewer, { administrator: true, director: false });
+		await untouched(admin, () =>
+			assert.rejects(
+				prepareProposal(db, actor, lease(), id, {
+					operation: "development.draftNextVersion",
+					input: {
+						programId: stages.residency.programId,
+						plan: { rhythm: "monthly", expectedMonths: 18, stages: [], milestones: [] },
+					},
+				}),
+				{ code: "access_denied" },
+			),
+		);
+	});
 });

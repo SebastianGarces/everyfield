@@ -2,6 +2,7 @@
 
 import {
 	Alert02Icon,
+	AnalyticsUpIcon,
 	ArrowRight02Icon,
 	BookOpen01Icon,
 	Calendar03Icon,
@@ -83,7 +84,9 @@ import {
 	isIntelligence,
 	isMail,
 	isMeetings,
+	isNetwork,
 	isNotification,
+	networkRefusalText,
 	isTeams,
 	isRequired,
 	isTasks,
@@ -100,7 +103,7 @@ import {
 	missingRequired,
 	openAfter,
 	openCriteria,
-	operationTitle,
+	reviewTitle,
 	peopleResult,
 	phaseOf,
 	photoRef,
@@ -251,6 +254,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "refused":
 			if (review && isPipeline(review.operation))
 				return pipelineRefusalText(review.receipt?.code, review.operation, who);
+			if (review && isNetwork(review.operation)) return networkRefusalText(review.receipt?.code);
 			if (review && isLaunch(review.operation)) return launchRefusalText(review.receipt?.code);
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
@@ -261,7 +265,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 					: review && isWiki(review.operation)
 						? wikiRefusalText(review.receipt?.code, review.operation)
 						: review && isDocument(review.operation)
-							? documentRefusalText(review.receipt?.code)
+							? documentRefusalText(review.receipt?.code, review.review.private)
 							: review && isSettings(review.operation)
 								? settingsRefusalText(review.receipt?.code)
 								: intelligence
@@ -613,7 +617,9 @@ function Footer({
 			<>
 				{isSettings(review.operation) ? (
 					<Button size="sm" variant="secondary" asChild>
-						<IntentLink href={settingsLink(review.operation).href}>{settingsLink(review.operation).label}</IntentLink>
+						<IntentLink href={settingsLink(review.operation, review.review.target).href}>
+							{settingsLink(review.operation, review.review.target).label}
+						</IntentLink>
 					</Button>
 				) : who ? (
 					<Button size="sm" variant="secondary" asChild>
@@ -669,8 +675,8 @@ function Footer({
 					</Button>
 				) : isSettings(review.operation) ? (
 					<Button size="sm" variant="ghost" asChild>
-						<IntentLink href={settingsLink(review.operation).href}>
-							{settingsLink(review.operation).label}
+						<IntentLink href={settingsLink(review.operation, review.review.target).href}>
+							{settingsLink(review.operation, review.review.target).label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
@@ -678,6 +684,13 @@ function Footer({
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href="/launch">
 							Open Launch
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
+				) : isNetwork(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href="/network/intelligence">
+							Open Network Intelligence
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
@@ -721,10 +734,17 @@ function DocumentLink({ review }: { review: Review }) {
 	const result = documentResult(review);
 	return result ? (
 		<Button size="sm" variant="ghost" asChild>
-			<IntentLink href={result.href}>
-				{result.label}
-				<Icon icon={ArrowRight02Icon} size={16} />
-			</IntentLink>
+			{result.file ? (
+				<a href={result.href}>
+					{result.label}
+					<Icon icon={ArrowRight02Icon} size={16} />
+				</a>
+			) : (
+				<IntentLink href={result.href}>
+					{result.label}
+					<Icon icon={ArrowRight02Icon} size={16} />
+				</IntentLink>
+			)}
 		</Button>
 	) : null;
 }
@@ -814,7 +834,7 @@ function Affects({ review }: { review: Review }) {
 				</span>
 				<span className="min-w-0">
 					<span className="block truncate font-medium text-ink">{name}</span>
-					<span className="block text-xs text-text-3">{operationTitle(review.operation)}</span>
+					<span className="block text-xs text-text-3">{reviewTitle(review)}</span>
 				</span>
 			</div>
 		);
@@ -823,38 +843,47 @@ function Affects({ review }: { review: Review }) {
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
-	const program = review.operation === "development.saveProgram" || review.operation === "development.draftNextVersion";
+	const program = isPipeline(review.operation) && kind !== "person";
+	const region = review.operation === "organizations.correctReportingLocation";
 	const task = isTasks(review.operation) && kind !== "person";
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
 		? Notification01Icon
 		: (record ??
 			(program
-				? Mortarboard01Icon
-				: isLaunch(review.operation)
-					? StartUp02Icon
-					: isInvitation(review.operation)
-						? Calendar03Icon
-						: imported
-							? FileImportIcon
-							: task
-								? Task01Icon
-								: kind === "household" || kind === "article"
-									? RECORD_GLYPH[kind]
-									: kind === "tag" || tag
-										? Tag01Icon
-										: mail
-											? Mail01Icon
-											: isDocument(review.operation)
-												? File02Icon
-												: create
-													? UserAdd01Icon
-													: null));
+				? review.operation.startsWith("pipeline.")
+					? Briefcase01Icon
+					: Mortarboard01Icon
+				: isNetwork(review.operation)
+					? AnalyticsUpIcon
+					: region
+						? Location01Icon
+						: isLaunch(review.operation)
+							? StartUp02Icon
+							: isInvitation(review.operation)
+								? Calendar03Icon
+								: imported
+									? FileImportIcon
+									: task
+										? Task01Icon
+										: kind === "household" || kind === "article"
+											? RECORD_GLYPH[kind]
+											: kind === "tag" || tag
+												? Tag01Icon
+												: mail
+													? Mail01Icon
+													: isDocument(review.operation)
+														? File02Icon
+														: create
+															? UserAdd01Icon
+															: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
 			? "People import"
-			: isTasks(review.operation) || review.operation === "documents.importTextOrWord"
+			: isTasks(review.operation) ||
+				  review.operation === "documents.importTextOrWord" ||
+				  review.operation === "documents.saveNative"
 				? subjectName(review)
 				: isInvitation(review.operation)
 					? invitationName(review)
@@ -878,7 +907,7 @@ function Affects({ review }: { review: Review }) {
 			)}
 			<span className="min-w-0">
 				<span className="block truncate font-medium text-ink">{name}</span>
-				<span className="block text-xs text-text-3">{operationTitle(review.operation)}</span>
+				<span className="block text-xs text-text-3">{reviewTitle(review)}</span>
 			</span>
 		</div>
 	);
@@ -1114,6 +1143,8 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					/>
 				) : link ? (
 					<LinkChange key={c.field} link={link} />
+				) : review.operation === "documents.saveNative" && c.field === "text" ? (
+					<DocumentText key={`text:${n}`} change={c} />
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field, review.operation)}</dt>
@@ -1142,6 +1173,28 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				</div>
 			) : null}
 		</dl>
+	);
+}
+
+const PASSAGE = "max-h-96 overflow-y-auto rounded-md px-3 py-2 whitespace-pre-line [overflow-wrap:anywhere]";
+function DocumentText({ change }: { change: Change }) {
+	const before = typeof change.before === "string" ? change.before : null;
+	const after = typeof change.after === "string" ? change.after : null;
+	return (
+		<div className="flex min-w-0 flex-col gap-1">
+			{before === null ? (
+				<dt className="text-text-2">Text</dt>
+			) : (
+				<>
+					<dt className="text-text-2">Now</dt>
+					<dd className={cn(PASSAGE, "bg-surface-raised text-text-2")}>{before}</dd>
+					<dt className="text-text-2">After</dt>
+				</>
+			)}
+			<dd tabIndex={0} className={cn(PASSAGE, "bg-surface-raised text-ink")}>
+				{after ?? <span className="text-text-3 italic">Removed</span>}
+			</dd>
+		</div>
 	);
 }
 

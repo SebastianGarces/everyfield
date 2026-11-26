@@ -1,6 +1,7 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
 	approveProposal,
 	createConversation,
@@ -15,11 +16,13 @@ import {
 } from "../../../../packages/evry/src/index.ts";
 import { NOTIFICATION_READS } from "../../../../packages/evry/src/adapters/notifications/reads/index.ts";
 import { NOTIFICATION_COMMANDS } from "../../../../packages/evry/src/adapters/notifications/commands/index.ts";
+import { createNotificationProducer } from "../../../../packages/domain/src/notifications/index.ts";
 import { modelTools } from "../../../../packages/evry/src/runtime/tools.ts";
 import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
+const { markRead } = createNotificationProducer({ optOutKey: randomBytes(32) });
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
@@ -196,6 +199,70 @@ test("AC:INH-NOTIFICATIONS-03 a review lists exactly the three asked notices, ap
 	assert.equal(await propose("notifications.markSelectedRead", { noticeIds: [N[0], others[1]] }), null);
 });
 
+test("AC:NOTIFY47-010 another account's notice and a revoked organization's are refused natively and through Evry, stay unread, and no private note is shown", async () => {
+	const { expected, action } = (
+		JSON.parse(
+			readFileSync(new URL("../../../../docs/acceptance/communications-notifications.json", import.meta.url), "utf8"),
+		) as { cases: { id: string; expected: { result: object }; action: { arguments: Record<string, unknown> } }[] }
+	).cases.find((c) => c.id === "NOTIFY47-010")!;
+	assert.deepEqual([action.arguments.adapter, action.arguments.approved], ["Evry", true]);
+	const N1 = await notice(accounts.member.id, "task_due", "Theirs only", ago(0.5));
+	const network = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${network},'sending_network','Revoked Network','UTC',1)`,
+	);
+	const oversight = randomUUID();
+	await admin.execute(sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,safe_body,eligible_at,created_at,timezone)
+		VALUES(${oversight},${network},${accounts.owner.id},'digest','oversight_digest',${`${network}/oversight_digest/${oversight}`},${network},1,'Revoked oversight digest',${CARE},${ago(0.4)},clock_timestamp(),'UTC')`);
+	const isRead = async (id: string) =>
+		(await admin.execute(sql`SELECT read_at IS NOT NULL AS r FROM notice WHERE id=${id}`)).rows[0]!.r;
+	const revision = async () =>
+		String(
+			(await admin.execute(sql`SELECT revision::text AS r FROM account WHERE id=${accounts.owner.id}`)).rows[0]!.r,
+		);
+	const propose = await turn(owner);
+	const codes = new Set<string>();
+	for (const id of [N1, oversight, randomUUID()]) {
+		const native = await markRead(db, owner.authority, {
+			requestKey: randomUUID(),
+			expectedRevision: await revision(),
+			input: { noticeId: id },
+		});
+		assert.equal(native.status, "refused");
+		if (native.status === "refused") codes.add(native.error.code);
+		assert.equal(await propose("notifications.markSelectedRead", { noticeIds: [id] }), null);
+	}
+	const own = await notice(accounts.owner.id, "task_due", "Own notice", ago(0.3));
+	const proposal = await propose("notifications.markSelectedRead", { noticeIds: [own, N1, oversight] });
+	if (proposal) {
+		assert.deepEqual(
+			proposal.review.changes.map((c) => (c.before as { id: string }).id),
+			[own],
+		);
+		assert.equal((await approve(owner, proposal)).outcome, "completed");
+		assert.equal(await isRead(own), true);
+	} else {
+		await admin.execute(sql`DELETE FROM notice WHERE id=${own}`);
+		assert.fail("an own notice beside a hidden one is still offered");
+	}
+	const feed = JSON.stringify([
+		await readAs(owner, "notifications.feed"),
+		await readAs(owner, "notifications.feed", { unread: true }),
+	]);
+	for (const hidden of [N1, oversight, "Theirs only", "Revoked oversight digest"])
+		assert.equal(feed.includes(hidden), false, hidden);
+	assert.deepEqual(
+		{
+			error_code: [...codes].join(","),
+			N1_read: await isRead(N1),
+			private_care: feed.includes("Robin") || JSON.stringify(proposal).includes("Robin") ? CARE : null,
+		},
+		expected.result,
+	);
+	assert.equal(await isRead(oversight), false);
+	await admin.execute(sql`DELETE FROM notice WHERE id IN (${N1},${oversight})`);
+});
+
 test("AC:CASE-NTF-003 marking a task notice read leaves the task as it was", async () => {
 	const before = (await admin.execute(sql`SELECT status,revision,title FROM task WHERE id=${task}`)).rows[0];
 	const marked = await admin.execute(
@@ -364,12 +431,19 @@ test("INV-notification-tools an organization login is offered its oversight dige
 			"pipeline.listPeople",
 			"development.draftPlan",
 			"development.readProgram",
+			"pipeline.readGoals",
+			"pipeline.readConversationCounts",
 			"oversight.listPlants",
 			"oversight.getPlant",
 			"organizationIntelligence.read",
 			"organizationIntelligence.readHistory",
 			"organizationIntelligence.readLocations",
 			"organizationIntelligence.readLocationHistory",
+			"associations.listInvitations",
+			"associations.getHistory",
+			"settings.getSection",
+			"organizations.getProfile",
+			"account.getAvatar",
 		],
 	);
 	assert.deepEqual(
@@ -377,14 +451,28 @@ test("INV-notification-tools an organization login is offered its oversight dige
 		[
 			"notifications.setPreferences",
 			"notifications.oversightDigestCadence.set",
+			"settings.saveSection",
+			"associations.resendInvitation",
+			"associations.revokeInvitation",
+			"associations.declineInvitation",
+			"account.removeAvatar",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
+			"pipeline.saveGoal",
+			"pipeline.saveStages",
 			"development.saveProgram",
 			"development.draftNextVersion",
+			"development.enroll",
+			"development.updateEnrollment",
+			"development.applyVersion",
+			"development.confirmMilestone",
+			"development.completeMilestone",
 			"wiki.organizationArticles.add",
 			"wiki.organizationArticles.edit",
 			"wiki.organizationArticles.publish",
 			"wiki.organizationArticles.hide",
+			"organizationIntelligence.requestRefresh",
+			"organizationIntelligence.submitFeedback",
 		],
 	);
 	const plantTools = modelTools(owner, {

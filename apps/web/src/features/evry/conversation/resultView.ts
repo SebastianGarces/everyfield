@@ -118,6 +118,30 @@ const wiki = (title: string, rest: Partial<OpView> & Pick<OpView, "empty">): OpV
 	...rest,
 });
 
+const libraryTemplate = (title: string): OpView => ({
+	title,
+	noun: ["template", "templates"],
+	icon: "template",
+	counts: "template",
+	quiet: true,
+	empty: "That template is not in the library.",
+});
+const madeFiles = (title: string, empty: string): OpView => ({
+	title,
+	noun: ["file", "files"],
+	icon: "file",
+	counts: "file",
+	empty,
+});
+const settings = (title: string, empty: string): OpView => ({
+	title,
+	noun: ["setting", "settings"],
+	icon: "setting",
+	counts: "setting",
+	quiet: true,
+	empty,
+});
+
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
 	"people.getPerson": people("Person"),
@@ -412,6 +436,51 @@ const VIEWS: Record<string, OpView> = {
 		noun: ["change", "changes"],
 		icon: "item",
 		empty: "Nothing measured changed since the assessment before.",
+	}),
+	"intelligence.readAssessmentHistory": items("Assessments over time", {
+		noun: ["assessment", "assessments"],
+		icon: "item",
+		empty: "No assessment has been published yet.",
+	}),
+	"intelligence.readAssessmentRun": items("Assessment", {
+		noun: ["finding or lens", "findings and lenses"],
+		icon: "item",
+		empty: "That assessment isn't available.",
+	}),
+	"intelligence.readColdStartGuidance": items("Where to start", {
+		noun: ["step", "steps"],
+		icon: "item",
+		empty: "Your records show no gap to act on yet.",
+	}),
+	"intelligence.readOwnFeedback": items("Your ratings", {
+		noun: ["rating", "ratings"],
+		icon: "item",
+		empty: "You gave no rating yet.",
+	}),
+	"geography.listReportingRegionCandidates": items("Reporting Regions", {
+		noun: ["Region", "Regions"],
+		icon: "item",
+		empty: "The official Region list has no Region for that place.",
+	}),
+	"oversight.listSendingChurches": items("Sending churches", {
+		noun: ["sending church", "sending churches"],
+		icon: "item",
+		empty: "No sending church is linked to this network yet.",
+	}),
+	"oversight.getSendingChurch": items("Sending church", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "No plant is linked to both that church and this network.",
+	}),
+	"pipeline.readGoals": items("Sending goals", {
+		noun: ["goal", "goals"],
+		icon: "item",
+		empty: "This organization has no sending goal yet.",
+	}),
+	"pipeline.readConversationCounts": items("Leadership conversations", {
+		noun: ["period", "periods"],
+		icon: "item",
+		empty: "No conversation counts to show.",
 	}),
 	"oversight.listPlants": items("Your plants", {
 		noun: ["plant", "plants"],
@@ -734,6 +803,43 @@ const VIEWS: Record<string, OpView> = {
 		icon: "template",
 		counts: "template",
 		empty: "No template matches.",
+	},
+	"documents.templates.contextual": {
+		title: "Templates that fit",
+		noun: ["template", "templates"],
+		icon: "template",
+		counts: "template",
+		empty: "No library template fits that.",
+	},
+	"documents.templates.get": libraryTemplate("Template"),
+	"documents.resolveContext": libraryTemplate("Filled in"),
+	"documents.preview": libraryTemplate("Preview"),
+	"documents.history.list": madeFiles("Files made", "No file has been made yet."),
+	"documents.history.get": madeFiles("File", "That file is not available."),
+	"documents.download": madeFiles("Download", "That file is not available to download."),
+	"settings.getSection": settings("Settings", "Your seat can't read these settings."),
+	"organizations.getProfile": settings("Organization profile", "The profile is not available."),
+	"account.getAvatar": {
+		title: "Your photo",
+		noun: ["photo", "photos"],
+		icon: "account",
+		counts: "account",
+		summary: (result) => (result.rows[0]?.fields.photo === "available" ? "" : "No photo"),
+		empty: "You have no account photo.",
+	},
+	"associations.listInvitations": {
+		title: "Link invitations",
+		noun: ["invitation", "invitations"],
+		icon: "invitation",
+		counts: "invitation",
+		empty: "No link invitation is waiting.",
+	},
+	"associations.getHistory": {
+		title: "Link history",
+		noun: ["entry", "entries"],
+		icon: "relationship",
+		counts: "relationship",
+		empty: "No link is recorded.",
 	},
 };
 const NEVER_EMAILED = people("No email recorded", {
@@ -1068,6 +1174,16 @@ export type RowView = {
 	newTab?: true;
 	file?: string;
 	quote?: string;
+	preview?: TemplateFill;
+	ownPhoto?: true;
+};
+export type TemplateFill = {
+	templateId: string;
+	title: string;
+	format: "pdf" | "docx" | "xlsx";
+	overrides: Record<string, string>;
+	meetingId: string | null;
+	page: { width: number; height: number } | null;
 };
 export type CardView = {
 	title: string;
@@ -1102,6 +1218,7 @@ function emptyText(view: OpView, operation: string, facts: Record<string, unknow
 			: `The Wiki has no articles in ${String(facts.section)}.`;
 	if (operation === "wiki.referenceExcerpt" && text(facts.unknownSection))
 		return `This article has no section called ${String(facts.unknownSection)}.`;
+	if (facts.own === true && view.counts === "document") return "No document of yours matches.";
 	return view.empty;
 }
 function wikiFacts(operation: string, facts: Record<string, unknown>): string[] {
@@ -1225,6 +1342,54 @@ function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" 
 	return { ...plain, name: row.label, line: null, avatar: "record" };
 }
 
+const overridesIn = z.record(z.string(), z.string());
+function templateFill(row: SourceRow): TemplateFill | undefined {
+	const f = row.fields;
+	if (f.rendered !== true || typeof f.overrides !== "string") return undefined;
+	const overrides = overridesIn.safeParse(JSON.parse(f.overrides));
+	const width = num(f.pageWidth);
+	const height = num(f.pageHeight);
+	return overrides.success
+		? {
+				templateId: row.id,
+				title: row.label,
+				format: f.format === "xlsx" || f.format === "docx" ? f.format : "pdf",
+				overrides: overrides.data,
+				meetingId: text(f.meetingId),
+				page: width > 0 && height > 0 ? { width, height } : null,
+			}
+		: undefined;
+}
+const SETTING_LABEL: Record<string, string> = {
+	name: "Name",
+	email: "Sign-in email",
+	street: "Street",
+	city: "City",
+	stateProvince: "State or province",
+	country: "Country",
+	description: "Description",
+	contactEmail: "Contact email",
+	contactPhone: "Contact phone",
+	statementOfFaith: "Statement of faith",
+	gatheringMilestone: "Gathering milestone",
+	timeZone: "Time zone",
+	schedule: "Goes out",
+	warningDays: "Warning after",
+	alertDays: "Alert after",
+};
+const settingDetails = (fields: Record<string, unknown>) =>
+	Object.entries(SETTING_LABEL).flatMap(([key, label]) => {
+		const value = fields[key];
+		if (value === undefined) return [];
+		const shown =
+			typeof value === "number"
+				? counted(value, "day")
+				: key === "timeZone"
+					? valueText("timeZone", value)
+					: (text(value) ?? "Not set");
+		return [{ label, value: shown ?? "Not set" }];
+	});
+
 function rowView(operation: string, row: SourceRow): RowView {
 	const { fields } = row;
 	const key = `${row.kind}:${row.id}`;
@@ -1287,6 +1452,21 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return { ...plain, name, line: activityLine(fields), avatar: "activity" };
 		}
 		case "file": {
+			if (operation.startsWith("documents."))
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						text(fields.format),
+						text(fields.madeAt) ? `Made ${day(String(fields.madeAt))}` : null,
+						text(fields.fromDocument),
+						num(fields.size) > 0 ? `${Math.max(1, Math.round(num(fields.size) / 1024))} KB` : null,
+					),
+					mark: { kind: "status", text: "Ready", warn: false },
+					avatar: "file",
+					href: text(fields.href) ?? text(fields.documentLink),
+					...(text(fields.href) && { download: true as const }),
+				};
 			if (operation === "people.previewImport")
 				return {
 					...plain,
@@ -1463,6 +1643,28 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		case "template":
 			if (operation.startsWith("tasks.")) return templateView(operation, row, key);
+			if (operation === "documents.preview")
+				return {
+					...plain,
+					name: row.label,
+					line: fields.rendered === true ? "Nothing is saved yet" : "No preview to show",
+					avatar: "template",
+					preview: templateFill(row),
+				};
+			if (operation.startsWith("documents.") && operation !== "documents.templates.list")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(text(fields.about), text(fields.formats), text(fields.notice)),
+					avatar: "template",
+				};
+			if (operation.startsWith("documents."))
+				return {
+					...plain,
+					name: row.label,
+					line: joined(typeof fields.version === "string" ? `Version ${fields.version}` : null, text(fields.notice)),
+					avatar: "template",
+				};
 			return {
 				...plain,
 				name: row.label,
@@ -1592,6 +1794,14 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "account":
+			if (operation === "account.getAvatar")
+				return {
+					...plain,
+					name: row.label,
+					line: fields.photo === "available" ? "Your account photo" : "No photo. Your initials show instead.",
+					avatar: fields.photo === "available" ? null : "person",
+					...(fields.photo === "available" && { ownPhoto: true as const }),
+				};
 			return {
 				...plain,
 				name: row.label,
@@ -1740,7 +1950,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				href:
 					operation === "wiki.navigation"
 						? "/wiki"
-						: /^(dashboard|feedback|organizationIntelligence)\./.test(operation)
+						: /^(dashboard|feedback|organizationIntelligence|oversight)\.|\.readColdStartGuidance$/.test(operation)
 							? text(fields.href)
 							: null,
 				name: row.label,
@@ -1757,6 +1967,19 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		case "invitation":
+			if (operation === "associations.listInvitations")
+				return {
+					...plain,
+					href: fields.direction === "sent" ? "/settings/sharing" : null,
+					name: row.label,
+					line: joined(
+						fields.direction === "sent" ? "Sent" : "Received",
+						text(fields.otherSide),
+						typeof fields.expiresAt === "string" ? `Expires ${day(fields.expiresAt)}` : null,
+					),
+					mark: { kind: "status", text: "Pending", warn: false },
+					avatar: null,
+				};
 			return {
 				...plain,
 				href: "/settings/seats",
@@ -1823,6 +2046,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "relationship":
+			if (operation === "associations.getHistory")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						text(fields.entry),
+						typeof fields.on === "string" ? day(fields.on) : null,
+						text(fields.reason) ? `Reason: ${String(fields.reason)}` : null,
+					),
+					avatar: null,
+				};
 			return {
 				...plain,
 				href: "/onboarding",
@@ -1861,13 +2095,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "document",
 				href: text(fields.link),
 			};
-		case "template":
-			return {
-				...plain,
-				name: row.label,
-				line: joined(typeof fields.version === "string" ? `Version ${fields.version}` : null, text(fields.notice)),
-				avatar: "template",
-			};
 		case "notice":
 			return {
 				...plain,
@@ -1877,6 +2104,20 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "notice",
 			};
 		case "setting": {
+			if (operation === "settings.getSection" || operation === "organizations.getProfile")
+				return {
+					...plain,
+					name: row.label,
+					line: null,
+					href:
+						row.id === "account"
+							? "/settings/account"
+							: row.id === "organization"
+								? "/settings/organization"
+								: "/settings/church",
+					avatar: "setting",
+					details: settingDetails(fields),
+				};
 			if (operation === "mail.suppression.listForSelf")
 				return {
 					...plain,
@@ -2243,6 +2484,15 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 		case "feedback.listOwn":
 		case "feedback.getOwnStatus":
 			return joined(`Sent ${String(f.sent)}`, text(f.status));
+		case "documents.templates.get":
+			return joined(f.required === true ? "Required" : "Optional", `Filled from ${String(f.filledFrom)}`);
+		case "documents.resolveContext":
+		case "documents.preview":
+			return f.value === null
+				? f.required === true
+					? "Missing, needed before a file can be made"
+					: "Left blank"
+				: joined(text(f.value), text(f.from));
 		case "meetings.readAgenda":
 			return joined(
 				typeof f.starts === "string" ? timeText(f.starts) : null,
@@ -2279,6 +2529,35 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(text(f.severity), text(f.cites));
 		case "intelligence.readAssessmentDelta":
 			return `${String(f.before)} → ${String(f.after)}`;
+		case "intelligence.readAssessmentHistory":
+			return joined(
+				text(f.phase),
+				...Object.entries(f).flatMap(([k, v]) =>
+					k === "latest" || k === "phase" || v === null ? [] : [`${k}: ${String(v)}`],
+				),
+			);
+		case "intelligence.readAssessmentRun":
+			return f.role ? joined(text(f.severity), text(f.cites)) : joined(text(f.standing), text(f.evidence));
+		case "intelligence.readColdStartGuidance":
+			return text(f.detail);
+		case "intelligence.readOwnFeedback":
+			return joined(text(f.rating), text(f.comment), `Assessment measured ${String(f.assessment)}`);
+		case "geography.listReportingRegionCandidates":
+			return f.saved === true ? "Saved now" : null;
+		case "oversight.listSendingChurches":
+			return counted(Number(f.plants), "linked plant");
+		case "oversight.getSendingChurch":
+			return joined(
+				`Health ${String(f.health)}`,
+				f.launchSunday
+					? `Launch Sunday ${String(f.launchSunday)}`
+					: joined(text(f.milestone), text(f.milestoneProgress)),
+				text(f.place),
+			);
+		case "pipeline.readGoals":
+			return joined(`Counting from ${civilDay(String(f.countingFrom))}`, text(f.counts) ?? "No counts chosen");
+		case "pipeline.readConversationCounts":
+			return counted(Number(f.count), "conversation");
 		case "oversight.listPlants":
 			return joined(`Health ${String(f.health)}`, `Launch ${String(f.launch)}`, text(f.region));
 		case "oversight.getPlant":
@@ -2318,6 +2597,17 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 					typeof f.publishedVersion === "number" ? `Version ${f.publishedVersion} published` : "Not published",
 					f.draft ? "Draft in progress" : null,
 				);
+			if (f.part === "candidate") return "Can be enrolled";
+			if (f.part === "enrollment")
+				return joined(
+					text(f.cohort),
+					text(f.stage),
+					`Version ${String(f.version)}`,
+					f.status === "Active" ? null : text(f.status),
+				);
+			if (f.progress) return text(f.progress);
+			if (f.part === "stage" && f.minMonths === undefined)
+				return joined(`Version ${String(f.version)}`, f.current ? "Current stage" : "Stage");
 			return joined(
 				`Version ${String(f.version)}`,
 				f.part === "stage"
@@ -2393,6 +2683,12 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			result.next !== null
 				? `More ${many} match. Ask Evry for page ${result.next}.`
 				: "Only the first matches are shown.",
+		);
+	if (operation === "documents.preview" && totals.rendered === false)
+		facts.push(
+			typeof totals.missing === "string"
+				? `Still needed for a preview: ${totals.missing}. Nothing was made.`
+				: "The preview could not be made. Nothing was saved.",
 		);
 	if (typeof totals.phase === "string")
 		facts.push(

@@ -422,7 +422,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/oversight/health.test.mts",
-								"name": "Refresh keeps history, a Member cannot refresh or rate, and turning sharing off leaves every run"
+								"name": "Refresh keeps history, a Member cannot refresh, and turning sharing off leaves every run"
 							},
 							{
 								"file": "tests/integration/oversight/intelligence-rules.test.mts",

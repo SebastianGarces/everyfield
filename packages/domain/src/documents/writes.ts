@@ -114,7 +114,7 @@ function ownedFrom(row: OwnedRow, tenantId: string) {
 }
 
 const generatedWriter = {
-	async generate(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async generate(db: Database | Transaction, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const input = parse(c.generateRequest, raw);
 			const cleaned = cleanOverrides(input.overrides);
@@ -284,7 +284,7 @@ const generatedWriter = {
 		});
 	},
 
-	async "history.list"(db: Database, authority: RequestActor, raw: unknown) {
+	async "history.list"(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			parse(c.listHistoryRequest, raw);
 			const scope = generateScope(authority);
@@ -296,7 +296,7 @@ const generatedWriter = {
 		});
 	},
 
-	async "history.get"(db: Database, authority: RequestActor, raw: unknown) {
+	async "history.get"(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.generatedDocumentRequest, raw);
 			const scope = generateScope(authority);
@@ -393,7 +393,7 @@ const generatedWriter = {
 		});
 	},
 
-	async saveNative(db: Database, authority: RequestActor, raw: unknown) {
+	async saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.saveNativeRequest, raw);
 			if (!c.nativeText(input.body)) rejectInput("body", "Enter the document text.");
@@ -809,26 +809,26 @@ async function appendNative(
 			JOIN gate ON gate.ok
 			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind IN ('native', 'core_values')
 		),
+		updated AS (
+			UPDATE document SET current_revision_id = ${revId}::uuid, title = ${title}, revision = document.revision + 1
+			FROM existing
+			WHERE document.id = existing.id AND existing.revision = ${expected}
+				AND document.archived_at IS NULL AND document.revision::text = existing.revision
+			RETURNING document.id, document.tenant_id, document.kind, document.title, document.revision::text AS revision,
+				document.copied_from_revision_id, document.copied_from_hash
+		),
 		added AS (
 			INSERT INTO document_revision (
 				id, tenant_id, document_id, version_number, body, content_hash, import_object_id, import_format, import_state,
 				published_at, recorded_at
 			)
-			SELECT ${revId}::uuid, existing.tenant_id, existing.id,
-				(SELECT coalesce(max(version_number), 0) + 1 FROM document_revision prior WHERE prior.document_id = existing.id),
+			SELECT ${revId}::uuid, updated.tenant_id, updated.id,
+				(SELECT coalesce(max(version_number), 0) + 1 FROM document_revision prior WHERE prior.document_id = updated.id),
 				${body}, ${hash}, ${imported?.objectId ?? null}::uuid, ${imported?.format ?? null},
 				CASE WHEN ${imported ? "ready" : null}::text IS NULL THEN NULL ELSE 'ready' END,
 				clock_timestamp(), clock_timestamp()
-			FROM existing
-			WHERE existing.archived_at IS NULL AND existing.revision = ${expected}
-			RETURNING id, document_id
-		),
-		updated AS (
-			UPDATE document SET current_revision_id = added.id, title = ${title}, revision = document.revision + 1
-			FROM added
-			WHERE document.id = added.document_id
-			RETURNING document.id, document.tenant_id, document.kind, document.title, document.revision::text AS revision,
-				document.copied_from_revision_id, document.copied_from_hash
+			FROM updated
+			RETURNING id
 		),
 		aud AS (
 			INSERT INTO audit_event (
@@ -911,7 +911,8 @@ async function mutateOwned(
 				kind = CASE WHEN ${action} = 'designate' THEN 'core_values' ELSE document.kind END,
 				revision = document.revision + 1
 			FROM existing
-			WHERE document.id = existing.id AND existing.archived_at IS NULL AND existing.revision = ${expected}
+			WHERE document.id = existing.id AND document.archived_at IS NULL AND existing.revision = ${expected}
+				AND document.revision::text = existing.revision
 				AND (${action} <> 'designate' OR (
 					existing.kind = 'native' AND ${hasText(sql.raw("existing.body"))}
 					AND (existing.import_state IS NULL OR existing.import_state = 'ready')
@@ -951,7 +952,10 @@ async function mutateOwned(
 		);
 	if (action === "designate" && row.prior_kind === "core_values" && row.eligible && !row.archived)
 		return ownedFrom({ ...row, id: row.found, kind: "core_values", revision: row.prior_revision }, scope.tenantId);
-	if (!row.stored || !row.next_revision) return "deny" as const;
+	if (!row.stored || !row.next_revision) {
+		const allowed = !row.archived && (action === "archive" || (row.prior_kind === "native" && row.eligible));
+		return allowed ? ("conflict" as const) : ("deny" as const);
+	}
 	return ownedFrom(
 		{
 			...row,
@@ -969,32 +973,36 @@ type GeneratedDocument = z.infer<typeof c.generatedDocument>;
 type GeneratedHistory = z.infer<typeof c.generatedHistory>;
 type OwnedDocument = z.infer<typeof c.ownedDocument>;
 
-function historyList(db: Database, authority: RequestActor, raw: { documentId: string }): Reply<c.ChurchRevisionList>;
-function historyList(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedHistory>;
-function historyList(db: Database, authority: RequestActor, raw: unknown) {
+function historyList(
+	db: Database | Transaction,
+	authority: RequestActor,
+	raw: { documentId: string },
+): Reply<c.ChurchRevisionList>;
+function historyList(db: Database | Transaction, authority: RequestActor, raw: unknown): Reply<GeneratedHistory>;
+function historyList(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && "documentId" in raw)
 		return churchWriter["history.list.church"](db, authority, raw);
 	return generatedWriter["history.list"](db, authority, raw);
 }
 function historyGet(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	raw: { documentId: string; revision: number },
 ): Reply<c.ChurchRevision>;
-function historyGet(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedDocument>;
-function historyGet(db: Database, authority: RequestActor, raw: unknown) {
+function historyGet(db: Database | Transaction, authority: RequestActor, raw: unknown): Reply<GeneratedDocument>;
+function historyGet(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && "revision" in raw)
 		return churchWriter["history.get.church"](db, authority, raw);
 	return generatedWriter["history.get"](db, authority, raw);
 }
 
 function saveNative(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	raw: z.input<typeof c.saveChurchRequest>,
 ): Reply<c.ChurchDocument>;
-function saveNative(db: Database, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
-function saveNative(db: Database, authority: RequestActor, raw: unknown) {
+function saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
+function saveNative(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && !("title" in raw))
 		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
 	return generatedWriter.saveNative(db, authority, raw);

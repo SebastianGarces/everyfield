@@ -74,6 +74,12 @@ const lines: [code: string, open: string, reply: unknown, line: string][] = [
 	["access_denied", "that was lost", { status: "lost" }, NO_ACCESS("this church")],
 	["invalid_input", "named Grace Austin", opened("Grace Austin"), COULD_NOT_START],
 	["not_found", "named Grace Austin", opened("Grace Austin"), START_REFUSED],
+	[
+		"evry_unavailable",
+		"named Grace Austin",
+		opened("Grace Austin"),
+		"Evry isn't available yet, so nothing was saved. Your message is still here.",
+	],
 	["model_unavailable", "with no name", opened(null), START_REFUSED],
 	["something_new", "named Grace Austin", opened("Grace Austin"), START_REFUSED],
 ];

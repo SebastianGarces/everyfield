@@ -7,10 +7,11 @@ import { HONEYPOT, type AccessRequestResult } from "./contract";
 import { FIELD_NAMES, LAST_STEP, afterReply, back, isWho, kindOf, next, requestFields, type FormState } from "./steps";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 import { serverEnv } from "../server/config.ts";
+import { requestDatabase } from "../server/database.ts";
 
 export async function submitAccessRequest(kind: unknown, fields: unknown): Promise<AccessRequestResult> {
 	const ip = trustedIdentityIp({ headers: await headers() }, trustsVercelForwardedFor(serverEnv()));
-	return receiveAccessRequest(kind, fields, ip);
+	return receiveAccessRequest(kind, fields, ip, { db: requestDatabase() });
 }
 
 export async function stepAccessForm(_: unknown, data: FormData): Promise<FormState> {

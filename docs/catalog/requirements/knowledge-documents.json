@@ -147,7 +147,7 @@
       "feature_ids": [
         "DOC-004"
       ],
-      "text": "Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional.",
+      "text": "Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -191,7 +191,7 @@
       "feature_ids": [
         "DOC-006"
       ],
-      "text": "Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church with optional meeting date/number.",
+      "text": "Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church required, meeting date and number written in by hand.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"

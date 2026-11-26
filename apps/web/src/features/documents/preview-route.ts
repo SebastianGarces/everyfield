@@ -1,4 +1,5 @@
 import "server-only";
+import { recordId } from "@everyfield/contracts/common";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { readPreview } from "./server.ts";
 import { mutatingRoute } from "../../server/platform/boundary.ts";
@@ -14,12 +15,13 @@ export const previewRoute = mutatingRoute(async function previewRoute(request: R
 		return Response.json({ status: "refused", code: "invalid_input", path: "overrides" }, { headers: NO_STORE });
 	const raw = parseJson(bytes);
 	if (!raw || typeof raw !== "object") return invalid();
-	const body = raw as { templateId?: unknown; format?: unknown; overrides?: unknown };
+	const body = raw as { templateId?: unknown; format?: unknown; overrides?: unknown; meetingId?: unknown };
 	if (
 		typeof body.templateId !== "string" ||
 		(body.format !== "pdf" && body.format !== "docx" && body.format !== "xlsx")
 	)
 		return invalid();
+	if (body.meetingId !== undefined && !recordId.safeParse(body.meetingId).success) return invalid();
 	const overrides: Record<string, string> = {};
 	if (body.overrides !== undefined) {
 		if (!body.overrides || typeof body.overrides !== "object" || Array.isArray(body.overrides)) return invalid();
@@ -28,5 +30,7 @@ export const previewRoute = mutatingRoute(async function previewRoute(request: R
 			overrides[key] = value;
 		}
 	}
-	return Response.json(await readPreview(body.templateId, body.format, overrides), { headers: NO_STORE });
+	return Response.json(await readPreview(body.templateId, body.format, overrides, body.meetingId), {
+		headers: NO_STORE,
+	});
 });

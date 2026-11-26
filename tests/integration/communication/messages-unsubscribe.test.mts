@@ -1,6 +1,7 @@
-import test, { after, before } from "node:test";
+import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
@@ -14,14 +15,18 @@ import { issueMailOptOutToken, openClaim } from "../../../packages/domain/src/no
 import { peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { deliveryText, hubLabel, scheduleText } from "../../../apps/web/src/features/communication/model.ts";
 import { POST as oneClick } from "../../../apps/web/src/features/communication/unsubscribeOneClick.ts";
+import { requestDatabase } from "../../../apps/web/src/server/database.ts";
+import { setServerEnv } from "../../support/server-env.mts";
 import { emailsIn, resendRecorder, type Recorder, type SentEmail } from "./resend-recorder.mts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok, refused } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING, MAILING_LINE } from "./church-address.mts";
 import {
+	caseOf,
 	deliverAs,
 	firstRow,
+	pinnedDate,
 	rowsFrom,
 	writeAs,
 	type Church,
@@ -128,7 +133,7 @@ async function unsubscribe(staff: Staff, who: Person) {
 }
 
 before(async () => {
-	f = await fixture();
+	f = await fixture({ clock: pinnedDate(caseOf("CASE-NTF-016").clock.now) });
 	churchA = await f.workspace("plant", MAILING);
 	churchB = await f.workspace("plant", MAILING);
 	const a = await f.account();
@@ -141,7 +146,7 @@ before(async () => {
 	await f.seat(m, churchA, "member");
 	memberA = { ...m, actor: await f.actor(m.session) };
 });
-after(() => f?.close());
+after(() => f?.close().finally(() => mock.timers.reset()));
 
 test("AC:CASE-NTF-016 an announcement ends with an Unsubscribe link whose token names the church and the person, and the provider request carries the same token in List-Unsubscribe", async () => {
 	const ana = await person(churchA, "Ana");
@@ -508,4 +513,147 @@ test("AC:CASE-NTF-016 unsubscribing changes no account preference, consent, stag
 	assert.deepEqual(await snapshot(), before);
 	ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
 	assert.deepEqual(await snapshot(), before);
+});
+
+test("AC:CASE-NTF-016 one click in church P's email stops P's later email to that person only, across an address change and a merge, with no staff way back and no undo at one hour", async () => {
+	const { expected, clock } = caseOf("CASE-NTF-016");
+	const { result } = expected;
+	const pia = await person(churchA, "Pia");
+	const quin = await person(churchA, "Quin");
+	const account = await f.account();
+	await f.admin.execute(sql`UPDATE person SET linked_account_id = ${account.id} WHERE id = ${pia.id}`);
+	await f.admin
+		.execute(sql`INSERT INTO notification_preference(account_id, category, channel, enabled, unsubscribe_revision)
+		VALUES(${account.id}, 'task_due', 'email', true, 0), (${account.id}, 'task_due', 'in_app', true, 0)`);
+	const preferences = () => rows(sql`SELECT * FROM notification_preference ORDER BY account_id, category, channel`);
+	const kept = await preferences();
+	const sent = await send(ownerA, [pia, quin]);
+	const { token } = linkOf(emailFor(sent.resend, pia.email));
+
+	setServerEnv({ IDENTITY_DATABASE_URL: f.runtimeUrl });
+	process.env.NOTIFICATION_OPT_OUT_KEYS = ring.current.toString("base64");
+	const post = async (path: string, body: string) =>
+		oneClick(
+			new Request(`${origin}/unsubscribe/${path}/one-click`, {
+				method: "POST",
+				body,
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+			}),
+			{ params: Promise.resolve({ token: path }) },
+		);
+	try {
+		assert.deepEqual([(await post(token, "")).status, (await optOutsOf(pia.id)).length], [400, 0]);
+		const forged = token.slice(0, 20) + (token[20] === "A" ? "B" : "A") + token.slice(21);
+		assert.equal((await post(forged, "List-Unsubscribe=One-Click")).status, 403);
+		assert.equal((await optOutsOf(pia.id)).length, 0);
+		const clicked = await post(token, "List-Unsubscribe=One-Click");
+		assert.deepEqual([clicked.status, await clicked.text()], [200, ""]);
+	} finally {
+		delete process.env.NOTIFICATION_OPT_OUT_KEYS;
+		await closeDatabase(requestDatabase() as never);
+	}
+	const [stored] = await optOutsOf(pia.id);
+	assert.ok(stored);
+	const [{ minute }] = (await rows<{ minute: string }>(
+		sql`SELECT to_char(opted_out_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24') AS minute FROM person_email_opt_out WHERE id = ${stored.id}`,
+	)) as [{ minute: string }];
+	assert.equal(minute, clock.now.slice(0, 13), "recorded at the case's time");
+
+	const both = async (people: Person[]) => {
+		const next = await send(ownerA, people);
+		return { next, to: sentTo(next.resend).map((m) => m.to[0]) };
+	};
+	const later = await both([pia, quin]);
+	assert.equal(!later.to.includes(pia.email), result.later_send_refused_in_P);
+	assert.equal(later.to.includes(quin.email), result.other_recipient_sent);
+	assert.deepEqual(
+		(await mailOf(later.next.id)).find((r) => r.person === pia.id),
+		{ person: pia.id, state: "refused", refusal: "unsubscribed" },
+	);
+	const totals = ok(
+		await gatedTransaction(f.db, (t) =>
+			communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: later.next.id }),
+		),
+	);
+	assert.equal(
+		totals.unsubscribed === 1 && totals.failed === 0 && totals.suppressed === 0 && totals.accepted === 1,
+		result.unsubscribed_counted_separately,
+	);
+	const inQ = await person(churchB, "Pia", pia.email);
+	const fromQ = await send(ownerB, [inQ]);
+	assert.equal(
+		sentTo(fromQ.resend).some((m) => m.to[0] === pia.email),
+		result.same_address_in_Q_sent,
+	);
+
+	const { revision } = firstRow(await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${pia.id}`));
+	const edit = (who: Staff, patch: object) =>
+		gatedTransaction(f.db, (t) =>
+			peopleWriter.updatePerson(
+				t,
+				{ session: who.session, selected: { kind: "plant", id: churchA.id } },
+				{ requestKey: key(), expectedRevision: revision, input: { personId: pia.id, patch } },
+			),
+		);
+	for (const patch of [{ emailOptOut: null }, { emailOptOutAt: null }, { unsubscribed: false }])
+		refused(await edit(ownerA, patch), "invalid_input");
+	const moved = `pia-new-${key().slice(0, 8)}@example.test`;
+	ok(await edit(ownerA, { email: moved }));
+	const afterMove = await both([pia, quin]);
+	assert.equal(afterMove.to.includes(moved) || afterMove.to.includes(pia.email), result.address_change_lifts);
+
+	const purposes = ok(await applyMessagesOptOut(f.db, ring, now, { token }));
+	assert.equal(purposes.changed, false, "a second click changes nothing");
+	refused(await undoMessagesOptOut(f.db, ring, now, { token }), "access_denied");
+	refused(await applyMessagesOptOut(f.db, ring, now, { token: purposes.undoToken }), "access_denied");
+	const recorded = Date.parse(
+		firstRow(
+			await rows<{
+				at: string;
+			}>(sql`SELECT to_char(opted_out_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at
+			FROM person_email_opt_out WHERE id = ${stored.id}`),
+		).at,
+	);
+	const undo = (ms: number) =>
+		undoMessagesOptOut(f.db, ring, () => new Date(recorded + ms), { token: purposes.undoToken });
+	for (const ms of [HOUR, HOUR + 1]) {
+		const late = ok(await undo(ms));
+		assert.deepEqual([late.changed, late.expired], [result.undo_after_one_hour_changes, true]);
+	}
+	assert.equal((await optOutsOf(pia.id))[0]!.undone_at, null);
+
+	const clears = [
+		sql`DELETE FROM person_email_opt_out WHERE id = ${stored.id}`,
+		sql`UPDATE person_email_opt_out SET opted_out_at = clock_timestamp() WHERE id = ${stored.id}`,
+	];
+	const cleared = [];
+	for (const query of clears)
+		cleared.push(
+			await f.db.execute(query).then(
+				() => true,
+				() => false,
+			),
+		);
+	assert.deepEqual(cleared, [result.staff_can_clear, result.staff_can_clear]);
+	assert.equal(JSON.stringify(await preferences()) !== JSON.stringify(kept), result.account_preference_changed);
+	assert.deepEqual(await optOutsOf(pia.id), [stored]);
+
+	const twin = await person(churchA, "Pia Twin");
+	await f.admin.execute(sql`UPDATE person SET linked_account_id = NULL WHERE id = ${pia.id}`);
+	const ctx = { session: ownerA.session, selected: ownerA.actor.actor.context.owner };
+	const review = ok(
+		await gatedTransaction(f.db, (t) => peopleMerge.getMergeReview(t, ctx, { sourceId: pia.id, survivorId: twin.id })),
+	);
+	ok(
+		await gatedTransaction(f.db, (t) =>
+			peopleMerge.mergePeople(t, ctx, {
+				requestKey: key(),
+				input: { sourceId: pia.id, survivorId: twin.id, reviewDigest: review.reviewDigest, fieldChoices: {} },
+			}),
+		),
+	);
+	const merged = await both([twin, quin]);
+	assert.deepEqual(merged.to, [quin.email], "the survivor stays unsubscribed");
+	const inTime = ok(await undo(HOUR - 1));
+	assert.deepEqual([inTime.changed, inTime.expired], [true, false], "the undo still works just before the hour");
 });

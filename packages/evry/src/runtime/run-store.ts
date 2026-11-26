@@ -28,8 +28,11 @@ export type Turn = z.infer<typeof turnRow>;
 
 const history = (lease: RunLease) =>
 	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',h.sequence,'turnId',h.turn_id,'kind',h.kind,'body',h.body,'createdAt',h.created_at) ORDER BY h.sequence)
-		FROM (${retainedEvents(sql`SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind IN ('user_message','status')
-			AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}`)}) h), '[]'::jsonb)`;
+		FROM (${retainedEvents(
+			sql`SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind IN ('user_message','status')
+			AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}`,
+			"model",
+		)}) h), '[]'::jsonb)`;
 
 export async function loadHistory(
 	db: Database,

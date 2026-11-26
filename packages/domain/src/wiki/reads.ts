@@ -47,6 +47,7 @@ import { z } from "zod";
 import type { Owner } from "@everyfield/contracts/common";
 import type { RequestActor } from "../access/session.ts";
 import { asLogWord, logLine } from "../log.ts";
+import { foundationArticles } from "../onboarding/reading.ts";
 import {
 	articleJson,
 	catalogQuery,
@@ -633,7 +634,8 @@ export function readingStats(db: Database | Transaction, authority: RequestActor
 		const owner = access.owner;
 		const result = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })},
 			disc AS (
-				SELECT article_id, slug, meaningful_sequence FROM global_rev WHERE slug LIKE 'discovery/%'
+				SELECT article_id, slug, meaningful_sequence FROM global_rev
+				WHERE article_id = ANY(${sql.param(foundationArticles)}::uuid[])
 			),
 			caller AS (
 				SELECT d.article_id, d.slug,

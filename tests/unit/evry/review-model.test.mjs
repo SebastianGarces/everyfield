@@ -7,6 +7,7 @@ import {
 	consequence,
 	delayedText,
 	digestSchedule,
+	documentRefusalText,
 	draftRows,
 	editableChanges,
 	fieldLabel,
@@ -531,4 +532,50 @@ test("INV-evry-collision: a task handoff that no longer applies is not shown as 
 		["openTasksNeedingOwner", false],
 	]);
 	assert.deepEqual(rows([], [change("city", "Elgin", "Austin")]), [["city", true]]);
+});
+
+test("an approved end shows plain words, and a withdrawn person never reads as having finished", async () => {
+	const { pipelineRefusalText, reviewTitle } = await import("../../../apps/web/src/features/evry/review/model.ts");
+	for (const label of ["Completed", "Withdrawn"]) {
+		const ended = review({
+			operation: "development.updateEnrollment",
+			review: { target: maria, changes: [{ field: "status", before: "Active", after: label }] },
+			status: "approved",
+			outcome: "completed",
+		});
+		assert.equal(reviewTitle(ended), "End an enrollment");
+		assert.equal(savedText(ended), `Saved. Maria Santos's enrollment has ended as ${label}.`);
+		assert.doesNotMatch(savedText(ended), /finished/);
+		assert.deepEqual(
+			[fieldLabel("status"), valueText("status", "Active"), valueText("status", label)],
+			["Status", "Active", label],
+		);
+	}
+	const changed = review({
+		operation: "development.updateEnrollment",
+		review: { target: maria, changes: [{ field: "cohort", before: "Fall", after: "Winter" }] },
+	});
+	assert.equal(reviewTitle(changed), "Update an enrollment");
+	assert.equal(savedText(changed), "Saved. Maria Santos's enrollment is updated.");
+	const refusal = (code) => pipelineRefusalText(code, "development.updateEnrollment", "Maria Santos");
+	assert.equal(refusal("enrollment_ended"), "Maria Santos's enrollment has already ended, so nothing was saved.");
+	assert.match(refusal("revision_conflict"), /^Maria Santos's enrollment changed after Evry prepared this/);
+	assert.match(refusal("access_denied"), /^Your seat no longer allows this change/);
+});
+
+test("an account's own document review says it is private, never that it is for a church to edit", () => {
+	const saving = (operation, over) =>
+		review({
+			operation,
+			review: { target: null, changes: [{ field: "title", before: null, after: "Hopes" }], ...over },
+		});
+	for (const operation of ["documents.saveNative", "documents.importTextOrWord"]) {
+		assert.equal(
+			consequence(saving(operation, { private: true })),
+			"The new document opens in Documents. It's private: only you can open it.",
+		);
+		assert.match(consequence(saving(operation, {})), /for your church to edit\.$/);
+	}
+	assert.match(documentRefusalText("access_denied", true), /^Your account no longer allows/);
+	assert.match(documentRefusalText("access_denied"), /^Your seat no longer allows/);
 });

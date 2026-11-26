@@ -16,8 +16,10 @@ import {
 	DOCS,
 	GUIDE,
 	goldenChurch,
+	GRACE_AUSTIN,
 	IMPORT_KEY,
 	MEETINGS,
+	PLANT,
 	programId,
 	taskId,
 	teamId,
@@ -29,9 +31,12 @@ import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
 import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
 import { seedGuests, seedLaunched, seedOutcome, seedScheduled } from "../evals/launch-church.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
-import { evryActor } from "../../../packages/evry/src/context/actor.ts";
+import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { randomUUID } from "node:crypto";
+import { createAssessments } from "../../../packages/domain/src/intelligence/index.ts";
+import { installGeographyRelease, pipelineWriter } from "../../../packages/domain/src/organizations/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligence-church.mts";
 
@@ -45,6 +50,12 @@ const oversightActor = async (who: "owner" | "director") => {
 	const ch = await oversightChurch();
 	return evryActor((await readViewer(ch.db, ch.seats[who].session as never))!.authority!);
 };
+const onCedar = async (operation: string, input: unknown = {}) =>
+	invokeRead((await oversightChurch()).db, await oversightActor("owner"), adapters.get(operation)!, input);
+const onNetwork = async (operation: string, input: unknown = {}) =>
+	invokeRead((await oversightChurch()).db, await oversightActor("director"), adapters.get(operation)!, input);
+let linked: Promise<void> | null = null;
+const linkedChurch = async () => (linked ??= (await oversightChurch()).churchLinked());
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
@@ -75,6 +86,36 @@ const adapters = new Map<string, ReadAdapter<unknown>>(
 );
 const read = (operation: string, input: unknown) =>
 	invokeRead(church.db, church.actors.owner, adapters.get(operation)!, input);
+const withNative = (operation: string, actor: EvryActor, input: unknown) =>
+	invokeRead(church.db, actor, adapters.get(operation)!, input, native);
+const made = (operation: string, rows: SourceResult["rows"]) => async (): Promise<SourceResult> => ({
+	operation,
+	status: "available",
+	rows,
+	total: 1,
+	page: 1,
+	next: null,
+	completeness: "complete",
+	exclusions: [],
+});
+const TEMPLATE: SourceResult["rows"][number] = {
+	kind: "template",
+	id: "follow-up-letter",
+	label: "Vision Meeting Follow-up Letter",
+	fields: { about: "A letter", formats: "PDF", format: "pdf", rendered: true, overrides: "{}" },
+};
+const FIELD: SourceResult["rows"][number] = {
+	kind: "item",
+	id: "church_name",
+	label: "Church Name",
+	fields: { key: "church_name", value: "Hope Fellowship", from: "from the church profile", required: true },
+};
+const MADE_FILE: SourceResult["rows"][number] = {
+	kind: "file",
+	id: "5b6d1f0e-0000-4000-8000-00000000f11e",
+	label: "Vision Meeting Follow-up Letter",
+	fields: { format: "PDF", madeAt: "2026-11-01T15:00:00.000Z", state: "Ready" },
+};
 const JAMES = byName("James Okafor").id;
 const MARK = byName("Mark Thompson").id;
 const FILE = "first_name,last_name,email\r\nAda,Park,ada@example.test\r\n,,\r\nJames,Okafor,\r\n";
@@ -313,6 +354,62 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			},
 		]),
 	),
+	"intelligence.readAssessmentHistory": async () => onCedar("intelligence.readAssessmentHistory"),
+	"intelligence.readAssessmentRun": async () => {
+		const history = await onCedar("intelligence.readAssessmentHistory");
+		return onCedar("intelligence.readAssessmentRun", { runId: history.rows[0]!.id });
+	},
+	"intelligence.readColdStartGuidance": async () => {
+		const ch = await oversightChurch();
+		const viewer = await readViewer(ch.db, ch.plants["Grace Tulsa"]!.owner.session as never);
+		return invokeRead(ch.db, evryActor(viewer!.authority!), adapters.get("intelligence.readColdStartGuidance")!, {});
+	},
+	"intelligence.readOwnFeedback": async () => {
+		const ch = await oversightChurch();
+		const actor = await oversightActor("owner");
+		const runId = (await onCedar("intelligence.readAssessmentHistory")).rows[0]!.id;
+		await createAssessments().submitFeedback(ch.db, actor.authority, {
+			runId,
+			ordinal: 0,
+			rating: "useful",
+			comment: "",
+		});
+		return onCedar("intelligence.readOwnFeedback");
+	},
+	"oversight.listSendingChurches": async () => {
+		await linkedChurch();
+		return onNetwork("oversight.listSendingChurches");
+	},
+	"oversight.getSendingChurch": async () => {
+		await linkedChurch();
+		const [church] = (await onNetwork("oversight.listSendingChurches")).rows;
+		return onNetwork("oversight.getSendingChurch", { churchId: church!.id });
+	},
+	"geography.listReportingRegionCandidates": async () => {
+		await installGeographyRelease(church.admin);
+		return read("geography.listReportingRegionCandidates", { city: "Fort Worth", stateProvince: "TX", country: "US" });
+	},
+	"pipeline.readGoals": async () => {
+		const dana = await setupActor(PIPELINE_SPECS.dana.session);
+		await pipelineWriter.saveGoal(church.db, dana.authority, {
+			goalId: randomUUID(),
+			expectedRevision: null,
+			leaderTarget: 6,
+			plantTarget: 2,
+			targetYear: 2028,
+			rationale: "Two campuses are full.",
+			countingFrom: null,
+			counts: [],
+		});
+		return invokeRead(church.db, dana, adapters.get("pipeline.readGoals")!, {});
+	},
+	"pipeline.readConversationCounts": async () =>
+		invokeRead(
+			church.db,
+			await setupActor(PIPELINE_SPECS.dana.session),
+			adapters.get("pipeline.readConversationCounts")!,
+			{},
+		),
 	"organizationIntelligence.readLocationHistory": async () => {
 		const ch = await oversightChurch();
 		return invokeRead(
@@ -373,6 +470,27 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"documents.read": { documentId: DOCS.septemberAgenda.id },
 	"documents.readCoreValuesEvidence": {},
 	"documents.templates.list": {},
+	"documents.templates.contextual": made("documents.templates.contextual", [TEMPLATE]),
+	"documents.templates.get": made("documents.templates.get", [TEMPLATE, FIELD]),
+	"documents.resolveContext": made("documents.resolveContext", [TEMPLATE, FIELD]),
+	"documents.preview": made("documents.preview", [TEMPLATE, FIELD]),
+	"documents.history.list": made("documents.history.list", [MADE_FILE]),
+	"documents.history.get": made("documents.history.get", [MADE_FILE]),
+	"documents.download": made("documents.download", [MADE_FILE]),
+	"associations.listInvitations": async () => {
+		const id = randomUUID();
+		await church.admin
+			.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,token_hash,state,created_at,revision)
+			VALUES(${id},${PLANT},'plant_church','cards@example.test',${church.actors.owner.accountId},${id},'pending',clock_timestamp(),1)`);
+		await church.admin
+			.execute(sql`INSERT INTO relationship_invitation(invitation_id,plant_id,organization_id,inviter_description,subject_revision)
+			VALUES(${id},${PLANT},${GRACE_AUSTIN},'Hope Fellowship',1)`);
+		return read("associations.listInvitations", {});
+	},
+	"associations.getHistory": () => withNative("associations.getHistory", church.actors.owner, {}),
+	"settings.getSection": () => withNative("settings.getSection", church.actors.owner, { section: "church" }),
+	"organizations.getProfile": () => withNative("organizations.getProfile", church.actors.network, {}),
+	"account.getAvatar": () => withNative("account.getAvatar", church.actors.owner, {}),
 	"development.readProgram": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.readProgram")!, {
 			programId: pipeline.residency.programId,
@@ -413,4 +531,22 @@ test("INV-result-card-views: every installed read and catalog tool has its own c
 			problems.push(`${operation}: speaks of people but shows no person row: ${words}`);
 	}
 	assert.deepEqual(problems, []);
+});
+
+test("INV-result-card-views: a rendered template preview carries what the card draws, and a failed one draws nothing", async () => {
+	const at = async (rendered: boolean) => {
+		const result = await made("documents.preview", [{ ...TEMPLATE, fields: { ...TEMPLATE.fields, rendered } }])();
+		return cardView("documents.preview", { ...result, facts: { rendered } }, null);
+	};
+	assert.deepEqual((await at(true)).rows[0]!.preview, {
+		templateId: "follow-up-letter",
+		title: "Vision Meeting Follow-up Letter",
+		format: "pdf",
+		overrides: {},
+		meetingId: null,
+		page: null,
+	});
+	const failed = await at(false);
+	assert.equal(failed.rows[0]!.preview, undefined);
+	assert.ok(failed.facts.includes("The preview could not be made. Nothing was saved."));
 });

@@ -53,7 +53,7 @@ const context = {
 const request = (method: string, headers: Record<string, string>) =>
 	new Request(`${ORIGIN}/api/x`, { method, headers: { "content-type": "application/json", ...headers }, body: "{}" });
 
-test("INV-security: every route that writes is built with a route wrapper that names how it is authenticated", () => {
+test("AC:TARGET-IDN-028 INV-security: every route that writes is built with a route wrapper that names how it is authenticated", () => {
 	assert.ok(writes.length >= 25, `only ${writes.length} write handlers found`);
 	const unwrapped = writes.filter((w) => !["session", "token", "signed"].includes(w.handler[ROUTE_KIND] ?? ""));
 	assert.deepEqual(
@@ -79,7 +79,7 @@ test("INV-structure: the church document export is the POST route handler saveEx
 	assert.equal(routes.find((r) => r.file === file)?.module.POST, saveExportRoute);
 });
 
-test("INV-security: a session route refuses a write from another site or of unknown origin before it runs", async () => {
+test("AC:TARGET-IDN-028 INV-security: a session route refuses a write from another site or of unknown origin before it runs", async () => {
 	const refused: Record<string, string>[] = [
 		{ "sec-fetch-site": "cross-site", origin: ORIGIN },
 		{ "sec-fetch-site": "same-site", origin: ORIGIN },

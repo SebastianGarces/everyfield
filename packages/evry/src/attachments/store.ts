@@ -13,6 +13,7 @@ import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
 import { COMMITMENT_MAX_BYTES } from "@everyfield/contracts/people";
 import { z } from "zod";
+import { accountContext, plantAdmin } from "../adapters/native.ts";
 import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
@@ -59,8 +60,9 @@ const staged = <F extends string, C extends string>(f: SqlLiteral<F>, c: SqlLite
 	`${f}.purpose IN ('assistant_staging','commitment') AND ${f}.upload_key='evry-attachment/'||${c}.id||'/'||${f}.id`;
 export const stagedIn = <F extends string, C extends string>(f: SqlLiteral<F>, c: SqlLiteral<C>) =>
 	sql.raw(staged(f, c));
-const canAttach = (actor: EvryActor) =>
-	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
+const DOCUMENT_FILES: readonly (keyof typeof KINDS)[] = ["txt", "docx", "doc"];
+const canAttach = (actor: EvryActor, name: string) =>
+	plantAdmin(actor) || (accountContext(actor) && DOCUMENT_FILES.includes(extensionOf(name)));
 
 export async function stageAttachment(
 	db: Database,
@@ -71,7 +73,7 @@ export async function stageAttachment(
 ) {
 	const parsed = z.strictObject({ id: z.uuid(), input: stageInput }).safeParse({ id: conversationId, input: raw });
 	if (!parsed.success) throw new EvryRefusal("invalid_input");
-	if (!storage || !canAttach(actor)) throw new EvryRefusal("access_denied");
+	if (!storage || !canAttach(actor, parsed.data.input.name)) throw new EvryRefusal("access_denied");
 	const { input } = parsed.data;
 	const kind = kindOf(input.name);
 	const id = randomUUID();

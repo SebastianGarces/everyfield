@@ -103,8 +103,8 @@ function LinkedResidency({ residency }: { residency: Linked }) {
 			/>
 			{residency.enrollments.length === 0 ? (
 				<Card>
-					<EmptyState icon={Mortarboard01Icon} headingLevel="h2" title="No program yet">
-						You’re linked to {church}. Your program, meetings and milestones show here once they enroll you.
+					<EmptyState icon={Mortarboard01Icon} headingLevel="h2" title="No active program">
+						You’re linked to {church}. Meetings and milestones show here while you’re in an active program.
 					</EmptyState>
 				</Card>
 			) : (

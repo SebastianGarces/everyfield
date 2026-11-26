@@ -4,7 +4,15 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { type Workspace, ok, refused } from "../../support/fixture.mts";
-import { frozenClock, instant, personId } from "../../../packages/contracts/src/common/index.ts";
+import {
+	calendarContext,
+	frozenClock,
+	instant,
+	localDateTime,
+	personId,
+	resolveCalendar,
+	timeZone,
+} from "../../../packages/contracts/src/common/index.ts";
 import {
 	countdown,
 	type DebriefAnswers,
@@ -17,6 +25,7 @@ import {
 	createLaunchReader,
 	createLaunchWriter,
 } from "../../../packages/domain/src/launch/index.ts";
+import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleMerge, peopleReader, peopleUnmerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
@@ -446,6 +455,73 @@ test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not me
 	await f.admin.execute(sql`DELETE FROM launch_debrief WHERE plant_id=${c.w.id} AND submitted_at IS NULL`);
 	assert.equal(ok(await debrief(c.owner, clean, { missingNames: "no" }, true)).outcome, "noop");
 	assert.equal((await footprint(c.w)).audits, n);
+});
+
+test("AC:B03-037 the calendar resolver answers by itself at version 1, check-ins open on twelve weeks and Launch reads Guest data entered and Debrief done with nothing left to approve", async () => {
+	const c = await launched();
+	const none = (await plan(c.owner)).evidence;
+	assert.deepEqual(
+		[none.guestNamesEntered.status, none.debriefDone.status],
+		["unknown", "unknown"],
+		"an unsubmitted debrief is not a pending decision",
+	);
+	const submitted = ok(
+		await debrief(c.owner, await plan(c.owner), { missingNames: "yes", missingCount: 3 }, true),
+	).plan;
+	const launch = (await plan(c.admin)).evidence;
+	assert.deepEqual(launch, submitted.evidence);
+	assert.deepEqual(
+		{ guest_data_entered: launch.guestNamesEntered, debrief_done: launch.debriefDone },
+		{ guest_data_entered: { status: "not_met", remaining: 3 }, debrief_done: { status: "met" } },
+	);
+	const stored = await rows(sql`SELECT missing_names,missing_count,submitted_at IS NOT NULL AS submitted
+		FROM launch_debrief WHERE plant_id=${c.w.id}`);
+	assert.deepEqual(stored, [{ missing_names: "yes", missing_count: 3, submitted: true }]);
+	const quiet = await footprint(c.w);
+	await plan(c.owner);
+	await plan(c.member);
+	assert.deepEqual(await footprint(c.w), quiet, "reading the workspace records nothing");
+
+	const chicago = timeZone.parse("America/Chicago");
+	const gap = localDateTime.parse("2027-03-14T02:30:00"),
+		fold = localDateTime.parse("2026-11-01T01:30:00");
+	assert.deepEqual(resolveCalendar(gap, chicago, "automatic"), {
+		kind: "resolved",
+		entered: gap,
+		zone: chicago,
+		occurrence: { instant: "2027-03-14T08:30:00.000Z", offsetSeconds: -18_000 },
+		resolverVersion: 1,
+		adjustmentSeconds: 3600,
+	});
+	assert.deepEqual(resolveCalendar(fold, chicago, "automatic"), {
+		kind: "resolved",
+		entered: fold,
+		zone: chicago,
+		occurrence: { instant: "2026-11-01T06:30:00.000Z", offsetSeconds: -18_000 },
+		resolverVersion: 1,
+		adjustmentSeconds: 0,
+	});
+	assert.equal(resolveCalendar(gap, chicago, "entered").kind, "gap");
+	assert.equal(resolveCalendar(fold, chicago, "entered").kind, "fold");
+	assert.equal(calendarContext(chicago, TODAY).resolverVersion, 1);
+
+	await f.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${c.owner.id}`);
+	let now = instant.parse("2026-07-20T18:00:00.000Z");
+	const care = createPrivateCare({ clock: { now: () => now } });
+	const steady = { spiritual: "steady", family: "steady", financial: "steady", pace: "steady" };
+	for (let week = 0; week < 13; week++) {
+		now = instant.parse(new Date(Date.parse("2026-07-20T18:00:00.000Z") + week * 7 * 86_400_000).toISOString());
+		ok(
+			await care.save(f.db, c.owner.actor, {
+				requestKey: key(),
+				expectedRevision: ok(await care.readCurrent(f.db, c.owner.actor, {})).revision,
+				input: { answers: steady, note: "" },
+			}),
+		);
+	}
+	const strip = ok(await care.readTrends(f.db, c.owner.actor, {}));
+	assert.deepEqual([strip.weeks.length, strip.pageCount], [12, 2]);
+	assert.deepEqual([strip.weeks[0]!.startsOn, strip.weeks[11]!.startsOn], ["2026-10-12", "2026-07-27"]);
 });
 
 test("AC:LAUNCH46-021 AC:LAUNCH46-014 AC:CASE-LCH-004 a draft alone is unknown for both, and neither milestone can be completed or reopened by hand", async () => {

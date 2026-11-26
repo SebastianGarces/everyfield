@@ -7,11 +7,15 @@ import type {
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { addDays, counted, countWord, dayText, weekdayOf } from "@everyfield/contracts/common";
+import { connectionStep } from "./scripted-connections.ts";
+import { accountTurn } from "./scripted-account.ts";
+import { documentTurn } from "./scripted-documents.ts";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
 import { intelligenceStep } from "./scripted-intelligence.ts";
 import { overviewStep } from "./scripted-overview.ts";
 import { invitationStep } from "./scripted-invitation.ts";
+import { networkStep } from "./scripted-network.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { wikiBrowseStep } from "./scripted-wiki-browse.ts";
 import { wikiEditorStep } from "./scripted-wiki-editor.ts";
@@ -971,6 +975,14 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const network = networkStep(options, text);
+	if (network) return network;
+	const account = accountTurn(options, text);
+	if (account) return account;
+	const documents = documentTurn(options, text);
+	if (documents) return documents;
+	const connection = connectionStep(options, text);
+	if (connection) return connection;
 	const planter = planterStep(options, text);
 	if (planter) return planter;
 	const plan = planStep(options, text);

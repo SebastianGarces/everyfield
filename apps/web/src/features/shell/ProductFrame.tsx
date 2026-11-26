@@ -33,6 +33,7 @@ type FrameProps = {
 	settings: SettingsViewer | null;
 	settingsDialog?: ReactNode;
 	residency?: { organizationName: string } | null;
+	evryAvailable: boolean;
 	children: ReactNode;
 };
 
@@ -74,7 +75,15 @@ export function ProductFrame({ settings: initial, residency = null, ...props }: 
 	);
 }
 
-function Frame({ name, photo, settings, settingsDialog, seedFits, children }: FrameProps & { seedFits: boolean }) {
+function Frame({
+	name,
+	photo,
+	settings,
+	settingsDialog,
+	seedFits,
+	evryAvailable,
+	children,
+}: FrameProps & { seedFits: boolean }) {
 	const dialog = useProductSettings(settings, seedFits);
 	const pathname = usePathname();
 	const privatePage = evryOff(pathname, settings);
@@ -83,6 +92,7 @@ function Frame({ name, photo, settings, settingsDialog, seedFits, children }: Fr
 		inPlant: settings?.context === "plant",
 		canAttach: settings?.context === "plant" && (role === "owner" || role === "admin"),
 		off: privatePage,
+		available: evryAvailable,
 		context:
 			settings?.context === "plant"
 				? `plant:${settings.plant.id}`

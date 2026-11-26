@@ -91,6 +91,8 @@ export type Operation =
 	| "documents.archive"
 	| "documents.designateCoreValues"
 	| "documents.importTextOrWord"
+	| "documents.saveNative"
+	| "documents.generate"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
@@ -108,6 +110,7 @@ export type Operation =
 	| SettingsOperation
 	| PipelineOperation
 	| LaunchOperation
+	| NetworkOperation
 	| IntelligenceOperation;
 
 export type IntelligenceOperation = "intelligence.requestRefresh" | "intelligence.submitFeedback";
@@ -136,14 +139,29 @@ export type LaunchOperation =
 export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 export type PipelineOperation =
-	"pipeline.proposeStageMove" | "development.saveProgram" | "development.draftNextVersion";
+	| "pipeline.proposeStageMove"
+	| "pipeline.saveGoal"
+	| "pipeline.saveStages"
+	| "development.saveProgram"
+	| "development.draftNextVersion"
+	| EnrollmentOperation;
+type EnrollmentOperation =
+	| "development.enroll"
+	| "development.updateEnrollment"
+	| "development.applyVersion"
+	| "development.confirmMilestone"
+	| "development.completeMilestone";
 export const isPipeline = (operation: Operation): operation is PipelineOperation =>
-	operation === "pipeline.proposeStageMove" ||
-	operation === "development.saveProgram" ||
-	operation === "development.draftNextVersion";
+	/^(pipeline|development)\./.test(operation);
+export type NetworkOperation = "organizationIntelligence.requestRefresh" | "organizationIntelligence.submitFeedback";
+export const isNetwork = (operation: Operation): operation is NetworkOperation =>
+	operation.startsWith("organizationIntelligence.");
 export const asksReason = (operation: Operation) => operation === "pipeline.proposeStageMove";
 export function pipelineLink(review: Pick<Review, "operation" | "review">): { href: string; label: string } {
 	const who = review.review.target;
+	if (review.operation === "pipeline.saveGoal" || review.operation === "pipeline.saveStages")
+		return { href: "/organization/pipeline", label: "Open Pipeline" };
+	if (who?.href) return { href: who.href, label: `Open ${who.label}` };
 	if (review.operation === "development.draftNextVersion" && who)
 		return { href: `/organization/pipeline/programs/${who.id}`, label: "Open the program" };
 	return review.operation === "pipeline.proposeStageMove" && who
@@ -219,10 +237,16 @@ export type SettingsOperation =
 	| "plant.updateProfile"
 	| "plant.setTimezone"
 	| "church.digestSchedule.set"
+	| "organizations.correctReportingLocation"
 	| "privacy.setSharing"
 	| "associations.invite"
+	| "associations.resendInvitation"
+	| "associations.revokeInvitation"
+	| "associations.declineInvitation"
 	| "associations.end"
+	| "settings.saveSection"
 	| "account.finalizeAvatar"
+	| "account.removeAvatar"
 	| "account.requestDeletion"
 	| "organizations.updateProfile"
 	| OnboardingOperation;
@@ -315,6 +339,7 @@ export type Review = {
 		notes?: string[];
 		refusal?: string;
 		earlier?: Change[];
+		private?: true;
 		withheld?: true;
 	};
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
@@ -377,6 +402,27 @@ const FIELD_LABEL: Record<string, string> = {
 	changedMilestones: "Milestones changed",
 	removedMilestones: "Milestones removed",
 	milestoneOrder: "Milestone order",
+	leaderTarget: "Leaders",
+	plantTarget: "Churches",
+	targetYear: "By the year",
+	rationale: "Why this goal",
+	countingFrom: "Counting from",
+	goalCounts: "Counts",
+	renamedStages: "Renamed",
+	addedStages: "Added",
+	removedStages: "Removed",
+	stageOrder: "Order",
+	program: "Program",
+	cohort: "Cohort",
+	startedOn: "Start",
+	expectedEndOn: "Expected end",
+	programStage: "Program stage",
+	nextMeeting: "Next meeting",
+	programVersion: "Version",
+	milestoneProgress: "Progress",
+	networkIntelligence: "Run",
+	reportingPlace: "Place",
+	reportingRegion: "Region",
 	firstName: "First name",
 	lastName: "Last name",
 	email: "Email",
@@ -541,6 +587,10 @@ const FIELD_LABEL: Record<string, string> = {
 	digestSchedule: "Church digest",
 	connection: "Connection",
 	recipientEmail: "Sent to",
+	accountName: "Account name",
+	accountPhoto: "Photo",
+	warningDays: "Warning after (days)",
+	alertDays: "Alert after (days)",
 	account: "Your login",
 	church: "Church",
 	whereYouAre: "Where you are",
@@ -723,7 +773,14 @@ const SHARED = new Set<string>(SHARING_CATEGORIES);
 const WORDS: Record<string, Record<string, string>> = {
 	role: ROLE_LABEL,
 	access: { ...ROLE_LABEL, removed: "Removed" },
-	invitation: { pending: "Waiting", sent_again: "Sent again", new_link: "New link", revoked: "Revoked" },
+	invitation: {
+		pending: "Waiting",
+		sent_again: "Sent again",
+		new_link: "New link",
+		revoked: "Revoked",
+		declined: "Declined",
+	},
+	accountPhoto: { shown: "Your photo", none: "None, your initials show" },
 	connection: {
 		connected: "Connected",
 		ended: "Ended",
@@ -737,13 +794,21 @@ const WORDS: Record<string, Record<string, string>> = {
 const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zone})` : zone);
 
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
-	/^(seats|plant|church|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
+	/^(seats|plant|church|privacy|settings|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
 	operation === "identity.answerLeadOnboarding";
-export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
+export function settingsLink(
+	operation: SettingsOperation,
+	target: Review["review"]["target"] = null,
+): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
-	if (operation.startsWith("plant.") || operation.startsWith("church."))
+	if (
+		/^(plant|church)\./.test(operation) ||
+		operation === "organizations.correctReportingLocation" ||
+		target?.kind === "church"
+	)
 		return { href: "/settings/church", label: "Open Church settings" };
-	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
+	if (operation.startsWith("account.") || operation === "settings.saveSection")
+		return { href: "/settings/account", label: "Open your account" };
 	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
 		return { href: "/onboarding", label: "Open setup" };
 	if (operation.startsWith("organizations."))
@@ -783,7 +848,8 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 	!(
 		(isMeetings(review.operation) ||
 			isLaunch(review.operation) ||
-			review.operation === "development.draftNextVersion") &&
+			isPipeline(review.operation) ||
+			isNetwork(review.operation)) &&
 		(change.before === null || change.before === undefined)
 	) &&
 	!(
@@ -809,7 +875,7 @@ export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
 	if (review.operation === "tasks.create") return String(changes.find((c) => c.field === "title")?.after ?? "New task");
-	if (review.operation === "documents.importTextOrWord")
+	if (review.operation === "documents.importTextOrWord" || review.operation === "documents.saveNative")
 		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
 	if (review.operation === "tasks.assignFollowUp") return counted(n, "follow-up");
@@ -823,6 +889,7 @@ export function delayedText(review: Review): string | null {
 		case "seats.invite":
 			return `The invitation to ${String(review.review.changes.find((c) => c.field === "invitation")?.after ?? who)} is saved, but its email is delayed. You do not need to send it again unless it expires.`;
 		case "seats.resendInvitation":
+		case "associations.resendInvitation":
 			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
 		case "associations.invite":
 			return `The invitation to ${who} is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.`;
@@ -875,13 +942,19 @@ export function draftRows(review: Review): DraftRow[] | null {
 }
 
 export const shownNotes = (review: Review): string[] =>
-	delayedText(review) !== null && review.operation.startsWith("seats.") ? [] : (review.review.notes ?? []);
+	delayedText(review) !== null &&
+	(review.operation.startsWith("seats.") || review.operation === "associations.resendInvitation")
+		? []
+		: (review.review.notes ?? []);
 
 export function savedText(review: Review): string {
 	const delayed = delayedText(review);
 	if (delayed !== null) return delayed;
 	const who = review.review.target?.label;
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
+	const own = OWN_SAVED[review.operation];
+	if (own) return `Saved. ${own(who ?? "This person", review.review.changes)}`;
+	if (review.operation === "documents.generate") return `Saved. The ${who ?? "template"} file is made.`;
 	if (review.operation === "people.restorePerson") return `Saved. ${who ?? "This person"} is back in People.`;
 	if (review.operation === "launch.saveDebriefDraft" || review.operation === "launch.saveDebriefSummaryDraft")
 		return "Saved as a draft. Nothing is submitted, published or shared.";
@@ -938,6 +1011,22 @@ export function savedText(review: Review): string {
 	}
 }
 
+const OWN_SAVED: Partial<Record<Operation, (who: string, changes: readonly Change[]) => string>> = {
+	"pipeline.saveGoal": () => "The sending goal is on your Pipeline page.",
+	"pipeline.saveStages": () => "The pipeline stages are updated. No person moved.",
+	"development.enroll": (who) => `${who} is enrolled.`,
+	"development.updateEnrollment": (who, changes) => {
+		const ended = changes.find((c) => c.field === "status")?.after;
+		return ended ? `${who}'s enrollment has ended as ${String(ended)}.` : `${who}'s enrollment is updated.`;
+	},
+	"development.applyVersion": (who) => `${who} is on the current version.`,
+	"development.confirmMilestone": (who) => `${who}'s milestone is confirmed.`,
+	"development.completeMilestone": (who) => `${who}'s milestone is recorded as finished.`,
+	"organizationIntelligence.requestRefresh": () => "Network Intelligence has a new run.",
+	"organizationIntelligence.submitFeedback": () => "Your rating is updated.",
+	"organizations.correctReportingLocation": () => "The reporting place and Region are updated.",
+};
+
 const WIKI_EDITOR_SAVED: Record<WikiEditorOperation, (title: string) => string> = {
 	"wiki.organizationArticles.add": (t) =>
 		`Saved. Your draft of ${t} is in your Wiki editor. Churches keep seeing the Wiki's version.`,
@@ -971,8 +1060,13 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
 	if (field === "feedback") return "No vote";
-	if (field === "household" || field === "householdRole" || field === "prerequisites") return "None";
-	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
+	if (["household", "householdRole", "prerequisites", "goalCounts"].includes(field)) return "None";
+	if (field === "nextMeeting") return "Not set";
+	if (field === "reportingRegion") return "No Region set";
+	if (
+		after &&
+		["note", "skill", "category", "proficiency", "tag", "removedMilestones", "removedStages"].includes(field)
+	)
 		return "Removed";
 	return "Empty";
 }
@@ -1067,12 +1161,27 @@ const TITLE: Record<Operation, string> = {
 	"church.digestSchedule.set": "Change the church digest schedule",
 	"privacy.setSharing": "Change what you share",
 	"associations.invite": "Ask to connect",
+	"associations.resendInvitation": "Resend a link invitation",
+	"associations.revokeInvitation": "Withdraw a link invitation",
+	"associations.declineInvitation": "Decline a link invitation",
 	"associations.end": "End a connection",
+	"settings.saveSection": "Change a setting",
 	"account.finalizeAvatar": "Change your photo",
+	"account.removeAvatar": "Remove your photo",
 	"account.requestDeletion": "Delete your login",
 	"organizations.updateProfile": "Update the organization profile",
 	"pipeline.proposeStageMove": "Move to another stage",
+	"pipeline.saveGoal": "Save a sending goal",
+	"pipeline.saveStages": "Change pipeline stages",
 	"development.saveProgram": "Create a program",
+	"development.enroll": "Enroll in a program",
+	"development.updateEnrollment": "Update an enrollment",
+	"development.applyVersion": "Apply the current version",
+	"development.confirmMilestone": "Confirm a milestone",
+	"development.completeMilestone": "Record a finished milestone",
+	"organizationIntelligence.requestRefresh": "Refresh Network Intelligence",
+	"organizationIntelligence.submitFeedback": "Rate a pattern",
+	"organizations.correctReportingLocation": "Correct the reporting Region",
 	"launch.schedule": "Set Launch Sunday",
 	"launch.postpone": "Postpone the launch",
 	"launch.recordOutcome": "Record Launch Sunday",
@@ -1099,6 +1208,8 @@ const TITLE: Record<Operation, string> = {
 	"documents.archive": "Archive a document",
 	"documents.designateCoreValues": "Mark as your core values",
 	"documents.importTextOrWord": "New document from a file",
+	"documents.saveNative": "Save a document",
+	"documents.generate": "Make a file from a template",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -1164,6 +1275,10 @@ const TITLE: Record<Operation, string> = {
 	"venues.restore": "Restore a venue",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
+export const reviewTitle = (review: Pick<Review, "operation" | "review">) =>
+	review.operation === "development.updateEnrollment" && review.review.changes.some((c) => c.field === "status")
+		? "End an enrollment"
+		: operationTitle(review.operation);
 
 const MERGE_FACTS = new Set([
 	"keeps",
@@ -1472,10 +1587,17 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
 	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
 	"documents.importTextOrWord": "The new document opens in Documents with the file's text, for your church to edit.",
+	"documents.generate":
+		"Approving makes the file from exactly these values and saves it with your church's files. A template is starting text, not legal advice.",
 };
 
-export function documentResult(review: Review): { href: string; label: string } | null {
-	if (review.operation === "documents.importTextOrWord")
+const PRIVATE_DOCUMENT = "The new document opens in Documents. It's private: only you can open it.";
+
+export function documentResult(review: Review): { href: string; label: string; file?: true } | null {
+	if (
+		review.operation === "documents.importTextOrWord" ||
+		(review.operation === "documents.saveNative" && !review.review.target && !review.review.withheld)
+	)
 		return review.receipt?.receiptId
 			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
 			: null;
@@ -1485,6 +1607,12 @@ export function documentResult(review: Review): { href: string; label: string } 
 		case "documents.createFromTemplate":
 			return review.receipt?.receiptId
 				? { href: `/documents/church/${review.receipt.receiptId}`, label: "Open the new document" }
+				: null;
+		case "documents.saveNative":
+			return target.href ? { href: target.href, label: `Open ${target.label}` } : null;
+		case "documents.generate":
+			return review.receipt?.receiptId
+				? { href: `/documents/files/${review.receipt.receiptId}`, label: "Download the file", file: true }
 				: null;
 		case "documents.exportNative":
 			return { href: `/documents/church/${target.id}`, label: "Open in Church Documents" };
@@ -1499,13 +1627,13 @@ export function documentResult(review: Review): { href: string; label: string } 
 	}
 }
 
-export function documentRefusalText(code: string | undefined): string {
+export function documentRefusalText(code: string | undefined, own = false): string {
 	switch (code) {
 		case "revision_conflict":
 		case "conflict":
 			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		case "access_denied":
-			return "Your seat no longer allows this change, so nothing was saved.";
+			return `Your ${own ? "account" : "seat"} no longer allows this change, so nothing was saved.`;
 		case "render_failed":
 			return "The file could not be made, so nothing was saved. Try again later.";
 		case "exports_paused":
@@ -1520,6 +1648,13 @@ export function documentRefusalText(code: string | undefined): string {
 }
 
 export function consequence(review: Review): string | null {
+	if (review.operation === "documents.saveNative")
+		return review.review.target
+			? "Approving saves this as the document's current text."
+			: review.review.private
+				? PRIVATE_DOCUMENT
+				: "The new document opens in Documents for your church to edit.";
+	if (review.operation === "documents.importTextOrWord" && review.review.private) return PRIVATE_DOCUMENT;
 	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
@@ -1825,14 +1960,19 @@ export function settingsRefusalText(code: string | undefined): string {
 		case "revision_conflict":
 		case "conflict":
 		case "stale_preview":
+		case "stale_revision":
 			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		case "access_denied":
 		case "unavailable":
 		case "invitation_unavailable":
 			return "Your seat no longer allows this change, or what it changes is gone, so nothing was saved.";
+		case "region_unavailable":
+		case "reference_unavailable":
+			return "That Region is not one of the official choices for this place now, so nothing was saved. Ask Evry for the choices again.";
 		case "protected_owner":
 			return "The Owner's seat can't be changed here, so nothing was saved.";
 		case "invitation_cooldown":
+		case "resend_cooldown":
 			return "An invitation can go again one minute after the last one, so nothing was sent. Ask again in a minute.";
 		case "invitation_rate_limited":
 		case "invitation_limit":
@@ -1866,9 +2006,31 @@ export function pipelineRefusalText(
 	operation: PipelineOperation,
 	who: string | null,
 ): string {
-	const area = operation === "pipeline.proposeStageMove" ? "The Pipeline" : "Programs";
+	const area = operation.startsWith("pipeline.") ? "The Pipeline" : "Programs";
 	switch (code) {
+		case "stale_review":
+			return `${who ?? "This person"}'s enrollment or the program's version changed after Evry prepared this, so nothing was applied. Ask Evry to prepare it again.`;
+		case "enrollment_ended":
+			return `${who ?? "This person"}'s enrollment has already ended, so nothing was saved.`;
+		case "already_enrolled":
+			return `${who ?? "This person"} is already enrolled in this program, so nothing was saved.`;
+		case "not_published":
+			return "This program has no published version, so no one was enrolled.";
+		case "linked_resident":
+			return `${who ?? "This person"} has a linked account, so they mark this milestone themselves on My residency. Nothing was saved.`;
+		case "stage_occupied":
+			return "A stage this removes has people in it now, so nothing was saved. Move or remove them first, then ask Evry again.";
 		case "revision_conflict":
+			if (operation === "pipeline.saveGoal")
+				return "This goal changed after Evry prepared this, so nothing was saved over it. Ask Evry to prepare it again.";
+			if (operation === "pipeline.saveStages")
+				return "The pipeline stages changed after Evry prepared this, so nothing was saved over them. Ask Evry to prepare it again.";
+			if (
+				operation !== "pipeline.proposeStageMove" &&
+				operation !== "development.saveProgram" &&
+				operation !== "development.draftNextVersion"
+			)
+				return `${who ?? "This person"}'s enrollment changed after Evry prepared this, so nothing was saved over it. Ask Evry to prepare it again.`;
 			if (operation === "development.draftNextVersion")
 				return "The program changed since Evry prepared this, so nothing was saved over it. Open the program to see it as it is now, or ask Evry to prepare it again.";
 			return operation === "development.saveProgram"
@@ -1881,6 +2043,12 @@ export function pipelineRefusalText(
 		default:
 			return `${area} refused this change, so nothing was saved.`;
 	}
+}
+
+export function networkRefusalText(code: string | undefined): string {
+	return code === "access_denied"
+		? "Your seat no longer allows this, or you can no longer read this pattern, so nothing was saved."
+		: "Network Intelligence refused this change, so nothing was saved. Ask Evry to prepare it again.";
 }
 
 export function launchRefusalText(code: string | undefined): string {

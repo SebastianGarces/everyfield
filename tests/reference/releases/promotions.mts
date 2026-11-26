@@ -1,4 +1,4 @@
-import { testDatabase } from "../../support/test-database.mts";
+import { testDatabase, type TestDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID } from "node:crypto";
 import { referenceService } from "../../../packages/reference/src/server.ts";
@@ -8,20 +8,25 @@ import type { Promotion } from "../../../packages/contracts/src/reference/releas
 import { hash, canonical } from "../../../packages/reference/src/hash.ts";
 import type { fixture } from "./fixtures.mts";
 
-export async function promotions(prefix: string, fixtureOf: (key: string) => ReturnType<typeof fixture>) {
-	const database = await testDatabase({ prefix, roles: {}, max: 6 });
+export type Reviewer = { id: string; user: string; session: string };
+
+export async function promotions(
+	from: string | Pick<TestDatabase<never>, "admin" | "close">,
+	fixtureOf: (key: string) => ReturnType<typeof fixture>,
+) {
+	const database = typeof from === "string" ? await testDatabase({ prefix: from, roles: {}, max: 6 }) : from;
 	const { admin: db } = database;
 	const actor = randomUUID(),
 		user = randomUUID(),
 		session = randomUUID();
 	const artifacts = new Map<string, unknown>();
-	const reviews = new Map<string, { actorId: string; review: ReferenceAuthority["review"] }>();
+	const reviews = new Map<string, { actorId: string; by: Reviewer; review: ReferenceAuthority["review"] }>();
 	const authorize: ReferenceDependencies["authorize"] = (command) => {
 		const saved = reviews.get(command.requestKey);
 		return saved
 			? {
 					...saved,
-					session: querySql`EXISTS(SELECT FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE)`,
+					session: querySql`EXISTS(SELECT FROM auth_session WHERE id=${querySql.param(saved.by.session)} AND user_id=${querySql.param(saved.by.user)} AND expires_at>clock_timestamp() FOR SHARE)`,
 				}
 			: null;
 	};
@@ -30,7 +35,21 @@ export async function promotions(prefix: string, fixtureOf: (key: string) => Ret
 		loadArtifact: async (locator) => artifacts.get(locator),
 		policyFor: (key) => fixtureOf(key).policy,
 	});
-	function command(key: string, expected: string, kind: "activate" | "rollback" = "activate"): Promotion {
+	const publisher: Reviewer = { id: actor, user, session };
+	function command(
+		key: string,
+		expected: string,
+		kind: "activate" | "rollback" = "activate",
+		{
+			requestKey = randomUUID(),
+			by = publisher,
+			reason = "Synthetic reviewed reference proof",
+		}: {
+			requestKey?: string;
+			by?: Reviewer;
+			reason?: string;
+		} = {},
+	): Promotion {
 		const f = fixtureOf(key);
 		artifacts.set(key, f.bundle);
 		const cmd = promotion.parse({
@@ -38,11 +57,12 @@ export async function promotions(prefix: string, fixtureOf: (key: string) => Ret
 			generationKey: key,
 			manifestHash: f.manifestHash,
 			expectedActivation: expected,
-			requestKey: randomUUID(),
-			reason: "Synthetic reviewed reference proof",
+			requestKey,
+			reason,
 		});
 		reviews.set(cmd.requestKey, {
-			actorId: actor,
+			actorId: by.id,
+			by,
 			review: {
 				commandDigest: hash(canonical(cmd)),
 				approvalHash: hash("synthetic-reviewed:" + f.manifestHash),
@@ -65,5 +85,17 @@ export async function promotions(prefix: string, fixtureOf: (key: string) => Ret
 			querySql`INSERT INTO platform_grant(account_id,capability) VALUES(${querySql.param(actor)},'reference_publish')`,
 		);
 	}
-	return { database, db, actor, session, artifacts, reviews, authorize, service, command, seed };
+	return {
+		database,
+		db,
+		actor,
+		publisher,
+		session,
+		artifacts,
+		reviews,
+		authorize,
+		service,
+		command,
+		seed,
+	};
 }

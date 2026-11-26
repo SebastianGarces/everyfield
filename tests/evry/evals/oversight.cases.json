@@ -62,6 +62,70 @@
 			"absent": ["HILL-DRAFT", "10 days"]
 		},
 		{
+			"id": "OVS-42",
+			"operation": "organizationIntelligence.submitFeedback",
+			"criterion": 10,
+			"actor": "director",
+			"ask": "rate the stalled growth pattern in Texas useful",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "organizationIntelligence.submitFeedback",
+				"target": "Acquisition growth stalled",
+				"changes": [
+					{
+						"field": "rating",
+						"before": null,
+						"after": "Useful"
+					}
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "OVS-43",
+			"operation": "organizationIntelligence.submitFeedback",
+			"criterion": 10,
+			"actor": "director",
+			"ask": "rate the stalled growth pattern in Texas useful",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["You already rated this pattern that way, so nothing would change."],
+			"proposal": {
+				"operation": "organizationIntelligence.submitFeedback",
+				"target": "Acquisition growth stalled",
+				"refusal": "You already rated this pattern that way, so nothing would change."
+			}
+		},
+		{
+			"id": "OVS-44",
+			"operation": "organizationIntelligence.submitFeedback",
+			"criterion": 10,
+			"actor": "networkMember",
+			"ask": "rate the stalled growth pattern in Texas useful",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "organizationIntelligence.submitFeedback",
+				"target": "Acquisition growth stalled",
+				"changes": [{ "field": "rating", "before": null, "after": "Useful" }]
+			},
+			"approve": true
+		},
+		{
+			"id": "OVS-45",
+			"operation": "organizationIntelligence.submitFeedback",
+			"criterion": 10,
+			"actor": "networkMember",
+			"ask": "rate the stalled growth pattern in Texas useful",
+			"calls": ["organizationIntelligence.readHistory"],
+			"answer": ["You already rated this pattern that way, so nothing would change."],
+			"proposal": {
+				"operation": "organizationIntelligence.submitFeedback",
+				"target": "Acquisition growth stalled",
+				"refusal": "You already rated this pattern that way, so nothing would change."
+			}
+		},
+		{
 			"id": "OVS-05",
 			"operation": "oversight.listPlants",
 			"criterion": 15,
@@ -80,7 +144,10 @@
 			"ask": "send my oversight digest weekly",
 			"calls": [],
 			"answer": [],
-			"proposal": { "operation": "notifications.oversightDigestCadence.set", "target": "null" },
+			"proposal": {
+				"operation": "notifications.oversightDigestCadence.set",
+				"target": "null"
+			},
 			"approve": true
 		},
 		{
@@ -95,8 +162,16 @@
 				"operation": "notifications.setPreferences",
 				"target": "null",
 				"changes": [
-					{ "field": "oversight_digest.email", "before": false, "after": true },
-					{ "field": "oversight_digest.in_app", "before": true, "after": false }
+					{
+						"field": "oversight_digest.email",
+						"before": false,
+						"after": true
+					},
+					{
+						"field": "oversight_digest.in_app",
+						"before": true,
+						"after": false
+					}
 				]
 			},
 			"approve": true
@@ -383,6 +458,141 @@
 			"calls": ["oversight.listPlants", "oversight.getPlant"],
 			"answer": ["**Redeemer Church** meetings: 2 recent meetings, attendance unknown."],
 			"absent": ["0", "nobody", "no one", "attended", "Redeemer Person"]
+		},
+		{
+			"id": "OVS-33",
+			"operation": "oversight.listSendingChurches",
+			"criterion": 1,
+			"setup": "churchLinked",
+			"actor": "director",
+			"ask": "which sending churches do we oversee?",
+			"calls": ["oversight.listSendingChurches"],
+			"answer": [
+				"Your network has 1 linked sending church:",
+				"[Grace Austin](/network/sending-churches/",
+				"2 plants",
+				"Pending invitations: 0."
+			]
+		},
+		{
+			"id": "OVS-34",
+			"operation": "oversight.getSendingChurch",
+			"criterion": 2,
+			"actor": "networkMember",
+			"ask": "tell me about the sending church Grace Austin",
+			"calls": ["oversight.listSendingChurches", "oversight.getSendingChurch"],
+			"answer": [
+				"has 2 plants linked to both of you:",
+				"Harvest Point](/network/plants/",
+				"Hill Country Church](/network/plants/",
+				"health Not shared"
+			],
+			"absent": ["Harvest Person", "Hill Person"]
+		},
+		{
+			"id": "OVS-35",
+			"operation": "oversight.getSendingChurch",
+			"criterion": 2,
+			"actor": "otherDirector",
+			"ask": "tell me about the sending church Grace Austin",
+			"calls": ["oversight.listSendingChurches"],
+			"answer": ["No sending church called Grace Austin is linked to your network."]
+		},
+		{
+			"id": "OVS-36",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": 6,
+			"actor": "director",
+			"ask": "how has Harvest Point's assessment changed over time?",
+			"calls": [
+				"oversight.listPlants",
+				"oversight.getPlant",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readHistory"
+			],
+			"answer": [
+				"I can only use what your plants have released to you, so I can't open one plant's own assessments or say what they said.",
+				"**Harvest Point**. Now: health Watch, released concerns",
+				"- Network Intelligence run"
+			]
+		},
+		{
+			"id": "OVS-37",
+			"operation": "organizationIntelligence.readHistory",
+			"criterion": 6,
+			"actor": "director",
+			"ask": "how has Hill Country Church's assessment changed over time?",
+			"calls": [
+				"oversight.listPlants",
+				"oversight.getPlant",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readHistory"
+			],
+			"answer": [
+				"I can only use what your plants have released to you, so I can't open one plant's own assessments or say what they said.",
+				"**Hill Country Church**. Now: health Not shared, released concerns Not shared.",
+				"no pattern names it"
+			]
+		},
+		{
+			"id": "OVS-38",
+			"operation": "oversight.getPlant",
+			"criterion": 6,
+			"setup": "unreleasedRun",
+			"actor": "director",
+			"ask": "what did Harvest Point's latest assessment say?",
+			"calls": [
+				"oversight.listPlants",
+				"oversight.getPlant",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readHistory",
+				"organizationIntelligence.readHistory"
+			],
+			"answer": [
+				"I can only use what your plants have released to you, so I can't open one plant's own assessments or say what they said.",
+				"**Harvest Point**. Now: health Watch"
+			],
+			"absent": ["Finish guest follow-up", "prayer rhythm", "This looks at your launch progress"]
+		},
+		{
+			"id": "OVS-39",
+			"operation": "organizationIntelligence.requestRefresh",
+			"criterion": 9,
+			"actor": "director",
+			"ask": "refresh Network Intelligence",
+			"calls": [],
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "organizationIntelligence.requestRefresh",
+				"target": "Network Intelligence"
+			},
+			"approve": true
+		},
+		{
+			"id": "OVS-40",
+			"operation": "organizationIntelligence.requestRefresh",
+			"criterion": 9,
+			"actor": "director",
+			"ask": "refresh Harvest Point's assessment",
+			"calls": ["oversight.listPlants"],
+			"answer": [
+				"It refreshes Network Intelligence from what plants share now. Only Harvest Point can ask for its own assessment."
+			],
+			"proposal": {
+				"operation": "organizationIntelligence.requestRefresh",
+				"target": "Network Intelligence"
+			}
+		},
+		{
+			"id": "OVS-41",
+			"operation": "organizationIntelligence.requestRefresh",
+			"criterion": 9,
+			"actor": "networkMember",
+			"ask": "refresh Network Intelligence",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can refresh Network Intelligence. Nothing was requested."]
 		}
 	]
 }

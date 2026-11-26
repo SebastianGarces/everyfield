@@ -4,6 +4,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
 	createOrganizationAdapter,
+	linkInvitations,
 	readHistory,
 	readPlantSharing,
 	readReportingLocation,
@@ -15,6 +16,7 @@ import {
 	listPlants,
 	listSendingChurches,
 	readIntelligence,
+	readPattern,
 	readLocationHistory,
 } from "../../../packages/domain/src/oversight/index.ts";
 import { owner, sessionId, tenantId, type Owner } from "../../../packages/contracts/src/common/index.ts";
@@ -87,6 +89,17 @@ export async function seedOrganizations(t: Tenancy) {
 	);
 	assert.equal(accepted.status, "accepted", JSON.stringify(accepted));
 	a.pair = invitation.pair;
+
+	a.waitingChurch = key();
+	a.waiting = key();
+	await f.admin.execute(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
+		VALUES(${a.waitingChurch},'sending_church',${`${MARK} waiting church`},'UTC',1)`);
+	await f.admin
+		.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,token_hash,state,created_at,revision)
+		VALUES(${a.waiting},${t.plantA.id},'plant_church',${`${MARK}@example.test`.toLowerCase()},${t.ownerA.id},${a.waiting},'pending',clock_timestamp(),1)`);
+	await f.admin
+		.execute(sql`INSERT INTO relationship_invitation(invitation_id,plant_id,organization_id,inviter_description,subject_revision)
+		VALUES(${a.waiting},${t.plantA.id},${a.waitingChurch},${`${MARK} plant`},1)`);
 }
 
 export function organizationsCases(t: Tenancy, who: TenancyOwner) {
@@ -107,6 +120,14 @@ export function organizationsCases(t: Tenancy, who: TenancyOwner) {
 				},
 			},
 		),
+		tenancyCase("organizations:linkInvitations", () => plain(() => linkInvitations(t.f.db, who.actor)), {
+			value: { items: [], completeness: "complete" },
+			control: (value) =>
+				assert.deepEqual(
+					value.items.map((i) => [i.invitationId, i.direction, i.other]),
+					[[a.waiting, "sent", `${MARK} waiting church`]],
+				),
+		}),
 		tenancyCase("organizations:readPlantSharing", () => plain(() => readPlantSharing(t.f.db, who.actor, a.network)), {
 			value: {},
 			control: (value) => {
@@ -124,6 +145,10 @@ export function organizationsCases(t: Tenancy, who: TenancyOwner) {
 				["oversight:listSendingChurches", () => listSendingChurches(t.f.db, who.actor)],
 				["oversight:getSendingChurch", () => getSendingChurch(t.f.db, who.actor, a.network)],
 				["oversight:readIntelligence", () => readIntelligence(t.f.db, who.actor, { level: "portfolio", runId: null })],
+				[
+					"oversight:readPattern",
+					() => readPattern(t.f.db, who.actor, { runId: t.plantA.id, patternKey: "NIR-03:portfolio:portfolio" }),
+				],
 				["oversight:readLocationHistory", () => readLocationHistory(t.f.db, who.actor, t.plantA.id)],
 			] as const
 		).map(([name, read]) => tenancyCase(name, () => plain<unknown>(read), { value: null, control: null })),

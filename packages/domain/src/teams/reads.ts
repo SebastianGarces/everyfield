@@ -28,15 +28,16 @@ export function unique(ids: string[]) {
 	return [...new Set(ids)];
 }
 
+const serving = sql`FROM team_tenure tn
+	JOIN team_role r ON r.id = tn.role_id
+	JOIN person p ON p.id = tn.person_id AND p.state = 'live'
+	WHERE r.team_id = t.id AND tn.ended_on IS NULL AND r.retired_at IS NULL`;
 const teamJson = sql`json_build_object(
 	'id', t.id, 'revision', t.revision::text, 'name', t.name, 'description', t.description, 'icon', t.icon,
 	'templateKey', t.template_key, 'state', t.state, 'archived', (t.archived_at IS NOT NULL), 'sortOrder', t.sort_order,
 	'leaderPersonId', t.leader_person_id, 'leaderSource', t.leader_source, 'leaderRoleId', t.leader_role_id,
 	'leaderName', (SELECT p.display_name FROM person p WHERE p.id = t.leader_person_id),
-	'activeCount', (SELECT count(*)::int FROM team_tenure tn
-		JOIN team_role r ON r.id = tn.role_id
-		JOIN person p ON p.id = tn.person_id AND p.state = 'live'
-		WHERE r.team_id = t.id AND tn.ended_on IS NULL AND r.retired_at IS NULL))`;
+	'activeCount', (SELECT count(*)::int ${serving}), 'people', (SELECT count(DISTINCT p.id)::int ${serving}))`;
 
 const current = sql`tn.ended_on IS NULL AND r.retired_at IS NULL AND t.archived_at IS NULL AND p.state = 'live'`;
 const roleJson = sql`json_build_object(

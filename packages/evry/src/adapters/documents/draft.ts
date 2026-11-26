@@ -1,0 +1,244 @@
+import type { DocDocument, DocNode } from "@everyfield/contracts/documents";
+import { EvryRefusal } from "../../context/errors.ts";
+
+type Node = { type: string; text?: string; attrs?: Record<string, unknown>; marks?: unknown[]; content?: Node[] };
+type Unit = { text: string; node: Node };
+type Block = { node: Node; parents: Node[]; cell: boolean };
+export type Edit = { find: string; replace: string };
+export type Passage = { before: string | null; after: string | null };
+
+const HEADING = /^(#{1,3})\s+(.+)$/;
+const BULLET = /^[-*•]\s+(.+)$/;
+const NUMBER = /^\d+[.)]\s+(.+)$/;
+
+function inlineOf(text: string): Node[] {
+	return text
+		.split(/(\*\*[^*]+\*\*)/)
+		.filter(Boolean)
+		.map((part) =>
+			/^\*\*[^*]+\*\*$/.test(part)
+				? { type: "text", text: part.slice(2, -2), marks: [{ type: "bold" }] }
+				: { type: "text", text: part },
+		);
+}
+
+export function draftBody(text: string): unknown {
+	const content: Node[] = [];
+	for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
+		const line = raw.trim();
+		if (!line) continue;
+		const heading = HEADING.exec(line);
+		const bullet = BULLET.exec(line);
+		const number = NUMBER.exec(line);
+		const item = bullet ?? number;
+		if (heading)
+			content.push({
+				type: "heading",
+				attrs: { level: (heading[1] ?? "").length },
+				content: inlineOf(heading[2] ?? ""),
+			});
+		else if (item) {
+			const type = bullet ? "bulletList" : "orderedList";
+			const entry = { type: "listItem", content: [{ type: "paragraph", content: inlineOf(item[1] ?? "") }] };
+			const last = content.at(-1);
+			if (last?.type === type) last.content?.push(entry);
+			else content.push({ type, content: [entry] });
+		} else content.push({ type: "paragraph", content: inlineOf(line) });
+	}
+	return { type: "doc", content };
+}
+
+export function shownText(body: DocNode): string {
+	const plain = (node: Node): string => node.text ?? (node.content ?? []).map(plain).join("");
+	return ((body as Node).content ?? [])
+		.map((node) =>
+			node.type === "bulletList"
+				? (node.content ?? []).map((item) => `• ${plain(item)}`).join("\n")
+				: node.type === "orderedList"
+					? (node.content ?? []).map((item, n) => `${n + 1}. ${plain(item)}`).join("\n")
+					: plain(node),
+		)
+		.join("\n\n");
+}
+
+export const plainField = (key: string) => `[${key}]`;
+export function fieldText(doc: Pick<DocDocument, "fields" | "data">) {
+	const named = new Map(doc.fields.map((f) => [f.key, f.label]));
+	return (key: string) => {
+		const value = doc.data?.[key];
+		return typeof value === "string" && value.trim() ? value : `[${named.get(key) ?? key}]`;
+	};
+}
+
+function blocksIn(root: Node): Block[] {
+	const found: Block[] = [];
+	const walk = (node: Node, parents: Block["parents"], columns: { type?: unknown }[] | null) => {
+		if (node.type === "paragraph" || node.type === "heading") found.push({ node, parents, cell: false });
+		else if (node.type === "cell") return;
+		else
+			(node.content ?? []).forEach((child, index) => {
+				const next = [...parents, node];
+				if (node.type === "row" && child.type === "cell" && columns?.[index]?.type === "text")
+					found.push({ node: child, parents: next, cell: true });
+				else
+					walk(
+						child,
+						next,
+						node.type === "table" ? ((node.attrs?.columns as { type?: unknown }[] | undefined) ?? null) : columns,
+					);
+			});
+	};
+	walk(root, [], null);
+	return found;
+}
+
+function unitsOf(block: Node, field: (key: string) => string): Unit[] {
+	const shown = (node: Node) =>
+		node.type === "field" ? field(String(node.attrs?.key ?? "")) : node.type === "hardBreak" ? "\n" : "";
+	return (block.content ?? []).map((node) => ({ text: node.type === "text" ? (node.text ?? "") : shown(node), node }));
+}
+const textOf = (units: readonly Unit[]) => units.map((u) => u.text).join("");
+const refuse = (problem: string): never => {
+	throw new EvryRefusal("invalid_input", problem);
+};
+const quoted = (text: string) => JSON.stringify(text.length > 80 ? `${text.slice(0, 80)}…` : text);
+
+function split(units: readonly Unit[], from: number, to: number) {
+	const before: Node[] = [];
+	const after: Node[] = [];
+	let marks: unknown[] | undefined;
+	let at = 0;
+	for (const { text, node } of units) {
+		const start = at;
+		const end = (at += text.length);
+		if (node.type !== "text") {
+			if (end <= from || start === end) (start >= to && end > from ? after : before).push(node);
+			else if (start >= to) after.push(node);
+			else
+				refuse(
+					"That text holds a detail the church's records fill in, such as the church name. Change the words around it, or change the detail itself where it is kept.",
+				);
+			continue;
+		}
+		const head = text.slice(0, Math.max(0, from - start));
+		const tail = text.slice(Math.max(0, to - start));
+		if (head) before.push({ ...node, text: head });
+		if (tail) after.push({ ...node, text: tail });
+		if (from < to ? start <= from && end > from : start < from && end >= from) marks = node.marks;
+	}
+	return { before, after, marks };
+}
+
+function joined(nodes: Node[]): Node[] {
+	const out: Node[] = [];
+	for (const node of nodes) {
+		const last = out.at(-1);
+		if (
+			last?.type === "text" &&
+			node.type === "text" &&
+			JSON.stringify(last.marks ?? []) === JSON.stringify(node.marks ?? [])
+		)
+			out[out.length - 1] = { ...last, text: `${last.text ?? ""}${node.text ?? ""}` };
+		else out.push(node);
+	}
+	return out;
+}
+
+const fill = (node: Node, content: Node[]) => {
+	if (content.length) node.content = content;
+	else delete node.content;
+};
+
+type Change = { from: number; to: number; added: string };
+type Found = { block: Block; units: Unit[]; text: string; changes: Change[] };
+
+function locate(found: readonly Found[], edit: Edit) {
+	const hits = found.flatMap((into) => {
+		const at: { into: Found; from: number }[] = [];
+		for (let i = into.text.indexOf(edit.find); i >= 0; i = into.text.indexOf(edit.find, i + 1))
+			at.push({ into, from: i });
+		return at;
+	});
+	const [hit] = hits;
+	if (!hit)
+		return refuse(
+			`The text ${quoted(edit.find)} is not in one paragraph or cell Evry can change. Quote the document's exact words from documents.read, within one paragraph.`,
+		);
+	if (hits.length > 1)
+		return refuse(`The text ${quoted(edit.find)} is in the document ${hits.length} times. Quote more words around it.`);
+	const replace = edit.replace.replace(/\r\n?/g, "\n");
+	let head = 0;
+	while (head < edit.find.length && head < replace.length && edit.find[head] === replace[head]) head++;
+	let tail = 0;
+	while (
+		tail < edit.find.length - head &&
+		tail < replace.length - head &&
+		edit.find[edit.find.length - 1 - tail] === replace[replace.length - 1 - tail]
+	)
+		tail++;
+	const from = hit.from + head;
+	const to = hit.from + edit.find.length - tail;
+	const added = replace.slice(head, replace.length - tail);
+	if (from === to && !added) return refuse("This edit changes nothing.");
+	if (hit.into.block.cell && added.includes("\n")) return refuse("A table cell holds one line of text.");
+	if (hit.into.changes.some((c) => c.from === from || (c.from < to && from < c.to)))
+		return refuse(`Two edits change the same words near ${quoted(edit.find)}. Put them in one edit.`);
+	hit.into.changes.push({ from, to, added });
+}
+
+function linesWith({ units, changes }: Found, field: (key: string) => string): Node[][] {
+	let lines: Node[][] = [[]];
+	let rest = units;
+	for (const { from, to, added } of changes.toSorted((a, b) => b.from - a.from)) {
+		const { before, after, marks } = split(rest, from, to);
+		const [end = [], ...later] = lines;
+		const parts = added
+			.split(/\n+/)
+			.map((text): Node[] => (text ? [{ type: "text", text, ...(marks?.length && { marks }) }] : []));
+		lines = [...parts.slice(0, -1), [...(parts.at(-1) ?? []), ...after, ...end], ...later];
+		rest = unitsOf({ type: "paragraph", content: before }, field);
+	}
+	const [first = [], ...more] = lines;
+	return [joined([...rest.map((u) => u.node), ...first]), ...more.map(joined).filter((line) => line.length)];
+}
+
+function rewrite(found: Found, field: (key: string) => string): Passage {
+	const { node, parents, cell } = found.block;
+	const [first = [], ...more] = linesWith(found, field);
+	fill(node, first);
+	const result = [first, ...more]
+		.map((line) => textOf(unitsOf({ type: "paragraph", content: line }, field)))
+		.filter((line) => line.trim());
+	if (!cell) {
+		const parent = parents.at(-1);
+		const inItem = parent?.type === "listItem" ? parents.at(-2) : undefined;
+		const made = more.map((line): Node => {
+			const paragraph: Node = {
+				type: "paragraph",
+				...(node.type === "paragraph" && node.attrs && { attrs: node.attrs }),
+				content: line,
+			};
+			return inItem ? { type: "listItem", content: [paragraph] } : paragraph;
+		});
+		const list = (inItem ?? parent)?.content;
+		const at = list && (inItem ? parent : node);
+		if (list && at) {
+			const gone = !node.content && (!inItem || parent?.content?.length === 1) && list.length + made.length > 1;
+			const index = list.indexOf(at);
+			list.splice(gone ? index : index + 1, gone ? 1 : 0, ...made);
+		}
+	}
+	return { before: found.text, after: result.join("\n") || null };
+}
+
+export function applyEdits(body: DocNode, edits: readonly Edit[], field: (key: string) => string) {
+	const next = structuredClone(body) as Node;
+	const found = blocksIn(next).map((block): Found => {
+		const units = unitsOf(block.node, field);
+		return { block, units, text: textOf(units), changes: [] };
+	});
+	for (const edit of edits) locate(found, edit);
+	const passages = found.filter((f) => f.changes.length).map((f) => rewrite(f, field));
+	const changed: unknown = next;
+	return { body: changed, passages };
+}

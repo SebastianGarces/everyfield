@@ -6,7 +6,7 @@ import { promotion } from "@everyfield/contracts/reference";
 import type { Promotion, ReferencePassage, ReferenceProfile } from "@everyfield/contracts/reference";
 import { chunkEntries } from "../../bundle.ts";
 import { canonical, hash, stableId, vectorHash } from "../../hash.ts";
-import { referenceService as promoteService, ReferenceRefusal } from "../../server.ts";
+import { referenceService as promoteService, ReferenceRefusal, requirePublisher } from "../../server.ts";
 import type { ReferenceAuthority } from "../../server.ts";
 import { approvedWiki } from "../manifest/approved.ts";
 import type { WikiSource } from "../manifest/approved.ts";
@@ -147,12 +147,15 @@ function authorizeCaller(caller: WikiCaller, command: Promotion, source: WikiSou
 			approvalLocator: source.version,
 			approvalHash: source.payloadSha256,
 		},
-		session: sql`EXISTS(SELECT FROM auth_session s
+		session: callerSession(caller),
+	};
+}
+function callerSession(caller: WikiCaller) {
+	return sql`EXISTS(SELECT FROM auth_session s
 		JOIN account a ON a.id = ${caller.actorId}::uuid AND a.auth_user_id = s.user_id
 		WHERE s.id = ${caller.sessionId}::uuid
 		  AND s.user_id = ${caller.userId}::uuid
-		  AND s.expires_at > clock_timestamp())`,
-	};
+		  AND s.expires_at > clock_timestamp())`;
 }
 
 export function referenceService(db: Database, deps: WikiDependencies = {}) {
@@ -169,6 +172,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		input: { release: string; requestKey: string; expectedActivation: string; kind: "activate" | "rollback" },
 		bundle: ReturnType<typeof wikiBundle>,
 		deferDerivatives: boolean,
+		preflighted: boolean,
 	) {
 		const request = {
 			kind: input.kind,
@@ -190,6 +194,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				return wikiPolicy(source, bundle, deferDerivatives);
 			},
 			authorize: (command) => authorizeCaller(caller, command, source),
+			preflighted,
 		});
 		try {
 			return await promoter.promote(parsed.data, bundle.key);
@@ -271,6 +276,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			},
 			bundle,
 			true,
+			false,
 		);
 		return {
 			release: receipt.generationKey,
@@ -286,6 +292,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		if (!parsed.success) throw new WikiRefusal("access_denied");
 		const command = parsed.data;
 		requirePins(source, command.manifestSha256, command.payloadSha256);
+		await requirePublisher(db, { actorId: caller.actorId, session: callerSession(caller) }).catch(wikiOf);
 		const loaded = await snapshot();
 		const planned = await planPassages(loaded, command.release);
 		if (!planned.ok) return failedRebuild(planned);
@@ -305,6 +312,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			},
 			bundle,
 			false,
+			true,
 		);
 		return {
 			activated: true,

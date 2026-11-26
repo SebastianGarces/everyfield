@@ -44,9 +44,11 @@ const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no 
 export type RunOutcome = "succeeded" | "failed" | "lost";
 
 const ATTACHMENT_REFUSALS = new Set<string>(["attachment_elsewhere", "attachment_gone"]);
+const blocked = (model: QualifiedModel) => model.status === "unavailable" && model.releaseGate === "blocked";
 export async function runTurn(deps: RunDeps, lease: RunLease, claimed?: Claimed): Promise<RunOutcome> {
 	const turn = await loadTurn(deps.db, lease);
 	if (!turn) return "lost";
+	if (blocked(deps.model)) return run(deps, lease, turn, () => undefined);
 	const { conversation_id: conversationId, message } = turn;
 	return traceTurn(
 		{
@@ -152,6 +154,7 @@ async function run(
 	};
 
 	try {
+		if (blocked(deps.model)) throw new EvryRefusal("evry_unavailable");
 		if (deps.model.status === "paused") throw new EvryRefusal("model_paused");
 		const session = turn.session_id;
 		const checked = session ? await traced("access check", () => deps.freshActor(session)) : null;
@@ -237,7 +240,9 @@ async function run(
 						content:
 							typeof m.content === "string"
 								? WITHHELD_TEXT
-								: m.content.map((part) => (part.type === "text" ? { ...part, text: WITHHELD_TEXT } : part)),
+								: m.content
+										.filter((part) => part.type !== "reasoning")
+										.map((part) => (part.type === "text" ? { ...part, text: WITHHELD_TEXT } : part)),
 					};
 				if (m.role !== "tool") return m;
 				return {
@@ -274,6 +279,7 @@ async function run(
 					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh), deps.mail ?? null);
 				} catch (error) {
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
+					if (error instanceof EvryRefusal && error.problem) return { error: error.code, problem: error.problem };
 					if (attempt < LIMITS.readRetries && isTransient(error)) continue;
 					const still = await deps.freshActor(session).catch(() => null);
 					const lost = error instanceof EvryRefusal && error.code === "access_denied";

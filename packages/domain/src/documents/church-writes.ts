@@ -358,7 +358,7 @@ export const churchWriter = {
 			const template = builtIn ?? storedTemplate(stored?.body ?? null) ?? deny("unavailable");
 			const title = stored?.title ?? template.title;
 			if (!builtIn) knownFields(template, cleaned.values);
-			const frozen = frozenData(template.fields, sources);
+			const frozen = frozenData(template.fields, sources, cleaned.values);
 			const data: Record<string, string> = { ...frozen.data, ...cleaned.values };
 			const required = template.fields.find((f) => f.required && !data[f.key]?.trim());
 			if (required) deny("unavailable");
@@ -461,7 +461,7 @@ export const churchWriter = {
 		});
 	},
 
-	async saveChurch(db: Database, authority: RequestActor, input: c.ChurchSave, accepted = false) {
+	async saveChurch(db: Database | Transaction, authority: RequestActor, input: c.ChurchSave, accepted = false) {
 		const scope = adminScope(authority);
 		const body = JSON.stringify(input.body);
 		const hash = hashOf(body);

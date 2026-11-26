@@ -467,7 +467,7 @@ test("AC:CASE-WIKI-006 feedback reads back only this account's current vote, by 
 	assert.equal(cardView("wiki.feedback.getMine", list, null).rows[1]!.line, "You found it not helpful");
 });
 
-test("AC:GAP-EVR-418 a network version's headings are withheld from an earlier answer once the connection ends, and the tools stay with church seats", async () => {
+test("AC:GAP-EVR-418 a network version's headings are withheld from an earlier answer once the connection ends, and only church seats get every tool: an account gets the public search and browsing", async () => {
 	const first = await ask("What sections does this article have?", [{ kind: "article", slug: "core/edited" }]);
 	assert.match(first.answer, /Our plan/);
 	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${ids.affiliation}`);
@@ -480,10 +480,18 @@ test("AC:GAP-EVR-418 a network version's headings are withheld from an earlier a
 	} finally {
 		await admin.execute(sql`UPDATE affiliation SET ended_at=NULL WHERE id=${ids.affiliation}`);
 	}
-	for (const who of ["orgOwner", "seatless"] as const) {
+	const allowed = async (who: "orgOwner" | "seatless") => {
 		const other = await actor(who);
-		for (const a of WIKI_READS) assert.equal(a.allowed(other), false, `${a.operation} ${who}`);
-	}
+		return WIKI_READS.filter((a) => a.allowed(other)).map((a) => a.operation);
+	};
+	assert.deepEqual(await allowed("orgOwner"), []);
+	assert.deepEqual(await allowed("seatless"), [
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+	]);
 	assert.match(
 		capabilitiesAnswer(readCatalog(owner), owner),
 		/Browse and search the Wiki, show the guide for the page you're on/,

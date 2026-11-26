@@ -1,6 +1,14 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type * as api from "./api.ts";
-import { ATTACH, FILE_REFUSED, looksLikePhoto, photoRefusal, refusal, type Picked } from "./attachments.ts";
+import {
+	ATTACH,
+	FILE_REFUSED,
+	looksLikePhoto,
+	photoRefusal,
+	refusal,
+	type Attaches,
+	type Picked,
+} from "./attachments.ts";
 import {
 	answerText,
 	cursor,
@@ -8,6 +16,7 @@ import {
 	endNotice,
 	merge,
 	mergeLive,
+	NOT_AVAILABLE,
 	opened,
 	turnsOf,
 	type Attachment,
@@ -71,7 +80,7 @@ export type EvryPanelState = {
 		resend: (send: Send) => void;
 		edit: (send: Send) => void;
 		clearPhoto: () => void;
-		addFiles: (files: readonly File[], church: boolean) => void;
+		addFiles: (files: readonly File[], attaches: Attaches) => void;
 		removeFile: (key: string) => void;
 		reload: () => void;
 		reloadForChurch: (send?: Send) => void;
@@ -458,13 +467,15 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				edit: (s) =>
 					update((chat) => ({ ...chat, sends: chat.sends.filter((x) => x.key !== s.key) }), { draft: s.text }),
 				clearPhoto: dropPhoto,
-				addFiles: (picked, church) => {
-					const [photo, ...more] = picked.filter(looksLikePhoto);
-					const others = picked.filter((f) => !looksLikePhoto(f));
+				addFiles: (picked, attaches) => {
+					const church = attaches === "church";
+					const isPhoto = (f: File) => attaches !== "documents" && looksLikePhoto(f);
+					const [photo, ...more] = picked.filter(isPhoto);
+					const others = picked.filter((f) => !isPhoto(f));
 					const held = get().files.length;
 					let count = held + (get().photo ? 1 : 0);
 					let fileNotice: string | null = more.length ? "Attach one photo at a time." : null;
-					if (others.length && !church) fileNotice = "Choose a JPG, PNG or WebP photo.";
+					if (others.length && attaches === "photo") fileNotice = "Choose a JPG, PNG or WebP photo.";
 					if (photo) {
 						const problem = photoRefusal(photo, church, held);
 						if (problem) fileNotice = problem;
@@ -474,8 +485,8 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						}
 					}
 					const added: { file: File; key: string }[] = [];
-					for (const file of church ? others : []) {
-						const problem = refusal(file, count);
+					for (const file of attaches === "photo" ? [] : others) {
+						const problem = refusal(file, count, attaches);
 						if (problem) {
 							fileNotice = problem;
 							continue;
@@ -542,7 +553,9 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 										? "Evry is already answering in this conversation."
 										: r.error.code === "model_paused"
 											? "Evry is paused for now, so it did not try again. Nothing was changed. Try again later."
-											: "Evry could not try again. This answer can't be retried.",
+											: r.error.code === "evry_unavailable"
+												? `${NOT_AVAILABLE}. Nothing was changed.`
+												: "Evry could not try again. This answer can't be retried.",
 							});
 						if (get().chat.conversation?.id === conversation.id)
 							update((chat) => ({ ...chat, activeTurnId: r.value.turnId }));
