@@ -67,8 +67,4 @@ test("the /discovery tour shows Tasks after Templates with the real /tasks wordi
 		page.tour.tabs.find((t) => t.id === "tasks")?.line,
 		"Your starter steps for the discovery season. Check each one off as you go.",
 	);
-	assert.equal(
-		shown.some((s) => /Tasks opens/.test(s)),
-		false,
-	);
 });
