@@ -15,6 +15,7 @@ import {
 	realRun,
 	realSend,
 	saveConsent,
+	saveDiscovery,
 	saveResidency,
 	saveSharingChoice,
 } from "./real";
@@ -64,6 +65,7 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 					send={realSend}
 					end={names.end}
 					readSharing={data.kind === "plant" ? { read: readSharing, save: saveSharingChoice } : undefined}
+					saveDiscovery={data.kind === "discovery" ? saveDiscovery : undefined}
 					invite={
 						data.kind !== "sending_network"
 							? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }

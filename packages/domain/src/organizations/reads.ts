@@ -37,6 +37,11 @@ export async function namesFor(
 			workspace
 				? sql`EXISTS (SELECT 1 FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL AND (s.plant_id=${workspace.id} OR s.organization_id=${workspace.id}))`
 				: sql`false`
+		} OR ${
+			workspace?.kind === "organization"
+				? sql`(EXISTS (SELECT 1 FROM affiliation f WHERE f.account_id=a.id AND f.organization_id=${workspace.id})
+					AND NOT ${witnessHides("account", sql`a.id`)})`
+				: sql`false`
 		})) n WHERE ${live(viewer)}`);
 	return Object.fromEntries(rows.rows.flatMap((r) => (r.name ? [[r.id, r.name]] : [])));
 }

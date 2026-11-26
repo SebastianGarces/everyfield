@@ -1,7 +1,9 @@
+import { getViewer } from "@/server/request-context";
 import { requireActor } from "@/server/sign-in";
-import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
+import { discoveryTemplates, TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
 import { PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
+import { DiscoveryDocuments } from "./DiscoveryDocuments.tsx";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
 import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
@@ -14,6 +16,7 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 	const query = parseQuery(params(await searchParams));
 	const authority = await requireActor("/documents");
 	if (!authority) return <Unavailable />;
+	if ((await getViewer()).discovery) return <DiscoveryDocuments templates={discoveryTemplates()} />;
 	const loaded = await loadDocuments(authority, query);
 	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;

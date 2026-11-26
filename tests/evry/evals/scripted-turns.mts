@@ -33,7 +33,7 @@ const noPorts = {
 export function scriptedTurns(db: Database, native: NativePorts | null, storage: PrivateStorage | null = null) {
 	const freshActor = async (session: string) => {
 		const viewer = await readViewer(db, session as never);
-		return viewer?.authority ? evryActor(viewer.authority) : null;
+		return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 	};
 	async function claimedTurn(actor: EvryActor, text: string) {
 		const { id } = await createConversation(db, actor, { requestKey: randomUUID() });

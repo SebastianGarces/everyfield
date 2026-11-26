@@ -40,7 +40,7 @@ export async function runTurns(
 	const freshActor = async (session: string) => {
 		const parsed = sessionId.safeParse(session);
 		const viewer = parsed.success ? await readViewer(pool, parsed.data) : null;
-		return viewer?.authority ? evryActor(viewer.authority) : null;
+		return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 	};
 	let ran = 0;
 	try {

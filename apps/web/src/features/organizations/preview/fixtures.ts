@@ -473,7 +473,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 
 	const load = async () => {
 		const history = await read(null);
-		return { history, pending, sharing: {} };
+		return { history, pending, sharing: {}, discovery: {}, foundations: {} };
 	};
 	const readResidency = async (linkId: string) => ({
 		sharing: (await run("residency.readSharing", C.residencySharingRequest.parse({ linkId }))) as z.infer<

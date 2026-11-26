@@ -36,11 +36,11 @@ export const people = { alexRivera: "", alexChen: "", casey: "", foreign: "" };
 export async function actor(who: Who) {
 	const viewer = await readViewer(db, accounts[who].session as never);
 	if (!viewer?.authority) throw Error("no actor for " + who);
-	return evryActor(viewer.authority);
+	return evryActor(viewer.authority, viewer.discovery);
 }
 export async function freshActor(session: string) {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 }
 export const scripted = scriptedQualifiedModel;
 

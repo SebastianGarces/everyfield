@@ -557,6 +557,29 @@
 		"limit": 1,
 		"retry": 4
 	},
+	"documents.archiveMine": {
+		"limit": 1
+	},
+	"documents.createMineFromTemplate": {
+		"limit": 2
+	},
+	"documents.designateMine": {
+		"limit": 1
+	},
+	"documents.importMine": {
+		"limit": 14,
+		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. One import stores one file, so the check repeats three times."
+	},
+	"documents.listMine": {
+		"limit": 1
+	},
+	"documents.readMine": {
+		"limit": 1
+	},
+	"documents.saveMine": {
+		"limit": 1
+	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
 		"retry": 8,
@@ -1292,6 +1315,9 @@
 		"limit": 4
 	},
 	"organizations.associations.revokeInvitation": {
+		"limit": 3
+	},
+	"organizations.discovery.setSharing": {
 		"limit": 3
 	},
 	"organizations.organizations.correctReportingLocation": {

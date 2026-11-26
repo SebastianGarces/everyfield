@@ -7,7 +7,7 @@ import { APP_PAGES, appPage } from "../../../packages/contracts/src/wiki/pages.t
 const app = fileURLToPath(new URL("../../../apps/web/src/app/(product)/(frame)/", import.meta.url));
 const SETTINGS = ["church", "brand", "notifications", "wiki", "account"].map((section) => `/settings/${section}`);
 const NOT_A_CHURCH_PAGE =
-	/^\/(?:network|assessment-review|feedback\/triage|me\/check-in|settings\/\[section\])(?:\/|$)/;
+	/^\/(?:network|assessment-review|feedback\/triage|me\/check-in|my-discovery|settings\/\[section\])(?:\/|$)/;
 
 test("INV-page: the pages Evry can be told about are exactly the app's church pages", () => {
 	const routes = globSync("**/page.tsx", { cwd: app })
