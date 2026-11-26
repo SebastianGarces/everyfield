@@ -60,11 +60,20 @@ that push CI run passed, and never one older than what production runs. It does 
 summary, until Sebastian sets these at cutover:
 
 - Repo variable `TRUNK_PROMOTE` set to `true`.
-- Repo secret `VERCEL_TOKEN`: a Vercel token that can list and promote deployments of the project.
+- Repo secret `VERCEL_TOKEN`: a Vercel token that can list and promote deployments of the project. It is the same
+  secret `deploy-production.yml` deploys with.
 - Repo variable `VERCEL_PROJECT_ID`: the Vercel project id. `deploy-production.yml` already reads it.
 - Repo variable `VERCEL_PRODUCTION_DOMAIN`: the production host name, with no scheme. The workflow reads which commit
   production runs from it.
 - Repo variable `VERCEL_SCOPE`: the Vercel team slug. Leave it unset when the project is on a personal account.
+
+Promote reads nothing else. It does not read `VERCEL_ORG_ID` and runs no Vercel CLI. It sends every request straight
+to the Vercel REST API with `Authorization: Bearer $VERCEL_TOKEN` and `slug=$VERCEL_SCOPE`: it reads the production
+domain, lists deployments with `GET /v7/deployments`, and promotes with
+`POST /v10/projects/$VERCEL_PROJECT_ID/promote/<deployment>`. That endpoint is the one `vercel promote` calls. It does
+not use the CLI because `vercel promote` always loads the token's user (`GET /v2/user`) first, and this token has no
+user: Vercel answers `User not found. (404)` (T-684). `vercel deploy` never needs that call, because it takes the team
+from `VERCEL_ORG_ID`.
 
 No Vercel dashboard setting is required. The automatic production domain assignment setting can stay as it is,
 because `--skip-domain` overrides it for these deploys.
@@ -89,6 +98,9 @@ How it works while `TRUNK_PROMOTE` is `true`:
   deployable changed and production stays.
 - When production already contains the commit it would promote, it promotes nothing and says so. A late green run
   for an older commit never moves production back.
+- After Vercel accepts the promote request, promote reads the production domain until it serves the new deployment,
+  for up to 5 minutes. A refused request, or a domain that still serves the old deployment after that, fails promote
+  with a summary line naming the deployment and the commit.
 
 Undo by setting `TRUNK_PROMOTE` to anything other than `true`. Promote then stops, and the next push to `main` that
 `deploy-production.yml` builds goes live straight away, with older builds cancelled, as before cutover. To go live
