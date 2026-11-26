@@ -27,10 +27,10 @@ import {
 	actor,
 	admin,
 	db,
+	freshActor,
 	people,
 	setup,
 	sql,
-	statementListeners,
 	teardown,
 	usage,
 	work,
@@ -94,10 +94,16 @@ function stepping(steps: Step[]) {
 async function open(who: EvryActor) {
 	return (await createConversation(db, who, { requestKey: randomUUID() })).id;
 }
-async function turn(who: EvryActor, id: string, steps: Step[], outcome = "succeeded") {
+async function turn(
+	who: EvryActor,
+	id: string,
+	steps: Step[],
+	outcome = "succeeded",
+	deps: Parameters<typeof work>[1] = {},
+) {
 	await submitTurn(db, who, id, { requestKey: randomUUID(), text: "Help me plan the week." });
 	const s = stepping(steps);
-	assert.equal(await work(s.model), outcome);
+	assert.equal(await work(s.model, deps), outcome);
 	return s.replies.flat();
 }
 async function held(who: EvryActor, id: string) {
@@ -261,27 +267,35 @@ const read = (personId: string) => ({ operation: "people.getPerson", input: { pe
 
 test("AC:EVRY-FAMILY-RUNTIME-CONVERSATION INV-evry-compose: at most eight declared reads overlap in one composition, and each keeps its own result, access check and budget", async () => {
 	const owner = await actor("owner");
-	let open_ = 0;
+	let checking = 0;
 	let most = 0;
-	const listener = (text: string) => {
-		if (/^begin/i.test(text)) most = Math.max(most, ++open_);
-		else if (/^(commit|rollback)/i.test(text)) open_--;
+	const counted = async (session: string) => {
+		most = Math.max(most, ++checking);
+		try {
+			return await freshActor(session);
+		} finally {
+			checking--;
+		}
 	};
-	statementListeners.add(listener);
 	const id = await open(owner);
-	const [good] = (await turn(owner, id, [
+	const [good] = (await turn(
+		owner,
+		id,
 		[
-			compose([
-				read(people.alexRivera),
-				read(people.alexChen),
-				{ operation: "people.listPeople", input: { limit: 2 } },
-				{ operation: "people.getPerson", input: { personId: "not-an-id" } },
-				read(people.foreign),
-			]),
+			[
+				compose([
+					read(people.alexRivera),
+					read(people.alexChen),
+					{ operation: "people.listPeople", input: { limit: 2 } },
+					{ operation: "people.getPerson", input: { personId: "not-an-id" } },
+					read(people.foreign),
+				]),
+			],
 		],
-	])) as { results: Record<string, unknown>[] }[];
-	statementListeners.delete(listener);
-	assert.ok(most >= 2, `reads overlapped: ${most} at once`);
+		"succeeded",
+		{ freshActor: counted },
+	)) as { results: Record<string, unknown>[] }[];
+	assert.equal(most, 4, `every valid read started before any finished its access check: ${most} at once`);
 	assert.deepEqual(
 		good!.results.map((r) => [
 			r.operation,
