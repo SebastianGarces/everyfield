@@ -532,7 +532,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		future: ["open", false, null, "future_origin", false],
 		preOrigin: ["complete", false, null, "invalid_completion", false],
 		afterAsOf: ["complete", false, null, "invalid_completion", true],
-		checkbox: ["complete", true, false, "measured", false],
+		checkbox: ["complete", false, null, "missing_completion", false],
 		retired: ["complete", true, true, "measured", true],
 		accepted: ["open", true, false, "measured", false],
 	});
@@ -553,10 +553,10 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	const report = {
 		status: "measured",
 		onTime: 3,
-		measured: 7,
+		measured: 6,
 		noLongerNeeded: 1,
 		pending: 3,
-		unmeasured: 3,
+		unmeasured: 4,
 		contacted: 4,
 		total: 14,
 	};

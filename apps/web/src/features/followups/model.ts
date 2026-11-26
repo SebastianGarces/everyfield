@@ -192,6 +192,7 @@ export function measurementText(m: NonNullable<ObligationItem["measurement"]>): 
 		superseded: "Not counted: replaced",
 		future_origin: "Not counted yet",
 		invalid_completion: "Not counted: time outside the window",
+		missing_completion: "Not counted: no completion recorded",
 	} as const;
 	return { text: why[m.reason], status: "unknown" };
 }
