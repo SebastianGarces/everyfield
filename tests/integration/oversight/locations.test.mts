@@ -8,8 +8,10 @@ import { correctReportingLocationRequest } from "../../../packages/contracts/src
 import {
 	createAssessmentJob,
 	createAssessments,
+	createFacts,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
+import { readCatalog, readReadiness } from "../../../packages/domain/src/phases/index.ts";
 import {
 	createOrganizationAdapter,
 	geographyReference,
@@ -144,15 +146,37 @@ const AUSTIN_TX = { city: "Austin", stateProvince: "TX", country: "US" };
 const ROUND_ROCK = { city: "Round Rock", stateProvince: "TX", country: "US" };
 const TORONTO = { city: "Toronto", stateProvince: "ON", country: "CA" };
 const OMB = "geography/omb-23-01";
+const REGION_TYPE: Record<string, "metro" | "micro"> = { metropolitan: "metro", micropolitan: "micro" };
+const releaseMonth = (release: string) =>
+	new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+		new Date(`${release}-01T00:00:00Z`),
+	);
+async function regionAreas(net: Network, plants: Plant[]) {
+	const directory = (await listPlants(c0.db, net.admin))!;
+	return plants.map((p) => directory.plants.find((x) => x.plantId === p.id)!.region);
+}
+async function evryRegionGroups(net: Network) {
+	const r = await invokeRead(c0.db, evryActor(net.admin), readIntelligenceHistory, { level: "region" });
+	return {
+		groups: r.rows.filter((x) => x.fields.row === "group").map((x) => [x.label, x.fields.level]),
+		source: String(r.facts?.regionSource),
+	};
+}
 
 test("AC:GEO-001 a plant in a US metro Region counts under that official metro area, labelled as one, from the pinned July 2023 release", async () => {
+	const { c, e } = li("GEO-001");
+	const type = given<string>(c, "region_type");
+	const release = given<string>(c, "release");
+	assert.equal(given(c, "code"), "fixture-official-code");
+	assert.deepEqual([e.region_type, e.release], [type, release]);
 	const net = await network("Metro Network");
 	const [a, b] = [await plant("North Austin Church", AUSTIN_TX), await plant("Round Rock Church", ROUND_ROCK)];
 	for (const p of [a, b]) await link(p, net);
 	await save(a, AUSTIN_TX, "12420");
 	await save(b, ROUND_ROCK, "12420");
 	await refresh(net);
-	const v = await read(net, "region");
+	const l = await located(net, [a, b]);
+	const v = l.views.region;
 	assert.deepEqual(levelOf(v), {
 		"12420": {
 			label: "Austin-Round Rock-San Marcos, TX (metro area)",
@@ -161,14 +185,24 @@ test("AC:GEO-001 a plant in a US metro Region counts under that official metro a
 			pattern: 2,
 		},
 	});
+	const area = { code: "12420", title: "Austin-Round Rock-San Marcos, TX", type: REGION_TYPE[type] };
+	assert.deepEqual(await regionAreas(net, [a, b]), [area, area], "the exact official code and type");
+	for (const p of [a, b]) assert.equal(placeOf(l, p.name).region, "Austin-Round Rock-San Marcos, TX (metro area)");
 	assert.deepEqual(
 		v.geographyReleases.map((r) => r.key),
 		[OMB],
 	);
-	assert.match(v.geographyReleases[0]!.credit, /OMB Bulletin 23-01 \(July 2023\)/);
+	assert.ok(v.geographyReleases[0]!.credit.includes(`OMB Bulletin 23-01 (${releaseMonth(release)})`));
+	const evry = await evryRegionGroups(net);
+	assert.deepEqual(evry.groups, [["Austin-Round Rock-San Marcos, TX (metro area)", e.label]]);
+	assert.ok(evry.source.includes(`(${releaseMonth(release)})`), evry.source);
 });
 
 test("AC:GEO-002 a plant in a micro Region counts under that official micro area, labelled as one", async () => {
+	const { c, e } = li("GEO-002");
+	const type = given<string>(c, "region_type");
+	const release = given<string>(c, "release");
+	assert.equal(e.region_type, type);
 	const net = await network("Micro Network");
 	const kerrville = { city: "Kerrville", stateProvince: "TX", country: "US" };
 	const [a, b] = [await plant("Kerrville Church", kerrville), await plant("Hill Fellowship", kerrville)];
@@ -177,12 +211,21 @@ test("AC:GEO-002 a plant in a micro Region counts under that official micro area
 		await save(p, kerrville, "28500");
 	}
 	await refresh(net);
-	assert.deepEqual(levelOf(await read(net, "region")), {
+	const l = await located(net, [a, b]);
+	assert.deepEqual(levelOf(l.views.region), {
 		"28500": { label: "Kerrville, TX (micro area)", placement: "placed", support: 2, pattern: 2 },
 	});
+	const area = { code: "28500", title: "Kerrville, TX", type: REGION_TYPE[type] };
+	assert.deepEqual(await regionAreas(net, [a, b]), [area, area]);
+	assert.ok(l.views.region.geographyReleases[0]!.credit.includes(`(${releaseMonth(release)})`));
+	assert.deepEqual((await evryRegionGroups(net)).groups, [["Kerrville, TX (micro area)", e.label]]);
 });
 
 test("AC:GEO-005 a multistate Region keeps both plants together while each counts in its own state", async () => {
+	const { c, e } = li("GEO-005");
+	assert.equal(given(c, "region"), "multistate-CBSA");
+	assert.deepEqual([given(c, "P_state"), given(c, "Q_state")], ["US:NY", "US:NJ"]);
+	const n = given<number>(c, "contributors");
 	const net = await network("Tri-State Network");
 	const ny = { city: "New York", stateProvince: "NY", country: "US" };
 	const nj = { city: "Newark", stateProvince: "NJ", country: "US" };
@@ -192,19 +235,31 @@ test("AC:GEO-005 a multistate Region keeps both plants together while each count
 	await save(a, ny, "35620");
 	await save(b, nj, "35620");
 	await refresh(net);
-	assert.deepEqual(levelOf(await read(net, "region")), {
-		"35620": { label: "New York-Newark-Jersey City, NY-NJ (metro area)", placement: "placed", support: 2, pattern: 2 },
+	const l = await located(net, [a, b]);
+	assert.deepEqual(levelOf(l.views.region), {
+		"35620": { label: "New York-Newark-Jersey City, NY-NJ (metro area)", placement: "placed", support: n, pattern: 2 },
 	});
-	assert.deepEqual(levelOf(await read(net, "state")), {
-		"US:NJ": { label: "New Jersey", placement: "placed", support: 1, pattern: null },
-		"US:NY": { label: "New York", placement: "placed", support: 1, pattern: null },
+	assert.equal(levelOf(l.views.region)["35620"]!.support, e.region_support);
+	assert.deepEqual(levelOf(l.views.state), {
+		"US:NJ": { label: "New Jersey", placement: "placed", support: e.NJ_support, pattern: null },
+		"US:NY": { label: "New York", placement: "placed", support: e.NY_support, pattern: null },
 	});
-	assert.deepEqual(levelOf(await read(net, "portfolio")), {
-		portfolio: { label: "Whole portfolio", placement: "placed", support: 2, pattern: 2 },
+	assert.deepEqual(levelOf(l.views.portfolio), {
+		portfolio: { label: "Whole portfolio", placement: "placed", support: e.whole_support, pattern: 2 },
 	});
 });
 
 test("AC:GEO-006 AC:GEO-007 a Canadian plant has no supported Region but counts in its province, Canada and the whole portfolio; one plant per country makes no country pattern", async () => {
+	const six = li("GEO-006");
+	assert.deepEqual(
+		[given(six.c, "P_country"), given(six.c, "Q_country"), given(six.c, "same_org")],
+		["US", "CA", true],
+	);
+	const seven = li("GEO-007");
+	assert.deepEqual(
+		[given(seven.c, "country"), given(seven.c, "province"), given(seven.c, "regional_standard")],
+		["CA", "CA:ON", "unsupported"],
+	);
 	const net = await network("Border Network");
 	const [us, ca] = [await plant("Austin Hope", AUSTIN_TX), await plant("Toronto Church", TORONTO)];
 	await link(us, net);
@@ -213,6 +268,20 @@ test("AC:GEO-006 AC:GEO-007 a Canadian plant has no supported Region but counts 
 	await save(ca, TORONTO, null);
 	assert.deepEqual(await candidates(ca, TORONTO), [], "no Region standard outside the United States");
 	await refresh(net);
+	const l = await located(net, [us, ca]);
+	const country = levelOf(l.views.country);
+	assert.deepEqual([country.US!.pattern, country.CA!.pattern], [six.e.US_pattern, six.e.CA_pattern]);
+	assert.equal(levelOf(l.views.portfolio).portfolio!.support, six.e.whole_support);
+	const groupOf = (level: Level) => l.views[level].groups.find((g) => g.rows.some((r) => r.plantId === ca.id))!;
+	assert.deepEqual(
+		[groupOf("country").key, groupOf("state").key, groupOf("region").placement],
+		[seven.e.country, seven.e.province, `${seven.e.region_status}_country`],
+	);
+	assert.deepEqual(await regionAreas(net, [ca]), [null]);
+	assert.deepEqual(
+		[placeOf(l, ca.name).country, placeOf(l, ca.name).stateProvince, placeOf(l, ca.name).region],
+		["CA", "ON", "No Region set"],
+	);
 	const at = async (level: Level) => levelOf(await read(net, level));
 	assert.deepEqual(await at("region"), {
 		"12420": { label: "Austin-Round Rock-San Marcos, TX (metro area)", placement: "placed", support: 1, pattern: null },
@@ -251,46 +320,95 @@ test("AC:GEO-008 a plant linked to the network directly and through its sending 
 	await link(a, church);
 	await save(a, AUSTIN_TX, "12420");
 	await save(b, ROUND_ROCK, "12420");
+	const { c, e } = li("GEO-008");
+	assert.deepEqual(given(c, "duplicate_affiliations"), ["P", "P"]);
+	assert.equal(given(c, "distinct_other"), "Q");
+	assert.equal(
+		(
+			await c0.rows(
+				sql`SELECT 1 FROM affiliation WHERE plant_id=${a.id} AND organization_id IN (${net.id}::uuid, ${church.id}::uuid)`,
+			)
+		).length,
+		2,
+		"P is affiliated twice",
+	);
 	await refresh(net);
+	const l = await located(net, [a, b]);
 	for (const level of LEVELS) {
-		const ids = (await read(net, level)).groups.flatMap((g) => g.rows.map((r) => r.plantId));
+		const ids = l.views[level].groups.flatMap((g) => g.rows.map((r) => r.plantId));
+		assert.equal(ids.filter((id) => id === a.id).length, e.P_contributions, `${level}: P once`);
+		assert.equal(new Set(ids).size, e.total_distinct_plants);
 		assert.deepEqual(ids.sort(), [a.id, b.id].sort(), `${level}: each plant once`);
 	}
-	assert.equal(levelOf(await read(net, "region"))["12420"]!.pattern, 2, "two distinct plants, not three");
+	assert.equal(l.places.rows.filter((r) => r.id === a.id).length, e.P_contributions, "the location read lists P once");
+	assert.equal(levelOf(l.views.region)["12420"]!.pattern, e.total_distinct_plants, "two distinct plants, not three");
 });
 
 test("AC:GEO-013 AC:GEO-003 a place with two candidate Regions asks the planter to choose and never for a street; the chosen primary Region alone counts, once", async () => {
+	const three = li("GEO-003");
+	assert.equal(given(three.c, "city_state"), "synthetic-cross-county-place");
+	const count = given<number>(three.c, "candidate_count");
+	assert.equal(given(three.c, "human_choice"), null);
+	const thirteen = li("GEO-013");
+	const named = given<string[]>(thirteen.c, "candidates");
+	const primary = given<string>(thirteen.c, "primary_selected");
+	assert.equal(given(thirteen.c, "assignments"), thirteen.e.assignments);
 	const austin = { city: "Austin", stateProvince: null, country: "US" };
 	const p = await plant("Two Austins Church", austin);
 	const offered = await candidates(p, austin);
 	assert.deepEqual(offered.map((c) => c.area.code).sort(), ["12380", "12420"]);
-	assert.equal((await readReportingLocation(c0.db, p.actor))!.region, null);
-	assert.deepEqual(Object.keys(correctReportingLocationRequest.shape.input.shape.locality.shape).sort(), [
-		"city",
-		"country",
-		"stateProvince",
-	]);
+	assert.equal(offered.length, count);
+	assert.equal(three.e.candidates, count);
+	assert.equal(offered.length, named.length);
+	const CODE = Object.fromEntries(named.map((n, i) => [n, ["12420", "12380"][i]!]));
+	assert.equal((await readReportingLocation(c0.db, p.actor))!.region, three.e.selected_region);
+	const locality = Object.keys(correctReportingLocationRequest.shape.input.shape.locality.shape).sort();
+	assert.deepEqual(locality, ["city", "country", "stateProvince"]);
+	assert.equal(locality.includes("street"), three.e.street_required);
 
 	const net = await network("Primary Network");
 	await link(p, net);
 	await save(p, austin, null);
 	await refresh(net);
-	assert.equal(levelOf(await read(net, "region")).unresolved?.placement, "unresolved", "no choice: unresolved");
+	const unchosen = await located(net, [p]);
+	assert.equal(levelOf(unchosen.views.region).unresolved?.placement, "unresolved", "no choice: unresolved");
+	assert.deepEqual(await regionAreas(net, [p]), [three.e.selected_region]);
+	assert.equal((await readReportingLocation(c0.db, p.actor))!.region, three.e.selected_region);
+	assert.equal(placeOf(unchosen, p.name).region, "No Region set");
 
-	await save(p, austin, "12420");
+	await save(p, austin, CODE[primary]!);
 	await refresh(net);
-	const region = levelOf(await read(net, "region"));
-	assert.deepEqual(Object.keys(region), ["12420"], "in its primary Region only");
-	assert.equal(region["12420"]!.support, 1);
+	const chosen = await located(net, [p]);
+	const region = levelOf(chosen.views.region);
+	assert.deepEqual(Object.keys(region), [CODE[primary]], "in its primary Region only");
+	assert.equal(region[CODE[primary]!]!.support, thirteen.e.contributions);
+	assert.equal(CODE[thirteen.e.primary_region as string], CODE[primary]);
+	assert.deepEqual(
+		(await regionAreas(net, [p])).map((a) => a?.code),
+		[CODE[primary]],
+	);
+	assert.equal((await readReportingLocation(c0.db, p.actor))!.region!.code, CODE[primary]);
+	assert.equal(
+		chosen.places.rows.filter((r) => r.id === p.id && r.fields.region !== "No Region set").length,
+		thirteen.e.assignments,
+	);
 	for (const level of LEVELS)
 		assert.equal(
-			(await read(net, level)).groups.flatMap((g) => g.rows).filter((r) => r.plantId === p.id).length,
-			1,
+			chosen.views[level].groups.flatMap((g) => g.rows).filter((r) => r.plantId === p.id).length,
+			thirteen.e.contributions,
 			`${level}: one contribution`,
 		);
 });
 
-test("AC:GEO-004 AC:GEO-012 a plant outside the official list, one left unresolved and one in an unsupported country each show their status by name, with no Region or attested area guessed", async () => {
+test("AC:GEO-004 a plant outside the official list, one left unresolved and one in an unsupported country each show their status by name, with no Region or attested area guessed", async () => {
+	const { c, e } = li("GEO-004");
+	const variants = given<string[]>(c, "variants");
+	assert.deepEqual(variants, ["confirmed_outside_reference", "unresolved", "unsupported_country"]);
+	const PLACEMENT: Record<string, string> = {
+		confirmed_outside_reference: "outside_reference",
+		unresolved: "unresolved",
+		unsupported_country: "unsupported_country",
+	};
 	const net = await network("Status Network");
 	const nowhere = { city: "Nowhere", stateProvince: "TX", country: "US" };
 	const [outside, unresolved, abroad] = [
@@ -303,7 +421,14 @@ test("AC:GEO-004 AC:GEO-012 a plant outside the official list, one left unresolv
 	await save(outside, nowhere, null);
 	await save(abroad, { city: "Ottawa", stateProvince: "ON", country: "CA" }, null);
 	await refresh(net);
-	const v = await read(net, "region");
+	const l = await located(net, [outside, unresolved, abroad]);
+	const v = l.views.region;
+	assert.deepEqual(
+		[outside, unresolved, abroad].map((p) => v.groups.find((g) => g.rows.some((r) => r.plantId === p.id))!.placement),
+		(e.statuses as string[]).map((s) => PLACEMENT[s]),
+	);
+	assert.deepEqual(await regionAreas(net, [outside, unresolved, abroad]), [null, null, null]);
+	for (const p of [outside, unresolved, abroad]) assert.equal(placeOf(l, p.name).region, "No Region set");
 	assert.deepEqual(
 		v.groups.map((g) => [g.label, g.placement, g.rows.map((r) => r.name)]),
 		[
@@ -335,10 +460,37 @@ test("AC:GEO-004 AC:GEO-012 a plant outside the official list, one left unresolv
 			),
 			`${level}: the unresolved plant still counts where its place is known`,
 		);
-	assert.doesNotMatch(JSON.stringify(v), /attest|geographic_?area|planting_?area/i);
 	const location = (await readReportingLocation(c0.db, outside.actor))!;
-	assert.deepEqual(Object.keys(location).sort(), ["canEdit", "locality", "referenceVersionId", "region", "revision"]);
 	assert.equal(location.region, null);
+});
+
+test("AC:GEO-012 a saved reporting Region attests no geographic area: the readiness criterion stays unknown and no location read carries an attestation", async () => {
+	const { c, e } = li("GEO-012");
+	assert.equal(given(c, "saved_reporting_region"), true);
+	assert.equal(given(c, "geographic_area_attestation"), null);
+	const net = await network("Saved Region Network");
+	const p = await contributor(net, "Region Saved Church", AUSTIN_TX, "12420", false);
+	await refresh(net);
+	const location = (await readReportingLocation(c0.db, p.actor))!;
+	assert.equal(location.region?.code, "12420", "the reporting Region is saved");
+	assert.deepEqual(Object.keys(location).sort(), ["canEdit", "locality", "referenceVersionId", "region", "revision"]);
+	const l = await located(net, [p]);
+	const directory = (await listPlants(c0.db, net.admin))!;
+	const plantView = (await getPlant(c0.db, net.admin, p.id, () => {}))!;
+	for (const payload of [...LEVELS.map((level) => l.views[level]), l.places, directory, plantView, location])
+		assert.doesNotMatch(JSON.stringify(payload), /attest|geographic_?area|planting_?area/i);
+	const measured = ok(await createFacts().readFacts(c0.db, p.actor, {}));
+	assert.equal(measured.criteria.geographic_area, undefined, "the Region is not a geographic-area fact");
+	assert.ok(!measured.attestations.map((a): string => a.key).includes("geographic_area"));
+	const criterion = readReadiness(await readCatalog(), measured.criteria)
+		.flatMap((r) => r.criteria)
+		.filter((x) => x.key === "geographic_area");
+	assert.ok(criterion.length > 0);
+	assert.deepEqual(
+		criterion.map((x) => (x.status === "unknown" ? null : x.status)),
+		criterion.map(() => e.geographic_area_attested),
+		"geographic area not attested",
+	);
 });
 
 test("INV-denominator: with one relevant plant in each of two metro areas only the larger levels show a pattern; a second relevant plant, not merely another plant, makes each metro's own", async () => {
@@ -373,17 +525,43 @@ test("INV-denominator: with one relevant plant in each of two metro areas only t
 });
 
 test("AC:GEO-009 a Region corrected from one area to another changes the current view; the earlier run keeps its Region", async () => {
+	const { c, e } = li("GEO-009");
+	const CODE = { [given<string>(c, "old_region")]: "12380", [given<string>(c, "corrected_region")]: "12420" };
+	assert.equal(given(c, "actual_locality_unchanged"), true);
 	const net = await network("Correction Network");
 	const austin = { city: "Austin", stateProvince: null, country: "US" };
 	const p = await plant("Corrected Church", austin);
 	await link(p, net);
-	await save(p, austin, "12380");
+	await save(p, austin, CODE.X!);
 	const before = await refresh(net);
-	await save(p, austin, "12420");
+	const then0 = await located(net, [p]);
+	await save(p, austin, CODE.Y!);
 	assert.deepEqual((await readReportingLocation(c0.db, p.actor))!.locality, austin, "the actual place is unchanged");
 	await refresh(net);
-	assert.deepEqual(Object.keys(levelOf(await read(net, "region"))), ["12420"], "current: the corrected Region");
-	assert.deepEqual(Object.keys(levelOf(await read(net, "region", before))), ["12380"], "history: the Region it had");
+	const now = await located(net, [p]);
+	const then = await located(net, [p], before);
+	assert.deepEqual(
+		Object.keys(levelOf(now.views.region)),
+		[CODE[e.current_region as string]],
+		"current: the corrected Region",
+	);
+	assert.deepEqual(
+		Object.keys(levelOf(then.views.region)),
+		[CODE[e.historical_region as string]],
+		"history: the Region it had",
+	);
+	for (const level of LEVELS) assert.deepEqual(levelOf(then.views[level]), levelOf(then0.views[level]), level);
+	const history = (await readLocationHistory(c0.db, net.admin, p.id))!;
+	assert.deepEqual(
+		history.locations.map((x) => [x.region?.code, x.city, x.stateProvince, x.country]),
+		[
+			[CODE[e.current_region as string], "Austin", null, "US"],
+			[CODE[e.historical_region as string], "Austin", null, "US"],
+		],
+	);
+	const places = history.locations.map((x) => JSON.stringify([x.city, x.stateProvince, x.country]));
+	assert.equal(new Set(places).size > 1, e.actual_locality_changed);
+	assert.deepEqual([placeOf(now, p.name).city, placeOf(now, p.name).country], ["Austin", "US"]);
 });
 
 test("AC:B02-029 Network Intelligence and the oversight plant view consume only released results: an embargoed newest run shows the previous one or Not yet assessed, and its concerns join no pattern until the planter opens it", async () => {
@@ -478,7 +656,11 @@ test("a plant that does not share findings reads Not shared at every level and L
 	assert.equal(own.lenses.length, 8, "the planter still sees every lens");
 });
 
-test("AC:GEO-011 AC:ORG55-005 the directory, the plant view and every Network Intelligence level carry no person, contact, street, private care or assessment text; the lead shows only as the approved display name, and never in Network Intelligence", async () => {
+test("AC:GEO-011 AC:ORG55-005 the directory, the plant view, every Network Intelligence level and the Evry location reads carry no person, contact, street, private care or assessment text; the lead shows only as the approved display name, and never in Network Intelligence", async () => {
+	const geo = li("GEO-011");
+	assert.equal(given(geo.c, "native_evry_export"), true);
+	assert.deepEqual(given(geo.c, "forbidden_fields"), ["street", "person", "private_care"]);
+	assert.equal(given(geo.c, "category_restriction"), true);
 	const net = await network("Privacy Network");
 	const p = await c0.harvest("Canary Church");
 	await c0.admin.execute(sql`UPDATE plant SET phase=2, street='4100 Private Street' WHERE id=${p.id}`);
@@ -526,6 +708,32 @@ test("AC:GEO-011 AC:ORG55-005 the directory, the plant view and every Network In
 	assert.equal(plantView.plant.leadPlanter, "Alex Lead");
 	assert.ok(plantView.assessment.status === "released" && plantView.assessment.concerns.length > 0);
 	const intelligence = await Promise.all(LEVELS.map((level) => read(net, level)));
+	const evry = evryActor(net.admin);
+	const places = await invokeRead(c0.db, evry, readPlantLocations, {});
+	const evryReads = [
+		["Evry readLocations", places],
+		["Evry readLocationHistory", await invokeRead(c0.db, evry, readPlantLocationHistory, { plantId: p.id })],
+		["Evry readHistory", await invokeRead(c0.db, evry, readIntelligenceHistory, {})],
+		...(await Promise.all(
+			LEVELS.map(
+				async (level) =>
+					[`Evry read (${level})`, await invokeRead(c0.db, evry, readNetworkIntelligence, { level })] as const,
+			),
+		)),
+	] as const;
+	assert.deepEqual(
+		places.rows.map((r) => Object.keys(r.fields).sort()),
+		[["city", "country", "countsIn", "findings", "href", "region", "stateProvince"]],
+		"the location export carries only the location categories",
+	);
+	assert.deepEqual(
+		{
+			street: places.rows[0]!.fields.street ?? null,
+			people: places.rows[0]!.fields.people ?? null,
+			private_care: places.rows[0]!.fields.private_care ?? null,
+		},
+		geo.e,
+	);
 
 	const people = await c0.rows(sql`SELECT id,display_name,email,phone FROM person WHERE plant_id=${p.id}`);
 	const forbidden = [
@@ -548,12 +756,14 @@ test("AC:GEO-011 AC:ORG55-005 the directory, the plant view and every Network In
 		["directory", directory],
 		["plant view", plantView],
 		...LEVELS.map((level, i) => [`Network Intelligence (${level})`, intelligence[i]] as const),
+		...evryReads,
 	] as const) {
 		const text = JSON.stringify(payload);
 		for (const value of forbidden) assert.ok(!text.includes(value), `${name} carries ${value}`);
 		assert.doesNotMatch(text, /"(passage|note|source|disengaged|street|email|phone|personId|accountId)"/, name);
 	}
-	for (const v of intelligence) assert.ok(!JSON.stringify(v).includes("Alex Lead"), "no named person feeds NI");
+	for (const v of [...intelligence, ...evryReads.map(([, r]) => r)])
+		assert.ok(!JSON.stringify(v).includes("Alex Lead"), "no named person feeds NI");
 });
 
 type LiCase = {
@@ -1288,6 +1498,9 @@ test("AC:GEO-010 a newer geography release changes the current view's Regions; t
 	await link(p, net);
 	await save(p, AUSTIN_TX, "12420");
 	const before = await refresh(net);
+	const { c, e } = li("GEO-010");
+	assert.equal(given(c, "old_report"), "immutable");
+	const r1 = (await located(net, [p])).views.region;
 	const release = randomUUID();
 	const hash = randomUUID().replaceAll("-", "").repeat(2);
 	await c0.admin
@@ -1300,15 +1513,21 @@ test("AC:GEO-010 a newer geography release changes the current view's Regions; t
 		FROM reference_item i WHERE i.kind='geography_dataset' AND i.canonical_key='omb-23-01'`);
 	await save(p, AUSTIN_TX, "12420");
 	await refresh(net);
-	const now = await read(net, "region");
-	const then = await read(net, "region", before);
+	const RELEASE = {
+		[given<string>(c, "old_release")]: OMB,
+		[given<string>(c, "new_release")]: "geography/omb-23-01-r2",
+	};
+	const now = (await located(net, [p])).views.region;
+	const then = (await located(net, [p], before)).views.region;
 	assert.deepEqual(
 		now.geographyReleases.map((r) => r.key),
-		["geography/omb-23-01-r2"],
+		[RELEASE[e.current_release as string]],
 	);
 	assert.deepEqual(
 		then.geographyReleases.map((r) => r.key),
-		[OMB],
+		[RELEASE[e.historical_release as string]],
 	);
+	assert.deepEqual(levelOf(then), levelOf(r1));
+	assert.deepEqual(then.geographyReleases, r1.geographyReleases, "the earlier run's release is immutable");
 	assert.deepEqual(Object.keys(levelOf(then)), ["12420"]);
 });

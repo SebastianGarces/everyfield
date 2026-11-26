@@ -47,6 +47,8 @@ Exactly 0.80 fails; >0.80 qualifies. The source's ≥0.85 behavior is replaced, 
 
 Before creation the account reads the entire currently published global Wiki, not only the six foundation articles, and has native private documents but no phantom church/plant phase. Creation persists Phase 1 independently of 0/6 reading, missing core values or relationships; it keeps unfinished evidence and distinct once-only creation provenance. These readiness facts remain advisory under [methodology](methodology-intelligence.md). Reading history and completion live under account ownership, not whatever plant the user happens to view.
 
+The Wiki home's **Suggested** list for a Discovery planter (a seatless account with an open Discovery profile, REQ-IDN-016) shows only the six foundation articles that planter has not finished, in the order of the table above. Finished uses the milestone test: completed at a ratio strictly greater than 0.80, so a partial read or a completion at 0.80 stays suggested. An article the planter cannot currently read is never suggested. Once all six are finished, the list shows the Phase 1 articles they have not finished, then any other unfinished published article, so it is never empty while unread articles remain. Church and organization seats, other seatless accounts and Evry keep the phase recommendation.
+
 ## Generated documents and templates
 
 | Feature | Template / format and retained output |

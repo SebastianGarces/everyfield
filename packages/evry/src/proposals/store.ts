@@ -22,6 +22,7 @@ import { fence, type RunLease } from "../runtime/run-store.ts";
 import type { MailPort, NativePorts, ReviewContext, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
+	inDiscoveryChat,
 	mine,
 	NOW_WRITES,
 	REASON_WRITES,
@@ -51,7 +52,8 @@ function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 }
 const queued: ProposalSubject = { now: false, lapsed: false, jobLive: false };
 const now: ProposalSubject = { ...queued, now: true };
-export const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
+export const owned = (actor: EvryActor) =>
+	sql`${mine(actor)} AND ${currentAuthority(actor)} AND NOT ${sql.raw(inDiscoveryChat("p"))}`;
 export const digest = (revision: SQL, review: SQL = sql`r.review`) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',${review})::text,'UTF8')),'hex')`;
 const expiresFrom = (at: SQL) => sql`${at}+make_interval(mins=>${REVIEW_MINUTES})`;

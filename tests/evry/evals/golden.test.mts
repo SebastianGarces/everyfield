@@ -83,7 +83,7 @@ type ProposalSpec = {
 	changes?: [string, unknown, unknown?][];
 	refusal?: string;
 };
-type Names = { allowed?: string[]; all?: string | string[]; orPartial?: boolean };
+type Names = { allowed?: string[]; all?: string | string[]; orPartial?: boolean; pageOf?: number };
 type Checks = {
 	calls?: CallSpec[];
 	only?: string[];
@@ -283,6 +283,16 @@ const AREA_CAPABILITY: Record<string, RegExp> = {
 const OFFERS_INSTEAD = /\b(I can|instead|you can|in the app|screen|page|meanwhile|what I can do)\b/i;
 const PARTIAL =
 	/partial|first (page|\d+)|more (pages?|results|prospects|people)|next page|showing \d+ of|\bof \d+\b|stopped|so far|page \d|remaining/i;
+const pageCounts = (answer: string, total: number) =>
+	[
+		...answer.matchAll(
+			new RegExp(
+				`\\b(?:first|here are(?: the)?(?: first| next)?) (\\d+)\\b|\\b(\\d+) of (?:the |all )?(?:${total}|total)\\b`,
+				"gi",
+			),
+		),
+	].map((m) => Number(m[1] ?? m[2]));
+const SELF_LISTED = /(?:[,:]|\band|^\s*[-*•])\s+you\s*(?=,|\.|$)/im;
 const CLAIM =
 	/\b(I['’]?ve|I have|I|has been|have been|is now|are now|was successfully|were successfully)\s+(successfully\s+|now\s+|just\s+)?(saved|updated|changed|moved|deleted|removed|added|created|sent|merged|scheduled|applied|approved|archived)\b/i;
 const NEGATED =
@@ -415,6 +425,17 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 				!missing.length || !!partial,
 				missing.length ? `missing ${missing.join(", ")}` : `all ${all.length} named`,
 				{ kind: "fact" },
+			);
+		}
+		if (spec.names.pageOf !== undefined) {
+			const stated = pageCounts(answer, spec.names.pageOf);
+			const listed = named.length + (SELF_LISTED.test(answer) ? 1 : 0);
+			const wrong = stated.filter((n) => n !== listed);
+			add(
+				"states a page count equal to the names it lists",
+				!wrong.length,
+				`states ${stated.join(", ") || "no page count"}; names ${listed}`,
+				{ kind: "fact", gate: "made-up-facts" },
 			);
 		}
 	}
@@ -1286,6 +1307,35 @@ test("INV-evry-golden-release: a case that passed in the baseline and fails now 
 	);
 });
 
+test("INV-evry-golden: a page of names whose stated count differs from the names it lists fails HH-08's page-count check", () => {
+	const spec = golden.find((c) => c.case_id === "HH-08")!.eval;
+	const names = select("household=none&slice=0:24");
+	const page = names.join(", ");
+	const asYou = ["you", ...names.slice(1)].join(", ");
+	const counted = (answer: string) =>
+		score(
+			spec,
+			{ kind: "application", calls: [], proposals: [], answer, keys: [], inputs: [] },
+			{ area: "home", given: "" },
+		)
+			.filter((x) => x.name === "states a page count equal to the names it lists")
+			.map((x) => [x.ok, x.detail]);
+	const answers = [
+		`66 of the 84 people aren't in a household. Here are the first 24: ${page}. Ask for the next page.`,
+		`66 people have no household; these 24 of the 66 are on page 1: ${page}.`,
+		`66 of the 84 people aren't in a household. Here are the first 23: ${page}.`,
+		`66 people have no household. Showing 25 of 66: ${page}.`,
+		`66 of the 84 people aren't in a household. This is page 1 of 3, 24 of 66: ${asYou}.`,
+	];
+	assert.deepEqual(answers.map(counted), [
+		[[true, "states 24; names 24"]],
+		[[true, "states 24; names 24"]],
+		[[false, "states 23; names 24"]],
+		[[false, "states 25; names 24"]],
+		[[true, "states 24; names 24"]],
+	]);
+});
+
 const ADAPTERS = new Map<string, ReadAdapter<unknown>>(
 	Object.values(READ_DOMAINS)
 		.flat()
@@ -1372,6 +1422,12 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	assert.deepEqual(await filtered({ movedInto: { stage: "core_group" } }), [2, 84, [["2026-11-02"], ["2026-11-05"]]]);
 	assert.deepEqual((await filtered({ hasPhoto: false })).slice(0, 2), [79, 84]);
 	assert.deepEqual((await filtered({ inHousehold: false })).slice(0, 2), [66, 84]);
+	const unhoused = async (page: number) => {
+		const r = await read("people.listPeople", { inHousehold: false, page }, "admin");
+		return [r.rows.length, r.facts?.onThisPage, r.facts?.pages, r.next];
+	};
+	assert.deepEqual(await unhoused(1), [24, 24, 3, 2]);
+	assert.deepEqual(await unhoused(3), [18, 18, undefined, null]);
 	assert.deepEqual(labels(await read("teams.get", { teamId: teamId("Worship") })), [
 		"Alex Rivera",
 		"Ana Rivera",

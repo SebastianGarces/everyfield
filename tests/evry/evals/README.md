@@ -505,7 +505,10 @@ moves a status. A Not yet case needs the can't-yet checks, or the `calls` its bu
 CLN-09 they read the People list once, under its skill, photo, household, adult-or-child or stage-move filter. The seed
 records Mateo Rivera and Bao Nguyen as children and moves Sam Patel (Oct 28), Priya Shah (Nov 2) and Mike Brennan
 (Nov 5) into core group. ADP-R-18 to ADP-R-22 ask for the next page of two of those lists, as a Member, as an
-organization seat, and for last month's moves.
+organization seat, and for last month's moves. Each church-wide page carries `onThisPage`, the number of people on it,
+and the note tells the model to state that number instead of counting names (T-690). HH-08, ADP-R-18 and ADP-R-19 set
+`names.pageOf` to the list's total: any "first N", "here are N" or "N of <total>" in the answer must equal the names it
+lists, the asker's own row listed as "you" included.
 
 ## The intelligence and oversight suites (scripted model)
 

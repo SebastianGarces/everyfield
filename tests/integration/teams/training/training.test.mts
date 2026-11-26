@@ -21,6 +21,7 @@ import { meetingsReader, meetingsWriter } from "../../../../packages/domain/src/
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { failingWrite, NOTHING, recorded, untouched } from "../../../support/recorded.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
+import { caseOf } from "../../target/sql/core/support.mts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -573,6 +574,19 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 	assert.deepEqual(listed.items.map((m) => m.id).sort(), [meeting.id, second.id].sort());
 	const all = ok(await meetingsReader.list(db, await viewer(), { types: ["team_meeting"], window: "all" }));
 	assert.ok(all.items.some((m) => m.id === meeting.id && m.team?.id === hospitality.id));
+
+	const k = caseOf("intelligence", "B01-001");
+	const solo = await makeTeam("Two roles, one person");
+	const sam = await person("Sam Two Roles");
+	for (let n = 0; n < Number(k.action.arguments.same_person_roles); n++)
+		await assign(await makeRole(solo.id, `Slot ${n + 1}`), solo.id, sam);
+	for (let n = 0; n < Number(k.action.arguments.attendance_occurrences); n++)
+		await held(ok(await teamMeeting(solo.id, { subtype: "regular", date: `2026-10-0${n + 5}` })).meeting.id, [sam]);
+	const once = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: solo.id }));
+	assert.deepEqual(
+		[once.filledSlots, once.memberAttendance, once.rosterDenominator, once.attendanceRate],
+		[k.action.arguments.same_person_roles, k.expected.result.distinct_attendees, 1, 1],
+	);
 });
 
 test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health weighs staffing 40, training 35 and attendance 25, and only measured rates have a band", async () => {
@@ -671,6 +685,22 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health weighs staf
 		[1, covered.composite],
 		"unmeasured ministries stay out of the average",
 	);
+
+	const k = caseOf("intelligence", "B01-003");
+	const unmet = await makeTeam("No meetings yet");
+	const pat = await person("Pat Trained");
+	await assign(await makeRole(unmet.id, "Only"), unmet.id, pat);
+	const basics = await program("Unmet basics", { teamId: unmet.id });
+	await saveRoster(basics.id, [pat]);
+	ok(await run(trainingWriter.attestCompletion, await attestation(basics.id, pat)));
+	const partial = ok(await trainingReader.readHealth(db, await viewer(), { teamId: unmet.id }));
+	assert.deepEqual(
+		[partial.staffingRate, partial.attendanceRate, partial.trainingRate],
+		[k.action.arguments.staffing, k.action.arguments.attendance, k.action.arguments.training],
+	);
+	assert.deepEqual([partial.composite, partial.weights], [k.expected.result.composite, k.expected.result.weights]);
+	assert.equal(k.expected.result.reweighted, false);
+	assert.equal(partial.attendanceBand, "unknown");
 });
 
 test("AC:SME53-004 each rate moves the composite by its own weight, and the bands turn at 40, 60 and 50 percent", async () => {

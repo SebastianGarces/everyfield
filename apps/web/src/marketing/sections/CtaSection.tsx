@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ButtonLink } from "@/components/ButtonLink";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
@@ -7,7 +8,14 @@ import { ACCESS_PATH } from "@/site";
 import { ICONS } from "../icons";
 import { Backdrop } from "../photo/Backdrop";
 
-type Cta = { headline: string; body?: string; cta_primary: string; cta_secondary?: string; note?: string };
+type Cta = {
+	headline: string;
+	body?: string;
+	cta_primary: string;
+	cta_secondary?: string;
+	note?: string;
+	discovery?: { lead: string; link: string };
+};
 
 export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; secondary?: string } }) {
 	return (
@@ -40,6 +48,17 @@ export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; sec
 						) : null}
 					</div>
 					{c.note ? <p className="type-md text-mk-cream-90">{c.note}</p> : null}
+					{c.discovery ? (
+						<p className="type-md text-pretty text-mk-cream-90">
+							{c.discovery.lead}{" "}
+							<Link
+								href="/discovery"
+								className="font-semibold text-cream underline decoration-mk-cream-45 underline-offset-4 transition-[text-decoration-color] hover:decoration-cream focus-visible:outline-cream"
+							>
+								{c.discovery.link}
+							</Link>
+						</p>
+					) : null}
 				</Reveal>
 			</div>
 		</section>
