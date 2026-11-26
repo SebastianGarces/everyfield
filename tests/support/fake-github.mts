@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 
 export type FakeIssue = {
 	repositoryId: number;
+	id: number;
 	number: number;
 	title: string;
 	body: string;
@@ -17,6 +18,8 @@ export async function fakeGitHub(repositories: Record<string, number>) {
 	const requests: FakeRequest[] = [];
 	const behavior = {
 		createReplyDelayMs: 0,
+		createReplyLost: false,
+		createAs: null as { id: number; number: number } | null,
 		searchStatus: 200,
 		createStatus: null as number | null,
 	};
@@ -42,9 +45,13 @@ export async function fakeGitHub(repositories: Record<string, number>) {
 			if (id === undefined) return answer(404, { message: "Not Found" });
 			if (behavior.createStatus !== null) return answer(behavior.createStatus, { message: "Refused" });
 			const input = JSON.parse(body) as { title: string; body: string };
-			const number = issues.filter((i) => i.repositoryId === id).length + 1;
+			const { id: issueId, number } = behavior.createAs ?? {
+				id: 9001 + issues.length,
+				number: issues.filter((i) => i.repositoryId === id).length + 1,
+			};
 			const issue: FakeIssue = {
 				repositoryId: id,
+				id: issueId,
 				number,
 				title: input.title,
 				body: input.body,
@@ -52,9 +59,10 @@ export async function fakeGitHub(repositories: Record<string, number>) {
 				url: `https://github.fake.test/${create[1]}/issues/${number}`,
 			};
 			issues.push(issue);
+			if (behavior.createReplyLost) return void request.socket.destroy();
 			if (behavior.createReplyDelayMs) await new Promise((wait) => setTimeout(wait, behavior.createReplyDelayMs));
 			return answer(201, {
-				id: 9000 + issues.length,
+				id: issue.id,
 				number,
 				html_url: issue.url,
 				title: issue.title,

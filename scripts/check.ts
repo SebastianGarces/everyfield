@@ -28,6 +28,7 @@ import {
 } from "../tools/ci/select.ts";
 import { sweepCommand } from "../tools/qa/containers.ts";
 import { unitPackages } from "../tools/ci/test-unit.ts";
+import { sweepQuietly } from "./containers.ts";
 import {
 	DatabaseError,
 	databaseEnv,
@@ -559,6 +560,7 @@ export function checkCommand(args: string[], root: string): number {
 		return 2;
 	}
 	sweepCommand();
+	sweepQuietly(root);
 	const { record, recordPath } = check({ root, full });
 	const ran = record.checks.filter((c) => c.run).map((c) => c.id);
 	console.log(`check ${record.mode}: ${record.result}. Ran ${ran.join(", ") || "nothing"}.`);

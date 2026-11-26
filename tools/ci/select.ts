@@ -194,6 +194,20 @@ export const RULES: readonly Rule[] = [
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
 	{ name: "QA tool test support", paths: ["tools/qa/tests/**"], suites: ["tools-qa"] },
 	{ name: "QA test containers and their sweep", paths: ["tools/qa/containers.ts"], suites: ["tools-qa"] },
+	{
+		name: "task containers, their sweep and the scratch Postgres",
+		paths: [
+			"scripts/containers.ts",
+			"scripts/containers-command.ts",
+			"scripts/scratch-postgres.ts",
+			"scripts/throwaway-postgres.ts",
+		],
+		tests: [
+			"tests/workflow/containers.test.ts",
+			"tests/workflow/containers-agent.test.ts",
+			"tests/workflow/check.test.ts",
+		],
+	},
 	{ name: "actionable watcher", paths: ["ops/actionable-watch/**"], suites: ["ops-watch"] },
 	{
 		name: "failure reporting and feedback queue input",

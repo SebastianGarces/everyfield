@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	accountName,
 	DASHBOARD_HOME,
 	invalidSessionReturn,
 	landingFor,
@@ -70,4 +71,10 @@ test("BUG-PR551: a seat change that leaves a duty remaining is partial, never ch
 	assert.equal(seatMutationResult.safeParse(result("noop", "remaining")).success, false);
 	assert.equal(seatMutationResult.safeParse(result("partial", "remaining")).success, true);
 	assert.equal(seatMutationResult.safeParse(result("changed", "needs_owner")).success, true);
+});
+
+test("an account is named by who owns it", () => {
+	assert.equal(accountName("plant"), "church plant account");
+	assert.equal(accountName("sending_church"), "sending church account");
+	assert.equal(accountName("sending_network"), "network account");
 });

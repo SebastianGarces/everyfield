@@ -15,7 +15,7 @@ import {
 	taskReader,
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
-import { createMailService, type MailPayload } from "../../../packages/domain/src/jobs/mail.ts";
+import { createMailService, type MailPayload, type TransportOutcome } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
@@ -49,6 +49,10 @@ export async function clockedWorld(prefix: string, start: string) {
 	const rows = async <R extends Row = Row>(q: SQL) => (await admin.execute<R>(q)).rows;
 	await admin.execute(sql`UPDATE auth_session SET expires_at='2026-11-12T16:00:00Z'`);
 	const sent: MailPayload[] = [];
+	const provider = {
+		keys: [] as string[],
+		answer: (): TransportOutcome => ({ kind: "accepted", id: randomUUID() }),
+	};
 	const mail = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -56,9 +60,10 @@ export async function clockedWorld(prefix: string, start: string) {
 		from: "tasks@example.test",
 		authorize: authorizeTaskReminders,
 		transport: {
-			async send(payload) {
+			async send(payload, key) {
 				sent.push(payload);
-				return { kind: "accepted", id: randomUUID() };
+				provider.keys.push(key);
+				return provider.answer();
 			},
 			async lookup() {
 				return { kind: "unknown" };
@@ -131,6 +136,8 @@ export async function clockedWorld(prefix: string, start: string) {
 			return resolve(a);
 		},
 		sent,
+		provider,
+		mail,
 		rows,
 		write,
 		read,

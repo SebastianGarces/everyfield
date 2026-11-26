@@ -2,9 +2,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { ReferenceRefusal } from "../../../packages/reference/src/server.ts";
-import { hash, canonical, stableId } from "../../../packages/reference/src/hash.ts";
-import { chunkEntries, completeGeneration } from "../../../packages/reference/src/bundle.ts";
-import { fixture, identities } from "./fixtures.mts";
+import { fixture, revised } from "./fixtures.mts";
 import { promotions } from "./promotions.mts";
 
 type Built = ReturnType<typeof fixture>;
@@ -30,21 +28,10 @@ function secondRelease(): Built {
 		[grown!.id, (text: string) => `${text}\n\n${"A newly added passage. ".repeat(60)}`],
 		[changed!.id, (text: string) => text.replace(/[a-z]/, "x")],
 	]);
-	const entries = base.policy.plan.entries.map((e) => {
+	return revised("R2", (e) => {
 		const edit = content.get(e.id);
-		if (!edit) return e;
-		const article = JSON.parse(e.body);
-		const body = JSON.stringify({ ...article, content: edit(article.content) });
-		const contentHash = hash(body);
-		return { ...e, body, contentHash, revisionId: stableId(`R2:${e.id}:${contentHash}`) };
+		return edit ? { content: edit(JSON.parse(e.body).content) } : null;
 	});
-	const plan = { ...base.policy.plan, key: "R2", entries } as Parameters<typeof completeGeneration>[0];
-	const bundle = completeGeneration(
-		plan,
-		identities,
-		new Map(chunkEntries(entries).map((p) => [p.key, [0.4, 0.5, 0.6]])),
-	);
-	return { bundle, policy: { ...base.policy, plan }, manifestHash: hash(canonical(bundle)) };
 }
 const stored = async () =>
 	(
@@ -55,7 +42,11 @@ const stored = async () =>
 	).rows[0];
 const history = async () =>
 	(
-		await db.execute<{ n: string; release: string; row: string }>(querySql`SELECT a.activation_number::text AS n,
+		await db.execute<{
+			n: string;
+			release: string;
+			row: string;
+		}>(querySql`SELECT a.activation_number::text AS n,
 		r.release_key AS release,a::text AS row FROM reference_activation a JOIN reference_release r ON r.id=a.release_id
 		ORDER BY a.activation_number`)
 	).rows;
@@ -85,7 +76,10 @@ test("AC:ASMT-011 a second release that removes, adds and changes passages and f
 	assert.equal((await service.current())!.release_key, "R1", "R1 stays active");
 	assert.deepEqual(await stored(), first, "no part of R2 was kept");
 	const unfinished = command("R2", "1");
-	artifacts.set("R2", { ...built.get("R2")!.bundle, passages: built.get("R2")!.bundle.passages.slice(1) });
+	artifacts.set("R2", {
+		...built.get("R2")!.bundle,
+		passages: built.get("R2")!.bundle.passages.slice(1),
+	});
 	await assert.rejects(
 		service.promote(unfinished, "R2"),
 		(e) => e instanceof ReferenceRefusal && e.code === "invalid_generation",
@@ -94,7 +88,9 @@ test("AC:ASMT-011 a second release that removes, adds and changes passages and f
 	const one = await history();
 
 	assert.equal((await service.promote(command("R2", "1"), "R2")).number, "2");
-	const live = await db.execute<{ hash: string }>(querySql`SELECT DISTINCT p.content_hash AS hash FROM passage p
+	const live = await db.execute<{
+		hash: string;
+	}>(querySql`SELECT DISTINCT p.content_hash AS hash FROM passage p
 		JOIN reference_activation a ON a.release_id=p.release_id WHERE a.activation_number=2`);
 	assert.deepEqual(new Set(live.rows.map((r) => r.hash)), text("R2"), "exactly R2's passages");
 	const two = await history();

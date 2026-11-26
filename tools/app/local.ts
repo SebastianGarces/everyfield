@@ -14,6 +14,7 @@ import { createServer, type Server } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { QA_LOGINS } from "../qa/qa-guard.ts";
+import { ownerLabels, sweepQuietly } from "../../scripts/containers.ts";
 import { IMAGE } from "../../scripts/throwaway-postgres.ts";
 import {
 	AppError,
@@ -186,6 +187,7 @@ function appEnv(app: LocalApp, secrets: Secrets, repo: Repo): Record<string, str
 
 export async function up(repo: Repo, options: { mode: string; timeoutSeconds: number }): Promise<string> {
 	if (options.mode !== "dev" && options.mode !== "prod") throw new AppError(EXIT.usage, "--mode is dev or prod");
+	sweepQuietly(repo.root);
 	const existing = readLocalApp(repo);
 	let restarted = "";
 	if (existing && starting(existing) && !existing.pid)
@@ -256,7 +258,7 @@ export async function up(repo: Repo, options: { mode: string; timeoutSeconds: nu
 
 	run("docker", ["rm", "-f", "-v", container]);
 	const docker = run("docker", [
-		...["run", "-d", "--rm", "--name", container, "--label", `everyfield.app.worktree=${repo.name}`],
+		...["run", "-d", "--rm", "--name", container, ...ownerLabels(repo.root)],
 		...["-e", "POSTGRES_USER=ci", "-e", `POSTGRES_PASSWORD=${secrets.pgPassword}`, "-e", "POSTGRES_DB=everyfield_ci"],
 		...["-p", `127.0.0.1:${ports.pg}:5432`, "--shm-size=256m", IMAGE],
 		...["-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "max_connections=200"],

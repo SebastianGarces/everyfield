@@ -38,6 +38,7 @@
 	"tests/integration/communication/*.test.mts",
 	"tests/integration/followups/*.test.mts",
 	"tests/integration/access/*.test.mts",
+	"tests/integration/jobs/execution-cases.test.mts",
 	"tests/integration/jobs/lifecycle-purge.test.mts",
 	"tests/integration/jobs/mail.test.mts",
 	"tests/integration/jobs/mount-mail.test.mts",

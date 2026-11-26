@@ -2,6 +2,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { createMailService, type AuthorizeMail } from "../../../packages/domain/src/jobs/mail.ts";
 import {
@@ -13,6 +14,16 @@ import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 
+const { cases } = JSON.parse(
+	readFileSync(new URL("../../../docs/acceptance/communications-notifications.json", import.meta.url), "utf8"),
+) as {
+	cases: {
+		id: string;
+		given: { "behavior-inputs": { receipt_repeat: number } };
+		clock: { now: string };
+		expected: { result: object };
+	}[];
+};
 const account = randomUUID(),
 	org = randomUUID(),
 	org2 = randomUUID();
@@ -254,6 +265,26 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	);
 });
 test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization receives one receipt without a phantom plant", async () => {
+	const receiptCase = cases.find((c) => c.id === "CASE-NTF-015")!;
+	const seated = async (organization: string, role: string, ended = false) => {
+		const [id, user] = [randomUUID(), randomUUID()];
+		await db.execute(
+			querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${user + "@example.test"},true,'Synthetic')`,
+		);
+		await db.execute(
+			querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${id},${user},'active','network')`,
+		);
+		await db.execute(
+			querySql`INSERT INTO seat(account_id,organization_id,role,accepted_at,ended_at) VALUES(${id},${organization},${role},now(),${ended ? querySql`now()` : null})`,
+		);
+		return id;
+	};
+	const uninvited = [
+		await seated(org, "owner", true),
+		await seated(org, "admin"),
+		await seated(org, "member"),
+		await seated(org2, "owner"),
+	];
 	await db.execute(querySql`INSERT INTO discovery(account_id) VALUES(${querySql.param(account)})`);
 	const association = randomUUID(),
 		operation = randomUUID();
@@ -269,7 +300,7 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 		occurrence: association + "/1/accepted",
 		content: { subject: "Association accepted", text: "Your association was accepted." },
 		address: async (_tx, accounts) => new Map(accounts.map((id) => [id, "synthetic@example.test"])),
-		now: "2026-01-01T00:00:00Z",
+		now: receiptCase.clock.now,
 		verifyOccurrence: async (tx) => {
 			const r = await tx.execute(
 				querySql`SELECT a.id FROM affiliation a JOIN audit_event o ON o.id=${querySql.param(operation)} AND o.tenant_id=a.organization_id WHERE a.id=${querySql.param(association)} AND a.account_id=${querySql.param(account)} AND a.organization_id=${querySql.param(org)} AND a.revision=1 AND a.ended_at IS NULL FOR SHARE OF a`,
@@ -291,6 +322,68 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 		account,
 	);
 	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0]!.n, before);
+	const receipts = async (accounts: readonly string[]) =>
+		(
+			await db.execute(
+				querySql`SELECT recipient_account_id AS id,purpose,notice_id FROM mail WHERE purpose='discovery_receipt' AND recipient_account_id=ANY(${querySql.param(accounts)}::uuid[])`,
+			)
+		).rows;
+	for (let n = 1; n < receiptCase.given["behavior-inputs"].receipt_repeat; n++)
+		assert.deepEqual(await transaction(runtime, (tx) => sendDiscoveryAssociationReceipt(tx, mail, input)), first);
+	assert.deepEqual(await receipts([account, ...uninvited]), [
+		{ id: account, purpose: "discovery_receipt", notice_id: null },
+	]);
+	const [phantom] = (
+		await db.execute<{ plants: number; converted: number; seats: number }>(
+			querySql`SELECT (SELECT count(*)::int FROM plant)-${before}::int AS plants,
+				(SELECT count(*)::int FROM discovery WHERE account_id=${account} AND converted_plant_id IS NOT NULL) AS converted,
+				(SELECT count(*)::int FROM seat WHERE account_id=${account} AND plant_id IS NOT NULL AND ended_at IS NULL) AS seats`,
+		)
+	).rows;
+	assert.deepEqual(
+		{
+			distinct_recipients: new Set((await receipts([account, ...uninvited])).map((r) => r.id)).size,
+			phantom_plant_created: Object.values(phantom!).some((n) => n !== 0),
+		},
+		receiptCase.expected.result,
+	);
+	const seatless = randomUUID(),
+		seatlessUser = randomUUID();
+	await db.execute(
+		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${seatlessUser},${seatlessUser + "@example.test"},true,'Synthetic')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${seatless},${seatlessUser},'active','discovery')`,
+	);
+	const pair = await transaction(runtime, (tx) =>
+		sendDiscoveryAssociationReceipt(tx, mail, {
+			...input,
+			account: seatless,
+			occurrence: randomUUID() + "/1/accepted",
+			verifyOccurrence: async () => true,
+		}),
+	);
+	assert.equal(pair.length, 2, "a seatless Discovery account and the organization's Owner each get one");
+	assert.deepEqual(
+		(await receipts([seatless, ...uninvited])).map((r) => r.id),
+		[seatless],
+	);
+	const linkage = async (organization: string) =>
+		transaction(runtime, (tx) =>
+			sendDiscoveryAssociationReceipt(tx, mail, {
+				...input,
+				organization,
+				occurrence: association + "/1/forged",
+				verifyOccurrence: async (check) =>
+					(
+						await check.execute(
+							querySql`SELECT id FROM affiliation WHERE id=${association} AND account_id=${account} AND organization_id=${organization} AND ended_at IS NULL FOR SHARE`,
+						)
+					).rowCount === 1,
+			}),
+		);
+	await assert.rejects(linkage(org2), /association_occurrence_unavailable/);
+	assert.equal((await receipts(uninvited)).length, 0);
 	await assert.rejects(
 		transaction(runtime, (tx) =>
 			sendDiscoveryAssociationReceipt(tx, mail, { ...input, verifyOccurrence: async () => false }),

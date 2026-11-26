@@ -27,8 +27,7 @@ export async function gate(returnTo: SitePath): Promise<{ viewer: PlantSeat } | 
 				<PageHeader size="xl" title="People" />
 				<Card>
 					<StatePanel tone="lock" icon={LockKeyIcon} title="People is not part of your seat" headingLevel="h2">
-						People belongs to a church plant workspace. Your account has no current seat in one, so there is nothing to
-						show here.
+						People belongs to a church plant account. You have no current seat in one, so there is nothing to show here.
 					</StatePanel>
 				</Card>
 			</>

@@ -452,6 +452,9 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 		unreachable([
 			"tools/ci/tests/new.test.mjs",
 			"tests/workflow/sub/deep.test.mjs",
+			"tests/workflow/check.test.ts",
+			"tests/workflow/containers-agent.test.ts",
+			"tests/workflow/containers.test.ts",
 			"tests/workflow/dev.test.mjs",
 			"tests/workflow/evry-evals-coverage.test.mjs",
 			"tests/workflow/formal.test.ts",
@@ -473,6 +476,9 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 		unreachable(
 			[
 				...TESTS,
+				"tests/workflow/check.test.ts",
+				"tests/workflow/containers-agent.test.ts",
+				"tests/workflow/containers.test.ts",
 				"tests/workflow/formal.test.ts",
 				"tests/workflow/integration-timing.test.mjs",
 				"tests/workflow/lint-rule-coverage.test.mjs",
@@ -494,5 +500,16 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 		'rule "lint rule coverage" names tests/workflow/lint-rule-coverage.test.mjs, which no suite runs',
 		'rule "integration timing guard" names tests/workflow/integration-timing.test.mjs, which no suite runs',
 		'rule "coverage read tracer" names tests/workflow/nightly.test.ts, which no suite runs',
+		'rule "task containers, their sweep and the scratch Postgres" names tests/workflow/containers.test.ts, which no suite runs',
+		'rule "task containers, their sweep and the scratch Postgres" names tests/workflow/containers-agent.test.ts, which no suite runs',
+		'rule "task containers, their sweep and the scratch Postgres" names tests/workflow/check.test.ts, which no suite runs',
 	]);
+});
+
+test("INV-ci-select: the sweep, the label helper and the scratch Postgres select their tests", () => {
+	for (const path of ["containers.ts", "containers-command.ts", "scratch-postgres.ts", "throwaway-postgres.ts"]) {
+		const tests = RULES.filter((rule) => rule.paths.includes(`scripts/${path}`)).flatMap((rule) => rule.tests ?? []);
+		for (const name of ["containers", "containers-agent", "check"])
+			assert.ok(tests.includes(`tests/workflow/${name}.test.ts`), `${path} selects ${name}`);
+	}
 });
