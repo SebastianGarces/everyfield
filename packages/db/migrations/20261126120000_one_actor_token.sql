@@ -4,9 +4,7 @@ CREATE FUNCTION audit_actor_token(tenant uuid, account uuid)
  IMMUTABLE STRICT PARALLEL SAFE
  SET search_path FROM CURRENT
 AS $function$ SELECT encode(sha256(convert_to('["'||tenant::text||'","'||account::text||'"]','UTF8')),'hex') $function$;
---> statement-breakpoint
 REVOKE ALL ON FUNCTION audit_actor_token(uuid,uuid) FROM PUBLIC;
---> statement-breakpoint
 CREATE OR REPLACE FUNCTION purge_organization_person_history(org uuid, subject uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -19,7 +17,6 @@ BEGIN
  IF NOT FOUND THEN RAISE EXCEPTION 'removal_witness_required' USING ERRCODE='23514'; END IF;
  UPDATE audit_event SET before_value=NULL,after_value=NULL,reason=NULL,actor_token=coalesce(audit_actor_token(tenant_id,actor_id),actor_token),actor_id=NULL,result=NULL,request_identity=NULL WHERE tenant_id=org AND subject_id=subject;
 END $function$;
---> statement-breakpoint
 CREATE OR REPLACE FUNCTION scrub_people_account_author(subject uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -34,7 +31,6 @@ BEGIN
  UPDATE audit_event SET before_value=before_value-'linked_account_id' WHERE before_value->>'linked_account_id'=subject::text;
  UPDATE audit_event SET after_value=after_value-'linked_account_id' WHERE after_value->>'linked_account_id'=subject::text;
 END $function$;
---> statement-breakpoint
 DO $patch$
 DECLARE def text; old text := 'actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||''/''||s::text,''UTF8'')),''hex''))';
 BEGIN
@@ -45,8 +41,6 @@ BEGIN
  EXECUTE replace(def, old, 'actor_token=audit_actor_token(tenant_id,s)');
 END
 $patch$;
---> statement-breakpoint
 UPDATE audit_event SET actor_token=audit_actor_token(tenant_id,actor_id)
  WHERE actor_id IS NOT NULL AND actor_token IS NOT NULL AND actor_token<>audit_actor_token(tenant_id,actor_id);
---> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;
