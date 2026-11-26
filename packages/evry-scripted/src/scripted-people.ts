@@ -15,14 +15,12 @@ type Ask = {
 	input: Record<string, unknown>;
 	answer: (out: Output, rows: Row[], inChurch: number) => string;
 	none: (inChurch: number) => string;
-	names?: true;
 };
 
 function asked(text: string): Ask | null {
 	if (TECH_SKILLS.test(text))
 		return {
 			input: { skillCategories: ["tech"] },
-			names: true,
 			none: (inChurch) => `No one in this church has a Tech skill recorded. That covers all ${inChurch} people in this church.`,
 			answer: (out, rows, inChurch) => {
 				const held = rows.map((r) => `${r.label} (${techSkills(r)})`);
@@ -33,19 +31,19 @@ function asked(text: string): Ask | null {
 		return {
 			input: { hasPhoto: false },
 			none: (inChurch) => `All ${inChurch} people in this church have a photo.`,
-			answer: (out, _, inChurch) => `${String(out.total)} of the ${inChurch} people in this church have no photo.`,
+			answer: (out, rows, inChurch) =>
+				`${String(out.total)} of the ${inChurch} people in this church have no photo.${listed(out, rows)}`,
 		};
 	if (NO_HOUSEHOLD.test(text))
 		return {
 			input: { inHousehold: false },
 			none: (inChurch) => `All ${inChurch} people in this church are in a household.`,
-			answer: (out, _, inChurch) =>
-				`${String(out.total)} of the ${inChurch} people in this church are in no household.`,
+			answer: (out, rows, inChurch) =>
+				`${String(out.total)} of the ${inChurch} people in this church are in no household.${listed(out, rows)}`,
 		};
 	if (CHILDREN.test(text))
 		return {
 			input: { adultClassification: "child" },
-			names: true,
 			none: () =>
 				"No household in this church has a child recorded. People with no adult or child recorded aren't counted.",
 			answer: (_, rows) => {
@@ -64,7 +62,6 @@ function asked(text: string): Ask | null {
 		const today = localToday();
 		return {
 			input: { movedInto: { stage: "core_group", from: `${today.slice(0, 8)}01`, through: today } },
-			names: true,
 			none: () => "No people moved into core group this month.",
 			answer: (out, rows) => {
 				const moves = rows.map((r) => `${r.label} on ${dayText(String(r.fields.movedOn), { year: "never" })}`);
@@ -85,13 +82,16 @@ function techSkills(row: Row) {
 		.join("; ");
 }
 
-function nextPage(out: Output, rows: Row[], named: boolean) {
-	const more = out.next !== null && out.next !== undefined;
-	const listed = named
-		? ""
-		: ` ${out.page === 1 && more ? "These are the first" : "These are"} ${rows.length}: ${and(rows.map((r) => r.label))}.`;
+const more = (out: Output) => out.next !== null && out.next !== undefined;
+
+function listed(out: Output, rows: Row[]) {
+	const first = out.page === 1 && more(out) ? "the first " : "";
+	return ` These are ${first}${rows.length}: ${and(rows.map((r) => r.label))}.`;
+}
+
+function offer(out: Output) {
 	const pages = out.facts?.pages ? ` of ${String(out.facts.pages)}` : "";
-	return more ? `${listed} Want the next page (page ${String(out.next)}${pages})?` : listed;
+	return more(out) ? ` Want the next page (page ${String(out.next)}${pages})?` : "";
 }
 
 export function peopleStep(options: LanguageModelV4CallOptions, text: string): Content | null {
@@ -103,5 +103,5 @@ export function peopleStep(options: LanguageModelV4CallOptions, text: string): C
 	const rows = out.rows ?? [];
 	const inChurch = Number(out.facts?.peopleInChurch);
 	if (!rows.length) return say(ask.none(inChurch));
-	return say(ask.answer(out, rows, inChurch) + nextPage(out, rows, !!ask.names));
+	return say(ask.answer(out, rows, inChurch) + offer(out));
 }
