@@ -26,9 +26,10 @@ import {
 	saveChurch,
 	saveSection,
 	setPersonalTimezone,
+	setLeadPlanter,
 	setPlantTimezone,
 } from "./actions";
-import { getSection, getBrand, suggestColors, readRegion, suggestRegion } from "./fetch.ts";
+import { getSection, getBrand, suggestColors, readLead, readRegion, suggestRegion } from "./fetch.ts";
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
@@ -54,6 +55,7 @@ const PORT: SettingsPort = {
 	},
 	wiki: { read: readSourceOrder, save: saveSourceOrder },
 	region: { read: readRegion, suggest: suggestRegion, save: saveRegion },
+	lead: { read: readLead, save: setLeadPlanter },
 	flows: {
 		avatar: { requestAvatarUpload, uploadAvatarBytes, finalizeAvatar, removeAvatar, avatarSrc: avatarRoute },
 		requestEmailChange,

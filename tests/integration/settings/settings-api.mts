@@ -1,6 +1,7 @@
 import {
 	avatarOperations,
 	deletionOperations,
+	leadOperations,
 	sectionOperations,
 	timezoneOperations,
 } from "../../../packages/domain/src/settings/index.ts";
@@ -20,6 +21,7 @@ export function settingsApi<Credentials extends object>(deps: Deps<Credentials>)
 		...timezoneOperations(deps.effects, deps.personalCalendar, deps.clock),
 		...avatarOperations(deps.avatarCleanup),
 		...deletionOperations(deps.deletion),
+		...leadOperations,
 		...deps.credentials,
 	};
 }

@@ -363,6 +363,14 @@ export function catalogQuery(
 		SELECT
 			EXISTS (SELECT FROM me) AS allowed,
 			(SELECT pl.phase FROM plant pl WHERE ${access.owner.kind} = 'plant' AND pl.id = ${access.owner.id}::uuid) AS plant_phase,
+			(
+				${access.owner.kind} = 'account'
+				AND EXISTS (SELECT FROM discovery d JOIN me ON d.account_id = me.account_id WHERE d.converted_at IS NULL)
+				AND NOT EXISTS (
+					SELECT FROM seat s JOIN me ON s.account_id = me.account_id
+					WHERE s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
+				)
+			) AS discovery_planter,
 			COALESCE((
 				SELECT json_agg(${articleJson(options)} ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
 				FROM rows p

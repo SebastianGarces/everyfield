@@ -6,7 +6,14 @@ import { ICONS, type IconName } from "./icons";
 
 const text = z.string().min(1);
 const step = z.object({ title: text, body: text });
-const cta = z.object({ headline: text, body: text, cta_primary: text, cta_secondary: text, note: text.optional() });
+const cta = z.object({
+	headline: text,
+	body: text,
+	cta_primary: text,
+	cta_secondary: text,
+	note: text.optional(),
+	discovery: z.object({ lead: text, link: text }),
+});
 const hero = z.object({
 	headline: text,
 	subhead: text,

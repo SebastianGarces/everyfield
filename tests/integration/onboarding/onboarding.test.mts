@@ -945,6 +945,43 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 	});
 });
 
+test("AC:TARGET-IDN-014 AC:TARGET-IDN-016 converting a Discovery names the planter lead planter, and creating a church directly still asks", async () => {
+	const d = await discovery();
+	const { revision } = activeProfile(ok(await call("getDiscoveryProfile", d.a, {})));
+	const q = command(
+		{ discoveryId: d.result.profile.discoveryId, name: "Grace Hill", confirmed: true, relationships: [], ended: [] },
+		revision,
+	);
+	const converted = ok(await call("convertDiscovery", d.a, q));
+	const lead = yes((await resume({ a: d.a, p: converted.plant })).lead);
+	assert.deepEqual(lead.assignment.personId, converted.ownerSeat.personId);
+	assert.equal(lead.seniorPastor, undefined);
+	const held = await admin.execute(sql`SELECT tm.name AS team, r.name AS role, r.leadership, tn.person_id, tn.ended_on,
+		tm.leader_person_id, tm.leader_source, tm.leader_role_id, p.lead_answer, p.revision::text AS revision
+		FROM team_tenure tn JOIN team_role r ON r.id=tn.role_id JOIN team tm ON tm.id=r.team_id JOIN plant p ON p.id=tm.plant_id
+		WHERE tn.plant_id=${converted.plant.id}::uuid`);
+	assert.deepEqual(held.rows, [
+		{
+			team: "Leadership",
+			role: "Lead pastor",
+			leadership: true,
+			person_id: converted.ownerSeat.personId,
+			ended_on: null,
+			leader_person_id: converted.ownerSeat.personId,
+			leader_source: "role_derived",
+			leader_role_id: lead.assignment.roleId,
+			lead_answer: "yes",
+			revision: converted.revision,
+		},
+	]);
+	const events = await admin.execute(
+		sql`SELECT tenant_id, kind FROM audit_event WHERE action='roles.changed' AND subject_id=${converted.plant.id}::uuid`,
+	);
+	assert.deepEqual(events.rows, [{ tenant_id: converted.plant.id, kind: "assign" }]);
+	const direct = await makePlant();
+	assert.deepEqual((await resume(direct)).lead, { answer: "pending" });
+});
+
 test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion refuses without side effects", async () => {
 	const d = await discovery(),
 		sender = await makePlant();

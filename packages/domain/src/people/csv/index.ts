@@ -14,6 +14,7 @@ import {
 	authorize,
 	authorizeCachedWrite,
 	deny,
+	actorToken,
 	hash,
 	known as readEntry,
 	lockOwner,
@@ -325,7 +326,7 @@ async function saveImport(
 		id: importId,
 		tenant_id: plant,
 		actor_id: actorId,
-		actor_token: hash([plant, actorId]),
+		actor_token: actorToken(plant, actorId),
 		action: "people.updated",
 		kind: "edit",
 		subject_type: "command",
@@ -436,7 +437,7 @@ async function writeBatch(
  created AS (INSERT INTO person SELECT * FROM jsonb_populate_recordset(NULL::person,${JSON.stringify(people, dropNulls)}::jsonb)
   WHERE (SELECT ok FROM allowed) ON CONFLICT (id) DO NOTHING RETURNING id,stage),
  audit AS (INSERT INTO audit_event(tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,after_revision,after_value,command_id,metadata)
-  SELECT ${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])},'people.created','create','person',p.id,1,
+  SELECT ${plant}::uuid,${actorId}::uuid,${actorToken(plant, actorId)},'people.created','create','person',p.id,1,
   jsonb_build_object('stage',p.stage),${importId}::uuid,
   jsonb_build_object('import',jsonb_strip_nulls(jsonb_build_object('row',l.row,'reviewWith',l.review_with)))
   FROM created p JOIN jsonb_to_recordset(${JSON.stringify(links)}::jsonb) l(id uuid,row int,review_with uuid) ON l.id=p.id),

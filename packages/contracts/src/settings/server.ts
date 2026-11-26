@@ -20,6 +20,7 @@ export interface SettingsProducer<Tx> {
 	setDigestSchedule: Operation<Tx, SettingsContext, typeof result.savedSectionResult>;
 	previewPlantTimezone: Operation<Tx, SettingsContext, typeof result.plantTimezonePreview>;
 	setPlantTimezone: Operation<Tx, SettingsContext, typeof result.plantTimezoneResult>;
+	setLeadPlanter: Operation<Tx, SettingsContext, typeof result.leadPlanterResult>;
 }
 export interface NativeAccountProducer<Tx> {
 	requestAvatarUpload: Operation<Tx, SettingsContext, typeof result.avatarUploadResult>;

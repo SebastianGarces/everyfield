@@ -21,6 +21,7 @@ flowchart LR
   s0 -.- s0_st3(("rail-settings"))
   s0 --- s0_b0["section-address<br/>tests + browser behavior"]
   s0 --- s0_b1["church-profile<br/>tests + cases + browser behavior"]
+  s0 --- s0_b2["lead-planter<br/>tests"]
   s1["settings.account<br/>no page"]
   s0 -- "link #quot;Your account#quot;" --> s1
   s1 -.- s1_st0(("account"))
@@ -154,6 +155,15 @@ agent-browser open "$ORIGIN/overview"
 agent-browser wait --load networkidle
 agent-browser wait --text "Harvest Point (QA) Map"
 ```
+
+#### settings.dialog#lead-planter
+
+Church profile names the lead planter; the Owner hands the lead role to another live person of the church, and the old holder's tenure ends.
+
+- No operation: settings.setLeadPlanter is an app-native settings command outside the operation catalog, like settings.saveChurch, and stays out of Evry (D-2943)
+- Catalog: IDN-014
+- Test: `tests/integration/settings/settings.test.mts`: `AC:TARGET-IDN-014 the Owner of a church converted from Discovery hands the lead planter role to another live person in Settings`
+- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-014 AC:TARGET-IDN-016 converting a Discovery names the planter lead planter, and creating a church directly still asks`
 
 ### settings.account
 
