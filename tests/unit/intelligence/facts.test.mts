@@ -29,6 +29,7 @@ function person(over: PersonOver = {}): Person {
 }
 const empty = (): FactInputs => ({
 	zone: "America/New_York",
+	phase: 1,
 	people: [],
 	vision: [],
 	nextVision: null,
@@ -286,6 +287,7 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 		"launch",
 		"nextVision",
 		"people",
+		"phase",
 		"roles",
 		"training",
 		"vision",

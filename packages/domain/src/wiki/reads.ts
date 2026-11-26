@@ -721,16 +721,28 @@ export function recommendForPhase(db: Database | Transaction, authority: Request
 			.object({
 				allowed: z.boolean(),
 				plant_phase: z.number().int().nullable(),
+				discovery_planter: z.boolean(),
 				articles: z.array(z.record(z.string(), z.unknown())).nullable(),
 			})
 			.parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
 		const articles = (row.articles ?? []).map(present);
+		const discovery = input.phase == null && row.discovery_planter;
 		return {
 			phase: input.phase ?? row.plant_phase,
-			articles,
+			articles: discovery ? discoverySuggestions(articles) : articles,
 		} satisfies z.output<typeof recommendResult>;
 	});
+}
+function finished(article: WikiArticle) {
+	return article.completed && Number(article.observedFraction) > 0.8;
+}
+function discoverySuggestions(articles: readonly WikiArticle[]) {
+	const open = articles.filter((article) => !article.hidden && !finished(article));
+	const foundations = foundationArticles.flatMap((id) => open.filter((article) => article.articleId === id));
+	if (foundations.length > 0) return foundations;
+	const next = open.filter((article) => article.phase === 1);
+	return next.length > 0 ? next : open;
 }
 const CRAWLER = /facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|Googlebot|bingbot/i;
 function isCrawler(userAgent: string | undefined): boolean {

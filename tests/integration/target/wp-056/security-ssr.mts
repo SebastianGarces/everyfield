@@ -2,11 +2,17 @@ import { createRequire, registerHooks } from "node:module";
 import { pathToFileURL } from "node:url";
 
 const web = createRequire(new URL("../../../../apps/web/package.json", import.meta.url));
+const COMPILED: Record<string, string> = {
+	"react-server-dom-webpack/client": "next/dist/compiled/react-server-dom-webpack/client.node.js",
+};
 registerHooks({
-	resolve: (specifier, context, next) =>
-		specifier === "server-only" || specifier.endsWith(".css")
-			? { url: "data:text/javascript,", shortCircuit: true }
-			: next(specifier, context),
+	resolve: (specifier, context, next) => {
+		if (specifier === "server-only" || specifier.endsWith(".css"))
+			return { url: "data:text/javascript,", shortCircuit: true };
+		const compiled = COMPILED[specifier];
+		if (compiled) return { url: pathToFileURL(web.resolve(compiled)).href, shortCircuit: true };
+		return next(specifier, context);
+	},
 });
 const react = web("react") as typeof import("react");
 const { createElement } = react;

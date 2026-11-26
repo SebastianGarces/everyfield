@@ -33,6 +33,8 @@ export type AvatarUpload = z.infer<typeof S.avatarUploadResult>;
 export type AvatarMime = z.infer<typeof S.avatarMime>;
 export type PlantTimezonePreview = z.infer<typeof S.plantTimezonePreview>;
 export type PlantTimezoneResult = z.infer<typeof S.plantTimezoneResult>;
+export type LeadSaved = z.infer<typeof S.leadPlanterResult>;
+export type LeadRead = ({ status: "ok" } & S.LeadPlanterRead) | { status: "denied" } | { status: "lost" };
 export type TimezonePreference = z.infer<typeof S.timezonePreference>;
 export type PersonalTimezonePreview = z.infer<typeof N.personalTimezonePreview>;
 export type PersonalTimezoneResult = z.infer<typeof N.personalTimezoneResult>;
@@ -77,6 +79,12 @@ export interface SettingsPort {
 	brand: BrandPort;
 	wiki: WikiOrderPort;
 	region: RegionPort;
+	lead: LeadPort;
+}
+
+export interface LeadPort {
+	read(): Promise<LeadRead>;
+	save(request: z.input<typeof S.setLeadPlanterRequest>): Promise<Reply<LeadSaved>>;
 }
 
 export type { Locality, RegionRead, RegionSave, RegionSuggestion } from "./region";

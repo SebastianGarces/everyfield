@@ -4,7 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { z } from "zod";
 import { boundWrite, RequestActor, type WriteTx } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
+import { actorToken, hash } from "../operations/canonical.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -124,7 +124,7 @@ export function audit(
 		id: cmd.id,
 		tenant_id: cmd.actor.plantId,
 		actor_id: cmd.actor.accountId,
-		actor_token: hash([cmd.actor.plantId, cmd.actor.accountId]),
+		actor_token: actorToken(cmd.actor.plantId, cmd.actor.accountId),
 		action: writeAction(entry.operation),
 		kind: entry.kind,
 		subject_type: entry.subjectType,
@@ -136,4 +136,4 @@ export function audit(
 	});
 }
 
-export { hash };
+export { actorToken, hash };

@@ -5,6 +5,7 @@ import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import { readBrand, suggestBrandColors } from "./brand/server";
+import { readLead } from "./lead-reads";
 import { readRegion, suggestRegion } from "./region-reads";
 import { readSection } from "./server";
 
@@ -19,5 +20,6 @@ export const GET = defineReads(
 		colors: get(suggestColorsRequest, ({ session }, v) => ok(suggestBrandColors(session, v))),
 		region: get(z.undefined(), ({ session }) => ok(readRegion(session))),
 		regions: get(z.unknown(), ({ session }, raw) => ok(suggestRegion(session, raw))),
+		lead: get(z.undefined(), ({ session }) => ok(readLead(session))),
 	}),
 );

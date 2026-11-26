@@ -358,7 +358,33 @@ export function createFixturePort(
 
 	let region: { revision: string; code: string | null } = { revision: "1", code: null };
 	const AUSTIN = { code: "12420", title: "Austin-Round Rock-San Marcos, TX", type: "metro" as const };
+	const leadPeople = (["owner", "admin", "member"] as const).map((p, i) => ({
+		personId: uuid(i + 1, 5),
+		name: PEOPLE[p].name,
+	}));
+	let lead = { revision: "1", holder: leadPeople[0] ?? null };
 	const port: SettingsPort = {
+		lead: {
+			async read() {
+				return {
+					status: "ok",
+					...S.leadPlanterRead.parse({
+						revision: lead.revision,
+						canEdit: persona === "owner",
+						lead: { roleId: uuid(1, 6), holder: lead.holder },
+						people: persona === "owner" ? leadPeople : [],
+					}),
+				};
+			},
+			async save(request) {
+				if (persona !== "owner") return refuse("unavailable");
+				if (request.expectedRevision !== lead.revision) return refuse("conflict");
+				const holder = leadPeople.find((p) => p.personId === request.input.personId);
+				if (!holder) return refuse("invalid_subject");
+				lead = { revision: bump(lead.revision), holder };
+				return ok(S.leadPlanterResult, { plant: PLANT, revision: lead.revision, personId: holder.personId });
+			},
+		},
 		region: {
 			async read() {
 				if (await tick("readRegion")) return { status: "lost" };

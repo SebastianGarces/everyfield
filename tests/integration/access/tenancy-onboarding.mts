@@ -4,11 +4,12 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
 import { accountId, instant, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
-import { tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
+import { readLeadPlanter } from "../../../packages/domain/src/settings/index.ts";
+import { plain, tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
 const producer = createOnboardingProducer({ relationships: async () => {}, enqueue: async () => {} });
 type Planter = Awaited<ReturnType<typeof planter>>;
-const planters = {} as Record<"a" | "b", Planter>;
+const planters = {} as Record<"a" | "b" | "leadA", Planter>;
 
 async function planter(t: Tenancy, name: string) {
 	const { f, key, ok } = t;
@@ -35,6 +36,28 @@ async function planter(t: Tenancy, name: string) {
 export async function seedOnboarding(t: Tenancy) {
 	planters.a = await planter(t, `${t.MARK} onboarding church`);
 	planters.b = await planter(t, "Beta onboarding church");
+	const lead = await planter(t, `${t.MARK} lead church`);
+	t.ok(
+		await gatedTransaction(t.f.db, (tx) =>
+			producer.answerLead(
+				tx,
+				{ session: lead.session, selected: lead.plant },
+				{
+					requestKey: t.key(),
+					expectedRevision: "1",
+					input: {
+						answer: "yes",
+						assignment: {
+							kind: "minimal_role",
+							roleName: "Lead pastor",
+							container: { kind: "minimal", name: "Leadership" },
+						},
+					},
+				},
+			),
+		),
+	);
+	planters.leadA = lead;
 }
 
 const fresh = (plant: Planter["plant"]) => ({
@@ -77,5 +100,13 @@ export function onboardingCases(t: Tenancy, who: TenancyOwner) {
 			value: entryOf(owner),
 			control: (value) => assert.deepEqual(value, entryOf(planters.a)),
 		}),
+		tenancyCase(
+			"settings:readLeadPlanter",
+			() => plain(() => readLeadPlanter(t.f.db, (who === t.ownerA ? planters.leadA : planters.b).actor)),
+			{
+				check: (value) => assert.deepEqual([value!.lead, value!.people], [null, []]),
+				control: (value) => assert.deepEqual([value!.canEdit, value!.people.length], [true, 1]),
+			},
+		),
 	];
 }

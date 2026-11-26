@@ -16,4 +16,5 @@ export const getSection = (request: GetSectionRequest) => value(get("section", r
 export const getBrand = () => value(get("brand"));
 export const suggestColors = (request: SuggestBrandColors) => value(get("colors", request));
 export const readRegion = () => value(get("region"));
+export const readLead = () => value(get("lead"));
 export const suggestRegion = (raw: Locality) => value(get("regions", raw));
