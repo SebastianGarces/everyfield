@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { onboardingEntry } from "./mount";
-import { ownResidencyLinks } from "../organizations/mount";
+import { onboardingCommand, onboardingEntry } from "./mount";
+import { namesFor, viewerOf } from "../organizations/mount";
 import { getViewer, organizationSeatOf } from "@/server/request-context";
 import { signIn } from "@/server/sign-in";
-import { ORGANIZATION_HOME } from "@everyfield/contracts/identity";
+import { DISCOVERY_HOME, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { FOUNDATION_ARTICLES } from "./foundations";
 import { addressStep, initialState, parseStep } from "./model";
 import { parseEntry } from "./port";
@@ -19,14 +19,31 @@ export async function OnboardingPage({ searchParams }: { searchParams: Search })
 	const context = viewer.authority?.actor.context;
 	const load = parseEntry(await onboardingEntry(viewer));
 	if (load.kind === "signed_out") signIn("/onboarding");
-	const raw = (await searchParams).step;
+	const search = await searchParams;
+	const raw = search.step;
 	const requested = parseStep(typeof raw === "string" ? raw : null);
+	if (load.entry.kind === "discovery") {
+		if (search.start !== "church" || context?.kind !== "account") redirect(DISCOVERY_HOME);
+		const who = await viewerOf();
+		const names =
+			who.kind === "viewer"
+				? await namesFor(
+						who.mount.db,
+						who.viewer,
+						load.entry.profile.relationships.map((r) => r.organization.id),
+					)
+				: {};
+		return <RealOnboarding entry={load.entry} step={null} articles={FOUNDATION_ARTICLES} linkNames={names} />;
+	}
+	if (load.entry.kind === "start" && load.entry.offer === "discovery") {
+		const made = await onboardingCommand("createDiscovery", {
+			requestKey: crypto.randomUUID(),
+			expectedRevision: load.entry.accountRevision,
+			input: {},
+		});
+		if (made.status === "ok") redirect(DISCOVERY_HOME);
+	}
 	const step = addressStep(initialState(load.entry, requested));
 	if (step !== (raw ?? null)) redirect(step ? `/onboarding?step=${step}` : "/onboarding");
-	const live =
-		load.entry.kind === "discovery" && context?.kind === "account"
-			? (await ownResidencyLinks()).find((l) => l.sharing.status === "active")
-			: undefined;
-	const residency = live ? { organizationName: live.organizationName } : null;
-	return <RealOnboarding residency={residency} entry={load.entry} step={requested} articles={FOUNDATION_ARTICLES} />;
+	return <RealOnboarding entry={load.entry} step={requested} articles={FOUNDATION_ARTICLES} />;
 }

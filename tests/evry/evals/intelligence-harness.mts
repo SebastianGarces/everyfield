@@ -48,7 +48,7 @@ export function harness(
 	const freshActor = async (session: string) => {
 		await accessCheck();
 		const viewer = await readViewer(db, session as never);
-		return viewer?.authority ? evryActor(viewer.authority) : null;
+		return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 	};
 	async function ask(actor: EvryActor, text: string) {
 		const conversationId = (await createConversation(db, actor, { requestKey: randomUUID() })).id;

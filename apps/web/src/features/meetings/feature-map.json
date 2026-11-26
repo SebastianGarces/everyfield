@@ -25,14 +25,16 @@
 			"reach": [
 				{
 					"rail": "Meetings",
-					"personas": ["owner", "admin", "member"]
+					"personas": ["owner", "admin", "member", "discovery", "resident"]
 				}
 			],
 			"personas": {
 				"owner": "write",
 				"admin": "write",
 				"member": "read",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{
@@ -109,6 +111,24 @@
 						{
 							"role": "button",
 							"name": "Try again"
+						}
+					]
+				},
+				{
+					"id": "locked",
+					"reach": {
+						"persona": "discovery",
+						"open": "/meetings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Meetings opens when you start your church"
+						},
+						{
+							"role": "link",
+							"name": "Start a church"
 						}
 					]
 				}

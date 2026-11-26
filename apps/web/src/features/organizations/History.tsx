@@ -5,7 +5,7 @@ import { Button } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
-import { historyReason, subjectOf } from "./model";
+import { historyReason, subjectOf, UNKNOWN_ACCOUNT } from "./model";
 import { formatDay } from "../../components/dates.ts";
 import type { History, HistoryItem, NameOf, RelationshipPair } from "./port";
 import { READ_FAILED, thrownRead } from "../../components/read-failed.ts";
@@ -83,11 +83,17 @@ export function HistoryList({
 	);
 }
 
+function actorName(item: HistoryItem, nameOf: NameOf) {
+	if (item.actor.kind !== "account") return "a deleted account";
+	const known = nameOf({ kind: "account", id: item.actor.accountId });
+	if (known !== UNKNOWN_ACCOUNT || item.pair.kind !== "discovery") return known;
+	return item.actor.accountId === item.pair.accountId ? nameOf(subjectOf(item.pair)) : nameOf(item.pair.organization);
+}
+
 function HistoryRow({ item, name, nameOf, zone }: { item: HistoryItem; name: string; nameOf: NameOf; zone: string }) {
 	const approved = item.event === "approved";
 	const reason = historyReason(item);
-	const actor =
-		item.actor.kind === "account" ? nameOf({ kind: "account", id: item.actor.accountId }) : "a deleted account";
+	const actor = actorName(item, nameOf);
 	const occurred = formatDay(item.occurredAt, zone);
 	const recorded = formatDay(item.recordedAt, zone);
 	return (

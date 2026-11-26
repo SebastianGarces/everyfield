@@ -10,6 +10,7 @@ import { refusedWith } from "./church/refusal.ts";
 import type { CopySource, OwnedView, Resolved, SavedFile } from "./model.ts";
 import { presentOwned, presentSaved, refused, runAs, storageMissing, type DocumentOutcome } from "./outcome.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
+import { mineOf } from "./server.ts";
 
 export type CompareResult =
 	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };
@@ -60,6 +61,7 @@ export const GET = defineReads(
 					};
 				}),
 		),
+		mine: get(z.undefined(), ({ actor }): Promise<DocumentOutcome<OwnedView[]>> => runAs(actor, mineOf)),
 		sources: get(z.undefined(), ({ actor }): Promise<DocumentOutcome<CopySource[]>> =>
 			runAs(actor, async (db, a) => {
 				const reply = await documentsWriter.listCopySources(db, a, {});

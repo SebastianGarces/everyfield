@@ -9,6 +9,7 @@ import { gatedTransaction } from "../../../packages/domain/src/operations/writes
 import { accountId, tenantId } from "../../../packages/contracts/src/common/index.ts";
 import { ok, type Actor } from "../../support/fixture.mts";
 import { GLOBAL, knowledgeCase, present, wikiWorld } from "./case-world.mts";
+import { accepts, schemaCase, subcaseOf } from "../target/wp-056/schema-probe.mts";
 
 let w: Awaited<ReturnType<typeof wikiWorld>>;
 const six = foundations.articles.map((article) => article.id);
@@ -359,4 +360,97 @@ test("AC:WIKI49-004 a meaningful update of all six leaves completed Discovery an
 			expected.result.reading_reset,
 		);
 	});
+});
+
+test("AC:SCHEMA-006 the actual lead's own six complete Discovery for an Owner with none, strictly past 0.80, kept through a fork, an update, a typo and a departure", async () => {
+	const c6 = schemaCase("SCHEMA-006");
+	const { ratios, canonical_articles } = c6.action.arguments as { ratios: number[]; canonical_articles: string[] };
+	const ids = Object.fromEntries(canonical_articles.map((label, n) => [label, six[n]!]));
+	const c = await founded();
+	const B = await reader(c);
+	await leads(c, B.person);
+	const affiliation = randomUUID();
+	await w.admin
+		.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${affiliation},${c.P.id},${w.S2.id},clock_timestamp()-interval '10 minutes',false,false,false,false,true,false,false)`);
+
+	const atRatio = [];
+	for (const ratio of ratios) atRatio.push((await w.progress(B, ids.g1!, ratio)).completed);
+	assert.deepEqual([(await w.kept(B, ids.g1!)).done, Number((await w.kept(B, ids.g1!)).completed)], [true, ratios[1]]);
+	await w.publish(w.S2, ids.g5!, "S2 fork of the same article");
+	await w.progress(B, ids.g5!, "0.9");
+	assert.equal((await w.kept(B, ids.g5!)).completed_source, w.S2.id, "the fork earns the canonical article");
+	for (const label of ["g2", "g3", "g4"]) await w.progress(B, ids[label]!, "0.9");
+	await w.progress(c.owner, ids.g6!, "0.9");
+	const pooled = (await resume(c)).reading.status === "complete";
+	await w.progress(B, ids.g6!, "0.9");
+
+	const latest = await w.one<{ n: number; q: number }>(
+		sql`SELECT max(revision_number)::int AS n,max(meaningful_sequence)::int AS q FROM article_revision WHERE article_id=${ids.g3!} AND tenant_id=${GLOBAL}`,
+	);
+	const g3 = foundations.articles[2]!;
+	const update = { slug: g3.slug, title: g3.title, meaningful: true, sequence: latest.q + 1 };
+	await w.revise(ids.g3!, { ...update, number: latest.n + 1, body: "Meaningful update" });
+	await w.revise(ids.g3!, { ...update, number: latest.n + 2, meaningful: false, body: "Meaningful updat" });
+	await w.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${affiliation}`);
+	const { reading, currentPhase } = await resume(c);
+	const owner = await stats(c.owner);
+	assert.ok(reading.status === "complete");
+	assert.equal(reading.readerAccountId, B.id);
+	assert.equal((await w.kept(B, ids.g5!)).done, true, "credit stays after the source leaves");
+
+	const kept = await w.kept(B, ids.g1!);
+	const row = await w.one<{ id: string }>(
+		sql`SELECT id FROM reading WHERE account_id=${B.id} AND article_id=${ids.g1!}`,
+	);
+	const insert = (id: string, account: string, fraction = "0.5") =>
+		sql`INSERT INTO reading(id,account_id,article_id,observed_fraction,policy_version,last_read_meaningful_sequence,bookmarked)
+			VALUES(${id},${account},${ids.g4!},${fraction}::numeric,'wiki-reading-v1',1,false)`;
+	assert.equal(await accepts(w.admin, insert(randomUUID(), c.owner.id)), true, "an Owner's own new reading row");
+	assert.equal(await accepts(w.admin, insert(row.id, c.owner.id)), false, "another reader's reading record");
+	assert.equal(await accepts(w.admin, insert(randomUUID(), c.owner.id, "1.01")), false, "a ratio past 1");
+	assert.equal(
+		await accepts(w.admin, sql`UPDATE reading SET account_id=${c.owner.id} WHERE id=${row.id}`),
+		false,
+		"a reading never moves to another reader",
+	);
+	assert.equal(kept.done, true);
+
+	assert.deepEqual(
+		{
+			discovery_complete: reading.status === "complete",
+			owner_reread_required: owner.ownerRereadRequired,
+			completion_at_ratio: atRatio,
+			pooled_partial_credit: pooled,
+			creation_phase: currentPhase,
+		},
+		c6.expected.result,
+	);
+	assert.deepEqual([owner.discoveryComplete, await phase(c)], [false, 1]);
+});
+
+test("AC:SCHEMA-006 disjoint-readers-not-pooled: the Owner's three and the lead's other three never complete Discovery", async () => {
+	const s = subcaseOf(schemaCase("SCHEMA-006"), "disjoint-readers-not-pooled");
+	const readers = s.given.readers as Record<string, string[]>;
+	const ids = Object.fromEntries(six.map((id, n) => [`g${n + 1}`, id]));
+	const c = await founded();
+	const B = await reader(c);
+	await leads(c, B.person);
+	await readsAll(
+		c.owner,
+		[0.9, 0.9, 0.9],
+		readers.owner_completed!.map((g) => ids[g]!),
+	);
+	await readsAll(
+		B,
+		[0.9, 0.9, 0.9],
+		readers.lead_completed!.map((g) => ids[g]!),
+	);
+	const { reading } = await resume(c);
+	const pooled =
+		reading.status === "complete" || (await stats(B)).discoveryComplete || (await stats(c.owner)).discoveryComplete;
+	assert.deepEqual(
+		{ discovery_complete: reading.status === "complete", pooled_partial_credit: pooled },
+		s.expected.result,
+	);
 });

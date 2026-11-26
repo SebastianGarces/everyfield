@@ -409,7 +409,7 @@ test("AC:TARGET-TEAM-001 the ministries list carries each leader's name, and a s
 		teamId: led.id,
 		revision: await rev("team", led.id),
 	});
-	refused(await teamsReader.readRevision(db, await viewer(3), { teamId: led.id }), "access_denied");
+	refused(await teamsReader.readRevision(db, await viewer(3), { teamId: led.id }), "unavailable");
 	refused(await teamsReader.readRevision(db, await viewer(), { teamId: randomUUID() }));
 });
 
@@ -721,7 +721,7 @@ test("AC:TARGET-TEAM-006 a ministry's history shows its own role changes, and no
 			["create", null],
 		],
 	);
-	refused(await teamsReader.listHistory(db, await viewer(3), { teamId: team.id }), "access_denied");
+	refused(await teamsReader.listHistory(db, await viewer(3), { teamId: team.id }), "unavailable");
 	assert.deepEqual((await admin.execute(stored)).rows, rows);
 });
 

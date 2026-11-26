@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: read
-  deployments: read
+  actions: read
 
 concurrency:
   group: promote-production
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   promote:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - name: Trusted promoter from main, never code from the CI run
         uses: actions/checkout@v7
@@ -32,7 +32,8 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE }}
           VERCEL_PRODUCTION_DOMAIN: ${{ vars.VERCEL_PRODUCTION_DOMAIN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
         with:
           script: |
             const promote = require('./.github/scripts/promote.cjs');
-            await promote({ github, context, core, exec });
+            await promote({ github, context, core });

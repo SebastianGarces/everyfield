@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { actorToken } from "../operations/canonical.ts";
 import { auditTransaction } from "../operations/writes.ts";
-import { personChanges } from "../people/core.ts";
+import { peopleValues } from "../people/core.ts";
 import { columnsChanged, newPerson } from "../people/people.ts";
 import {
 	deny,
@@ -254,7 +254,7 @@ export function outcomeCommands(clock: Clock) {
 				const q = parse(c.recordOutcomeRequest, raw);
 				return command(db, authority, "launch.recordOutcome", q, async (tx, scope, l, identity) => {
 					if (l.launch.actual_date) deny("conflict");
-					if (!c.launchSundayArrived({ status: l.launch.status, targetDate: l.launch.target_date }, l.today))
+					if (!c.outcomeRecordable({ status: l.launch.status, targetDate: l.launch.target_date }))
 						deny("not_ready", { needs: "launch_sunday" });
 					if (l.launch.revision !== q.expectedRevision) deny("conflict");
 					const checked = c.checkOutcome(q.input, l.today);
@@ -366,7 +366,7 @@ export function outcomeCommands(clock: Clock) {
 							adultClassification: "unknown",
 						},
 					);
-					const created = personChanges(undefined, row).after;
+					const created = peopleValues(undefined, row).after;
 					const personOp = randomUUID();
 					const { rows } = await tx.execute(
 						link(

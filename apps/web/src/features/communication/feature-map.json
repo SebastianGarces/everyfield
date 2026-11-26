@@ -11,7 +11,7 @@
 			"reach": [
 				{
 					"rail": "Messages",
-					"personas": ["owner", "admin", "member"]
+					"personas": ["owner", "admin", "member", "discovery", "resident"]
 				},
 				{
 					"link": "/communication?message={communicationId}",
@@ -25,7 +25,9 @@
 				"admin": "write",
 				"member": "read",
 				"triage": "none",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{
@@ -112,6 +114,24 @@
 						{
 							"role": "button",
 							"name": "Restore this address"
+						}
+					]
+				},
+				{
+					"id": "locked",
+					"reach": {
+						"persona": "discovery",
+						"open": "/communication",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Messages opens when you start your church"
+						},
+						{
+							"role": "link",
+							"name": "Start a church"
 						}
 					]
 				}

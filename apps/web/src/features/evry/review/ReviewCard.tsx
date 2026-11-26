@@ -118,7 +118,6 @@ import {
 	settingsRefusalText,
 	retryable,
 	reviseInput,
-	SHARE_CHOICES,
 	savedText,
 	shownNotes,
 	showsBefore,
@@ -1242,36 +1241,20 @@ function LinkPicker({
 	disabled: boolean;
 }) {
 	const pick = JSON.parse(value) as { carries: boolean; share: string[] };
-	const set = (next: typeof pick) => onChange(JSON.stringify(next));
 	return (
 		<fieldset className="flex flex-col gap-1 rounded-md border border-line px-3 py-2.5">
 			<legend className="px-1 text-sm font-medium text-ink">{link.organization}</legend>
 			<Checkbox
-				label={`Keep the link to ${link.organization}`}
-				description={link.kind ? `${link.kind} relationship. If you leave it out, the link ends.` : undefined}
-				checked={pick.carries}
+				label={`End the connection with ${link.organization}`}
+				description={
+					pick.carries
+						? `${link.kind ? `${link.kind}. ` : ""}It stays connected unless you tick this.`
+						: "The connection ends when the church is created."
+				}
+				checked={!pick.carries}
 				disabled={disabled}
-				onCheckedChange={(on) => set({ carries: on === true, share: on === true ? pick.share : [] })}
+				onCheckedChange={(on) => onChange(JSON.stringify({ carries: on !== true, share: pick.share }))}
 			/>
-			{pick.carries ? (
-				<div className="flex flex-col gap-1 pl-7">
-					<p className="text-xs text-text-3">What your church shares with {link.organization}</p>
-					{SHARE_CHOICES.map((choice) => (
-						<Checkbox
-							key={choice.value}
-							label={choice.label}
-							checked={pick.share.includes(choice.value)}
-							disabled={disabled}
-							onCheckedChange={(on) =>
-								set({
-									carries: true,
-									share: on === true ? [...pick.share, choice.value] : pick.share.filter((k) => k !== choice.value),
-								})
-							}
-						/>
-					))}
-				</div>
-			) : null}
 		</fieldset>
 	);
 }

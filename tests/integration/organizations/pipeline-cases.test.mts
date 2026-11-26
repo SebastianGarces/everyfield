@@ -56,6 +56,12 @@ test("AC:ADR1-001 AC:WP011-MUL-001 an organization person is created once with n
 			assert.deepEqual(created.added, { audits: ["people.created"], jobs: [], notices: 0, mail: 0 });
 			assert.deepEqual(await w.untouched(create), { personId, revision: "1", outcome: "noop" });
 			assert.equal(await w.count(sql`SELECT count(*)::int AS n FROM person WHERE display_name=${name}`), 1);
+			assert.equal(
+				await w.count(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${personId}
+					AND strpos(concat_ws(' ',before_value::text,after_value::text,metadata::text,reason),${name})>0`),
+				0,
+				"the created row holds no name",
+			);
 			const read = await person(A, O, personId);
 			assert.deepEqual(
 				[read.displayName, read.email, read.owner, read.lifecycle],

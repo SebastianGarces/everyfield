@@ -69,7 +69,7 @@ let actorMember: EvryActor;
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: Who) => (await freshActor(ACTOR_SPECS[who].session))!;
 const LETTER = Array.from({ length: 1000 }, (_, n) => `Line ${n} of the letter.`);

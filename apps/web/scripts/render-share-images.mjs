@@ -1,4 +1,4 @@
-// Renders the share images (Open Graph and X cards) for / and /oversight into src/app as static metadata files.
+// Renders the share images (Open Graph and X cards) for /, /oversight and /discovery into src/app as static metadata files.
 // Run from apps/web: `node scripts/render-share-images.mjs`. `--check` exits 1 when an image is out of date
 // (copy, grain, logo, fonts, photos or this script changed since the last render, or a PNG was edited by hand).
 //
@@ -22,6 +22,7 @@ const copy = JSON.parse(read("../../../design/marketing-copy.json").toString());
 const IMAGES = [
   { dir: "../src/app", photo: "wildflowers", hero: copy.directions[0].sections.hero },
   { dir: "../src/app/oversight", photo: "bluebells", hero: copy.shared.oversight_page.hero },
+  { dir: "../src/app/discovery", photo: "blossom", hero: copy.shared.discovery_page.hero },
 ];
 const alt = (h) => `Everyfield: ${h.headline} ${h.subhead}`; // shareAlt in src/marketing/meta.ts
 

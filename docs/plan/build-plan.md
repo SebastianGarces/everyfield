@@ -46,7 +46,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
 | WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 23 | 6 | 2 |
-| WP-007 | Organizations and consent relationships | 10 | 20 | 53 | 11 | 2.5 |
+| WP-007 | Organizations and consent relationships | 10 | 21 | 53 | 11 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 6 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
@@ -74,7 +74,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 27 | 5 | 15 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 27 | 20 | 30 | 3 | 2.5 |
+| WP-037 | Generated files and native owned documents | 27 | 21 | 30 | 3 | 2.5 |
 | WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 6 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 8 | 3 |

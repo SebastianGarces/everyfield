@@ -108,8 +108,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `development_program_version(organization_id)` | `organization(id)` | restrict |  |
 | `development_program_version(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_program_version(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
-| `development_reading(article_id)` | `reference_item(id)` | restrict |  |
-| `development_reading(revision_id)` | `article_revision(id)` | restrict |  |
+| `development_reading(article_id)` | `reference_item(id)` | restrict | A reading pins an article of the global library or of the organization's own Wiki, never another owner's. The program-plan save in programs.ts takes the article from a published revision whose tenant_id is the global library or the organization. The row grants no library access. |
+| `development_reading(revision_id)` | `article_revision(id)` | restrict | A reading pins a published revision of the global library or of the organization's own Wiki, never another owner's. The program-plan save in programs.ts accepts a revision only when its tenant_id is the global library or the organization. The row grants no library access. |
 | `development_reading(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
 | `development_stage(organization_id)` | `organization(id)` | restrict |  |
 | `development_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
@@ -185,7 +185,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `launch_summary(published_by)` | `account(id)` | set_null |  |
 | `launch_summary(saved_by)` | `account(id)` | set_null |  |
 | `leadership_conversation(pipeline_person_id, organization_id)` | `pipeline_person(id, organization_id)` | restrict |  |
-| `leadership_conversation(staff_seat_id)` | `seat(id)` | restrict |  |
+| `leadership_conversation(staff_seat_id, organization_id)` | `seat(id, organization_id)` | restrict |  |
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |

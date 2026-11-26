@@ -89,7 +89,7 @@ const nonSteady = (level: string) => level === "strained" || level === "struggli
 
 test("INV-qa-seed: the QA owner has a confirmed zone and 13 answered past weeks before an open week", async () => {
 	const { query, firstSeed } = await seeded();
-	assert.match(firstSeed, /owner timezone, 13 check-in weeks\.$/);
+	assert.match(firstSeed, /owner timezone, 13 check-in weeks, login delivered\+qa-discovery@resend\.dev, /);
 	assert.deepEqual(
 		await query("SELECT a.personal_timezone FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE u.email=$1", [
 			OWNER,

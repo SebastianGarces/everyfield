@@ -1,13 +1,13 @@
 const REPOSITORY = 'SebastianGarces/everyfield';
-const VERCEL_APP = 35613825;
-const VERCEL_CLI = 'vercel@65.11.0';
+const DEPLOY_WORKFLOW = 'deploy-production.yml';
 const SHA = /^[0-9a-f]{40}$/;
-const WAIT_MS = 20 * 60 * 1000;
+const DEPLOY_JOB_TIMEOUT_MS = 30 * 60 * 1000;
+const WAIT_MS = DEPLOY_JOB_TIMEOUT_MS + 10 * 60 * 1000;
 const POLL_MS = 30 * 1000;
-
-function promoteCommand(deploymentId, scope) {
-  return ['npx', ['--yes', VERCEL_CLI, 'promote', deploymentId, '--yes', ...(scope ? ['--scope', scope] : [])]];
-}
+const VERCEL_GITHUB_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const BUILDING = new Set(['QUEUED', 'INITIALIZING', 'BUILDING']);
+const ANCESTOR_RUNS = 100;
+const SERVE_WAIT_MS = 5 * 60 * 1000;
 
 async function say(core, line) {
   core.info(line);
@@ -21,37 +21,89 @@ async function fail(core, line) {
 }
 
 function vercelClient(token, scope, fetchImpl) {
-  return async function vercel(path) {
+  return async function vercel(path, query = {}, method = 'GET') {
     const url = new URL(path, 'https://api.vercel.com');
+    for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     if (scope) url.searchParams.set('slug', scope);
-    const response = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error(`Vercel API ${url.pathname} returned HTTP ${response.status}`);
-    return response.json();
+    const headers = { Authorization: `Bearer ${token}` };
+    const init = method === 'GET' ? { headers } : { method, headers: { ...headers, 'Content-Type': 'application/json' }, body: '{}' };
+    const response = await fetchImpl(url, init);
+    if (!response.ok) throw new Error(`Vercel API ${method} ${url.pathname} returned HTTP ${response.status}`);
+    return method === 'GET' ? response.json() : undefined;
   };
 }
 
-async function findDeployment(github, repo, sha) {
-  const deployments = await github.paginate(github.rest.repos.listDeployments, {
-    ...repo, sha, environment: 'Production', per_page: 100,
-  });
-  const exact = deployments
-    .filter(d => d.sha === sha && d.environment?.toLowerCase() === 'production' && d.creator?.id === VERCEL_APP)
-    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-  let pending = false;
-  let failed = 0;
-  for (const deployment of exact) {
-    const statuses = (await github.rest.repos.listDeploymentStatuses({ ...repo, deployment_id: deployment.id, per_page: 100 }))
-      .data.filter(status => status.creator?.id === VERCEL_APP);
-    const latest = statuses[0]?.state;
-    const built = statuses.find(status => status.state === 'success' && status.environment_url);
-    if (built && ['success', 'inactive'].includes(latest)) return { deployment, url: built.environment_url };
-    if (['failure', 'error'].includes(latest)) failed++;
-    else pending = true;
-  }
-  return { pending: pending || exact.length === 0, failed };
+async function newerContainsOlder(github, repo, newer, older) {
+  const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${older}...${newer}` });
+  return ['ahead', 'identical'].includes(comparison.data.status);
 }
 
-module.exports = async function promote({ github, context, core, exec }, options = {}) {
+async function pushRuns(github, repo, query) {
+  const response = await github.rest.actions.listWorkflowRuns({
+    ...repo, workflow_id: DEPLOY_WORKFLOW, event: 'push', branch: 'main', ...query,
+  });
+  return response.data.workflow_runs
+    .filter(run => run.event === 'push' && run.head_branch === 'main' && SHA.test(run.head_sha || ''))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+}
+
+async function newestEarlierDeployRunIn(github, repo, sha) {
+  for (const run of await pushRuns(github, repo, { per_page: ANCESTOR_RUNS })) {
+    if (run.head_sha !== sha && await newerContainsOlder(github, repo, sha, run.head_sha)) return run;
+  }
+  return undefined;
+}
+
+async function productionDeploymentsStampedWith(vercel, projectId, sha, since) {
+  const found = [];
+  let until;
+  for (let page = 0; page < 10; page++) {
+    const body = await vercel('/v7/deployments', {
+      projectId, target: 'production', since, limit: 100, ...(until ? { until } : {}),
+    });
+    for (const d of body.deployments || []) {
+      if (d.meta?.githubCommitSha === sha && d.target === 'production' && d.projectId === projectId) found.push(d);
+    }
+    until = body.pagination?.next;
+    if (!until) break;
+  }
+  return found.sort((a, b) => b.created - a.created);
+}
+
+async function waitForBuild({ github, repo, vercel, projectId, sha, run, sleep, now, waitMs, pollMs }) {
+  const deadline = now() + waitMs;
+  const since = Date.parse(run.created_at) - VERCEL_GITHUB_CLOCK_SKEW_MS;
+  for (;;) {
+    const deployments = await productionDeploymentsStampedWith(vercel, projectId, sha, since);
+    const ready = deployments.find(d => d.readyState === 'READY');
+    if (ready) return { ready };
+    const latest = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: run.id })).data;
+    const building = deployments.some(d => BUILDING.has(d.readyState));
+    if (latest.status === 'completed' && !building) {
+      const ended = deployments[0]?.readyState;
+      return {
+        why: ended
+          ? `the Vercel production build of ${sha} ended in ${ended} (deploy-production run ${run.id} concluded ${latest.conclusion})`
+          : `deploy-production run ${run.id} for ${sha} concluded ${latest.conclusion} without a Vercel production deployment`,
+      };
+    }
+    if (now() >= deadline) {
+      return { why: `no READY Vercel production deployment exists for ${sha} after waiting ${Math.round(waitMs / 60000)} minutes` };
+    }
+    await sleep(pollMs);
+  }
+}
+
+async function waitUntilServed({ vercel, domain, id, sleep, now, pollMs }) {
+  const deadline = now() + SERVE_WAIT_MS;
+  for (;;) {
+    const served = (await vercel(`/v13/deployments/${encodeURIComponent(domain)}`)).id;
+    if (served === id || now() >= deadline) return served;
+    await sleep(pollMs);
+  }
+}
+
+module.exports = async function promote({ github, context, core }, options = {}) {
   const repo = context.repo;
   if (`${repo.owner}/${repo.repo}` !== REPOSITORY) throw new Error('Unexpected promote repository');
   const env = options.env || process.env;
@@ -82,46 +134,48 @@ module.exports = async function promote({ github, context, core, exec }, options
 
   const domain = env.VERCEL_PRODUCTION_DOMAIN;
   if (!domain) return fail(core, `The repo variable VERCEL_PRODUCTION_DOMAIN is not set, so production cannot be compared with ${sha}. Nothing was promoted.`);
+  const projectId = env.VERCEL_PROJECT_ID;
+  if (!projectId) return fail(core, `The repo variable VERCEL_PROJECT_ID is not set, so the Vercel deployment of ${sha} cannot be found. Nothing was promoted.`);
   const scope = env.VERCEL_SCOPE || '';
   const vercel = vercelClient(env.VERCEL_TOKEN, scope, options.fetch || fetch);
 
   const current = (await vercel(`/v13/deployments/${encodeURIComponent(domain)}`)).meta?.githubCommitSha;
   if (!SHA.test(current || '')) return fail(core, `Production at ${domain} names no Git commit, so it cannot be compared with ${sha}. Nothing was promoted.`);
-  const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${sha}...${current}` });
-  if (['ahead', 'identical'].includes(comparison.data.status)) {
+  if (await newerContainsOlder(github, repo, current, sha)) {
     await say(core, `Production already runs ${current}, which contains ${sha}. Nothing was promoted.`);
     return { outcome: 'current', sha, current };
   }
 
-  const deadline = now() + waitMs;
-  let found;
-  for (;;) {
-    found = await findDeployment(github, repo, sha);
-    if (found.url || !found.pending || now() >= deadline) break;
-    await sleep(pollMs);
+  let built = sha;
+  let deployRun = (await pushRuns(github, repo, { head_sha: sha, per_page: 10 })).find(r => r.head_sha === sha);
+  if (!deployRun) {
+    deployRun = await newestEarlierDeployRunIn(github, repo, sha);
+    if (!deployRun) {
+      await say(core, `No deploy-production push run built ${sha} or a commit before it. Nothing deployable changed, so production stays on ${current}. Nothing was promoted.`);
+      return { outcome: 'unchanged', sha, current };
+    }
+    built = deployRun.head_sha;
+    if (await newerContainsOlder(github, repo, current, built)) {
+      await say(core, `No deploy-production push run built ${sha}; its latest deploying commit ${built} is already in production ${current}. Nothing deployable changed, so production stays. Nothing was promoted.`);
+      return { outcome: 'unchanged', sha, built, current };
+    }
   }
-  if (!found.url) {
-    const why = found.pending
-      ? `no built Vercel production deployment exists for ${sha} after waiting ${Math.round(waitMs / 60000)} minutes`
-      : `every Vercel production deployment for ${sha} failed to build (${found.failed})`;
-    return fail(core, `Promote failed: ${why}. Nothing was promoted.`);
-  }
+  const of = built === sha ? sha : `${built} (the latest deploying commit in ${sha})`;
 
-  let host;
-  try { host = new URL(found.url).host; } catch { host = ''; }
-  if (!host || host === domain) return fail(core, `The deployment URL for ${sha} is not a unique deployment URL. Nothing was promoted.`);
-  const target = await vercel(`/v13/deployments/${encodeURIComponent(host)}`);
-  if (target.meta?.githubCommitSha !== sha || target.target !== 'production' || target.readyState !== 'READY' || !target.id) {
-    return fail(core, `Vercel reports ${host} is not a ready production build of ${sha}. Nothing was promoted.`);
-  }
+  const result = await waitForBuild({ github, repo, vercel, projectId, sha: built, run: deployRun, sleep, now, waitMs, pollMs });
+  if (!result.ready) return fail(core, `Promote failed for ${sha}: ${result.why}. Nothing was promoted.`);
 
-  const [command, args] = promoteCommand(target.id, scope);
+  const { uid: id, url: host } = result.ready;
+
   try {
-    await exec.exec(command, args, { env });
+    await vercel(`/v10/projects/${encodeURIComponent(projectId)}/promote/${encodeURIComponent(id)}`, {}, 'POST');
   } catch (error) {
-    return fail(core, `vercel promote failed for deployment ${target.id} (${host}) at ${sha}: ${error.message}`);
+    return fail(core, `Promote failed for deployment ${id} (${host}) of ${of}: ${error.message}. Production stays on ${current}.`);
   }
-  await say(core, `Promoted deployment ${target.id} (${host}) at ${sha} to production. It replaced ${current}.`);
-  return { outcome: 'promoted', sha, deployment: target.id, previous: current };
+  const served = await waitUntilServed({ vercel, domain, id, sleep, now, pollMs });
+  if (served !== id) {
+    return fail(core, `Vercel accepted the promote of deployment ${id} (${host}) of ${of}, but ${domain} still serves ${served} after ${SERVE_WAIT_MS / 60000} minutes.`);
+  }
+  await say(core, `Promoted deployment ${id} (${host}) of ${of} to production. ${domain} serves it. It replaced ${current}.`);
+  return { outcome: 'promoted', sha, built, deployment: id, previous: current };
 };
-module.exports.promoteCommand = promoteCommand;

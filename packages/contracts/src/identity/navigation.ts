@@ -25,8 +25,10 @@ export const DASHBOARD_HOME = "/overview";
 export const ONBOARDING_HOME = "/onboarding";
 export const ORGANIZATION_HOME = "/network";
 export const LANDING_ROUTE = "/home";
+export const DISCOVERY_HOME = "/my-discovery";
+export const START_CHURCH = "/onboarding?start=church";
 
-export type PlantSetup = "complete" | "incomplete" | "organization" | "none";
+export type PlantSetup = "complete" | "incomplete" | "organization" | "discovery" | "none";
 
 const BEFORE_SETUP = /^\/(?:invitation|confirm-email|connections\/respond|account-deletion)(?:[/?#]|$)/;
 
@@ -41,6 +43,7 @@ export function landingFor(input: {
 		return back && BEFORE_SETUP.test(back) ? back : ONBOARDING_HOME;
 	if (back) return back;
 	if (input.plant === "organization") return ORGANIZATION_HOME;
+	if (input.plant === "discovery") return DISCOVERY_HOME;
 	return input.plant === "complete" ? DASHBOARD_HOME : ONBOARDING_HOME;
 }
 

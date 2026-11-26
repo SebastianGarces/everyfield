@@ -642,6 +642,21 @@ const MULTIPLICATION = [
 	"Discovery Nico Alvarez",
 	`expired request from Nico Alvarez to ${ORGS.hill}`,
 ].join(", ");
+const DISCOVERY_PLANTER = [
+	`login ${QA_LOGINS.discovery}`,
+	"Discovery Jo Rivera",
+	`connection Jo Rivera to ${"Grace Church (QA)"}`,
+	"foundation article discovery/is-church-planting-your-calling",
+	"foundation article discovery/understanding-the-4-pillars",
+	"foundation article discovery/defining-your-church-values",
+	"foundation article discovery/the-worship-walk-work-witness-model",
+	"foundation article discovery/setting-your-initial-goals",
+	"foundation article discovery/finding-a-coach-mentor",
+	"foundation 367a6c6b-7ec3-44e7-95fb-253097125e42 read by Jo Rivera",
+	"foundation eded80bd-e505-4a56-91d6-67b8d071ef73 read by Jo Rivera",
+	"Discovery document Notes on my calling",
+	"Discovery document Questions for my sending church",
+].join(", ");
 const NOV4_MAIL =
 	"suppressed address of Leo Pratt, message QA delivery check, suppressed admin address, past restore of the admin address";
 
@@ -678,7 +693,10 @@ const NOTES = [
 
 test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
 	const { first, second, seeded, after, before, query } = await fresh();
-	assert.match(first, /QA seed wrote: .*church.*wiki, ministry templates, owner timezone, 13 check-in weeks\./);
+	assert.ok(
+		first.includes(`wiki, ministry templates, owner timezone, 13 check-in weeks, ${DISCOVERY_PLANTER}.`),
+		first,
+	);
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
@@ -712,7 +730,7 @@ test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes 
 	);
 });
 
-test("INV-qa-seed: eighteen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
+test("INV-qa-seed: nineteen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -732,6 +750,7 @@ test("INV-qa-seed: eighteen QA logins; the seed makes both organization logins v
 		endedResident: "delivered+qa-resident-ended@resend.dev",
 		hillOwner: "delivered+qa-hill-owner@resend.dev",
 		discoverySender: "delivered+qa-discovery-sender@resend.dev",
+		discovery: "delivered+qa-discovery@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
 	for (const email of [QA_LOGINS.network, QA_LOGINS.sending]) assert.ok(first.includes(`login ${email},`), first);
@@ -847,9 +866,10 @@ test("INV-qa-seed: the sharing-page reads list Harvest Point (QA) for the networ
 	assert.deepEqual(seen.network.connections, [
 		{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.network },
 	]);
-	assert.deepEqual(seen.sending.connections, [
-		{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.sending },
-	]);
+	assert.deepEqual(
+		seen.sending.connections.filter((c: { kind: string }) => c.kind === "plant"),
+		[{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.sending }],
+	);
 });
 
 test("INV-qa-seed: the seed writes the Owner's check-ins through the private-care writer, and he reads them back as his own", async () => {
@@ -952,7 +972,7 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
 			`${MULTIPLICATION}, ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
-		", ministry templates, owner timezone, 13 check-in weeks.",
+		`, ministry templates, owner timezone, 13 check-in weeks, ${DISCOVERY_PLANTER}.`,
 	]);
 	assert.deepEqual(
 		await old.query(`SELECT count(DISTINCT i.id)::int AS items, count(v.id)::int AS versions FROM reference_item i
@@ -978,6 +998,7 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 						QA_LOGINS.triage,
 						...T312_LOGINS,
 						QA_LOGINS.discoverySender,
+						QA_LOGINS.discovery,
 					] as string[]
 				).includes(String(l.email)),
 		),
@@ -990,9 +1011,10 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	assert.deepEqual(seen.network.connections, [
 		{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.network },
 	]);
-	assert.deepEqual(seen.sending.connections, [
-		{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.sending },
-	]);
+	assert.deepEqual(
+		seen.sending.connections.filter((c: { kind: string }) => c.kind === "plant"),
+		[{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.sending }],
+	);
 });
 
 test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and says what the organization logins see", () => {
@@ -1034,6 +1056,7 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 			"Ended resident",
 			"Hill Country Owner",
 			"Discovery sender",
+			"Discovery planter",
 		],
 	);
 	for (const words of [
@@ -1759,6 +1782,24 @@ test("INV-privacy: Hill Country's Owner sees none of Grace Austin's pipeline wit
 		enrollment: refused,
 		residency: "not_linked",
 	});
+});
+
+test("INV-qa-seed: the Discovery planter has two private documents, two foundations read and an ordinary link its director sees by name", async () => {
+	const { seen, query } = await fresh();
+	assert.deepEqual(seen.discovery, {
+		signedIn: "signed_in",
+		context: { kind: "account", owner: "account" },
+		documents: ["Notes on my calling", "Questions for my sending church"],
+		sharing: [false],
+		seenByDirector: "Jo Rivera",
+		connected: 1,
+	});
+	assert.deepEqual(
+		await query(`SELECT (SELECT count(*)::int FROM reading r WHERE r.account_id = a.id AND r.completed_at IS NOT NULL) AS read,
+			(SELECT count(*)::int FROM seat s WHERE s.account_id = a.id) AS seats
+			FROM account a JOIN auth_user u ON u.id = a.auth_user_id WHERE u.email = '${QA_LOGINS.discovery}'`),
+		[{ read: 2, seats: 0 }],
+	);
 });
 
 test("INV-qa-seed: the Discovery sender's request to the Hill Country Owner is 35 days old, and its printed link reads as expired", async () => {

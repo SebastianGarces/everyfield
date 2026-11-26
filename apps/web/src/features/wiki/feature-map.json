@@ -12,7 +12,7 @@
 			"reach": [
 				{
 					"rail": "Wiki",
-					"personas": ["owner", "admin", "member", "resident", "triage"]
+					"personas": ["owner", "admin", "member", "resident", "triage", "discovery"]
 				},
 				{
 					"link": "/wiki/{slug}",
@@ -28,7 +28,8 @@
 				"resident": "write",
 				"signup": "none",
 				"triage": "write",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read"
 			},
 			"states": [
 				{

@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-09T15:00:38.466Z",
+	"recordedAt": "2026-11-09T15:00:34.468Z",
 	"spend": {
-		"newCalls": 38,
-		"newMicroUsd": 18613,
-		"allCalls": 2523,
-		"allMicroUsd": 9224698
+		"newCalls": 14,
+		"newMicroUsd": 58933,
+		"allCalls": 2537,
+		"allMicroUsd": 9283631
 	},
 	"calls": {
 		"00674bd72e7d629a": {
@@ -4136,6 +4136,98 @@
 			"usage": {
 				"input": 231,
 				"output": 12
+			}
+		},
+		"071e168f4467700a": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_01582507bb3ae082016b080702051887d2ba8671deed13f2e7",
+					"timestamp": "2026-11-26T10:16:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_f1548fb9f46b40f3a4f1b6cda7f571ef",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_f1548fb9f46b40f3a4f1b6cda7f571ef",
+					"delta": "{\"operation\":\"documents.exportNative\",\"input\":{\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd5\",\"format\":\"pdf\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_f1548fb9f46b40f3a4f1b6cda7f571ef"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_f1548fb9f46b40f3a4f1b6cda7f571ef",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"documents.exportNative\",\"input\":{\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd5\",\"format\":\"pdf\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_01582507bb3ae082016b080703528087d2a12da08c4308016f"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64210,
+							"noCache": 3,
+							"cacheRead": 63987,
+							"cacheWrite": 220
+						},
+						"outputTokens": {
+							"total": 54,
+							"text": 54,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64210,
+							"input_tokens_details": {
+								"cached_tokens": 63987,
+								"cache_write_tokens": 220,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 220,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 54,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64264
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_01582507bb3ae082016b080702051887d2ba8671deed13f2e7",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64210,
+				"output": 54
 			}
 		},
 		"072d212d96010ec9": {
@@ -65461,6 +65553,98 @@
 				"output": 12
 			}
 		},
+		"62b74453d2c8633b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0bf349c656bc3971016b080704316487d2a4baa947b4b0227c",
+					"timestamp": "2026-11-26T10:16:36.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0bf349c656bc3971016b080704e4ec87d2a06b13a3b578abc9",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0bf349c656bc3971016b080704e4ec87d2a06b13a3b578abc9",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0bf349c656bc3971016b080704e4ec87d2a06b13a3b578abc9",
+					"delta": "I prepared a review to export **Conflict of Interest Policy** as a PDF. Please approve the review in the app; the export won’t be created until you do."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0bf349c656bc3971016b080704e4ec87d2a06b13a3b578abc9",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0bf349c656bc3971016b080704e4ec87d2a06b13a3b578abc9",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64403,
+							"noCache": 3,
+							"cacheRead": 64207,
+							"cacheWrite": 193
+						},
+						"outputTokens": {
+							"total": 38,
+							"text": 38,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64403,
+							"input_tokens_details": {
+								"cached_tokens": 64207,
+								"cache_write_tokens": 193,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 193,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 38,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64441
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0bf349c656bc3971016b080704316487d2a4baa947b4b0227c",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64403,
+				"output": 38
+			}
+		},
 		"62bf215b9c22992d": {
 			"kind": "generate",
 			"content": [
@@ -85286,6 +85470,25 @@
 				"output": 56
 			}
 		},
+		"7e8356ae35acb0c9": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is clear and matter-of-fact, with a helpful offer to open a document and no unnecessary filler.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It lists the five documents and their types, then offers a sensible next step: opening one to read it.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0853d743898f67af016b080706065487d2aedb06a11899eb80",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 561,
+				"output": 161
+			}
+		},
 		"7e92fa33ff6473a0": {
 			"kind": "stream",
 			"parts": [
@@ -89421,6 +89624,102 @@
 				"output": 472
 			}
 		},
+		"84067f0bd01c0deb": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "other",
+							"message": "Reasoning parts without encrypted content are not supported when store is false. Skipping reasoning parts."
+						},
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_00d8851dcc5825c5016b08070201b087d28ac517e0b44216ae",
+					"timestamp": "2026-11-26T10:16:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_b27da923631a46e1b6d875314258312d",
+					"toolName": "documents_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_b27da923631a46e1b6d875314258312d",
+					"delta": "{\"operation\":\"documents.read\",\"input\":{\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd4\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_b27da923631a46e1b6d875314258312d"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_b27da923631a46e1b6d875314258312d",
+					"toolName": "documents_read",
+					"input": "{\"operation\":\"documents.read\",\"input\":{\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd4\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_00d8851dcc5825c5016b08070340fc87d2917cc008b7106d0c"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64227,
+							"noCache": 3,
+							"cacheRead": 63987,
+							"cacheWrite": 237
+						},
+						"outputTokens": {
+							"total": 48,
+							"text": 48,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64227,
+							"input_tokens_details": {
+								"cached_tokens": 63987,
+								"cache_write_tokens": 237,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 237,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 48,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64275
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_00d8851dcc5825c5016b08070201b087d28ac517e0b44216ae",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64227,
+				"output": 48
+			}
+		},
 		"844f0f31776e6d5d": {
 			"kind": "generate",
 			"content": [
@@ -92168,6 +92467,25 @@
 				"output": 267
 			}
 		},
+		"87f1fa56119a91fd": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is plain, brief, and professional.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It says the review is prepared, explains that the designation takes effect only after approval, and gives the next step in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e059690673f1aba016b0807075f6087d2a1d1e114cb22b30e",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 318,
+				"output": 332
+			}
+		},
 		"88216931e0235d39": {
 			"kind": "generate",
 			"content": [
@@ -93329,6 +93647,25 @@
 				"output": 28
 			}
 		},
+		"89e73b92ddbdc8a0": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It’s brief, clear, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that approval is required before the PDF is created and gives a clear next step in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ef595448021457b016b080706eadc87d2aae68e883702ac0b",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 302,
+				"output": 198
+			}
+		},
 		"89e7a4ef9a5ca7fd": {
 			"kind": "generate",
 			"content": [
@@ -94452,6 +94789,102 @@
 			"usage": {
 				"input": 64441,
 				"output": 49
+			}
+		},
+		"8b46e00ec9916e7a": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "other",
+							"message": "Reasoning parts without encrypted content are not supported when store is false. Skipping reasoning parts."
+						},
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_070e03d59ec3e148016b080703e6c487d2bbf774cedab7f8ff",
+					"timestamp": "2026-11-26T10:16:36.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_070e03d59ec3e148016b080704967c87d299b3c6169ba02b39",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_070e03d59ec3e148016b080704967c87d299b3c6169ba02b39",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_070e03d59ec3e148016b080704967c87d299b3c6169ba02b39",
+					"delta": "I prepared the review to designate **“Values Draft from the Fall Retreat”** as your core values document. Nothing changes until you approve the review in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_070e03d59ec3e148016b080704967c87d299b3c6169ba02b39",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_070e03d59ec3e148016b080704967c87d299b3c6169ba02b39",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64530,
+							"noCache": 3,
+							"cacheRead": 64345,
+							"cacheWrite": 182
+						},
+						"outputTokens": {
+							"total": 37,
+							"text": 37,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64530,
+							"input_tokens_details": {
+								"cached_tokens": 64345,
+								"cache_write_tokens": 182,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 182,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 37,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64567
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_070e03d59ec3e148016b080703e6c487d2bbf774cedab7f8ff",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64530,
+				"output": 37
 			}
 		},
 		"8b50876d38872bd8": {
@@ -103227,6 +103660,25 @@
 			"usage": {
 				"input": 64894,
 				"output": 153
+			}
+		},
+		"9721455300dd0f65": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and appropriately cautious without extra praise or jargon.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It gives the proposed wording and explains that approval is required, but doesn’t confirm that the review card shows only the changed passage with the saved text before and final text after.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07d53dde5743831e016b080707128887d2a957a3e3e8a925fe",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 321,
+				"output": 76
 			}
 		},
 		"972158a49dae7f06": {
@@ -117747,6 +118199,102 @@
 				"output": 113
 			}
 		},
+		"ade2d0a7684e7bb1": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "other",
+							"message": "Reasoning parts without encrypted content are not supported when store is false. Skipping reasoning parts."
+						},
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_04ad5b45e0ff1cb3016b080703e91087d28a1c4404cac24520",
+					"timestamp": "2026-11-26T10:16:36.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_e63f03185166496c9f45ce56ff95ca15",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_e63f03185166496c9f45ce56ff95ca15",
+					"delta": "{\"operation\":\"documents.saveNative\",\"input\":{\"kind\":\"edit\",\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd4\",\"edits\":[{\"find\":\"a seat and a name tag\",\"replace\":\"a seat, a name tag and a welcome\"}]}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_e63f03185166496c9f45ce56ff95ca15"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_e63f03185166496c9f45ce56ff95ca15",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"documents.saveNative\",\"input\":{\"kind\":\"edit\",\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd4\",\"edits\":[{\"find\":\"a seat and a name tag\",\"replace\":\"a seat, a name tag and a welcome\"}]}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_04ad5b45e0ff1cb3016b0807046bd887d2b9ef7a24254c1ff7"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64460,
+							"noCache": 3,
+							"cacheRead": 64224,
+							"cacheWrite": 233
+						},
+						"outputTokens": {
+							"total": 81,
+							"text": 81,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64460,
+							"input_tokens_details": {
+								"cached_tokens": 64224,
+								"cache_write_tokens": 233,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 233,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 81,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64541
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_04ad5b45e0ff1cb3016b080703e91087d28a1c4404cac24520",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64460,
+				"output": 81
+			}
+		},
 		"ade8ad33f4dff616": {
 			"kind": "stream",
 			"parts": [
@@ -120953,6 +121501,98 @@
 			"usage": {
 				"input": 63999,
 				"output": 28
+			}
+		},
+		"b2c002225ec967ff": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0875ec10f9d47ba0016b0807020d8087d2bdc7244b60f16ba7",
+					"timestamp": "2026-11-26T10:16:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0875ec10f9d47ba0016b080703381c87d2bfca8a32eccf1cc7",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0875ec10f9d47ba0016b080703381c87d2bfca8a32eccf1cc7",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0875ec10f9d47ba0016b080703381c87d2bfca8a32eccf1cc7",
+					"delta": "Your core values document is **Hope Fellowship Core Values**. It’s in [Documents](/documents/written/5b6d1f0e-0000-4000-8000-000000000dd1)."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0875ec10f9d47ba0016b080703381c87d2bfca8a32eccf1cc7",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0875ec10f9d47ba0016b080703381c87d2bfca8a32eccf1cc7",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64187,
+							"noCache": 3,
+							"cacheRead": 63987,
+							"cacheWrite": 197
+						},
+						"outputTokens": {
+							"total": 51,
+							"text": 51,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64187,
+							"input_tokens_details": {
+								"cached_tokens": 63987,
+								"cache_write_tokens": 197,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 197,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 51,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64238
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0875ec10f9d47ba0016b0807020d8087d2bdc7244b60f16ba7",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64187,
+				"output": 51
 			}
 		},
 		"b30bb8c950eceedd": {
@@ -124934,6 +125574,102 @@
 				"output": 50
 			}
 		},
+		"b895df15234a540b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "other",
+							"message": "Reasoning parts without encrypted content are not supported when store is false. Skipping reasoning parts."
+						},
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_05a101db6fa821f8016b0807055b0887d288f892a396b3917f",
+					"timestamp": "2026-11-26T10:16:37.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_05a101db6fa821f8016b080705ff7c87d28e234e6bfc4e2f36",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_05a101db6fa821f8016b080705ff7c87d28e234e6bfc4e2f36",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_05a101db6fa821f8016b080705ff7c87d28e234e6bfc4e2f36",
+					"delta": "I prepared the change for review. The sentence would read: “Every guest gets a seat, a name tag and a welcome.” Nothing changes unless you approve the review card in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_05a101db6fa821f8016b080705ff7c87d28e234e6bfc4e2f36",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_05a101db6fa821f8016b080705ff7c87d28e234e6bfc4e2f36",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64687,
+							"noCache": 3,
+							"cacheRead": 64457,
+							"cacheWrite": 227
+						},
+						"outputTokens": {
+							"total": 42,
+							"text": 42,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64687,
+							"input_tokens_details": {
+								"cached_tokens": 64457,
+								"cache_write_tokens": 227,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 227,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 42,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64729
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_05a101db6fa821f8016b0807055b0887d288f892a396b3917f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64687,
+				"output": 42
+			}
+		},
 		"b90f82a0e08cab75": {
 			"kind": "generate",
 			"content": [
@@ -126649,6 +127385,102 @@
 			"usage": {
 				"input": 64003,
 				"output": 28
+			}
+		},
+		"bbb1293804402a7b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "other",
+							"message": "Reasoning parts without encrypted content are not supported when store is false. Skipping reasoning parts."
+						},
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0b31526073e969a9016b0807020cb487d29d59d2421a736394",
+					"timestamp": "2026-11-26T10:16:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_306e169389a5401a9791aa17d1557af5",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_306e169389a5401a9791aa17d1557af5",
+					"delta": "{\"operation\":\"documents.designateCoreValues\",\"input\":{\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd4\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_306e169389a5401a9791aa17d1557af5"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_306e169389a5401a9791aa17d1557af5",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"documents.designateCoreValues\",\"input\":{\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd4\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0b31526073e969a9016b08070331ec87d28ec94afaa54591e8"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64348,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 64345
+						},
+						"outputTokens": {
+							"total": 52,
+							"text": 52,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64348,
+							"input_tokens_details": {
+								"cached_tokens": 0,
+								"cache_write_tokens": 64345,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 64345,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 52,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64400
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0b31526073e969a9016b0807020cb487d29d59d2421a736394",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64348,
+				"output": 52
 			}
 		},
 		"bbbf4b959bdc88d0": {
@@ -143112,6 +143944,25 @@
 			"usage": {
 				"input": 65046,
 				"output": 173
+			}
+		},
+		"d560b132079aa8a4": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It’s brief, clear, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It identifies the document and links directly to it in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0b2b8c0736d74136016b080705347087d293ee63148223939a",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 311,
+				"output": 100
 			}
 		},
 		"d57a48deb1f12bff": {
@@ -167459,6 +168310,98 @@
 			"usage": {
 				"input": 228,
 				"output": 12
+			}
+		},
+		"fa4558bb230dee3e": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_07d0ae3fa18b6343016b0807023cd087d2b18934b2bee0ba92",
+					"timestamp": "2026-11-26T10:16:34.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_07d0ae3fa18b6343016b0807032d3487d28b14d6cfcbd9608c",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07d0ae3fa18b6343016b0807032d3487d28b14d6cfcbd9608c",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_07d0ae3fa18b6343016b0807032d3487d28b14d6cfcbd9608c",
+					"delta": "You have **5 documents** saved in Everyfield:\n\n- [Conflict of Interest Policy]( /documents/church/5b6d1f0e-0000-4000-8000-000000000dd5) — Church Document; updated Oct 28, 2026\n- [Values Draft from the Fall Retreat]( /documents/written/5b6d1f0e-0000-4000-8000-000000000dd4) — Written document; updated Oct 20, 2026\n- [Vision Meeting Agenda - October 12]( /documents/written/5b6d1f0e-0000-4000-8000-000000000dd3) — Written document; updated Oct 8, 2026\n- [Vision Meeting Agenda - September 14]( /documents/written/5b6d1f0e-0000-4000-8000-000000000dd2) — Written document; updated Sep 10, 2026\n- [Hope Fellowship Core Values]( /documents/written/5b6d1f0e-0000-4000-8000-000000000dd1) — Core values; updated Sep 2, 2026\n\nThis is the complete list of current documents saved in Everyfield. I can open one if you’d like to read it."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_07d0ae3fa18b6343016b0807032d3487d28b14d6cfcbd9608c",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07d0ae3fa18b6343016b0807032d3487d28b14d6cfcbd9608c",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64582,
+							"noCache": 3,
+							"cacheRead": 63987,
+							"cacheWrite": 592
+						},
+						"outputTokens": {
+							"total": 293,
+							"text": 293,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 64582,
+							"input_tokens_details": {
+								"cached_tokens": 63987,
+								"cache_write_tokens": 592,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 592,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 293,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 64875
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_07d0ae3fa18b6343016b0807023cd087d2b18934b2bee0ba92",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64582,
+				"output": 293
 			}
 		},
 		"fa5723f4c9e91c72": {

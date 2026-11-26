@@ -218,7 +218,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 		[(await person(people.casey)).city, audits.length, audits[0]!.action, audits[0]!.actor_id],
 		["Denver", 1, "people.updated", accounts.owner.id],
 	);
-	assert.deepEqual(audits[0]!.after_value, { city: "Denver" });
+	assert.deepEqual(audits[0]!.after_value, { fields: ["city"] });
 	assert.deepEqual(
 		[done.status, done.outcome, done.executing, done.receipt?.receiptId],
 		["approved", "completed", false, audits[0]!.id],

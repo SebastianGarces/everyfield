@@ -755,7 +755,7 @@ test("AC:MAIL-LEDGER-001 Evry and the Messages page handing off one approved mes
 			both.port.transport,
 			both.port.keys,
 		).then(
-			(reply) => (reply.status === "ok" ? "sent" : reply.error.code),
+			(reply) => (reply.status !== "ok" ? reply.error.code : reply.value.providerCalls > 0 ? "sent" : "sent nothing"),
 			() => "lost the race",
 		);
 	const race = await raced(w.admin, w.db, sql`LOCK TABLE mail IN SHARE MODE`, [

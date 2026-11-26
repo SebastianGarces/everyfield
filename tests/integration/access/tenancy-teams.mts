@@ -137,7 +137,6 @@ export function teamsCases(t: Tenancy, who: TenancyOwner) {
 	const tr = casesFor("teams:trainingReader.");
 	const rs = casesFor("teams:responsibilityReader.");
 	const unavailable = { refused: "unavailable" };
-	const denied = { refused: "access_denied" };
 	const ministry = { teamId: a.ministry };
 	const catalog = {
 		version: "2",
@@ -154,16 +153,20 @@ export function teamsCases(t: Tenancy, who: TenancyOwner) {
 			control: (value) => assert.deepEqual(value, catalog),
 		}),
 		tm("list", () => teamsReader.list(db, who.actor, {}), { value: { items: [], ordinaryIds: [], archivedIds: [] } }),
-		tm("listHistory", () => teamsReader.listHistory(db, who.actor, ministry), denied),
-		tm("listRoles", () => teamsReader.listRoles(db, who.actor, ministry), denied),
-		tm("readRevision", () => teamsReader.readRevision(db, who.actor, ministry), denied),
-		tm("listMembers", () => teamsReader.listMembers(db, who.actor, ministry), denied),
-		tm("listPersonAssignments", () => teamsReader.listPersonAssignments(db, who.actor, { personId: a.blair }), denied),
+		tm("listHistory", () => teamsReader.listHistory(db, who.actor, ministry), unavailable),
+		tm("listRoles", () => teamsReader.listRoles(db, who.actor, ministry), unavailable),
+		tm("readRevision", () => teamsReader.readRevision(db, who.actor, ministry), unavailable),
+		tm("listMembers", () => teamsReader.listMembers(db, who.actor, ministry), unavailable),
+		tm(
+			"listPersonAssignments",
+			() => teamsReader.listPersonAssignments(db, who.actor, { personId: a.blair }),
+			unavailable,
+		),
 		tm("listLeaderCandidates", () => teamsReader.listLeaderCandidates(db, who.actor, { q: MARK }), {
 			value: { people: [] },
 		}),
 		tm("readOrgChart", () => teamsReader.readOrgChart(db, who.actor, {}), { value: { nodes: [] } }),
-		tm("get", () => teamsReader.get(db, who.actor, ministry), denied),
+		tm("get", () => teamsReader.get(db, who.actor, ministry), unavailable),
 		tm("searchMembers", () => teamsReader.searchMembers(db, who.actor, { q: MARK }), {
 			value: { items: [], completeness: "complete" },
 		}),
@@ -200,23 +203,31 @@ export function teamsCases(t: Tenancy, who: TenancyOwner) {
 		tr(
 			"readRequiredTrainingPreview",
 			() => trainingReader.readRequiredTrainingPreview(db, who.actor, { programId: a.program, personIds: [a.avery] }),
-			denied,
+			unavailable,
 		),
 		tr("readTrainingMatrix", () => trainingReader.readTrainingMatrix(db, who.actor, ministry), {
 			value: { programs: [] },
 		}),
-		tr("readPersonTraining", () => trainingReader.readPersonTraining(db, who.actor, { personId: a.avery }), denied),
-		tr("readTrainingHistory", () => trainingReader.readTrainingHistory(db, who.actor, { personId: a.avery }), denied),
-		tr("readAssignmentHistory", () => trainingReader.readAssignmentHistory(db, who.actor, ministry), denied),
-		tr("readStaffingFacts", () => trainingReader.readStaffingFacts(db, who.actor, ministry), denied),
-		tr("readHealth", () => trainingReader.readHealth(db, who.actor, ministry), denied),
+		tr(
+			"readPersonTraining",
+			() => trainingReader.readPersonTraining(db, who.actor, { personId: a.avery }),
+			unavailable,
+		),
+		tr(
+			"readTrainingHistory",
+			() => trainingReader.readTrainingHistory(db, who.actor, { personId: a.avery }),
+			unavailable,
+		),
+		tr("readAssignmentHistory", () => trainingReader.readAssignmentHistory(db, who.actor, ministry), unavailable),
+		tr("readStaffingFacts", () => trainingReader.readStaffingFacts(db, who.actor, ministry), unavailable),
+		tr("readHealth", () => trainingReader.readHealth(db, who.actor, ministry), unavailable),
 		tr("readAggregateHealth", () => trainingReader.readAggregateHealth(db, who.actor, {}), {
 			value: { teams: [], measuredTeams: 0, totalTeams: 0, composite: null },
 		}),
 		tr(
 			"readRequiredTrainingParticipants",
 			() => trainingReader.readRequiredTrainingParticipants(db, who.actor, { programId: a.program }),
-			denied,
+			unavailable,
 		),
 	];
 }

@@ -325,6 +325,7 @@ export function relationshipCommands(
 						accepted_at: i.now,
 						ended_at: null,
 						invitation_id: i.id,
+						share_foundations: false,
 						revision: revision.parse(String(BigInt(prior.revision) + 1n)),
 						active: true,
 					}
@@ -349,6 +350,7 @@ export function relationshipCommands(
 						share_wiki: pair.kind === "plant",
 						share_activity: pair.kind === "plant",
 						shared_findings: pair.kind === "plant",
+						share_foundations: false,
 						live: true,
 						active: true,
 					});
@@ -360,6 +362,7 @@ export function relationshipCommands(
 								accepted_at: i.now,
 								ended_at: null,
 								invitation_id: i.id,
+								share_foundations: false,
 								revision: bump(tables.affiliation.revision),
 							})
 							.where(eq(tables.affiliation.id, a.id))
@@ -503,7 +506,11 @@ export function relationshipCommands(
 			c.writes.push(
 				tx
 					.update(tables.affiliation)
-					.set({ ended_at: sql`clock_timestamp()`, revision: bump(tables.affiliation.revision) })
+					.set({
+						ended_at: sql`clock_timestamp()`,
+						share_foundations: false,
+						revision: bump(tables.affiliation.revision),
+					})
 					.where(eq(tables.affiliation.id, a.id)),
 			);
 			const event = await appendEvent(tx, c, a.id, "remove", "affiliation.ended", a.revision, next);

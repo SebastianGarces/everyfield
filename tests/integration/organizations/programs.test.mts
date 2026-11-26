@@ -267,7 +267,7 @@ test("AC:ADR1-010 a blank apprenticeship, and each organization sees only its ow
 	refusedWith(await readProgram(db, await authority(dana), { programId: hillProgram }), "unavailable");
 });
 
-test("AC:ADR1-010 the director edits the draft and its reading list; nobody else edits it and nobody enrolls in a draft", async () => {
+test("AC:ADR1-010 AC:TEN-001 the director edits the draft and its reading list; nobody else edits it and nobody enrolls in a draft", async () => {
 	const p = await program(ana, residency);
 	assert.equal(p.viewer.director, true);
 	const found = ok(await searchReadings(db, await authority(ana), { q: "launch team" }));
@@ -321,11 +321,19 @@ test("AC:ADR1-010 the director edits the draft and its reading list; nobody else
 		}),
 		"invalid_input",
 	);
+	const readingRows = async () =>
+		(
+			await admin.execute<{ n: number }>(
+				sql`SELECT count(*)::int AS n FROM development_reading WHERE organization_id=${grace.id}`,
+			)
+		).rows[0]!.n;
+	assert.equal(await readingRows(), 0);
 	const saved = ok(
 		await savePlan(db, await authority(ana), { programId: residency, expectedRevision: p.revision, plan }),
 	);
 	const after = await program(ana, residency);
 	assert.equal(after.revision, saved.revision);
+	assert.equal(await readingRows(), 3);
 	assert.equal(after.draft?.number, 1);
 	assert.equal(after.draft?.rhythm, "every_two_weeks");
 	assert.equal(after.draft?.expectedMonths, 16);
