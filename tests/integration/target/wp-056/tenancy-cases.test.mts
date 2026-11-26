@@ -243,7 +243,7 @@ test("AC:TEN-001 every same-owner reference refuses a foreign plant, a foreign o
 		return columns;
 	};
 	const owners = new Map(fks.flatMap((f) => [f.child, f.parent]).map((t) => [t, directOwners(t)]));
-	for (let changed = true; changed; ) {
+	for (let changed = true; changed;) {
 		changed = false;
 		for (const f of fks.filter((f) => f.cols.length > 1))
 			f.cols.forEach((col, i) => {
