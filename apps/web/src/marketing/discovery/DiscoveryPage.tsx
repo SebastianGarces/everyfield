@@ -44,7 +44,7 @@ export function DiscoveryPage() {
 			<Privacy p={D.privacy} />
 			<How h={D.how} />
 			<Ready r={D.ready} />
-			<Senders s={D.senders} href="/oversight" />
+			<Senders s={D.senders} />
 			<Faq f={D.faq} />
 			<CtaSection c={D.cta} href={{ primary: start }} />
 		</Site>

@@ -11,13 +11,12 @@ import { LockedScreen, SenderScreen } from "./screens";
 
 type D = Copy["shared"]["discovery_page"];
 
-export const SECTION = "relative py-[clamp(40px,5.556vw,80px)]";
 const EYEBROW = "inline-block mk-eyebrow type-sm leading-[1.3] font-semibold text-text-2";
 const LEAD = "text-mk-lead-sm leading-[1.55] text-pretty text-text-2";
 
 function Wrap({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
 	return (
-		<section id={id} className={SECTION}>
+		<section id={id} className="relative py-[clamp(40px,5.556vw,80px)]">
 			<div className={cn("mx-auto max-w-mk px-page", className)}>{children}</div>
 		</section>
 	);
@@ -131,7 +130,7 @@ export function Ready({ r }: { r: D["ready"] }) {
 	);
 }
 
-export function Senders({ s, href }: { s: D["senders"]; href: string }) {
+export function Senders({ s }: { s: D["senders"] }) {
 	return (
 		<Wrap id="senders">
 			<Reveal className="relative isolate grid grid-cols-2 items-end gap-x-[clamp(32px,5vw,80px)] gap-y-6 p-[clamp(28px,4.5vw,64px)] text-cream max-mk-cx:grid-cols-1">
@@ -148,7 +147,7 @@ export function Senders({ s, href }: { s: D["senders"]; href: string }) {
 				<div>
 					<p className="text-mk-lead-sm leading-[1.55] text-pretty text-cream">{s.body}</p>
 					<a
-						href={href}
+						href="/oversight"
 						className="mt-5 inline-flex items-center gap-2 type-lg font-semibold text-cream underline-offset-4 hover:underline focus-visible:outline-cream"
 					>
 						{s.link}
