@@ -562,7 +562,7 @@
 					}
 				],
 				"require": [
-					"/Thanks for visiting Hope Fellowship|Welcome to Hope Fellowship/",
+					"/\\bemails?\\b/i",
 					"/Carl/",
 					"/\\b(mean|means|prove|proves|proof|show|shows)( that)? (nobody|no one)\\b/i"
 				]
@@ -1495,7 +1495,11 @@
 				"require": [
 					"/no (recorded |launch[- ]team |plant )?goal|goal[^.]{0,40}\\b(isn['’]?t|is not|not|n['’]t)\\b[^.]{0,20}(recorded|set|tracked|stored)|(doesn['’]?t|does not|don['’]?t|can['’]?t|cannot|not) (yet )?(track|record|store|have|find|read)[^.]{0,40}goal/i"
 				],
-				"forbid": ["/goal (of|is) \\d+|\\d+[- ]person goal/i", "/(network|sending|organization)['’]?s? goal/i"]
+				"forbid": [
+					"/goal (of|is) \\d+|\\d+[- ]person goal/i",
+					"/(network|sending|organization)['’]?s? goal/i",
+					"/goal[^.\\n]{0,30}\\b30\\b/i"
+				]
 			},
 			"derivation": "2 people in launch_team (Mark and Jen Thompson). No plant launch-team goal is recorded anywhere at alpha (D-3029), so the answer says so plainly, invents no number and gives no network sending goal in its place."
 		}
@@ -2200,7 +2204,8 @@
 						}
 					}
 				],
-				"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"]
+				"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
+				"require": ["/review|approv/i"]
 			},
 			"derivation": "Three past Vision Meetings were held at the Coffee shop venue (Oct 29, Nov 5 and Nov 8), so Evry asks once which one and prepares nothing. Once the user picks Oct 29 and confirms, it reads that meeting's recorded attendance (meetings.listAttendance) and prepares one people.assignTag review for its 18 attendees with the tag coffee-oct. It writes nothing and never records a tag as a note."
 		}
