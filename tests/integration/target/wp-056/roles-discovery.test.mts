@@ -1,6 +1,5 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { inflateRawSync, inflateSync } from "node:zlib";
 import { sql } from "../../../../packages/db/src/query.ts";
 import { nativeFromText } from "../../../../packages/contracts/src/documents/index.ts";
 import { listPeopleRequest } from "../../../../packages/contracts/src/people/index.ts";
@@ -25,6 +24,7 @@ import { createWikiProducer } from "../../../../packages/domain/src/wiki/index.t
 import { evryActor, EvryRefusal, invokeRead, READ_DOMAINS } from "../../../../packages/evry/src/index.ts";
 import type { ReadAdapter } from "../../../../packages/evry/src/catalog/types.ts";
 import { ok } from "../../../support/fixture.mts";
+import { docxParts, pdfPages, wordText } from "../../documents/fixtures/readers.mts";
 import { key, rolesWorld, type RolesWorld } from "./roles-world.mts";
 
 const TITLE_WORD = "Zephyrwick";
@@ -70,50 +70,34 @@ const inPeople = <V,>(
 	body: (tx: Parameters<Parameters<typeof gatedTransaction>[1]>[0], c: PeopleReadContext) => Promise<V>,
 ) => locked((tx) => body(tx, new PeopleReadContext(a)));
 
-function pdfText(bytes: Buffer) {
-	const parts = [bytes.toString("latin1")];
-	for (let at = bytes.indexOf("stream"); at >= 0; at = bytes.indexOf("stream", at + 6)) {
-		const start = at + (bytes[at + 6] === 0x0d ? 8 : 7);
-		const end = bytes.indexOf("endstream", start);
-		if (end < 0) break;
-		try {
-			parts.push(inflateSync(bytes.subarray(start, end)).toString("latin1"));
-		} catch {
-			parts.push("");
-		}
-		at = end;
+async function fileText(bytes: Buffer) {
+	const magic = bytes.subarray(0, 4).toString("latin1");
+	if (magic === "%PDF") return `${bytes.toString("latin1")}\n${(await pdfPages(bytes)).join("\n")}`;
+	if (magic === "PK\x03\x04") {
+		const parts = docxParts(bytes);
+		return [...Object.values(parts), wordText(parts["word/document.xml"] ?? "")].join("\n");
 	}
-	return parts.join("\n");
+	return bytes.toString("latin1");
 }
-function zipText(bytes: Buffer) {
-	const parts: string[] = [];
-	for (let at = bytes.indexOf("PK\x03\x04"); at >= 0; at = bytes.indexOf("PK\x03\x04", at + 4)) {
-		const [size, name, extra] = [bytes.readUInt32LE(at + 18), bytes.readUInt16LE(at + 26), bytes.readUInt16LE(at + 28)];
-		const body = bytes.subarray(at + 30 + name + extra, at + 30 + name + extra + size);
-		parts.push((bytes.readUInt16LE(at + 8) ? inflateRawSync(body) : body).toString());
-	}
-	return parts.join("\n");
-}
-function unpacked(value: unknown): string {
+async function unpacked(value: unknown): Promise<string> {
 	const parts = [JSON.stringify(value)];
-	const visit = (node: unknown) => {
-		if (typeof node === "string" && node.length > 200 && /^[A-Za-z0-9+/=]+$/.test(node)) {
-			const bytes = Buffer.from(node, "base64");
-			const magic = bytes.subarray(0, 4).toString("latin1");
-			if (magic === "%PDF") parts.push(pdfText(bytes));
-			else if (magic === "PK\x03\x04") parts.push(zipText(bytes));
-			else parts.push(bytes.toString("latin1"));
-		} else if (node instanceof Uint8Array) parts.push(pdfText(Buffer.from(node)));
-		else if (node && typeof node === "object") for (const v of Object.values(node)) visit(v);
+	const visit = async (node: unknown) => {
+		if (typeof node === "string" && node.length > 200 && /^[A-Za-z0-9+/=]+$/.test(node))
+			parts.push(await fileText(Buffer.from(node, "base64")));
+		else if (node instanceof Uint8Array) parts.push(await fileText(Buffer.from(node)));
+		else if (node && typeof node === "object") for (const v of Object.values(node)) await visit(v);
 	};
-	visit(value);
+	await visit(value);
 	return parts.join("\n").toLowerCase();
 }
-const carried = (value: unknown) => WORDS.filter((word) => unpacked(value).includes(word.toLowerCase()));
+const carried = async (value: unknown) => {
+	const text = await unpacked(value);
+	return WORDS.filter((word) => text.includes(word.toLowerCase()));
+};
 const DISCOVERY_IDS = () => [notes.id, notes.revisionId, values.id, values.revisionId];
-const masked = (value: unknown, term: string) =>
+const masked = async (value: unknown, term: string) =>
 	DISCOVERY_IDS()
-		.reduce((text, id) => text.replaceAll(id.toLowerCase(), "<discovery>"), unpacked(value))
+		.reduce((text, id) => text.replaceAll(id.toLowerCase(), "<discovery>"), await unpacked(value))
 		.replaceAll(term.toLowerCase(), "<term>")
 		.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<id>")
 		.replace(/\d{4}-\d{2}-\d{2}t[\d:.]+z/g, "<time>");
@@ -193,23 +177,23 @@ async function searchesFindNothing(role: "member" | "director") {
 		.documents.map((d) => d.title)
 		.sort();
 	assert.deepEqual(mine, [`${TITLE_WORD} call notes`, `${TITLE_WORD} values`]);
-	assert.deepEqual(carried(await documentsWriter.readMine(w.db, planter, { documentId: notes.id })), WORDS);
+	assert.deepEqual(await carried(await documentsWriter.readMine(w.db, planter, { documentId: notes.id })), WORDS);
 
 	const a = await w.actor(role);
 	const ran: string[] = [];
 	for (const term of WORDS) {
-		const same = (found: unknown, control: unknown, name: string) => {
-			const shown = masked(found, term);
-			assert.equal(shown, masked(control, NONE), `${name} ${term}`);
+		const same = async (found: unknown, control: unknown, name: string) => {
+			const shown = await masked(found, term);
+			assert.equal(shown, await masked(control, NONE), `${name} ${term}`);
 			for (const word of [...WORDS, "<discovery>"])
 				assert.equal(shown.includes(word.toLowerCase()), false, `${name} ${word}`);
 			ran.push(name);
 		};
-		for (const [name, search] of Object.entries(SEARCHES)) same(await search(a, term), await search(a, NONE), name);
+		for (const [name, search] of Object.entries(SEARCHES)) await same(await search(a, term), await search(a, NONE), name);
 		for (const adapter of adapters) {
 			const controls = evryInputs(adapter, NONE);
 			for (const [at, input] of evryInputs(adapter, term).entries())
-				same(await evryRead(a, adapter, input), await evryRead(a, adapter, controls[at]), adapter.operation);
+				await same(await evryRead(a, adapter, input), await evryRead(a, adapter, controls[at]), adapter.operation);
 		}
 	}
 	for (const operation of [
@@ -267,6 +251,10 @@ const NAMED: Record<string, (a: RequestActor, documentId: string) => Promise<unk
 
 async function exportsCarryNothing(role: "member" | "director") {
 	const a = await w.actor(role);
+	const READABLE: Record<string, string> =
+		role === "member"
+			? { "church document PDF": "lawyer", "saved PDF": "lawyer", "church document Word": "lawyer" }
+			: {};
 	const meetings = ok(await meetingsReader.list(w.db, await w.actor("owner"), {})).items.map((m) => m.id);
 	const exports: [string, () => Promise<unknown>][] = [
 		...Object.entries(EXPORTS).map(([name, run]) => [name, () => run(a)] as [string, () => Promise<unknown>]),
@@ -282,14 +270,15 @@ async function exportsCarryNothing(role: "member" | "director") {
 	for (const [name, run] of exports) {
 		const reply = await run();
 		if (!refusedReply(reply)) answered += 1;
-		assert.deepEqual(carried(reply), [], name);
+		if (name in READABLE) assert.ok((await unpacked(reply)).includes(READABLE[name]), `the reader sees ${name}`);
+		assert.deepEqual(await carried(reply), [], name);
 	}
 	assert.ok(answered > 0, "some export answers this role");
 	for (const doc of [notes, values])
 		for (const [name, run] of Object.entries(NAMED)) {
 			const reply = await run(a, doc.id);
 			assert.ok(refusedReply(reply), `${name} ${JSON.stringify(reply).slice(0, 200)}`);
-			assert.deepEqual(carried(reply), [], name);
+			assert.deepEqual(await carried(reply), [], name);
 		}
 }
 
