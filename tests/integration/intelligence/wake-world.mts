@@ -465,7 +465,6 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		c,
 		db,
 		clock,
-		sync,
 		job,
 		assessments,
 		scripted,
