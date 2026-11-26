@@ -55893,8 +55893,8 @@
       "expected": {
         "state": {},
         "result": {
-          "rate": 100,
-          "phase": 6,
+          "rate": 67,
+          "phase": 1,
           "unknown_is_zero": false,
           "prior_history_rewritten": false
         },
