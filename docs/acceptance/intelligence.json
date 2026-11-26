@@ -22006,7 +22006,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-people.test.mts"
+      ],
       "description": "mw-006-teams-and-responsibility-mappings-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -29206,7 +29209,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-017-native-values-documents-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -29831,7 +29837,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-018-Discovery-reading-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -31177,7 +31186,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-020-Launch-occurrence-and-guest-participation-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -31847,7 +31859,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "mw-021-Launch-debrief-and-summary-all-or-nothing-failure-paused-wakeup",
       "given": {
         "P": {
@@ -35065,7 +35080,10 @@
       "work_packages": [
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/wake-cases-plan.test.mts"
+      ],
       "description": "Plant reporting-geography correction advances plant assessment freshness; organization publication compares contributor source revisions.",
       "given": {
         "P": {
