@@ -874,7 +874,6 @@ test("AC:SEC-07 profile patches parse on the server: no mass assignment, malform
 		};
 		const saved = await profile(admin, P, first);
 		assert.equal(saved.status, "ok");
-		// The fresh revision, so only the stored request digest can refuse the changed body.
 		const changed = await profile(admin, P, {
 			requestKey: key,
 			expectedRevision: await revisionOf(P),

@@ -61,8 +61,7 @@ const installedTemplates = async (query = rows) =>
 			WHERE kind = 'mail_template' AND tenant_id = '00000000-0000-0000-0000-000000000000'::uuid`)
 	)[0]!.n;
 
-/** A church with a customized fork of the vision invitation and a platform publisher, before any install. */
-async function world(d: Fixture) {
+async function churchWithForkBeforeInstall(d: Fixture) {
 	const runtime = d.pools.runtime;
 	const A = { ...d.actors.admin, actor: await actorOf(d.actors.admin, runtime) };
 	const publisher = await d.actor(null, "owner", { account: { registration_kind: "planter" } });
@@ -104,7 +103,7 @@ async function world(d: Fixture) {
 let A: Actor & { actor: RequestActor }, publisher: Actor, foreign: Actor;
 let fork: { templateId: string; bodyHtml: string };
 before(async () => {
-	({ A, publisher, foreign, fork } = await world(database));
+	({ A, publisher, foreign, fork } = await churchWithForkBeforeInstall(database));
 });
 after(() => database.close());
 
@@ -256,12 +255,11 @@ test("AC:REF-CASE-006 seven system templates install with no recipient, schedule
 	const exec = given.execution;
 	const { result } = expected;
 	assert.equal(await sourceHash(), exec.catalog_sha256);
-	// Its own schema, so the counts below span the first install of the seven templates, not a replay.
 	const d = await fixture({ prefix: "wp092ref6", clock: CLOCK });
 	after(() => d.close());
 	const query = rowsOf(d);
 	const runtime = d.pools.runtime;
-	const { A, publisher, fork } = await world(d);
+	const { A, publisher, fork } = await churchWithForkBeforeInstall(d);
 	assert.equal(await installedTemplates(query), 0);
 	const installer = messageTemplateInstaller(d.admin);
 	const R = await d.plant({ name: "Riverbend", timezone: "America/Chicago" });

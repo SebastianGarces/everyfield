@@ -152,13 +152,11 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		const scope = scopeOf(authority);
 		const identity = identityOf(scope, operation, q);
 		return auditTransaction(db, async (tx) => {
-			// Lock the milestone, then share-lock its linked tasks so a concurrent tick waits. Postgres runs a SELECT
-			// CTE only when the statement reads it, so the counts are what take both locks; their values are unused.
 			await tx.execute(sql`WITH m AS (SELECT id,plant_id,template_key FROM launch_milestone WHERE id=${q.input.milestoneId}::uuid
 	AND plant_id=${scope.plantId}::uuid AND removed_at IS NULL AND ${scope.admin} FOR UPDATE),
  k AS (SELECT k.id FROM task k JOIN m ON m.plant_id=k.plant_id AND split_part(k.launch_task_key,'/',1)=m.template_key
 	WHERE k.deleted_at IS NULL FOR SHARE OF k)
- SELECT (SELECT count(*) FROM m) AS milestones,(SELECT count(*) FROM k) AS tasks`);
+ SELECT (SELECT count(*) FROM m) AS milestones_locked,(SELECT count(*) FROM k) AS linked_tasks_share_locked`);
 			const { rows } =
 				await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, q.requestKey)},
  m AS (SELECT * FROM launch_milestone WHERE id=${q.input.milestoneId}::uuid AND plant_id=${scope.plantId}::uuid
