@@ -43,9 +43,8 @@ export type RefreshConfig = {
 	compose?: (input: { findings: NetworkFinding[] }) => Promise<NetworkOutput>;
 	retrieve?: (db: Db) => Promise<NetworkReference | null>;
 	clock?: Clock;
-	leaseMs?: number;
 };
-export type RefreshClaim = { runId: string; organization: string; generation: number; owner: string };
+type RefreshClaim = { runId: string; organization: string; generation: number; owner: string };
 
 const VIOLATIONS = ["unsupported_numeric_value", "prohibited_fields", "invalid_reference_citation"] as const;
 type Violation = (typeof VIOLATIONS)[number];
@@ -161,7 +160,7 @@ export async function claimIntelligenceRefresh(
 	const now = at(config);
 	return db.transaction(async (tx) => {
 		const { rows } = await tx.execute(sql`UPDATE network_intelligence_run r SET claim_generation=r.claim_generation+1,
-	outcome='pending',lease_owner=${owner},lease_until=${now}+make_interval(secs=>${(config.leaseMs ?? NETWORK_LEASE_MS) / 1000})
+	outcome='pending',lease_owner=${owner},lease_until=${now}+make_interval(secs=>${NETWORK_LEASE_MS / 1000})
 	WHERE r.id=(SELECT q.id FROM network_intelligence_run q WHERE (q.outcome='deferred'
 		OR (q.outcome='pending' AND (q.lease_until IS NULL OR q.lease_until<=${now})))
 		${runId ? sql`AND q.id=${runId}::uuid` : sql``} ORDER BY q.ran_at,q.id LIMIT 1 FOR UPDATE SKIP LOCKED)
@@ -290,7 +289,7 @@ export async function requestIntelligenceRefresh(
 			sql`WITH ready AS (SELECT ${activeReference} IS NOT NULL AS ok),
 r AS (INSERT INTO network_intelligence_run (id,organization_id,requested_by,rubric_version,outcome,lease_owner,lease_until)
 	SELECT ${input.runId}::uuid,${o},${w.actor}::uuid,${C.RUBRIC_VERSION},'pending',${owner},
-		${at(config)}+make_interval(secs=>${(config.leaseMs ?? NETWORK_LEASE_MS) / 1000})
+		${at(config)}+make_interval(secs=>${NETWORK_LEASE_MS / 1000})
 	FROM ready WHERE ready.ok ON CONFLICT (id) DO NOTHING RETURNING id)
 SELECT EXISTS(SELECT FROM r) AS added, (SELECT ok FROM ready) AS ready,
 	EXISTS(SELECT FROM network_intelligence_run WHERE id=${input.runId}::uuid AND organization_id=${o}) AS existing`,

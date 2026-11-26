@@ -15,8 +15,6 @@ import { originJson, originOf, outcomeEvidence } from "../tasks/origin.ts";
 import { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
 import { followUpTask, gated, now, OPEN, readAnswer, refuse } from "./core.ts";
 
-export { followUpTask, OPEN };
-
 const at = (d: Date) => instant.parse(d.toISOString());
 const lastPageAtMost = (v: { page: number; limit: number }, total: number) =>
 	Math.max(1, Math.min(v.page, Math.ceil(total / v.limit)));

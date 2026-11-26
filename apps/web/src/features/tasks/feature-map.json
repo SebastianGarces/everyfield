@@ -14,7 +14,8 @@
 		"TSK-010",
 		"TSK-014",
 		"TSK-015",
-		"TSK-016"
+		"TSK-016",
+		"IDN-016"
 	],
 	"surfaces": [
 		{
@@ -35,7 +36,7 @@
 				"member": "write",
 				"signup": "none",
 				"visitor": "none",
-				"discovery": "read",
+				"discovery": "write",
 				"resident": "read"
 			},
 			"states": [
@@ -133,7 +134,7 @@
 					]
 				},
 				{
-					"id": "locked",
+					"id": "discovery-steps",
 					"reach": {
 						"persona": "discovery",
 						"open": "/tasks",
@@ -142,11 +143,13 @@
 					"expect": [
 						{
 							"role": "heading",
-							"name": "Tasks opens when you start your church"
+							"name": "Starter steps"
 						},
 						{
-							"role": "link",
-							"name": "Start a church"
+							"absent": {
+								"role": "button",
+								"name": "New task"
+							}
 						}
 					]
 				}
@@ -309,6 +312,21 @@
 							}
 						],
 						"cases": ["TARGET-TSK-014"]
+					}
+				},
+				{
+					"id": "discovery-steps",
+					"says": "A Discovery planter checks a starter step off or opens it again.",
+					"catalog": ["IDN-016", "TSK-009"],
+					"operations": ["discovery.setStep"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/discovery-steps.test.mts",
+								"name": "AC:TARGET-IDN-016 a step ticks and unticks; a retry, a stale revision and an unknown key change nothing"
+							}
+						],
+						"cases": ["TARGET-IDN-016"]
 					}
 				}
 			]

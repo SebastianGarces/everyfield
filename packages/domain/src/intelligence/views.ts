@@ -13,7 +13,8 @@ const STANDING = { urgent: "attention", watch: "watch", positive: "strength", in
 function catalogOf(facts: unknown): { facts: c.PlantFacts | null; entries: Map<string, c.FactEntry> } {
 	const parsed = c.plantFacts.safeParse(facts);
 	if (!parsed.success) return { facts: null, entries: new Map() };
-	return { facts: parsed.data, entries: new Map(c.factCatalog(parsed.data).map((f) => [f.key, f])) };
+	const all = [...c.factCatalog(parsed.data), ...c.readinessCatalog(parsed.data)];
+	return { facts: parsed.data, entries: new Map(all.map((f) => [f.key, f])) };
 }
 const evidenceOf = (entries: Map<string, c.FactEntry>, keys: readonly string[]): c.EvidenceFact[] =>
 	keys.flatMap((k) => {
@@ -71,6 +72,8 @@ export function criteriaOf(catalog: Catalog, phase: number, facts: unknown): c.A
 const ANSWERED = { yes: "Answered yes", not_yet: "Answered not yet" } as const;
 const answerReading = (value: c.EvidenceFact["value"], asOf: c.EvidenceFact["value"]) =>
 	value === "yes" || value === "not_yet" ? `${ANSWERED[value]} as of ${String(asOf)}` : null;
+const named = (value: c.EvidenceFact["value"], asOf: c.EvidenceFact["value"], say: (name: string) => string) =>
+	typeof value === "string" ? `${say(value)} as of ${String(asOf)}` : null;
 const READINGS: Partial<Record<CriterionKey, (v: (key: string) => c.EvidenceFact["value"]) => string | null>> = {
 	values_documented: (v) =>
 		answerReading(v("attestations.values_documented"), v("attestations.values_documented.asOf")),
@@ -107,6 +110,16 @@ const READINGS: Partial<Record<CriterionKey, (v: (key: string) => c.EvidenceFact
 			? `${counted(days, "day")} to Launch Sunday`
 			: `Launch Sunday's date was ${counted(-days, "day")} ago`;
 	},
+	coach_assigned: (v) =>
+		named(v("readiness.relationship"), v("readiness.relationship.asOf"), (n) => `Relationship with ${n} attested`),
+	worship_leader: (v) =>
+		named(
+			v("readiness.worship_agreement"),
+			v("readiness.worship_agreement.asOf"),
+			(n) => `${n} agreed to lead worship`,
+		),
+	geographic_area: (v) =>
+		named(v("readiness.community"), v("readiness.community.asOf"), (n) => `Chosen community: ${n}`),
 	first_service_complete: (v) => {
 		const on = v("firstService.heldOn");
 		if (typeof on !== "string") return null;
@@ -156,8 +169,7 @@ export const storedStrength = z.object({
 	keys: z.array(z.string()),
 	evidence: z.array(c.evidenceFact),
 });
-export type StoredStrength = z.infer<typeof storedStrength>;
-export const strengthOf = (runId: string, s: StoredStrength) => ({
+export const strengthOf = (runId: string, s: z.infer<typeof storedStrength>) => ({
 	id: c.concernId(runId, s.ordinal),
 	ordinal: s.ordinal,
 	lens: s.keys.map(c.lensOfKey).find((l) => l !== null) ?? null,

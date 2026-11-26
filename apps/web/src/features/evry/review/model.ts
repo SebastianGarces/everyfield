@@ -357,15 +357,17 @@ export type Review = {
 	stale: "message" | "merge" | null;
 	mailDelayed?: true;
 	now: string;
+	closed?: true;
 };
 
 export type Phase =
-	"pending" | "expired" | "cancelled" | "running" | "completed" | "refused" | "unconfirmed" | "withheld";
+	"pending" | "expired" | "cancelled" | "running" | "completed" | "refused" | "unconfirmed" | "withheld" | "closed";
 
 export const approvalLeft = (review: Review) => Date.parse(review.expiresAt) - Date.parse(review.now);
 
 export function phaseOf(review: Review, lapsed: boolean): Phase {
 	if (review.outcome === "completed") return "completed";
+	if (review.closed) return "closed";
 	if (review.review.withheld) return "withheld";
 	if (review.status === "cancelled") return "cancelled";
 	if (review.status === "expired") return "expired";

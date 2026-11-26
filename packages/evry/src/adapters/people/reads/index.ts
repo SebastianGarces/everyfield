@@ -213,6 +213,8 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 	},
 };
 
+const DUPLICATE_NOTE =
+	"Name each person by their row's label, give each one's hint (match and signals), and say that a hint is not proof they are the same person.";
 export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckRequest>> = {
 	operation: "people.checkForDuplicates",
 	description:
@@ -235,6 +237,7 @@ export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckReques
 			next: null,
 			completeness,
 			exclusions: ["retired people", "contact values"],
+			...(items.length > 0 && { facts: { note: DUPLICATE_NOTE } }),
 		};
 	},
 };

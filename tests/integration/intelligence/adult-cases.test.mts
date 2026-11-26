@@ -1188,3 +1188,97 @@ test("AC:PI-PHASE6-001 in phase 6 a measured Vision follow-up rate and named lau
 		[["phase", "6"]],
 	);
 });
+
+test("AC:PI-METRIC-001 the 48-hour rate counts only matured follow-ups with an actual completion in the window, leaves a completed task with no completion event out, and rewrites no earlier row", async () => {
+	const k = K("PI-METRIC-001");
+	type Origin = {
+		id: string;
+		start: string | null;
+		completed?: string | null;
+		state?: string;
+		waivedAt?: string;
+		sourceMeetingSoftDeletedAt?: string;
+		taskStorageCreatedAt?: string;
+		recordedAt?: string;
+		expected: string;
+	};
+	const v = <T,>(name: string) => (givenOf(k)[name] as unknown as { value: T }).value;
+	const asOf = v<string>("asOf");
+	assert.equal(v<number>("contactedOutcomeCount"), 0);
+	const plant = givenOf(k).P as unknown as { phase: string };
+	const p = await plantOf({ phase: Number(plant.phase.replace("Phase", "")) });
+	const byPerson = new Map<string, Origin>();
+	for (const o of v<Origin[]>("originObligations")) {
+		const personId = await person(p, o.id, { fixture_type: "person", classification: "adult" });
+		byPerson.set(personId, o);
+		const completed = o.completed ?? null;
+		if (o.start === null) {
+			const taskId = randomUUID();
+			await record(taskId, "task", p.id);
+			await c.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,
+				person_id,completed_at) VALUES(${taskId},${p.id},'Follow up','follow_up','medium','complete',${completed}::timestamptz,
+				'undated',${personId},${completed}::timestamptz)`);
+			await outcomeAt(p, personId, "administrative_completion", completed!, null);
+			continue;
+		}
+		const meeting = await heldMeeting(p, o.start);
+		if (o.sourceMeetingSoftDeletedAt)
+			await c.admin.execute(
+				sql`UPDATE meeting SET retired_at=${o.sourceMeetingSoftDeletedAt}::timestamptz WHERE id=${meeting}`,
+			);
+		const status = o.state ?? (completed ? "complete" : "not_started");
+		const task = await followUpAt(p, meeting, personId, o.start, status, completed ?? o.start);
+		if (o.waivedAt)
+			await c.admin.execute(sql`UPDATE obligation SET waived_at=${o.waivedAt}::timestamptz WHERE id=${task.id}`);
+		if (o.taskStorageCreatedAt)
+			await c.admin.execute(
+				sql`UPDATE task SET created_at=${o.taskStorageCreatedAt}::timestamptz WHERE id=${task.taskId}`,
+			);
+		if (completed) {
+			await outcomeAt(p, personId, "administrative_completion", completed, task);
+			if (o.recordedAt)
+				await c.admin.execute(
+					sql`UPDATE contact_outcome SET recorded_at=${o.recordedAt}::timestamptz WHERE task_id=${task.taskId}`,
+				);
+		}
+	}
+	const reasonOf: Record<string, [eligible: boolean, success: boolean | null, reason: string] | "absent"> = {
+		"exclude:immature_pending": [false, null, "immature"],
+		denominator_miss: [true, false, "measured"],
+		denominator_success: [true, true, "measured"],
+		"exclude:future_actual_origin": [false, null, "future_origin"],
+		"exclude:future_actual_completion": [false, null, "invalid_completion"],
+		"exclude:completion_before_origin": [false, null, "invalid_completion"],
+		"exclude:waived": [false, null, "waived"],
+		"exclude:missing_actual_completion": [false, null, "missing_completion"],
+		"exclude:missing_or_invalid_origin": "absent",
+	};
+	const page = ok(
+		await untouched(c.admin, () =>
+			gatedTransaction(c.db, (t) => followUpReader.readObligations(t, p.a.actor, { asOf, state: "any", limit: 100 })),
+		),
+	);
+	const got = Object.fromEntries(
+		[...byPerson].map(([personId, o]) => {
+			const row = page.items.find((i) => i.person?.id === personId);
+			const m = row?.measurement;
+			return [o.id, m ? [m.eligible, m.success, m.reason] : "absent"];
+		}),
+	);
+	assert.deepEqual(got, Object.fromEntries([...byPerson.values()].map((o) => [o.id, reasonOf[o.expected]])));
+	const readAt = createFacts({ clock: frozenClock(instant.parse(asOf)) });
+	const f = ok(await untouched(c.admin, () => readAt.readFacts(c.db, p.a.actor, {}))).followUps;
+	assert.deepEqual([f.onTime, f.measured, f.pending, f.noLongerNeeded, f.unmeasured, f.contacted], [4, 6, 1, 1, 5, 0]);
+	const { phase } = await c.one<{ phase: number }>(sql`SELECT phase FROM plant WHERE id=${p.id}`);
+	const again = ok(await untouched(c.admin, () => readAt.readFacts(c.db, p.a.actor, {}))).followUps;
+	matches(
+		{
+			rate: Math.round((100 * f.onTime) / f.measured),
+			phase,
+			unknown_is_zero: f.status !== "measured",
+			prior_history_rewritten: JSON.stringify(again) !== JSON.stringify(f),
+		},
+		expectedOf(k),
+		k.id,
+	);
+});

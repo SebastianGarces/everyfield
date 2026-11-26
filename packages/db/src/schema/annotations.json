@@ -4039,7 +4039,13 @@
 				"domain": "tenancy",
 				"purpose": "Explicit account-owned preplant profile and conversion lineage.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"steps": [
+						"key: a step key of the Phase 0 checklist in the tasks catalog",
+						"catalog_version: the tasks catalog version the step was checked off under",
+						"done_at: when the planter checked it off"
+					]
+				},
 				"capabilities": ["CAP-A-008"],
 				"replaces": ["discovery_profile"],
 				"producer_work_packages": ["WP-004", "WP-007"],
@@ -4088,6 +4094,12 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"steps": {
+					"note": "The starter steps the planter checked off, one entry per done step; an open step has no entry. Conversion carries them into the church as tasks."
+				},
+				"steps_revision": {
+					"note": "Fences step changes on their own, so checking a step off never makes a pending conversion stale."
 				}
 			},
 			"foreignKeys": {

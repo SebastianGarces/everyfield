@@ -53,6 +53,16 @@ for (const [name, engine] of ENGINES) {
 		}),
 	);
 
+	test(
+		`AC:TARGET-IDN-001 (${name}): a new "I'm exploring" account lands on the Discovery home`,
+		{ timeout: 90_000 },
+		() =>
+			withPage(engine, async (page) => {
+				await signInAs(page, seed().landing.discovery);
+				await page.waitForURL(at("/my-discovery"), { timeout: 60_000 });
+			}),
+	);
+
 	test(`AC:TARGET-IDN-028 INV-safe-return (${name}): a safe returnTo wins over the rule`, { timeout: 90_000 }, () =>
 		withPage(engine, async (page) => {
 			await signInAs(page, seed().landing.finished, "/signin?returnTo=%2Fsettings%2Fsharing");

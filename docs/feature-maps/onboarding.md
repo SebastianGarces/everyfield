@@ -36,7 +36,10 @@ flowchart LR
   rail -- "Home" --> s3
   s3 -.- s3_st0(("linked"))
   s3 -.- s3_st1(("seat"))
-  s3 --- s3_b0["start-church<br/>tests + cases"]
+  s3 --- s3_b0["starter-steps<br/>tests + cases + browser behavior"]
+  s3 --- s3_b1["start-church<br/>tests + cases"]
+  s3 --- s3_b2["steps-carried<br/>tests + cases"]
+  s3 --- s3_b3["steps-private<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -291,7 +294,7 @@ agent-browser find role combobox text --name "Preview account" --exact
 
 ### onboarding.discovery-home
 
-The Discovery home for a planter with no seat: the foundations with what is read, the Wiki, private documents, Evry, the sending church or network by name, and Start a church.
+The Discovery home for a planter with no seat: the foundations with what is read, the starter steps with how many are done, the Wiki, private documents, Evry, the sending church or network by name, and Start a church.
 
 - Routes: `/my-discovery`
 - Personas: `discovery` write, `resident` read, `owner` none, `visitor` none
@@ -303,12 +306,13 @@ Reach:
 
 States:
 
-- **linked**: heading "Foundations"; link "Open the Wiki"; link "Start a church". As `discovery`, on the QA seed:
+- **linked**: heading "Foundations"; link "Open Tasks"; link "Open the Wiki"; link "Start a church". As `discovery`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/my-discovery"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Foundations" --exact
+agent-browser find role link text --name "Open Tasks" --exact
 agent-browser find role link text --name "Open the Wiki" --exact
 agent-browser find role link text --name "Start a church" --exact
 ```
@@ -321,6 +325,23 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/overview"
 ```
 
+#### onboarding.discovery-home#starter-steps
+
+The starter steps card says how many of the six are done and opens Tasks.
+
+- No operation: The card shows the steps the planter already has, and its link only opens Tasks.
+- Catalog: IDN-016
+- Cases: TARGET-IDN-016
+- Test: `tests/integration/onboarding/discovery-steps.test.mts`: `AC:TARGET-IDN-016 a Discovery planter reads the six Phase 0 steps, all open, with their catalog titles`
+- Browser, behavior proof (acts and checks the result), from state linked:
+
+```bash
+agent-browser find role link click --name "Open Tasks" --exact
+agent-browser wait --load networkidle
+agent-browser wait --url "**/tasks"
+agent-browser find role heading text --name "Starter steps" --exact
+```
+
 #### onboarding.discovery-home#start-church
 
 Start a church names each sending church or network, keeps every link unless the planter ends it, and says who can cover the seat.
@@ -329,3 +350,23 @@ Start a church names each sending church or network, keeps every link unless the
 - Catalog: IDN-016
 - Cases: TARGET-IDN-016
 - Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-016 INV-conversion: a link ends only when the request names it, and a kept link turns on no sharing`
+
+#### onboarding.discovery-home#steps-carried
+
+Starting a church, natively or through Evry, brings every step into the church's Tasks once, as ordinary tasks assigned to the planter: checked-off steps complete with their time and the planter in the history, open ones undated.
+
+- Operations: discovery.convertToPlant
+- Catalog: IDN-016
+- Cases: TARGET-IDN-016
+- Test: `tests/integration/onboarding/discovery-steps.test.mts`: `AC:TARGET-IDN-016 AC:TARGET-TSK-015 conversion carries every step into the church as an ordinary task, once`
+- Test: `tests/integration/onboarding/discovery-steps.test.mts`: `AC:TARGET-IDN-016 a conversion that fails carries no task and keeps the steps`
+- Test: `tests/evry/adapters/documents/account.test.mts`: `AC:TARGET-IDN-016 INV-discovery-steps: a church started through Evry carries the planter's starter steps as tasks, the done ones complete`
+
+#### onboarding.discovery-home#steps-private
+
+Only the planter reads or changes their starter steps. Another account, a seat and a sending church or network director are refused on the server, whatever the foundations switch says.
+
+- Operations: discovery.setStep
+- Catalog: IDN-016
+- Cases: TARGET-IDN-016
+- Test: `tests/integration/onboarding/discovery-steps.test.mts`: `AC:TARGET-IDN-016 INV-privacy: only the planter reads or changes their steps; a director never sees them`

@@ -20,6 +20,7 @@ const status = {
 	not_found: 404,
 	access_denied: 403,
 	church_changed: 409,
+	discovery_read_only: 409,
 	invalid_input: 400,
 	run_active: 409,
 	review_changed: 409,

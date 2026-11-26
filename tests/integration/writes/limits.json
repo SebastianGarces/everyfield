@@ -1291,6 +1291,10 @@
 		"retry": 6,
 		"reason": "Above the pattern: the declaration and launch writes run beside one plant UPDATE that sets both answers, both revisions and the saved time. Its largest first run: 2 transaction, 2 locked read, 1 read, 5 write."
 	},
+	"onboarding.setDiscoveryStep": {
+		"limit": 6,
+		"retry": 5
+	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 7,
 		"reason": "BEGIN and COMMIT around onboarding.createDiscovery: the write gate, the lifecycle read, the setup check, the account's wiki readings, which the discovery copies, and the discovery insert. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write.",
@@ -2226,10 +2230,16 @@
 	"signals.attestCandidate": {
 		"limit": 1
 	},
+	"signals.attestReadiness": {
+		"limit": 1
+	},
 	"signals.correct": {
 		"limit": 1
 	},
 	"signals.correctCandidate": {
+		"limit": 1
+	},
+	"signals.correctReadiness": {
 		"limit": 1
 	},
 	"signals.getHistory": {
@@ -2239,6 +2249,9 @@
 		"limit": 0
 	},
 	"signals.readAttestations": {
+		"limit": 1
+	},
+	"signals.readReadiness": {
 		"limit": 1
 	},
 	"signals.reaffirm": {

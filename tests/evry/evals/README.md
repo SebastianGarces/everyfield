@@ -17,6 +17,7 @@ blob that can match a push-protection pattern by chance. `recorder.test.mts` (`t
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
 | `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (425 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
+| `golden.test.mts`        | `people.cases.json` (5 church-wide People questions on Hope Fellowship, plus one zero-match case, on the scripted model) | Each answer's exact seed counts, names and page offer; no recording, no judge               |
 | `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
 | `followups.test.mts`     | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
@@ -177,6 +178,21 @@ Version 1 published with one reading, and Casey Lee enrolled on it with one mile
 each approved draft back on the program page, refuse the card to every seat but the director, refuse it after a native
 edit, and, after Ana publishes natively, read the native apply review for Casey: kept and renamed milestones keep
 their lineage.
+
+## The scripted People cases
+
+`people.cases.json` (`"model": "scripted"`, `INV-evry-people-evals`) asks the five church-wide People questions of
+TEAM-06, CLN-09, HH-08, PIP-08 and PIP-04 on the deterministic scripted model
+(`packages/evry-scripted/src/scripted-people.ts`), so they run in CI's DB tests with no recording, judge or API key. Each
+runs on its own fresh Hope Fellowship seed (`"church": "people"`, the golden church), because the assessment cases
+merge people in the shared one. Each makes one `people.listPeople` call under the skill, photo, household, child or
+stage-move filter, and expects the seed's exact answer: the Tech skills of Mark Thompson and Alex Rivera across all 84
+people, 79 with no photo and 66 in no household (each naming the first page of 24 and offering page 2), the Rivera
+and Nguyen households' recorded children, and the 2 moves into core group this month (Priya Shah on Nov 2, Mike
+Brennan on Nov 5). The golden church has two Okafor households, in Austin and Leander (`HOUSEHOLDS` in
+`golden-church.mts`), so a household list names Okafor twice. PPL-06 asks the Tech question on the assessed church
+(`intelligence-church.mts`), which records no skills, so it checks the zero-match reply: a plain sentence with no empty
+list.
 
 ## The launch suite (scripted model)
 
@@ -469,9 +485,9 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 513 golden rows that run on `gpt-6-luna` from scratch is 2,485 calls, about $9.21
+**Cost.** Recording all 514 golden rows that run on `gpt-6-luna` from scratch is 2,511 calls, about $9.32
 (`spend.allMicroUsd` in `golden.recorded.json`; judge calls and journey repetitions 2 and 3 included: the repetitions
-are 105 calls, $0.49). The household file is 10 calls, about $0.03, the follow-up file 12, about $0.04, the
+are 109 calls). The household file is 10 calls, about $0.03, the follow-up file 15, about $0.05, the
 kill-switch file 5, about $0.03, and `classify.recorded.json` is 32 calls, about a tenth of a cent (their `spend`).
 Re-recording only the changed cases costs about one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
 pass the provider's per-minute limit: search the files for "Rate limit" afterwards, re-record those cases with

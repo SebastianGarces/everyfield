@@ -1,5 +1,5 @@
 import { sql, type SQL } from "@everyfield/db/query";
-import { journeyAnswer } from "@everyfield/contracts/onboarding";
+import { DISCOVERY_CHATS_STAY, journeyAnswer } from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
@@ -274,6 +274,7 @@ export const convertToPlant = nativeWrite({
 								"Each sending church or network stays connected to the church and sees nothing new. A link ends only where this review says it ends.",
 							]
 						: []),
+					DISCOVERY_CHATS_STAY,
 					SEAT,
 					NEXT_STEPS,
 				])})||${refusal} AS review,
