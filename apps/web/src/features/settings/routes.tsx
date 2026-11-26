@@ -24,7 +24,10 @@ export async function AccountDeletionPage({ searchParams }: { searchParams: Sear
 	);
 }
 
-export const workspaceDeletionMetadata: Metadata = { ...accountDeletionMetadata, title: "Church workspace deletion" };
+export const workspaceDeletionMetadata: Metadata = {
+	...accountDeletionMetadata,
+	title: "Church plant account deletion",
+};
 
 export async function WorkspaceDeletionPage({ searchParams }: { searchParams: Search }) {
 	const until = instant.safeParse(one((await searchParams).until));

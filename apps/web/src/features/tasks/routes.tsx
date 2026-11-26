@@ -20,8 +20,7 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 	if (!viewer)
 		return (
 			<PageState page="Tasks" tone="lock" title="Tasks are not part of your seat">
-				Tasks belong to a church plant workspace. Your account has no current seat in one, so there is nothing to show
-				here.
+				Tasks belong to a church plant account. You have no current seat in one, so there is nothing to show here.
 			</PageState>
 		);
 	const loaded = await loadTasksPage(viewer, query, open.success ? open.data : null);

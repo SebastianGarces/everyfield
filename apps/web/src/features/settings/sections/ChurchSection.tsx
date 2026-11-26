@@ -276,7 +276,7 @@ function ChurchForm({
 				</SettingRow>
 				{canDeleteWorkspace(viewer) ? (
 					<SettingRow
-						label="Delete church workspace"
+						label="Delete church plant account"
 						description="Only the Owner can do this. You have 30 days to cancel."
 					>
 						<WorkspaceDeletionDialog

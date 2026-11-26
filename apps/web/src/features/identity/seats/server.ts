@@ -1,4 +1,5 @@
 import "server-only";
+import { accountName } from "@everyfield/contracts/identity";
 import { invitationService } from "@/server/invitations";
 import { namesFor, subjectFacts, viewerOf } from "../../organizations/mount";
 import { answer } from "../server";
@@ -43,7 +44,7 @@ export async function loadSeats(w: Workspace | null): Promise<SeatsRead> {
 		status: "ready",
 		workspace: selected,
 		kind: w.kind,
-		workspaceName: names[selected.id] ?? "your workspace",
+		workspaceName: names[selected.id] ?? `your ${accountName(w.kind)}`,
 		canManage: viewer.canManage && invitations?.status === "ok",
 		revision: facts.revision,
 		zone: facts.zone,

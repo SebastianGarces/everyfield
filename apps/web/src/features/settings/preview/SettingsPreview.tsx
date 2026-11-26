@@ -33,7 +33,7 @@ const BASE = "/design/settings";
 
 const RESTRICTED_PAGES: [href: string, label: string][] = [
 	["/design/restricted/account-deletion?state=pending", "Account deletion"],
-	["/design/restricted/workspace-deletion?state=pending", "Workspace deletion"],
+	["/design/restricted/workspace-deletion?state=pending", "Church plant account deletion"],
 	["/design/restricted/confirm-email?proof=valid", "Confirm email"],
 ];
 
