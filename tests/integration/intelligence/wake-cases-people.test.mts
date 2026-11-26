@@ -7,8 +7,12 @@ import { gatedTransaction } from "../../../packages/domain/src/operations/writes
 import { timezoneOperations, type SettingsEffects } from "../../../packages/domain/src/settings/index.ts";
 import { randomUUID } from "node:crypto";
 import { assessments, commitments, peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { createAttendanceWriter, meetingsWriter } from "../../../packages/domain/src/meetings/index.ts";
+import { withMeetingsWrite } from "../../../packages/domain/src/meetings/core.ts";
 import { createTaskWriter } from "../../../packages/domain/src/tasks/index.ts";
+import { withTaskWrite } from "../../../packages/domain/src/tasks/core.ts";
+import { withTeamsWrite } from "../../../packages/domain/src/teams/core.ts";
 import {
 	TEMPLATES,
 	teamsReader,
@@ -56,8 +60,27 @@ const revisionOf = async (table: string, id: string, column = "revision") =>
 		await W.c.one<{ r: string }>(sql`SELECT ${sql.identifier(column)}::text AS r FROM ${sql.identifier(table)}
 		WHERE id=${id}`)
 	).r;
+type Entry = (
+	db: WakeWorld["db"],
+	authority: WakePlant["A"]["actor"],
+	body: (tx: unknown, ctx: unknown) => Promise<never>,
+) => Promise<unknown>;
+const entryOf = (op: unknown): Entry => {
+	const owns = (...writers: object[]) => writers.some((w) => Object.values(w).includes(op));
+	if (owns(peopleWriter, commitments, peopleMerge, assessments)) return withPeopleWrite as Entry;
+	if (owns(meetingsWriter, attendance)) return withMeetingsWrite as Entry;
+	if (owns(tasks)) return withTaskWrite as Entry;
+	if (owns(teamsWriter, trainingWriter)) return withTeamsWrite as Entry;
+	throw new Error("no write entry for this operation");
+};
 const asAdmin = <R,>(w: WakePlant<unknown>, op: (tx: never, ctx: never, raw: never) => Promise<R>, raw: unknown) =>
-	gatedTransaction(W.db, (tx) => op(tx as never, w.A.ctx as never, raw as never));
+	op === (peopleMerge.getMergeReview as unknown)
+		? gatedTransaction(W.db, (tx) => op(tx as never, w.A.ctx as never, raw as never))
+		: (entryOf(op)(
+				W.db,
+				w.A.actor,
+				(tx, ctx) => op(tx as never, ctx as never, raw as never) as Promise<never>,
+			) as Promise<R>);
 async function once(w: WakePlant<unknown>, build: () => Promise<unknown>) {
 	const a = w.arranged as Arranged;
 	a.raw ??= await build();
