@@ -148,6 +148,7 @@ export function auditRow(
 		afterRevision: string;
 		source?: z.infer<typeof c.historySource>;
 		reason?: string | null;
+		occurredAt?: Date;
 	},
 ) {
 	const first = entry.source !== "generated" && !cmd.events.some((e) => e.id === cmd.id);
@@ -166,6 +167,7 @@ export function auditRow(
 		after_revision: entry.afterRevision,
 		reason: entry.reason ?? null,
 		metadata: { source: entry.source ?? "person" },
+		...(entry.occurredAt ? { occurred_at: entry.occurredAt } : {}),
 	});
 }
 

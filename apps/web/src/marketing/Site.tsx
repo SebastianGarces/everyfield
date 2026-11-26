@@ -23,7 +23,7 @@ export function Site({
 	children: ReactNode;
 }) {
 	const S = COPY.shared;
-	const links = S.nav.map((n) => ({ href: n.href, label: n.label, current: n.href === path }));
+	const links = S.nav.map((n) => ({ ...n, current: n.href === path }));
 	const cta = { href: ACCESS_PATH, label: S.nav_cta, current: path === ACCESS_PATH };
 	return (
 		<div>

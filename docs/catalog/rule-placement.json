@@ -4767,6 +4767,16 @@
       "requirement": "REQ-IDN-020",
       "operation": "discovery.setSharing",
       "reason": "T-661: ordinary link sharing."
+    },
+    {
+      "requirement": "REQ-IDN-016",
+      "operation": "discovery.getSteps",
+      "reason": "T-665: Discovery starter steps."
+    },
+    {
+      "requirement": "REQ-IDN-016",
+      "operation": "discovery.setStep",
+      "reason": "T-665: Discovery starter steps."
     }
   ],
   "rule_additions": [
@@ -5195,6 +5205,16 @@
       "id": "discovery.setSharing",
       "requirement": "REQ-IDN-020",
       "reason": "T-661: the one foundations sharing choice on an ordinary Discovery link."
+    },
+    {
+      "id": "discovery.getSteps",
+      "requirement": "REQ-IDN-016",
+      "reason": "T-665: a Discovery planter reads their six starter steps."
+    },
+    {
+      "id": "discovery.setStep",
+      "requirement": "REQ-IDN-016",
+      "reason": "T-665: a Discovery planter checks a starter step off or opens it again."
     }
   ],
   "shared_rewrites": {

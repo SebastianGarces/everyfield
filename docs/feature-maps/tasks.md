@@ -15,11 +15,12 @@ flowchart LR
   s0 -.- s0_st3(("signed-out"))
   s0 -.- s0_st4(("loading (manual)"))
   s0 -.- s0_st5(("load-failed (manual)"))
-  s0 -.- s0_st6(("locked"))
+  s0 -.- s0_st6(("discovery-steps"))
   s0 --- s0_b0["search<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["create<br/>tests + cases + browser behavior"]
   s0 --- s0_b2["bulk-complete<br/>tests + cases + browser behavior"]
   s0 --- s0_b3["reminders<br/>tests + cases"]
+  s0 --- s0_b4["discovery-steps<br/>tests + cases"]
   s1["tasks.panel<br/>no page"]
   s0 -- "button #quot;Order welcome cards#quot;" --> s1
   s1_link1 --> s1
@@ -41,7 +42,7 @@ The church's tasks: yours or everyone's, searched, filtered and changed in bulk.
 
 - Routes: `/tasks`
 - Endpoints: `/tasks/read`
-- Personas: `owner` write, `admin` write, `member` write, `signup` none, `visitor` none, `discovery` read, `resident` read
+- Personas: `owner` write, `admin` write, `member` write, `signup` none, `visitor` none, `discovery` write, `resident` read
 - Catalog: TSK-001, TSK-002, TSK-008, TSK-014, TSK-016
 
 Reach:
@@ -87,13 +88,13 @@ agent-browser wait --url "**/signin?returnTo=%2Ftasks"
 
 - **loading** (`loading.tsx`): text "Loading tasks". Not scripted: shows only while the server renders the list.
 - **load-failed**: heading "We could not load your tasks". Not scripted: renders only when the list read fails on the server.
-- **locked**: heading "Tasks opens when you start your church"; link "Start a church". As `discovery`, on the QA seed:
+- **discovery-steps**: heading "Starter steps"; no button "New task". As `discovery`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/tasks"
 agent-browser wait --load networkidle
-agent-browser find role heading text --name "Tasks opens when you start your church" --exact
-agent-browser find role link text --name "Start a church" --exact
+agent-browser find role heading text --name "Starter steps" --exact
+! agent-browser find role button text --name "New task" --exact
 ```
 
 #### tasks.list#search
@@ -163,6 +164,15 @@ A due or overdue task reminds each current assignee, and stops once the task is 
 - Cases: TARGET-TSK-014
 - Test: `tests/integration/tasks/tasks.test.mts`: `AC:TARGET-TSK-014 due and overdue reminders follow the current assignee and stop when settled`
 - Test: `tests/integration/tasks/tasks.test.mts`: `AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one withdraws only theirs`
+
+#### tasks.list#discovery-steps
+
+A Discovery planter checks a starter step off or opens it again.
+
+- Operations: discovery.setStep
+- Catalog: IDN-016, TSK-009
+- Cases: TARGET-IDN-016
+- Test: `tests/integration/onboarding/discovery-steps.test.mts`: `AC:TARGET-IDN-016 a step ticks and unticks; a retry, a stale revision and an unknown key change nothing`
 
 ### tasks.panel
 

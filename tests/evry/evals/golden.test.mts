@@ -162,6 +162,7 @@ const approved: { cases: Approved[] } = json("golden.approved.json");
 const golden: GoldenCase[] = json("golden.cases.json");
 const extras: ExtraCase[] = json("adapters.cases.json");
 const scripted: ExtraCase[] = json("assessments.cases.json");
+const peopleScripted: ExtraCase[] = json("people.cases.json");
 type Baseline = { note: string; recordedAt: string; passed: string[] };
 const baseline: Baseline = json("golden.baseline.json");
 const RUN = "pnpm --filter @everyfield/evry exec tsx --tsconfig ../domain/tsconfig.json --conditions=react-server";
@@ -189,12 +190,15 @@ await installGeographyRelease(networkChurch.admin);
 const networkActors = await seedNetwork(networkChurch.admin, networkChurch.db);
 const assessed = await assessedChurch();
 after(assessed.close);
+const peopleChurch = await goldenChurch();
+after(peopleChurch.close);
 const CHURCHES = {
 	communication: mailChurch,
 	launched: launchedChurch,
 	connected: connectedChurch,
 	network: { ...networkChurch, actors: { ...networkChurch.actors, ...networkActors } },
 	assessed,
+	people: peopleChurch,
 } satisfies Record<string, EvalChurch>;
 const PINNED_SEEDS = new Set<Eval["church"]>(["launched", "network", "assessed"]);
 
@@ -1808,10 +1812,10 @@ test("INV-evry-golden: a case's review never queues on the write gate behind ano
 	}
 });
 
-test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and correction case passes on the scripted model", async () => {
+async function passScripted(cases: ExtraCase[]) {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
 	const rows = await pool(
-		scripted.filter((c) => !only || only.includes(c.case_id)),
+		cases.filter((c) => !only || only.includes(c.case_id)),
 		1,
 		runCase,
 	);
@@ -1824,4 +1828,10 @@ test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and 
 		),
 	);
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
-});
+}
+
+test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and correction case passes on the scripted model", () =>
+	passScripted(scripted));
+
+test("INV-evry-people-evals: the church-wide People questions (skills, photos, no household, children, stage moves) answer with Hope Fellowship's exact counts and names on the scripted model", () =>
+	passScripted(peopleScripted));

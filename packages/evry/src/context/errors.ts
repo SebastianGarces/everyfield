@@ -4,6 +4,7 @@ export type EvryErrorCode =
 	| "not_found"
 	| "access_denied"
 	| "church_changed"
+	| "discovery_read_only"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
@@ -44,6 +45,7 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_found: "never",
 	access_denied: "never",
 	church_changed: "never",
+	discovery_read_only: "never",
 	invalid_input: "never",
 	run_active: "same_request",
 	model_unavailable: "new_turn",
