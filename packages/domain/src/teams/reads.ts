@@ -21,8 +21,7 @@ export async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof s
 	return found;
 }
 export function owner(plantId: string, value: unknown) {
-	if (typeof value !== "string") deny("unavailable");
-	if (value !== plantId) deny("access_denied");
+	if (typeof value !== "string" || value !== plantId) deny("unavailable");
 }
 export function unique(ids: string[]) {
 	return [...new Set(ids)];

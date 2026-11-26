@@ -1236,7 +1236,7 @@ test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even
 	assert.equal(w!.state, "pending_deletion");
 });
 
-test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email proof is requester-bound, superseded, 24 hours, unique, and preserves account/Person identity", async () => {
+test("AC:TARGET-IDN-007 AC:ROLE43-018 email proof is requester-bound, superseded, 24 hours, unique, and preserves account/Person identity", async () => {
 	const a = await credentialActor(),
 		b = await credentialActor();
 	const church = await plant(a);

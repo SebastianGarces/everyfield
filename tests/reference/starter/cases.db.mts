@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { inspect } from "node:util";
+import { inspect, isDeepStrictEqual } from "node:util";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import test, { after } from "node:test";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -469,4 +469,251 @@ test("AC:GAP-REF-007 a failed rebuild keeps R1 active, and search falls back to 
 	);
 	const recovered = await living(provider).rebuildEmbeddings(caller, command("R2", "2", randomUUID(), approvedWiki));
 	assert.deepEqual([recovered.activated, recovered.activeRelease, recovered.activationNumber], [true, "R2", "3"]);
+});
+
+const schemaCases: {
+	id: string;
+	given: Record<string, { value?: unknown }>;
+	action: { arguments: Record<string, unknown> };
+	expected: { result: Record<string, unknown> };
+}[] = json("docs/acceptance/schema.json").cases;
+const schemaCase = (id: string) => schemaCases.find((row) => row.id === id) ?? assert.fail(`no case ${id}`);
+const fileSha = (path: string) => sha(readFileSync(new URL(`../../../${path}`, import.meta.url)).toString("utf8"));
+
+test("AC:REF-CASE-002 the pinned bootstrap installs its 96 articles, 21 sections and 7 templates once; a same-hash replay inserts nothing and a changed digest imports nothing, with no church row and no vector", async () => {
+	const { action, expected } = schemaCase("REF-CASE-002");
+	const args = action.arguments as {
+		counts: { articles: number; sections: number; system_templates: number };
+		manifest_sha256: string;
+		payload_sha256: string;
+		target: string;
+		attempts: string[];
+	};
+	const { result } = expected;
+	assert.deepEqual(
+		[fileSha(bootstrap.manifestPath), fileSha(bootstrap.payloadPath)],
+		[args.manifest_sha256, args.payload_sha256],
+	);
+	assert.deepEqual(
+		[payload.articles.length, payload.sections.length, payload.templates.length],
+		[args.counts.articles, args.counts.sections, args.counts.system_templates],
+	);
+	assert.equal(args.target, approvedWiki.target);
+	const living = new Set((await loadApprovedSnapshot()).articles.map((a) => a.id));
+	assert.deepEqual(
+		payload.articles.filter((a) => !living.has(a.id)),
+		[],
+		"the living seed keeps every bootstrap id",
+	);
+	const { db, caller, rows, command } = await store();
+	const service = referenceService(db, { source: bootstrap });
+	const install = (
+		expectedActivation: string,
+		from = service,
+		pins: Partial<WikiSource> = {},
+		requestKey: string = randomUUID(),
+	) =>
+		from.installApprovedWiki(caller, {
+			...command("R1", expectedActivation, requestKey, { ...bootstrap, ...pins }),
+			kind: "install",
+		});
+	const installed = async () =>
+		(
+			await rows<{
+				articles: number;
+				sections: number;
+				system_templates: number;
+				customers: number;
+				vectors: number;
+				stored: number;
+			}>(sql`SELECT
+			(SELECT count(*)::int FROM reference_item WHERE kind='article' AND tenant_id=${GLOBAL}) AS articles,
+			(SELECT count(*)::int FROM reference_item WHERE kind='section' AND tenant_id=${GLOBAL}) AS sections,
+			(SELECT count(*)::int FROM reference_item WHERE kind='mail_template' AND tenant_id=${GLOBAL}) AS system_templates,
+			(SELECT count(*) FROM reference_item WHERE tenant_id<>${GLOBAL})::int+(SELECT count(*) FROM article_revision WHERE tenant_id<>${GLOBAL})::int
+				+(SELECT count(*) FROM plant)::int+(SELECT count(*) FROM organization)::int+(SELECT count(*) FROM person)::int AS customers,
+			(SELECT count(*)::int FROM passage) AS vectors,
+			(SELECT count(*) FROM reference_item)::int+(SELECT count(*) FROM article_revision)::int+(SELECT count(*) FROM reference_version)::int
+				+(SELECT count(*) FROM reference_release)::int+(SELECT count(*) FROM reference_activation)::int AS stored`)
+		)[0]!;
+	assert.deepEqual(args.attempts, ["first", "same_hash_replay", "unexpected_differing_hash"]);
+	const firstKey = randomUUID();
+	const first = await recorded(db, () => install("0", service, {}, firstKey));
+	assert.deepEqual(first.added, { ...NOTHING, audits: ["reference.activated"] });
+	assert.equal(first.value.insertedArticles, result.articles);
+	const once = await installed();
+	assert.deepEqual(
+		[once.articles, once.sections, once.system_templates],
+		[result.articles, result.sections, result.system_templates],
+	);
+	const hashes = await rows<{ id: string; hash: string }>(
+		sql`SELECT i.id,encode(sha256(convert_to(r.body,'UTF8')),'hex') AS hash FROM reference_item i
+			JOIN article_revision r ON r.article_id=i.id WHERE i.kind='article' ORDER BY i.id`,
+	);
+	assert.deepEqual(hashes, payload.articles.map((a) => ({ id: a.id, hash: sha(a.content) })).toSorted(byId));
+
+	const same = await untouched(db, () => install("0", service, {}, firstKey));
+	assert.deepEqual([same.insertedArticles, same.replayed], [first.value.insertedArticles, true]);
+	const replay = await install("1");
+	assert.deepEqual([replay.insertedArticles, replay.activationNumber], [result.replay_inserts, "1"]);
+	assert.equal((await installed()).stored - once.stored, result.replay_inserts);
+
+	const changed = structuredClone(await loadApprovedSnapshot(undefined, bootstrap));
+	changed.articles[0]!.content += "\nUnexpected edit.";
+	changed.articles[0]!.contentSha256 = sha(changed.articles[0]!.content);
+	const differing = [
+		() => install("1", service, { payloadSha256: sha("unexpected payload") }),
+		() => install("1", service, { manifestSha256: sha("unexpected manifest") }),
+		() => install("1", referenceService(db, { source: bootstrap, loadSnapshot: async () => changed })),
+	];
+	for (const attempt of differing)
+		await untouched(db, () =>
+			assert.rejects(attempt(), (e) => refusal("digest_conflict")(e) || refusal("immutable_conflict")(e)),
+		);
+	const [edited] = await rows<{ n: number }>(
+		sql`SELECT count(*)::int AS n FROM article_revision WHERE body LIKE '%Unexpected edit.%'`,
+	);
+	assert.equal(edited!.n > 0, result.changed_digest_imported);
+	const final = await installed();
+	assert.deepEqual(final, once);
+	assert.deepEqual([final.customers, final.vectors], [result.customer_rows_imported, result.vectors_imported]);
+});
+
+test("AC:REF-CASE-007 a partial rebuild leaves the old chunks active; the complete candidate's chunks are exactly current, with no stale trailing chunk and no old vector; a rollback appends an activation", async () => {
+	const { action, expected } = schemaCase("REF-CASE-007");
+	const args = action.arguments as {
+		old_active_keys: string[];
+		candidate_keys: string[];
+		candidate_model_dimensions: number;
+		missing_model_provenance_old_vectors: boolean;
+		partial_build_missing: string;
+	};
+	const { result } = expected;
+	const base = await loadApprovedSnapshot(undefined, bootstrap);
+	const related = new Set(base.articles.flatMap((a) => a.relatedSlugs));
+	const [a, b] = base.articles.filter((x) => !base.discoveryIds.includes(x.id) && !related.has(x.slug));
+	const text = (label: string, length: number) =>
+		Array.from({ length }, (_, n) => `${label}${n % 10}`)
+			.join("")
+			.slice(0, length);
+	const edit = <T extends { content: string; contentSha256: string }>(row: T, content: string): T => ({
+		...row,
+		content,
+		contentSha256: sha(content),
+	});
+	const c = { ...edit(b!, text("Cnew", 700)), id: randomUUID(), slug: `${b!.slug}-candidate`, title: `${b!.title} C` };
+	const old = {
+		...base,
+		articles: base.articles.map((x) =>
+			x.id === a!.id ? edit(x, text("Aold", 1800)) : x.id === b!.id ? edit(x, text("Bold", 600)) : x,
+		),
+	};
+	const candidate = {
+		...base,
+		articles: [
+			...old.articles.filter((x) => x.id !== b!.id).map((x) => (x.id === a!.id ? edit(x, text("Anew", 900)) : x)),
+			c,
+		],
+	};
+	const label = new Map([
+		[a!.slug, "A"],
+		[b!.slug, "B"],
+		[c.slug, "C"],
+	]);
+	const keysOf = (snapshot: typeof old) => {
+		const entries = wikiEntries(snapshot, "probe");
+		const slugOf = new Map(entries.map((e) => [e.revisionId, e.slug]));
+		return chunkEntries(entries).map((chunk) => {
+			const slug = slugOf.get(chunk.revisionId) ?? "";
+			return { key: `${label.get(slug) ?? slug}#${chunk.ordinal}`, text: chunk.text };
+		});
+	};
+	const named = (keys: { key: string }[]) =>
+		keys
+			.map((k) => k.key)
+			.filter((k) => /^[ABC]#/.test(k))
+			.toSorted();
+	assert.deepEqual(named(keysOf(old)), args.old_active_keys);
+	assert.deepEqual(named(keysOf(candidate)), args.candidate_keys);
+
+	const { db, caller, rows, command } = await store();
+	const oldService = referenceService(db, { source: bootstrap, loadSnapshot: async () => old });
+	const R1 = await oldService.rebuildEmbeddings(caller, command("R1", "0"));
+	assert.deepEqual([R1.activated, R1.activationNumber], [true, "1"]);
+	const current = async () =>
+		(
+			await rows<{ key: string; dims: number; checksum: string; release: string; profile: string }>(
+				sql`SELECT r.slug||'#'||p.ordinal AS key,public.vector_dims(p.embedding) AS dims,p.embedding_checksum AS checksum,
+				rel.release_key AS release,rel.embedding_profile AS profile
+				FROM passage p JOIN article_revision r ON r.id=p.revision_id JOIN reference_release rel ON rel.id=p.release_id
+				WHERE p.release_id=(SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1) ORDER BY r.slug,p.ordinal`,
+			)
+		).map((row) => ({ ...row, key: row.key.replace(/^(.*)#/, (_, slug: string) => `${label.get(slug) ?? slug}#`) }));
+	const oldRows = await current();
+	assert.deepEqual(named(oldRows), args.old_active_keys);
+	assert.ok(
+		oldRows.every(
+			(row) => row.dims !== args.candidate_model_dimensions && row.profile !== "openai-text-embedding-3-small",
+		),
+	);
+
+	const axis = (value: string) => Number.parseInt(sha(value).slice(0, 8), 16) % args.candidate_model_dimensions;
+	const missingText = keysOf(candidate).find((k) => k.key === args.partial_build_missing)!.text;
+	let partial = true;
+	const candidateService = referenceService(db, {
+		source: bootstrap,
+		loadSnapshot: async () => candidate,
+		embeddingProfile: "openai-text-embedding-3-small",
+		embeddingDimensions: args.candidate_model_dimensions,
+		embed: (chunk: string) =>
+			partial && chunk === missingText
+				? []
+				: Array.from({ length: args.candidate_model_dimensions }, (_, at) => (at === axis(chunk) ? 1 : 0)),
+	});
+	const failed = await untouched(db, () => candidateService.rebuildEmbeddings(caller, command("R2", "1")));
+	assert.deepEqual([failed.activated, failed.reason], [false, "incomplete_candidate"]);
+	assert.deepEqual(named(await current()), result.active_keys_after_partial);
+	assert.deepEqual(await current(), oldRows);
+
+	partial = false;
+	const R2 = await candidateService.rebuildEmbeddings(caller, command("R2", "1"));
+	assert.deepEqual([R2.activated, R2.activeRelease, R2.activationNumber], [true, "R2", "2"]);
+	const now = await current();
+	assert.deepEqual(named(now), result.valid_candidate_current_keys);
+	const planned = new Set(keysOf(candidate).map((k) => k.key));
+	assert.deepEqual(
+		now.filter((row) => !planned.has(row.key)).map((row) => row.key),
+		result.stale_trailing_current_keys,
+	);
+	assert.equal(now.length, planned.size);
+	const oldChecksums = new Set(oldRows.map((row) => row.checksum));
+	const imported = now.some((row) => oldChecksums.has(row.checksum) || row.dims !== args.candidate_model_dimensions);
+	assert.equal(args.missing_model_provenance_old_vectors, true);
+	assert.equal(imported, result.old_vectors_without_provenance_imported);
+	assert.ok(now.every((row) => row.profile === "openai-text-embedding-3-small" && row.release === "R2"));
+
+	const history = () =>
+		rows<{
+			n: string;
+			release: string;
+			row: string;
+		}>(sql`SELECT a.activation_number::text AS n,r.release_key AS release,
+			a::text AS row FROM reference_activation a JOIN reference_release r ON r.id=a.release_id ORDER BY a.activation_number`);
+	const two = await history();
+	const back = await oldService.rebuildEmbeddings(caller, command("R1", "2"));
+	assert.deepEqual([back.activated, back.activeRelease, back.activationNumber], [true, "R1", "3"]);
+	const three = await history();
+	assert.equal(
+		three.length === two.length + 1 && isDeepStrictEqual(three.slice(0, 2), two),
+		result.rollback_appends_activation,
+	);
+	assert.deepEqual(
+		three.map((h) => [h.n, h.release]),
+		[
+			["1", "R1"],
+			["2", "R2"],
+			["3", "R1"],
+		],
+	);
+	assert.deepEqual(await current(), oldRows);
 });

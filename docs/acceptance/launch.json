@@ -21,7 +21,10 @@
         "WP-044",
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Target dates 0, 28, 29 church-local days away and missing target.",
       "given": {
         "P": {
@@ -112,7 +115,10 @@
         "WP-045",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Past uncompleted target then reviewed move/postpone and retry.",
       "given": {
         "P": {
@@ -192,7 +198,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "DST calendar launch-window versus elapsed 72 hour release and 48 hour contact.",
       "given": {
         "P": {
@@ -270,7 +279,10 @@
       "work_packages": [
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Nine fixed milestones and 23 actual source tasks seeded; aggregate count updated.",
       "given": {
         "P": {
@@ -419,7 +431,10 @@
         "WP-045",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Previously completed milestone with required task reopened/corrected.",
       "given": {
         "P": {
@@ -506,7 +521,10 @@
         "WP-045",
         "WP-076"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Current valid milestone re-confirmation with live guard and stale Evry review.",
       "given": {
         "P": {
@@ -730,7 +748,10 @@
         "WP-020",
         "WP-066"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Create/filter/detail prelaunch_practice versus team rehearsal/Vision.",
       "given": {
         "P": {
@@ -821,7 +842,10 @@
         "WP-045",
         "WP-066"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Three distinct completed actual practice IDs, fourth and duplicate receipt.",
       "given": {
         "P": {
@@ -921,7 +945,10 @@
         "WP-020",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Scheduled future/cancelled/not held practice and actual nonfuture correction.",
       "given": {
         "P": {
@@ -1014,7 +1041,10 @@
         "WP-022",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Attendance finalization/guest edits/tasks tick on scheduled practice.",
       "given": {
         "P": {
@@ -1102,7 +1132,10 @@
         "WP-045",
         "WP-066"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Practice date/type corrected, void duplicate, reopen and prior PI snapshot.",
       "given": {
         "P": {
@@ -1186,7 +1219,10 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Genuine completed practice archived versus invalid occurrence voided.",
       "given": {
         "P": {
@@ -1274,7 +1310,10 @@
       "work_packages": [
         "WP-020"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Practice agenda/venue/guest workflow with Visionkit/number/eval attempted.",
       "given": {
         "P": {
@@ -1368,7 +1407,10 @@
         "WP-044",
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Third practice completed and milestone/task/phase/authority still independent.",
       "given": {
         "P": {
@@ -1463,7 +1505,10 @@
         "WP-020",
         "WP-066"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Current Owner/Admin and foreign/member/team leader practice write.",
       "given": {
         "P": {
@@ -1556,7 +1601,10 @@
       "work_packages": [
         "WP-066"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-practice.test.mts"
+      ],
       "description": "Reviewed Evry practice create/complete/correct then stale/replay execution.",
       "given": {
         "P": {
@@ -1641,7 +1689,10 @@
         "WP-044",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Chosen promotion plan actual execution attestation with optional references.",
       "given": {
         "P": {
@@ -1716,7 +1767,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "One promotional email sent and prep task complete but no whole-plan execution evidence.",
       "given": {
         "P": {
@@ -1796,7 +1850,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Native actual Launch/debrief questionnaire and separately editable counts/outcome notes.",
       "given": {
         "P": {
@@ -1881,7 +1938,10 @@
         "WP-044",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Debrief Yes 3 valid submit then No correction; incomplete draft and guest criterion.",
       "given": {
         "P": {
@@ -1983,7 +2043,10 @@
         "WP-044",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Correct submitted questionnaire without altering phase/task and preserved original version.",
       "given": {
         "P": {
@@ -2076,7 +2139,10 @@
         "WP-075",
         "WP-076"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch-debrief.test.mts"
+      ],
       "description": "Evry debrief/outcome/guest read and reviewed write with stale target.",
       "given": {
         "P": {
@@ -2164,7 +2230,10 @@
       "work_packages": [
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Single supplied name guest with no phone/email/age/account.",
       "given": {
         "P": {
@@ -2268,7 +2337,10 @@
       "work_packages": [
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Same-name duplicate candidate selected existing ID and replay named create.",
       "given": {
         "P": {
@@ -2370,7 +2442,10 @@
         "WP-044",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Launch guest roster/headcount differ; submitted missing Yes 2 vs No criterion.",
       "given": {
         "P": {
@@ -2454,7 +2529,10 @@
         "WP-044",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Owner/Admin opens available model result versus 72 elapsed hours with no open.",
       "given": {
         "P": {
@@ -2533,7 +2611,10 @@
         "WP-044",
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Email/model/other Member reads result before eligible human opportunity.",
       "given": {
         "P": {
@@ -2618,7 +2699,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Previous released concern during new unpublished result under current revoked category.",
       "given": {
         "P": {
@@ -2704,7 +2788,10 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/locations.test.mts"
+      ],
       "description": "NI/Location consumes latest result still embargoed; source grants differ.",
       "given": {
         "P": {
@@ -2812,7 +2899,10 @@
         "WP-046",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Separately reviewed public operational summary versus raw questionnaire and result embargo.",
       "given": {
         "P": {
@@ -2893,7 +2983,10 @@
         "WP-044",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Launchsupport/reflection attempts private care answer/history/calendar import.",
       "given": {
         "P": {
@@ -2973,7 +3066,10 @@
         "WP-044",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/meetings/practice-cases.test.mts"
+      ],
       "description": "Current generated operation catalog includes native practice/debrief while source facts unchanged.",
       "given": {
         "P": {
@@ -3064,7 +3160,10 @@
       "work_packages": [
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Schedule/move/postpone/recommit with repeated receipt and changed reviewed state; prep task user date already edited.",
       "given": {
         "P": {
@@ -3183,7 +3282,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Planned date changes twice then actor account deleted; foreign tenant reads journal.",
       "given": {
         "P": {
@@ -3324,7 +3426,10 @@
         "WP-045",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "First scheduling seeds partial nine/23 actual source tasks; same key repeat, user edits one Task, three actual practices versus task ticks.",
       "given": {
         "P": {
@@ -3471,7 +3576,10 @@
         "WP-045",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Milestone complete races task reopen; previous completion exists; guest/debrief manual override requested.",
       "given": {
         "P": {
@@ -3971,7 +4079,10 @@
       "work_packages": [
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Member assigned Task and foreign/other-assignee linked Task; reopened/deleted Task changes progress.",
       "given": {
         "P": {
@@ -4102,7 +4213,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Actual occurrence before/after planned date, single-name new guest, Yes 3 debrief and separate summary publish.",
       "given": {
         "P": {
@@ -4226,7 +4340,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Submitted No changes Yes 2; later incomplete draft; aggregate headcount unchanged; corrected prior actual outcome.",
       "given": {
         "P": {
@@ -4348,7 +4465,10 @@
         "WP-045",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "0 day, 28 day, 29 day, overdue postponed/no target/completed launch; actual zero count and absent count.",
       "given": {
         "P": {
@@ -4734,7 +4854,10 @@
       "work_packages": [
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Repeated seed repair after upload/transaction failure with existing completed milestone/edited Tasks.",
       "given": {
         "P": {
@@ -4868,7 +4991,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Completion/reopen/reconfirm with old history and scrubbed actor, current evidence changed.",
       "given": {
         "P": {
@@ -4980,7 +5106,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch-debrief.test.mts"
+      ],
       "description": "Phase 6 has named launch guests and successful prelaunch Vision followups but no postlaunch obligation source.",
       "given": {
         "P": {
@@ -5068,7 +5197,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch-debrief.test.mts"
+      ],
       "description": "Phase 6 plant with Sunday headcounts, prelaunch Vision 48h follow-up and no approved postlaunch service-contact capture",
       "given": {
         "P": {
@@ -5247,7 +5379,10 @@
         "WP-045",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Import the exact frozen nine-key Launch seed inventory with per-key counts 3, 3, 2, 2, 3, 3, 2, 3, 2 and every canonical task title/identity; repeat import and repair partial seed with user edits/deletions.",
       "given": {
         "P": {
@@ -5397,7 +5532,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Actual Launch occurs on a date differing planned target; Meetingtype public_launch/Vision attempted.",
       "given": {
         "P": {
@@ -5481,7 +5619,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "New real named guest versus explicitly selected sameplant existing Person; DB failure between create/link.",
       "given": {
         "P": {
@@ -5573,7 +5714,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Guest has one meaningful supplied name only, no email/phone/surname/age/account.",
       "given": {
         "P": {
@@ -5668,7 +5812,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Same-name duplicate candidates, repeated create/link receipt and concurrent attendance insert.",
       "given": {
         "P": {
@@ -5751,7 +5898,10 @@
         "WP-040",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Aggregate headcount 100, namedroster 20 and reported missing guest count 3.",
       "given": {
         "P": {
@@ -5879,7 +6029,10 @@
         "WP-046",
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Debrief missing name answer No then Yes with count input; extra finish/attestation control attempted.",
       "given": {
         "P": {
@@ -5964,7 +6117,10 @@
         "WP-040",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Submitted No with dated actor while headcount unknown/zero or roster counts mismatch.",
       "given": {
         "P": {
@@ -6050,7 +6206,10 @@
         "WP-040",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Submitted Yes 3 and roster later adds 2 named guests without corrected answer.",
       "given": {
         "P": {
@@ -6136,7 +6295,10 @@
         "WP-040",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Previous valid No submission followed unanswered incomplete draft.",
       "given": {
         "P": {
@@ -6226,7 +6388,10 @@
         "WP-040",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Valid six area submission with Yes 3 unnamed guests.",
       "given": {
         "P": {
@@ -6309,7 +6474,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Partial six area form, draft save, valid submit, correction and empty optional prose.",
       "given": {
         "P": {
@@ -6410,7 +6578,10 @@
         "WP-046",
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Debrief actual count/date edit, planned target unaffected and narrative claims first service.",
       "given": {
         "P": {
@@ -6498,7 +6669,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Correction No→Yes 2, no-op repeat, changed reviewed state, previous PI snapshot/advanced phase.",
       "given": {
         "P": {
@@ -6591,7 +6765,10 @@
         "WP-046",
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/schedule-cases.test.mts"
+      ],
       "description": "Derived guest/debrief milestones alongside manually editable other readiness; override checkbox attempted.",
       "given": {
         "P": {
@@ -6676,7 +6853,10 @@
         "WP-046",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Questionnairesubmitted with raw reflection, summary draft saved, separate publish preview review.",
       "given": {
         "P": {
@@ -6764,7 +6944,10 @@
         "WP-046",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Publishedsummary source union Meetings+People versus org shared findings ON/People OFF; second affiliate valid.",
       "given": {
         "P": {
@@ -6867,7 +7050,10 @@
         "WP-046",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Summary draft contains individual guest details/private support reflection; no automatic model redaction.",
       "given": {
         "P": {
@@ -6955,7 +7141,10 @@
         "WP-046",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Direct reviewed summary publication while new model assessment still 72 hour embargoed.",
       "given": {
         "P": {
@@ -7041,7 +7230,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/summary-cases.test.mts"
+      ],
       "description": "Questionnairesubmission and summary publish with optional next step task proposed separately.",
       "given": {
         "P": {
@@ -7131,7 +7323,10 @@
         "WP-076",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch-debrief.test.mts"
+      ],
       "description": "Current plant Owner/Admin, Member, foreign actor, expired review and revoked grant write guest/debrief.",
       "given": {
         "P": {
@@ -7251,7 +7446,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "Headcount/`outcomeRecorded` set but no submitted questionnaire; arbitrary manual signal attempted.",
       "given": {
         "P": {
@@ -7336,7 +7534,10 @@
       "work_packages": [
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/guest-cases.test.mts"
+      ],
       "description": "Guest Person merge into existing attendee, link correction and unchanged reported missing count.",
       "given": {
         "P": {
