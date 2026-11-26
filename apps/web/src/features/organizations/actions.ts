@@ -2,7 +2,14 @@
 
 import { z } from "zod";
 import { command, sendCommand, residentOwner, type Reply } from "./mount";
-import { loadHistoryPage, loadPipelineConsent, loadResidency, loadSharing, who } from "./connection-reads";
+import {
+	loadDiscoverySharing,
+	loadHistoryPage,
+	loadPipelineConsent,
+	loadResidency,
+	loadSharing,
+	who,
+} from "./connection-reads";
 
 const sharingSaved = z.object({
 	input: z.object({ relationshipId: z.string(), organization: z.object({ id: z.string() }) }),
@@ -97,4 +104,20 @@ export async function savePipelineConsent(input: unknown) {
 	const saved = consentSaved.safeParse(input);
 	if (!saved.success) return { reply, consent: null };
 	return { reply, consent: await loadPipelineConsent(await who(), saved.data.input.relationshipId) };
+}
+
+const discoverySaved = z.object({ input: z.object({ relationshipId: z.string() }) });
+
+export async function saveDiscoverySharing(input: unknown) {
+	const w = await who();
+	if (!w) return { reply: refused, row: null };
+	const reply = await command(w.mount, w.authority, residentOwner(w.viewer), (tx, s, o) =>
+		w.mount.adapter["discovery.setSharing"](tx, s, o, input),
+	);
+	if (reply.status !== "ok" || reply.value.status !== "committed") return { reply, row: null };
+	const saved = discoverySaved.safeParse(input);
+	return {
+		reply,
+		row: saved.success ? await loadDiscoverySharing(w, saved.data.input.relationshipId) : null,
+	};
 }

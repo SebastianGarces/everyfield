@@ -16,6 +16,7 @@ flowchart LR
   s0 -.- s0_st2(("signed-out"))
   s0 -.- s0_st3(("loading (manual)"))
   s0 -.- s0_st4(("error (manual)"))
+  s0 -.- s0_st5(("locked"))
   s0 --- s0_b0["filter<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["plan<br/>tests + cases + browser presence"]
   s0 --- s0_b2["places<br/>tests + cases + browser presence"]
@@ -48,12 +49,12 @@ flowchart LR
 Every meeting of the church, with the next one first, filtered by when, type and status.
 
 - Routes: `/meetings`
-- Personas: `owner` write, `admin` write, `member` read, `visitor` none
+- Personas: `owner` write, `admin` write, `member` read, `visitor` none, `discovery` read, `resident` read
 - Catalog: MTG-001, MTG-002, MTG-003
 
 Reach:
 
-- Rail "Meetings" for `owner`, `admin`, `member`
+- Rail "Meetings" for `owner`, `admin`, `member`, `discovery`, `resident`
 
 States:
 
@@ -85,6 +86,14 @@ agent-browser wait --url "**/signin?returnTo=%2Fmeetings"
 
 - **loading** (`loading.tsx`): text "Loading meetings". Not scripted: shows only while the server renders the list.
 - **error** (`error.tsx`): heading "We could not load meetings"; button "Try again". Not scripted: renders only when the page throws while rendering.
+- **locked**: heading "Meetings opens when you start your church"; link "Start a church". As `discovery`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/meetings"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Meetings opens when you start your church" --exact
+agent-browser find role link text --name "Start a church" --exact
+```
 
 #### meetings.list#filter
 

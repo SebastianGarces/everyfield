@@ -63,12 +63,8 @@ export function countdown(launch: { status: LaunchStatus; targetDate: LocalDate 
 	if (days < 0) return { kind: "overdue", days: -days } satisfies Countdown;
 	return { kind: "ahead", days, window: days <= LAUNCH_WINDOW_DAYS } satisfies Countdown;
 }
-export function launchSundayArrived(
-	launch: { status: LaunchStatus; targetDate: LocalDate | null } | null,
-	today: LocalDate,
-): boolean {
-	const kind = countdown(launch, today).kind;
-	return launch?.status === "scheduled" && (kind === "today" || kind === "overdue");
+export function outcomeRecordable(launch: { status: LaunchStatus; targetDate: LocalDate | null } | null): boolean {
+	return launch?.status === "scheduled" && launch.targetDate !== null;
 }
 
 export const reviewedOf = (tasks: readonly { id: string; revision: string }[]) =>

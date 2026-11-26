@@ -13,7 +13,7 @@ import { runEffects, runTurns } from "./worker";
 export async function requestActor(): Promise<EvryActor> {
 	const viewer = await getViewer();
 	if (viewer.status !== "active" || !viewer.authority) throw new EvryRefusal("access_denied");
-	return evryActor(viewer.authority);
+	return evryActor(viewer.authority, viewer.discovery);
 }
 
 const status = {

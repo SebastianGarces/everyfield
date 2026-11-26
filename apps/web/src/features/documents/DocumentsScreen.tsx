@@ -59,7 +59,7 @@ import {
 	type Resolved,
 	type Template,
 } from "./model.ts";
-import { NativeDocuments } from "./native.tsx";
+import { MyDocuments, NativeDocuments } from "./native.tsx";
 import { SavedHistory, savedDocuments } from "./saved.tsx";
 import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
@@ -568,6 +568,7 @@ export function DocumentsScreen({
 			</section>
 			<SavedHistory enabled={canPreview} />
 			{written ? <NativeDocuments written={written} canEdit={canEdit} /> : null}
+			{written === "church" ? <MyDocuments /> : null}
 		</>
 	);
 }

@@ -5,7 +5,7 @@ import {
 	checkNote,
 	checkOutcome,
 	GUEST_NAME_MAX,
-	launchSundayArrived,
+	outcomeRecordable,
 	type GuestMatch,
 	type Plan,
 } from "@everyfield/contracts/launch";
@@ -126,7 +126,7 @@ export function OutcomeCard({
 							: "What actually happened, once it has. A passed date or finished milestones never record it for you."}
 					</CardDescription>
 				</CardHeading>
-				{admin && (o || launchSundayArrived(plan.launch, plan.today)) ? (
+				{admin && (o || outcomeRecordable(plan.launch)) ? (
 					<CardActions>
 						{o ? (
 							<Button variant="secondary" size="sm" onClick={() => open("correct")}>

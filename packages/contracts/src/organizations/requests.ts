@@ -130,3 +130,6 @@ export const setPipelineConsentRequest = commandEnvelope(
 	pipelineConsentRequest.extend({ sharePipelineTotals: z.boolean() }),
 );
 export const pipelineAggregateAccessRequest = z.strictObject({ network: networkOwner });
+export const setDiscoverySharingRequest = commandEnvelope(
+	z.strictObject({ relationshipId: recordId, expectedConsentRevision: revision, shareFoundations: z.boolean() }),
+);

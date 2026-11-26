@@ -16,14 +16,14 @@
 	"surfaces": [
 		{
 			"id": "launch.plan",
-			"says": "Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.",
+			"says": "Launch Sunday's date and countdown, its readiness, and the outcome form once a date is set.",
 			"routes": ["/launch"],
 			"endpoints": ["/launch/read"],
 			"catalog": ["LCH-001", "LCH-003", "LCH-006", "LCH-007", "LCH-008"],
 			"reach": [
 				{
 					"rail": "Launch",
-					"personas": ["owner", "admin", "member"]
+					"personas": ["owner", "admin", "member", "discovery", "resident"]
 				},
 				{
 					"from": "overview.home",
@@ -47,7 +47,9 @@
 				"owner": "write",
 				"admin": "write",
 				"member": "read",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{
@@ -123,7 +125,7 @@
 			"behaviors": [
 				{
 					"id": "outcome",
-					"says": "Once the date arrives, Record Launch Sunday saves what happened, named guests become People, and corrections keep history.",
+					"says": "Once Launch Sunday is scheduled, Record Launch Sunday saves what happened on a day that has come, named guests become People, and corrections keep history.",
 					"catalog": ["LCH-006", "LCH-007"],
 					"operations": ["launch.recordOutcome", "launch.correctOutcome"],
 					"proof": {
@@ -134,7 +136,7 @@
 							},
 							{
 								"file": "tests/integration/launch/outcome.test.mts",
-								"name": "a launch with no date, a later date or a postponement refuses an outcome until Launch Sunday arrives, with nothing written"
+								"name": "a launch with no date or a postponement refuses an outcome, with nothing written, and a scheduled launch records a held date before or on its planned date"
 							},
 							{
 								"file": "tests/integration/launch/outcome.test.mts",

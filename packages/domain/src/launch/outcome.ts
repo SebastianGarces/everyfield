@@ -255,7 +255,7 @@ export function outcomeCommands(clock: Clock) {
 				const q = parse(c.recordOutcomeRequest, raw);
 				return command(db, authority, "launch.recordOutcome", q, async (tx, scope, l, identity) => {
 					if (l.launch.actual_date) deny("conflict");
-					if (!c.launchSundayArrived({ status: l.launch.status, targetDate: l.launch.target_date }, l.today))
+					if (!c.outcomeRecordable({ status: l.launch.status, targetDate: l.launch.target_date }))
 						deny("not_ready", { needs: "launch_sunday" });
 					if (l.launch.revision !== q.expectedRevision) deny("conflict");
 					const checked = c.checkOutcome(q.input, l.today);

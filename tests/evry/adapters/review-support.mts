@@ -21,7 +21,7 @@ export function reviews(db: Database, native: NativePorts | null = null) {
 	async function actorOf(session: string): Promise<EvryActor> {
 		const viewer = await readViewer(db, session as never);
 		assert.ok(viewer?.authority, "a live session");
-		return evryActor(viewer.authority);
+		return evryActor(viewer.authority, viewer.discovery);
 	}
 	async function prepare(actor: EvryActor, operation: string, input: unknown): Promise<Proposal> {
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
