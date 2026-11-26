@@ -303,7 +303,8 @@ test("AC:REF-CASE-006 seven system templates install with no recipient, schedule
 	assert.equal(shipped.name.toLowerCase(), String(exec.template).toLowerCase());
 	assert.equal(invitation.bodyHtml, shipped.bodyHtml);
 	const meeting = randomUUID();
-	await d.admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,agenda,venue_name,venue_address)
+	await d.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,agenda,venue_name,venue_address)
 		VALUES(${meeting},${R.id},'vision_meeting',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1,'[]'::jsonb,${exec.optional_location},${exec.optional_location})`);
 	const quiet = await writes(query);
 	const shown = ok(
