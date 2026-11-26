@@ -40,6 +40,7 @@ function facts(plantId: string, teamId: SQL) {
 		CROSS JOIN (SELECT count(*)::int AS filled, count(DISTINCT tn.person_id)::int AS people
 			FROM team_role r
 			JOIN team_tenure tn ON tn.role_id = r.id AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id
+				AND tn.started_on <= (clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id = ${plantId}::uuid))::date
 			JOIN person p ON p.id = tn.person_id AND p.tenant_id = r.plant_id AND p.state = 'live'
 			WHERE r.team_id = ${teamId} AND r.plant_id = ${plantId}::uuid AND r.retired_at IS NULL) fill
 		CROSS JOIN (SELECT count(*)::int AS n, min(recent.local_date) AS first, max(recent.local_date) AS last FROM (

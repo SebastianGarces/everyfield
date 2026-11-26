@@ -5,7 +5,7 @@ import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { type Workspace, ok, raced, refused } from "../../support/fixture.mts";
-import { personId, requestIdentity, tenantId } from "../../../packages/contracts/src/common/index.ts";
+import { instant, personId, requestIdentity, tenantId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	auditTransaction,
 	finishAudit,
@@ -36,6 +36,8 @@ import {
 	withFollowUpWrite,
 } from "../../../packages/domain/src/followups/index.ts";
 import { failingWrite, recorded, untouched } from "../../support/recorded.mts";
+import { createFacts } from "../../../packages/domain/src/intelligence/index.ts";
+import { caseOf } from "../target/sql/core/support.mts";
 import { rejectsWithFault } from "./world.mts";
 
 type Who = { actor: RequestActor };
@@ -283,6 +285,39 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	assert.deepEqual(ok(await write(owner, "create", request)), first);
 	assert.equal(first.task.title, "Call the venue");
 	assert.deepEqual([first.task.due, first.task.overdue, first.task.assignees], [{ kind: "undated" }, null, []]);
+	const unknown = caseOf("intelligence", "B03-007") as ReturnType<typeof caseOf> & { clock: { now: string } };
+	assert.deepEqual(unknown.action.arguments, { due_date: null, launch_date: null });
+	const undated = available(ok(await read(owner, "get", { taskId: first.task.id, asOf: unknown.clock.now })));
+	const listed = ok(await read(owner, "list", { asOf: unknown.clock.now, limit: 100 })).items.find(
+		(x) => x.id === first.task.id,
+	);
+	assert.deepEqual([listed?.due, listed?.overdue], [{ kind: "undated" }, null]);
+	refused(
+		await untouched(f.admin, () =>
+			write(owner, "edit", {
+				requestKey: randomUUID(),
+				expectedRevision: first.task.revision,
+				input: { taskId: first.task.id, patch: { due: bad.due.due } },
+			}),
+		),
+		"invalid_input",
+	);
+	assert.deepEqual(
+		available(ok(await read(owner, "get", { taskId: first.task.id, asOf: unknown.clock.now }))),
+		undated,
+	);
+	const facts = createFacts({ clock: { now: () => instant.parse(unknown.clock.now) } });
+	const launchOf = async () => ok(await facts.readFacts(f.db, owner.actor)).launch;
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM launch WHERE plant_id=${plant.id}`))[0]!.n, 0);
+	const noLaunch = await launchOf();
+	assert.deepEqual(
+		{
+			task_due: undated.due.kind === "undated" ? null : undated.due,
+			launch_countdown: noLaunch.daysToLaunch,
+		},
+		unknown.expected.result,
+	);
+	assert.deepEqual([undated.overdue, noLaunch], [null, { targetOn: null, daysToLaunch: null }]);
 	refused(await write(member, "create", { requestKey: randomUUID(), input: { title: "Member task" } }), "unavailable");
 
 	const p = await person("Alex Rivera");
