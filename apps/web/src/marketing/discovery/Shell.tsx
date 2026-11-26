@@ -232,9 +232,7 @@ export function LockedNote({ title, body }: { title: string; body: string }) {
 			<span className="mb-1.5 grid size-16 place-items-center bg-surface-2 text-ink-2">
 				<Icon icon={ChurchIcon} size={28} stroke={1.5} />
 			</span>
-			<div className="font-title type-title-md leading-[1.2] tracking-[-0.02em] text-balance text-ink">
-				{title}
-			</div>
+			<div className="font-title type-title-md leading-[1.2] tracking-[-0.02em] text-balance text-ink">{title}</div>
 			<p className="max-w-[420px] text-pretty text-text-2">{body}</p>
 			<span className="mt-3 inline-flex h-11 items-center bg-ink px-[18px] font-medium text-on-ink shadow-pill">
 				Start a church
