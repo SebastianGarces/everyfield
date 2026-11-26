@@ -55657,7 +55657,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/adult-cases.test.mts"
+      ],
       "description": "48-hour-eligibility-maturity-effective-time-history",
       "given": {
         "P": {

@@ -240,7 +240,8 @@ const SEVERAL_HOUSEHOLDS =
 	"Several households match this search. Ask which one the user means, naming each with its city, before reading any of them, and give no street address until they choose.";
 export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = {
 	operation: "people.listHouseholds",
-	description: "List households in this church, with the exact matched total and the next page when more exist.",
+	description:
+		"List households in this church, or those matching a family name, with the exact matched total and the next page when more exist. For a family's address, such as the Thompsons', search households by their surname and read the household (people.getHousehold): a household's address is on the household, not on each person.",
 	input: listHouseholdsInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input) {
@@ -279,7 +280,7 @@ function readHousehold(
 		operation,
 		description:
 			operation === "people.getHousehold"
-				? "Read one household in this church, by its id or by a person's id, with its live members."
+				? "Read one household in this church, by its id or by a person's id, with its recorded address and live members."
 				: "Read the live members of one household in this church, by its id or by a person's id.",
 		input: householdRequest,
 		allowed: inPlant,
@@ -424,6 +425,8 @@ const pipelineInput = z.strictObject({
 	column: pipelineColumn.optional().describe("Read this pipeline column only"),
 	...pageInput,
 });
+const PIPELINE_NOTE =
+	"Give each column's count from its column fact and, where stage facts are present, each of those stages' count too, not only their names.";
 export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 	operation: "people.getPipelineData",
 	description:
@@ -447,6 +450,7 @@ export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 		const core = found.groups.find((group) => group.column === "core_group");
 		if (core && core.total !== null && core.cards.length === core.total)
 			for (const s of COMMITTED) facts[`stage.${s}`] = core.cards.filter((card) => card.person.stage === s).length;
+		facts.note = PIPELINE_NOTE;
 		return {
 			...result(
 				"people.getPipelineData",
