@@ -4,59 +4,85 @@ const promote = require('./promote.cjs');
 
 const GREEN = 'a'.repeat(40);
 const PROD = 'f'.repeat(40);
-const VERCEL = 35613825;
-const ON = { TRUNK_PROMOTE: 'true', VERCEL_TOKEN: 'token-value', VERCEL_SCOPE: 'everyfield-team', VERCEL_PRODUCTION_DOMAIN: 'everyfield.app' };
+const EARLIER = 'e'.repeat(40);
+const PROJECT = 'prj_everyfield';
+const ON = {
+  TRUNK_PROMOTE: 'true', VERCEL_TOKEN: 'token-value', VERCEL_SCOPE: 'everyfield-team',
+  VERCEL_PRODUCTION_DOMAIN: 'everyfield.app', VERCEL_PROJECT_ID: PROJECT,
+};
+const PUSHED = '2026-11-25T10:00:00Z';
 
-function deployment(id, sha, overrides = {}) {
-  return { id, sha, environment: 'Production', creator: { id: VERCEL }, created_at: `2026-11-18T10:0${id % 10}:00Z`, ...overrides };
+// A production deployment as `vercel deploy --prebuilt --prod --meta githubCommitSha=<sha>` leaves it in the list API.
+function cli(uid, sha, readyState = 'READY', overrides = {}) {
+  return { uid, url: `${uid}.vercel.app`, projectId: PROJECT, target: 'production', readyState, created: Date.parse(PUSHED) + 60000, meta: { githubCommitSha: sha }, ...overrides };
 }
-function built(host) {
-  return [{ state: 'success', environment_url: `https://${host}`, creator: { id: VERCEL } }];
+// A deploy-production push run on main.
+function deployRun(id, sha, status = 'completed', conclusion = 'success', created_at = PUSHED) {
+  return { id, head_sha: sha, event: 'push', head_branch: 'main', status, conclusion: status === 'completed' ? conclusion : null, created_at };
 }
+const value = v => (typeof v === 'function' ? v() : v);
 
-function harness({ deployments = [], statuses = {}, production = PROD, compare = 'behind', vercelDeployments = {}, env = ON } = {}) {
-  const calls = { vercel: [], exec: [], compare: [], listDeployments: [] };
+// `ancestors` lists the commits each commit contains; `compare` answers by those, so `contains` follows history.
+function harness({ deployments = [], runs = [], production = PROD, ancestors = {}, env = ON, defaults = false } = {}) {
+  const calls = { vercel: [], exec: [], compare: [], runs: [], getRun: [], lists: 0 };
+  let listed = [];
   const summary = [];
   const failed = [];
+  const history = { ...ancestors };
   const github = {
-    rest: { repos: {
-      listDeployments: () => {},
-      listDeploymentStatuses: async ({ deployment_id }) => ({ data: (typeof statuses === 'function' ? statuses() : statuses)[deployment_id] || [] }),
-      compareCommitsWithBasehead: async ({ basehead }) => { calls.compare.push(basehead); return { data: { status: compare } }; },
-    } },
-    paginate: async (endpoint, input) => {
-      assert.equal(endpoint, github.rest.repos.listDeployments);
-      calls.listDeployments.push(input);
-      return typeof deployments === 'function' ? deployments() : deployments;
+    rest: {
+      repos: {
+        compareCommitsWithBasehead: async ({ basehead }) => {
+          calls.compare.push(basehead);
+          const [base, head] = basehead.split('...');
+          const status = base === head ? 'identical' : (history[head] || []).includes(base) ? 'ahead' : 'behind';
+          return { data: { status } };
+        },
+      },
+      actions: {
+        listWorkflowRuns: async input => {
+          calls.runs.push(input);
+          assert.equal(input.workflow_id, 'deploy-production.yml');
+          const all = value(runs);
+          return { data: { workflow_runs: input.head_sha ? all.filter(r => r.head_sha === input.head_sha) : all } };
+        },
+        getWorkflowRun: async ({ run_id }) => {
+          calls.getRun.push(run_id);
+          return { data: value(runs).find(r => r.id === run_id) };
+        },
+      },
     },
   };
   const fetch = async (url, init) => {
     calls.vercel.push({ url: String(url), auth: init.headers.Authorization });
-    const host = decodeURIComponent(url.pathname.split('/').pop());
-    const body = host === env.VERCEL_PRODUCTION_DOMAIN
-      ? { id: 'dpl_current', meta: { githubCommitSha: production } }
-      : vercelDeployments[host];
-    return body ? { ok: true, json: async () => body } : { ok: false, status: 404 };
+    if (url.pathname === '/v7/deployments') {
+      assert.equal(url.searchParams.get('projectId'), PROJECT);
+      assert.equal(url.searchParams.get('target'), 'production');
+      calls.lists++;
+      listed = value(deployments);
+      return { ok: true, json: async () => ({ deployments: listed, pagination: { next: null } }) };
+    }
+    const key = decodeURIComponent(url.pathname.split('/').pop());
+    if (key === env.VERCEL_PRODUCTION_DOMAIN) return { ok: true, json: async () => ({ id: 'dpl_current', meta: { githubCommitSha: production } }) };
+    const d = listed.find(x => x.uid === key);
+    return d ? { ok: true, json: async () => ({ id: d.uid, url: d.url, meta: d.meta, target: d.target, readyState: d.readyState }) } : { ok: false, status: 404 };
   };
   const core = {
     info() {},
     setFailed: line => failed.push(line),
     summary: { addRaw(text) { summary.push(text); return this; }, write: async () => {} },
   };
-  const exec = { exec: async (command, args, options) => { calls.exec.push({ command, args, token: options.env.VERCEL_TOKEN }); return 0; } };
+  const exec = { exec: async (command, args, options) => { calls.exec.push({ command, args, env: options.env }); return 0; } };
   let clock = 0;
-  const options = { env, fetch, sleep: async ms => { clock += ms; }, now: () => clock, waitMs: 120000, pollMs: 30000 };
+  const options = { env, fetch, sleep: async ms => { clock += ms; }, now: () => clock, ...(defaults ? {} : { waitMs: 120000, pollMs: 30000 }) };
   const go = context => promote({ github, context, core, exec }, options);
-  return { go, calls, summary, failed };
+  return { go, calls, summary, failed, waited: () => clock };
 }
 function ci(overrides = {}) {
   return { repo: { owner: 'SebastianGarces', repo: 'everyfield' }, eventName: 'workflow_run', payload: { workflow_run: {
     id: 3, path: '.github/workflows/ci.yml', event: 'push', head_branch: 'main',
     head_repository: { full_name: 'SebastianGarces/everyfield' }, conclusion: 'success', head_sha: GREEN, ...overrides,
   } } };
-}
-function ready(host, sha = GREEN, id = 'dpl_green') {
-  return { [host]: { id, meta: { githubCommitSha: sha }, target: 'production', readyState: 'READY' } };
 }
 
 test('INV-promote: missing TRUNK_PROMOTE or VERCEL_TOKEN promotes nothing, calls no Vercel API and says which is missing', async () => {
@@ -68,12 +94,12 @@ test('INV-promote: missing TRUNK_PROMOTE or VERCEL_TOKEN promotes nothing, calls
     [{ ...ON, VERCEL_TOKEN: '' }, /VERCEL_TOKEN secret is not set/],
   ];
   for (const [env, reason] of cases) {
-    const h = harness({ env, deployments: [deployment(1, GREEN)], statuses: { 1: built('green.vercel.app') }, vercelDeployments: ready('green.vercel.app') });
+    const h = harness({ env, runs: [deployRun(1, GREEN)], deployments: [cli('dpl_green', GREEN)] });
     const result = await h.go(ci());
     assert.equal(result.outcome, 'off', JSON.stringify(env));
     assert.deepEqual(h.calls.vercel, []);
     assert.deepEqual(h.calls.exec, []);
-    assert.deepEqual(h.calls.listDeployments, []);
+    assert.deepEqual(h.calls.runs, []);
     assert.deepEqual(h.failed, []);
     assert.match(h.summary.join(''), reason);
     assert.match(h.summary.join(''), /Nothing was promoted\./);
@@ -104,37 +130,36 @@ test('INV-promote: only a successful push CI run on main of this repository prom
   await assert.rejects(harness().go({ ...ci(), repo: { owner: 'fork', repo: 'everyfield' } }), /Unexpected promote repository/);
 });
 
-test('INV-promote: promotes the Vercel production deployment for the exact green sha and no other', async () => {
+test('INV-promote: promotes the CLI production deployment stamped with the exact green sha and no other', async () => {
   const deployments = [
-    deployment(1, 'b'.repeat(40)),
-    deployment(2, 'c'.repeat(40)),
-    deployment(3, GREEN.slice(0, 39) + 'b'),
-    deployment(4, GREEN.slice(0, 7)),
-    deployment(5, GREEN, { environment: 'Preview' }),
-    deployment(6, GREEN, { creator: { id: 1 } }),
-    deployment(7, GREEN),
-    deployment(8, GREEN, { created_at: '2026-11-18T09:00:00Z' }),
+    cli('dpl_other', 'b'.repeat(40)),
+    cli('dpl_near', GREEN.slice(0, 39) + 'b'),
+    cli('dpl_short', GREEN.slice(0, 7)),
+    cli('dpl_preview', GREEN, 'READY', { target: null }),
+    cli('dpl_foreign', GREEN, 'READY', { projectId: 'prj_other' }),
+    cli('dpl_failed', GREEN, 'ERROR', { created: Date.parse(PUSHED) + 90000 }),
+    cli('dpl_green', GREEN),
   ];
-  const statuses = Object.fromEntries(deployments.map(d => [d.id, built(`d${d.id}.vercel.app`)]));
-  statuses[7] = [{ state: 'failure', creator: { id: VERCEL } }];
-  const h = harness({ deployments, statuses, vercelDeployments: ready('d8.vercel.app', GREEN, 'dpl_eight') });
+  const h = harness({ runs: [deployRun(7, GREEN)], deployments });
   const result = await h.go(ci());
   assert.equal(result.outcome, 'promoted');
-  assert.equal(result.deployment, 'dpl_eight');
-  assert.deepEqual(h.calls.exec, [{
+  assert.equal(result.deployment, 'dpl_green');
+  assert.deepEqual(h.calls.exec.map(({ command, args }) => ({ command, args })), [{
     command: 'npx',
-    args: ['--yes', 'vercel@65.11.0', 'promote', 'dpl_eight', '--yes', '--scope', 'everyfield-team'],
-    token: 'token-value',
+    args: ['--yes', 'vercel@65.11.0', 'promote', 'dpl_green', '--yes', '--scope', 'everyfield-team'],
   }]);
+  const { env } = h.calls.exec[0];
+  assert.equal(env.VERCEL_TOKEN, 'token-value');
+  assert.equal(env.VERCEL_PROJECT_ID, undefined, 'the CLI refuses a project id without an org id');
   assert.ok(!h.calls.exec[0].args.includes('token-value'), 'the token is never a command argument');
   assert.deepEqual(h.calls.compare, [`${GREEN}...${PROD}`]);
-  assert.deepEqual(h.calls.vercel.map(c => c.url), [
-    'https://api.vercel.com/v13/deployments/everyfield.app?slug=everyfield-team',
-    'https://api.vercel.com/v13/deployments/d8.vercel.app?slug=everyfield-team',
-  ]);
+  const urls = h.calls.vercel.map(c => new URL(c.url));
+  assert.deepEqual(urls.map(u => u.pathname), ['/v13/deployments/everyfield.app', '/v7/deployments', '/v13/deployments/dpl_green']);
+  assert.ok(urls.every(u => u.searchParams.get('slug') === 'everyfield-team'));
+  assert.equal(Number(urls[1].searchParams.get('since')), Date.parse(PUSHED) - 5 * 60 * 1000);
   assert.ok(h.calls.vercel.every(c => c.auth === 'Bearer token-value'));
-  assert.equal(h.calls.listDeployments[0].sha, GREEN);
-  assert.match(h.summary.join(''), new RegExp(`Promoted deployment dpl_eight \\(d8\\.vercel\\.app\\) at ${GREEN} to production\\. It replaced ${PROD}\\.`));
+  assert.deepEqual(h.calls.runs[0], { owner: 'SebastianGarces', repo: 'everyfield', workflow_id: 'deploy-production.yml', event: 'push', branch: 'main', head_sha: GREEN, per_page: 10 });
+  assert.match(h.summary.join(''), new RegExp(`Promoted deployment dpl_green \\(dpl_green\\.vercel\\.app\\) of ${GREEN} to production\\. It replaced ${PROD}\\.`));
   assert.deepEqual(h.failed, []);
 });
 
@@ -142,64 +167,114 @@ test('INV-promote: the command omits --scope when no Vercel scope is configured'
   assert.deepEqual(promote.promoteCommand('dpl_x', ''), ['npx', ['--yes', 'vercel@65.11.0', 'promote', 'dpl_x', '--yes']]);
 });
 
-test('INV-promote: without an exact built deployment nothing is promoted and the job fails naming the sha', async () => {
-  const others = [deployment(1, 'b'.repeat(40)), deployment(2, GREEN.slice(0, 39) + 'c'), deployment(3, GREEN, { environment: 'Preview' })];
-  const statuses = { 1: built('d1.vercel.app'), 2: built('d2.vercel.app'), 3: built('d3.vercel.app') };
-  const none = harness({ deployments: others, statuses });
-  assert.equal((await none.go(ci())).outcome, 'failed');
-  assert.deepEqual(none.calls.exec, []);
-  assert.equal(none.calls.listDeployments.length, 5, 'polls until the bounded wait ends');
-  assert.match(none.failed[0], new RegExp(`no built Vercel production deployment exists for ${GREEN} after waiting 2 minutes`));
-  assert.match(none.summary.join(''), new RegExp(GREEN));
-
-  const broken = harness({ deployments: [deployment(1, GREEN)], statuses: { 1: [{ state: 'error', creator: { id: VERCEL } }] } });
-  assert.equal((await broken.go(ci())).outcome, 'failed');
-  assert.equal(broken.calls.listDeployments.length, 1, 'a failed build is final');
-  assert.match(broken.failed[0], new RegExp(`every Vercel production deployment for ${GREEN} failed to build`));
-  assert.deepEqual(broken.calls.exec, []);
-
-  const building = harness({ deployments: [deployment(1, GREEN)], statuses: { 1: [{ state: 'in_progress', creator: { id: VERCEL } }] } });
-  assert.equal((await building.go(ci())).outcome, 'failed');
-  assert.match(building.failed[0], /after waiting 2 minutes/);
-  assert.deepEqual(building.calls.exec, []);
-
-  const mismatched = harness({ deployments: [deployment(1, GREEN)], statuses: { 1: built('d1.vercel.app') }, vercelDeployments: ready('d1.vercel.app', 'b'.repeat(40)) });
-  assert.equal((await mismatched.go(ci())).outcome, 'failed');
-  assert.match(mismatched.failed[0], new RegExp(`not a ready production build of ${GREEN}`));
-  assert.deepEqual(mismatched.calls.exec, []);
-});
-
-test('INV-promote: a deployment that finishes building inside the wait is promoted', async () => {
+test('INV-promote: a build still queued or building is waited for and promoted once it is READY', async () => {
   let polls = 0;
   const h = harness({
-    deployments: () => (++polls < 3 ? [] : [deployment(1, GREEN)]),
-    statuses: () => ({ 1: polls < 4 ? [{ state: 'in_progress', creator: { id: VERCEL } }] : built('d1.vercel.app') }),
-    vercelDeployments: ready('d1.vercel.app', GREEN, 'dpl_one'),
+    runs: () => [deployRun(7, GREEN, polls < 4 ? 'in_progress' : 'completed')],
+    deployments: () => {
+      polls++;
+      if (polls < 2) return [];
+      return [cli('dpl_green', GREEN, polls < 3 ? 'QUEUED' : polls < 4 ? 'BUILDING' : 'READY')];
+    },
   });
-  assert.equal((await h.go(ci())).outcome, 'promoted');
-  assert.equal(h.calls.exec[0].args[3], 'dpl_one');
+  const result = await h.go(ci());
+  assert.equal(result.outcome, 'promoted');
+  assert.equal(h.calls.lists, 4, 'not yet built, queued, building, then READY');
+  assert.equal(h.calls.exec[0].args[3], 'dpl_green');
+  assert.deepEqual(h.failed, []);
+});
+
+test('INV-promote: a failed, cancelled or never-ready build fails naming the sha and promotes nothing', async () => {
+  for (const state of ['ERROR', 'CANCELED']) {
+    const h = harness({ runs: [deployRun(7, GREEN, 'completed', 'failure')], deployments: [cli('dpl_green', GREEN, state)] });
+    assert.equal((await h.go(ci())).outcome, 'failed', state);
+    assert.deepEqual(h.calls.exec, []);
+    assert.equal(h.failed.length, 1);
+    assert.match(h.failed[0], new RegExp(`Promote failed for ${GREEN}: the Vercel production build of ${GREEN} ended in ${state} \\(deploy-production run 7 concluded failure\\)\\. Nothing was promoted\\.`));
+    assert.match(h.summary.join(''), new RegExp(`ended in ${state}`));
+  }
+
+  const cancelledRun = harness({ runs: [deployRun(7, GREEN, 'completed', 'cancelled')], deployments: [] });
+  assert.equal((await cancelledRun.go(ci())).outcome, 'failed');
+  assert.match(cancelledRun.failed[0], new RegExp(`deploy-production run 7 for ${GREEN} concluded cancelled without a Vercel production deployment`));
+  assert.deepEqual(cancelledRun.calls.exec, []);
+
+  const stuck = harness({ runs: [deployRun(7, GREEN, 'in_progress')], deployments: [cli('dpl_green', GREEN, 'BUILDING')] });
+  assert.equal((await stuck.go(ci())).outcome, 'failed');
+  assert.match(stuck.failed[0], new RegExp(`Promote failed for ${GREEN}: no READY Vercel production deployment exists for ${GREEN} after waiting 2 minutes\\. Nothing was promoted\\.`));
+  assert.equal(stuck.calls.getRun.length, 5, 'polls until the bounded wait ends');
+  assert.deepEqual(stuck.calls.exec, []);
+});
+
+test('INV-promote: the default wait outlasts deploy-production\'s 30-minute job timeout', async () => {
+  const h = harness({ runs: [deployRun(7, GREEN, 'queued')], deployments: [], defaults: true });
+  const result = await h.go(ci());
+  assert.equal(result.outcome, 'failed');
+  assert.ok(h.waited() > 30 * 60 * 1000, `waited ${h.waited()} ms`);
+  assert.match(h.failed[0], /after waiting 40 minutes/);
+  assert.deepEqual(h.calls.exec, []);
+});
+
+test('INV-promote: a path-filtered green sha promotes the latest earlier deploying commit it contains', async () => {
+  const OLDER = 'd'.repeat(40);
+  const LATER = 'c'.repeat(40);
+  const runs = [
+    deployRun(9, LATER, 'completed', 'success', '2026-11-25T11:00:00Z'),
+    deployRun(8, EARLIER, 'completed', 'success', '2026-11-25T10:00:00Z'),
+    deployRun(5, OLDER, 'completed', 'success', '2026-11-25T09:00:00Z'),
+  ];
+  const ancestors = { [GREEN]: [EARLIER, OLDER, PROD], [EARLIER]: [OLDER, PROD], [LATER]: [GREEN, EARLIER, OLDER, PROD] };
+  const h = harness({ runs, ancestors, production: PROD, deployments: [cli('dpl_earlier', EARLIER), cli('dpl_older', OLDER)] });
+  const result = await h.go(ci());
+  assert.equal(result.outcome, 'promoted');
+  assert.equal(result.built, EARLIER);
+  assert.equal(h.calls.exec[0].args[3], 'dpl_earlier');
+  assert.deepEqual(h.calls.runs.map(r => r.head_sha), [GREEN, undefined]);
+  assert.match(h.summary.join(''), new RegExp(`Promoted deployment dpl_earlier \\(dpl_earlier\\.vercel\\.app\\) of ${EARLIER} \\(the latest deploying commit in ${GREEN}\\) to production\\. It replaced ${PROD}\\.`));
+  assert.deepEqual(h.failed, []);
+});
+
+test('INV-promote: a path-filtered green sha whose deploying commit is already live ends green and promotes nothing', async () => {
+  const runs = [deployRun(8, EARLIER)];
+  const live = harness({ runs, production: PROD, ancestors: { [GREEN]: [EARLIER, PROD], [PROD]: [EARLIER] }, deployments: [cli('dpl_earlier', EARLIER)] });
+  const result = await live.go(ci());
+  assert.equal(result.outcome, 'unchanged');
+  assert.deepEqual(live.calls.exec, []);
+  assert.deepEqual(live.failed, []);
+  assert.match(live.summary.join(''), new RegExp(`No deploy-production push run built ${GREEN}; its latest deploying commit ${EARLIER} is already in production ${PROD}\\. Nothing deployable changed, so production stays\\. Nothing was promoted\\.`));
+
+  const none = harness({ runs: [], deployments: [] });
+  assert.equal((await none.go(ci())).outcome, 'unchanged');
+  assert.deepEqual(none.failed, []);
+  assert.deepEqual(none.calls.exec, []);
+  assert.match(none.summary.join(''), /Nothing deployable changed, so production stays on/);
 });
 
 test('INV-promote: a green run that finishes after a newer one never moves production backwards', async () => {
   const older = GREEN;
   const newer = 'c'.repeat(40);
-  const statuses = { 1: built('old.vercel.app'), 2: built('new.vercel.app') };
-  const deployments = [deployment(1, older), deployment(2, newer)];
-  for (const status of ['ahead', 'identical']) {
-    const h = harness({ deployments, statuses, production: newer, compare: status, vercelDeployments: ready('old.vercel.app') });
+  const runs = [deployRun(1, older), deployRun(2, newer)];
+  const deployments = [cli('dpl_old', older), cli('dpl_new', newer)];
+  for (const ancestors of [{ [newer]: [older] }, {}]) {
+    const production = ancestors[newer] ? newer : older;
+    const h = harness({ runs, deployments, production, ancestors });
     const result = await h.go(ci({ head_sha: older }));
-    assert.equal(result.outcome, 'current', status);
-    assert.deepEqual(h.calls.compare, [`${older}...${newer}`]);
+    assert.equal(result.outcome, 'current');
+    assert.deepEqual(h.calls.compare, [`${older}...${production}`]);
     assert.deepEqual(h.calls.exec, []);
-    assert.match(h.summary.join(''), new RegExp(`Production already runs ${newer}, which contains ${older}\\. Nothing was promoted\\.`));
+    assert.match(h.summary.join(''), new RegExp(`Production already runs ${production}, which contains ${older}\\. Nothing was promoted\\.`));
   }
 });
 
-test('INV-promote: without a production domain or a production commit nothing is promoted', async () => {
+test('INV-promote: without a production domain, project id or production commit nothing is promoted', async () => {
   const unset = harness({ env: { ...ON, VERCEL_PRODUCTION_DOMAIN: '' } });
   assert.equal((await unset.go(ci())).outcome, 'failed');
   assert.match(unset.failed[0], /VERCEL_PRODUCTION_DOMAIN is not set/);
   assert.deepEqual(unset.calls.vercel, []);
+  const noProject = harness({ env: { ...ON, VERCEL_PROJECT_ID: '' } });
+  assert.equal((await noProject.go(ci())).outcome, 'failed');
+  assert.match(noProject.failed[0], new RegExp(`VERCEL_PROJECT_ID is not set, so the Vercel deployment of ${GREEN} cannot be found`));
+  assert.deepEqual(noProject.calls.vercel, []);
   const unknown = harness({ production: null });
   assert.equal((await unknown.go(ci())).outcome, 'failed');
   assert.match(unknown.failed[0], /names no Git commit/);
