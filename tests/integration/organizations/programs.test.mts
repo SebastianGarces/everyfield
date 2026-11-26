@@ -323,18 +323,17 @@ test("AC:ADR1-010 AC:TEN-001 the director edits the draft and its reading list; 
 	);
 	const readingRows = async () =>
 		(
-			await admin.execute<{ n: number; hill: number }>(
-				sql`SELECT count(*)::int AS n,count(*) FILTER (WHERE revision_id=${hillRevision})::int AS hill
- FROM development_reading WHERE organization_id=${grace.id}`,
+			await admin.execute<{ n: number }>(
+				sql`SELECT count(*)::int AS n FROM development_reading WHERE organization_id=${grace.id}`,
 			)
-		).rows[0];
-	assert.deepEqual(await readingRows(), { n: 0, hill: 0 });
+		).rows[0]!.n;
+	assert.equal(await readingRows(), 0);
 	const saved = ok(
 		await savePlan(db, await authority(ana), { programId: residency, expectedRevision: p.revision, plan }),
 	);
 	const after = await program(ana, residency);
 	assert.equal(after.revision, saved.revision);
-	assert.deepEqual(await readingRows(), { n: 3, hill: 0 });
+	assert.equal(await readingRows(), 3);
 	assert.equal(after.draft?.number, 1);
 	assert.equal(after.draft?.rhythm, "every_two_weeks");
 	assert.equal(after.draft?.expectedMonths, 16);

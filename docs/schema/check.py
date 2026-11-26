@@ -56,16 +56,15 @@ def direct_owner_columns(table):
 
 def owner_columns(tables):
     """D-2870: a composite FK pairing an owner column with a parent's owner column makes it owned, transitively."""
-    by_name = {t['name']: t for t in tables}
     owners = {t['name']: direct_owner_columns(t) for t in tables}
     changed = True
     while changed:
         changed = False
         for table in tables:
             for fk in table['foreign_keys']:
-                parent = owners.get(fk['references']['table'], set())
-                if len(fk['columns']) < 2 or fk['references']['table'] not in by_name:
+                if len(fk['columns']) < 2:
                     continue
+                parent = owners.get(fk['references']['table'], set())
                 for left, right in zip(fk['columns'], fk['references']['columns']):
                     if left in OWNER_COLUMNS and right in parent and left not in owners[table['name']]:
                         owners[table['name']].add(left)
