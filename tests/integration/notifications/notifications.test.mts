@@ -9,6 +9,8 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { caseOf } from "./cases-world.mts";
 import { markSubject, subjectReadRequest } from "../../../apps/web/src/features/notifications/subject.ts";
 
 const database = await testDatabase({ prefix: "wp030" });
@@ -767,6 +769,88 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: planter.id }),
 	);
 	assert.equal(seen.recipientIds.includes(adminSeat.id), false);
+});
+
+test("AC:CASE-NTF-014 a typo and a meaningful upstream change each give the customized article's current editor one in-app notice, never an email, an adoption or an overwrite", async () => {
+	const c = caseOf("CASE-NTF-014");
+	const updates = c.given["behavior-inputs"].global_updates as { meaningful: boolean }[];
+	const body = c.given["org-article"].body;
+	const church = await organization("sending_church", "S1");
+	const editor = await identity(church);
+	const revoked = await identity(church, "admin");
+	const member = await identity(church, "member");
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${revoked.id}`);
+	const global = "00000000-0000-0000-0000-000000000000";
+	const [section, article, release, customized] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+	const revisions = [{ meaningful: true }, ...updates].map((u) => ({ ...u, id: randomUUID() }));
+	await admin.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES
+		(${section},'section',${"section-" + section},${global}),(${article},'article',${"article-" + article},${global})`);
+	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES(${release},${"release-" + release},'memory://synthetic','hash','validated','v','profile',1,${global},0)`);
+	for (const [n, u] of revisions.entries())
+		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,body,content_type,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
+			VALUES(${u.id},${article},${global},${release},${n + 1},${`Upstream ${n + 1}`},${`g1-${n + 1}`},${`Global guidance ${n + 1}.`},'safe_mdx',1,${"a".repeat(64)},clock_timestamp(),${u.meaningful},${n + 1},${section})`);
+	await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,revision_number,title,slug,body,content_type,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
+		VALUES(${customized},${article},${church.id},1,'S1','s1',${body},'safe_nodes',1,${"b".repeat(64)},clock_timestamp(),true,1,${section})`);
+	await admin.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,based_on_upstream_id,revision)
+		VALUES(${randomUUID()},${church.id},${article},'published',${customized},${revisions[0]!.id},1)`);
+	const reader = await actor(editor.session);
+	const before = ok(await api.getPreferences(db, reader));
+	refused(
+		await api.setPreference(
+			db,
+			reader,
+			command({ choice: { category: "wiki_upstream_review", channel: "email", enabled: true } }, before.revision),
+		),
+		"invalid_input",
+	);
+	ok(
+		await api.setPreference(
+			db,
+			reader,
+			command({ choice: { category: "oversight_digest", channel: "email", enabled: true } }, before.revision),
+		),
+	);
+	const emails = ok(await api.getPreferences(db, reader)).choices.filter((choice) => choice.channel === "email");
+	assert.deepEqual(new Set(emails.map((choice) => choice.enabled)), new Set([c.given["behavior-inputs"].email_on]));
+	const texts = async () =>
+		(
+			await admin.execute(sql`SELECT (SELECT jsonb_agg(to_jsonb(r) ORDER BY r.id) FROM article_revision r WHERE article_id=${article}) AS revisions,
+			(SELECT to_jsonb(e) FROM article_editor_state e WHERE article_id=${article}) AS state`)
+		).rows;
+	const kept = await texts();
+	const sends = () => count(sql`SELECT (SELECT count(*) FROM mail)::int+(SELECT count(*) FROM job)::int AS n`);
+	const quiet = await sends();
+	const wiki = createWikiProducer();
+	const emit = async (who: typeof editor) =>
+		ok(await wiki.emitUpstreamReview(db, await actor(who.session), command({ articleId: article }, "0")));
+	const cues = async (account: string) =>
+		count(sql`SELECT count(*)::int AS n FROM notice WHERE recipient_id=${account} AND purpose='reference_update'`);
+	const value = await emit(editor);
+	assert.deepEqual(value.recipientIds, [editor.id]);
+	assert.deepEqual(
+		{ in_app_cues: value.inAppCues, email_intents: value.emailIntents, auto_adoptions: value.autoAdoptions },
+		c.expected.result,
+	);
+	assert.deepEqual(
+		{
+			in_app_cues: await cues(editor.id),
+			email_intents: (await sends()) - quiet,
+			auto_adoptions: JSON.stringify(await texts()) === JSON.stringify(kept) ? 0 : 1,
+		},
+		c.expected.result,
+	);
+	assert.ok(JSON.stringify(kept).includes(body));
+	assert.deepEqual(
+		(ok(await api.readFeed(db, reader, {})) as Feed).items.map((i) => [i.category, i.title, i.dueLocalDate]).sort(),
+		[
+			["wiki_upstream_review", "Upstream 2", null],
+			["wiki_upstream_review", "Upstream 3", null],
+		],
+	);
+	assert.deepEqual([await cues(revoked.id), await cues(member.id)], [0, 0]);
+	assert.equal((await emit(editor)).inAppCues, 0, "the same changes again add nothing");
+	assert.deepEqual([await cues(editor.id), (await sends()) - quiet], [2, 0]);
 });
 
 test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and digest reads, as it hides the feed", async () => {

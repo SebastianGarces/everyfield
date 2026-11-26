@@ -46,7 +46,9 @@ const diagLogger: DiagLogger = {
 	verbose: otelDiag("verbose"),
 };
 
-const DEFAULT_BASE_URL = "https://cloud.langfuse.com";
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+const exportsTo = (url: URL, raw: string) =>
+	(url.protocol === "https:" || LOOPBACK.has(url.hostname)) && !url.username && !url.password && !/[?#]/.test(raw);
 const ENVIRONMENT = /^(?!langfuse)[a-z0-9_-]+$/;
 
 const BATCH_BYTES_DEFAULT = 64 * 1024 * 1024;
@@ -117,7 +119,7 @@ function langfuseExporter(publicKey: string, secretKey: string, baseUrl: string,
 export function registerTracing(env: Record<string, string | undefined> = process.env) {
 	const { LANGFUSE_PUBLIC_KEY: publicKey, LANGFUSE_SECRET_KEY: secretKey } = env;
 	const environment = env.LANGFUSE_TRACING_ENVIRONMENT;
-	const baseUrl = env.LANGFUSE_BASE_URL ?? DEFAULT_BASE_URL;
+	const baseUrl = env.LANGFUSE_BASE_URL ?? "";
 	const parsed = baseUrl === baseUrl.trim() ? URL.parse(baseUrl) : null;
 	const url = parsed?.protocol === "http:" || parsed?.protocol === "https:" ? parsed : null;
 	const environmentValid = environment === undefined || ENVIRONMENT.test(environment);
@@ -132,7 +134,7 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 		return false;
 	};
 	if (!publicKey || !secretKey) return disabled("missing_keys");
-	if (!url) return disabled("invalid_base_url");
+	if (!url || !exportsTo(url, baseUrl)) return disabled("invalid_base_url");
 	if (!environmentValid) return disabled("invalid_environment");
 	const exporter = langfuseExporter(
 		publicKey,

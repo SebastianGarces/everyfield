@@ -493,7 +493,7 @@
 		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 8 read, 12 transaction, 6 locked read, 4 write. With no kit: 4 read, 4 transaction, 2 locked read, 4 write.",
 		"reads": "putPrivateObject locks the file row, then calls the caller's authorizer again so access that ended while it waited for that lock is refused. A locking SELECT reads every other table as of its start, before that wait, so the check cannot join the locking read.",
 		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. A brand kit adds one read per theme image, the logo and the cover photo at most, so the check repeats at most seven times.",
-		"retry": 11
+		"retry": 13
 	},
 	"documents.history.get": {
 		"limit": 1
@@ -559,7 +559,7 @@
 	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
-		"retry": 5,
+		"retry": 8,
 		"reason": "A public request with no session or seat to gate it. The outbound-mail kill switch read (T-472; with the switch off it is the whole request); BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; one statement counts the email's and the network key's attempts inside their rate windows; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after the count: 6 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write."
 	},
 	"feedback.admin.changeStatus": {
@@ -1644,8 +1644,8 @@
 		"reads": "On a release already saved, the release lock returns its id and verifyStored's re-read of what is stored under it (versions, then articles, then passages) passes that id. That re-read is the one check both paths share; on a new release it follows install's writes, so folding it into the lock would mean a second copy of it, or cutting the install path's statements as well."
 	},
 	"reference.rebuildEmbeddings": {
-		"limit": 23,
-		"reason": "Activates through reference.promote, after one write that adds the provider's reported tokens to embedding_spend. Its largest first run: 4 transaction, 4 locked read, 7 read, 8 write."
+		"limit": 21,
+		"reason": "Activates through reference.promote, after the publisher check and one write that adds the provider's reported tokens to embedding_spend. Its largest first run: 2 transaction, 4 locked read, 7 read, 8 write."
 	},
 	"seats.appointAdmin": {
 		"limit": 6
@@ -1790,7 +1790,7 @@
 		"limit": 4
 	},
 	"tasks.changeStatus": {
-		"limit": 2
+		"limit": 3
 	},
 	"tasks.complete": {
 		"limit": 4

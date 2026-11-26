@@ -373,4 +373,4 @@ A signed callback records one delivery outcome for the sent mail, and a callback
 - No operation: the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation
 - Catalog: NTF-010
 - Cases: CASE-NTF-010
-- Test: `tests/integration/communication/delivery.test.mts`: `AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing`
+- Test: `tests/integration/communication/delivery.test.mts`: `AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 callbacks in any order keep one outcome, a soft bounce blocks nobody, and a bad signature or an unsaved event writes nothing`
