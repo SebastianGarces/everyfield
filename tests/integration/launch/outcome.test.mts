@@ -302,9 +302,15 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 	const after = await footprint(c.w);
 	assert.equal(after.people, before.people + 1);
 	assert.equal(after.guests, before.guests + 1);
-	const created = await one(sql`SELECT actor_id,kind FROM audit_event WHERE action='people.created'
+	const created =
+		await one(sql`SELECT actor_id,kind,before_value,after_value FROM audit_event WHERE action='people.created'
 		AND subject_id=${p.guests.named![0]!.personId}`);
-	assert.deepEqual(created, { actor_id: c.owner.id, kind: "create" });
+	assert.deepEqual(created, {
+		actor_id: c.owner.id,
+		kind: "create",
+		before_value: null,
+		after_value: { stage: "attendee" },
+	});
 	const twice = key();
 	const saves = await Promise.all([1, 2].map(() => guest(c.owner, { displayName: "Noor" }, twice)));
 	assert.ok(saves.some((r) => r.status === "ok"));

@@ -166,7 +166,7 @@ test("AC:CASE-PPL-009-GUARDIAN an admin marks an adult in a child's household as
 		WHERE subject_id=${sql.param(ava.id)} AND after_value ? 'guardian'`);
 	assert.deepEqual(audit, {
 		before_value: { guardian: null },
-		after_value: { guardian: { personId: maria.id, displayName: "Maria Lopez" } },
+		after_value: { guardian: { personId: maria.id } },
 	});
 
 	const again = ok(await contact(ava, maria));
