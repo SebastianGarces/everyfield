@@ -128,7 +128,7 @@ const healthRow = (h: Health) =>
 		attendanceBand: h.attendanceBand,
 	});
 const HEALTH_NOTE =
-	"Measured facts only: staffing is filled role slots over role slots, attendance is distinct roster members who attended the last 4 completed team meetings, training is required people with a current completion. The composite weighs staffing 35, training 40 and attendance 25, and is Unknown when any part is missing.";
+	"Measured facts only: staffing is filled role slots over role slots, attendance is distinct roster members who attended the last 4 completed team meetings, training is required people with a current completion. The composite weighs staffing 35, training 40 and attendance 25, and is Unknown when any part is missing. Asked how healthy the team is, also read intelligence.readScorecard when it is offered, and say what it shows or that no assessment is published yet.";
 
 const participant =
 	(actor: EvryActor, programName: string) => (p: { personId: string; name: string; complete: boolean }) =>

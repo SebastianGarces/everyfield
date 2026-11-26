@@ -160,6 +160,8 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 **Lost connection on Add.** When an Admin has a checklist preview open and the network drops before they click Add, clicking Add shows "We did not hear back from the server. Try again; it will not save twice." and adds no tasks. When they are back online and click Add again, the tasks are added once. The failed attempt leaves no duplicate set.
 
+**Discovery starter steps.** The Phase 0 checklist `discernment-and-preparation` is also a Discovery planter's starter list (REQ-IDN-016). Before there is a church, /tasks shows its six steps, each with its title, description and whether it is done, and the planter checks them off; nothing else in Tasks opens. When the planter starts a church, each step becomes an ordinary task of that church through the same task insert and status-history writers: assigned to the planter, with no due date, and complete with its completion time and the planter in its history when it was checked off. They are then edited, reopened and completed like any other task. The church's Phase checklists can still offer the Phase 0 checklist.
+
 **Target operations:** `tasks.listTemplates`, `tasks.previewTemplate`, `tasks.importTemplate`.
 
 **Acceptance:** AC-TSK-009--TSK-009. **Named cases:** TARGET-TSK-009.

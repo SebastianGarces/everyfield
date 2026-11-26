@@ -18,7 +18,8 @@
     "nav": [
       {
         "label": "Discovery",
-        "href": "/discovery"
+        "href": "/discovery",
+        "tag": "Free"
       },
       {
         "label": "Planters",

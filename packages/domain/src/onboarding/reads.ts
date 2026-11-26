@@ -62,3 +62,10 @@ export async function readOnboardingEntry(
 	if (row.kind === "discovery") return { kind: "start", offer: "discovery", accountRevision: String(row.revision) };
 	return { kind: "elsewhere", reason: "organization" };
 }
+
+export function readDiscoverySteps(db: Database, producer: OnboardingProducer<WriteTx>, authority: RequestActor) {
+	return gatedTransaction(db, async (tx) => {
+		const read = await readReply(async () => new OnboardingReadContext(authority));
+		return read.status === "ok" ? producer.getDiscoverySteps(tx, read.value, {}) : read;
+	});
+}

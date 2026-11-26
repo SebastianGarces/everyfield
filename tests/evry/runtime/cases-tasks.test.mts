@@ -242,7 +242,7 @@ test("AC:INH-EDGES-06 no recorded contact is told as no recorded contact, and an
 	assert.deepEqual([none.replies[0].rows, none.replies[0].total], [[], 0]);
 	assert.match(
 		none.prompts.at(-1)!,
-		/With no recorded outcome, say that no call is recorded, never that nobody called\./,
+		/With no recorded outcome, say that no call is recorded and that this doesn't mean nobody called\./,
 	);
 	assert.match(
 		none.prompts.at(-1)!,

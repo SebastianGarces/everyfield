@@ -1,4 +1,4 @@
-import { accountId, owner, revision as revisionId, tenantId } from "@everyfield/contracts/common";
+import { accountId, owner, revision as revisionId, tenantId, timeZone } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/onboarding";
 import { organizationOwner, plantOwner, sharingChoices } from "@everyfield/contracts/organizations";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
@@ -17,6 +17,8 @@ import {
 } from "../organizations/core.ts";
 import { accountPersonProducer } from "../people/index.ts";
 import { creationEntry } from "../phases/creation-entry/index.ts";
+import { normalizeDescription } from "@everyfield/contracts/tasks";
+import { carryTasks } from "../tasks/writes.ts";
 import {
 	actor,
 	begin,
@@ -33,6 +35,7 @@ import {
 	type WriteContext,
 } from "./core.ts";
 import { ownReading } from "./reading.ts";
+import { doneSteps, starter } from "./steps.ts";
 
 export interface OnboardingEffects {
 	relationships(tx: Tx, inputs: readonly RelationshipNotice[]): Promise<void>;
@@ -59,10 +62,11 @@ const off = {
 	shared_findings: false,
 } satisfies z.output<typeof sharingChoices>;
 export const pending = { status: "pending" } as const;
+const ZONE = timeZone.parse("America/Chicago");
 const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
 const conversionStart = z.object({
 	seats: z.number().int(),
-	discovery: z.object({ id: z.uuid(), revision: revisionId, converted: z.boolean() }).nullable(),
+	discovery: z.object({ id: z.uuid(), revision: revisionId, converted: z.boolean(), steps: z.unknown() }).nullable(),
 	links: z.array(affiliationJson),
 });
 function liveAffiliationsOf(accountId: string) {
@@ -127,7 +131,7 @@ async function provision(
 		.values({
 			id: plantId,
 			name: input.name,
-			timezone: "America/Chicago",
+			timezone: ZONE,
 			warning_days: 7,
 			alert_days: 14,
 			digest_weekday: 0,
@@ -264,6 +268,8 @@ export function creation(effects: OnboardingEffects) {
 					converted_at: null,
 					converted_plant_id: null,
 					conversion_operation_id: null,
+					steps: [],
+					steps_revision: "1",
 				};
 				cx.writes.push(
 					tx.insert(t.discovery).values(d),
@@ -313,8 +319,8 @@ export function creation(effects: OnboardingEffects) {
 					(
 						await tx.execute(sql`WITH held_seats AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account.id}::uuid
  AND ended_at IS NULL FOR UPDATE),
- held_discovery AS MATERIALIZED (SELECT x.id, x.revision::text AS revision, x.converted_at IS NOT NULL AS converted
-  FROM discovery x WHERE x.id=${q.input.discoveryId}::uuid AND x.account_id=${a.account.id}::uuid
+ held_discovery AS MATERIALIZED (SELECT x.id, x.revision::text AS revision, x.converted_at IS NOT NULL AS converted,
+  x.steps FROM discovery x WHERE x.id=${q.input.discoveryId}::uuid AND x.account_id=${a.account.id}::uuid
   AND CASE WHEN EXISTS(SELECT FROM held_seats) THEN false ELSE ${organizationsLocked} END FOR UPDATE),
  held_links AS MATERIALIZED (${lockingAffiliations(sql`l.account_id=${a.account.id}::uuid AND l.ended_at IS NULL
   AND EXISTS(SELECT FROM held_discovery WHERE NOT converted AND revision=${q.expectedRevision})`)})
@@ -354,6 +360,19 @@ export function creation(effects: OnboardingEffects) {
 				const decided = new Set([...q.input.relationships, ...q.input.ended].map((r) => r.relationshipId));
 				if (links.some((link) => link.active && !decided.has(link.id))) deny("conflict");
 				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name, true);
+				const done = doneSteps(d.steps);
+				carryTasks(
+					{ ...cx, actor: { accountId: a.account.id, plantId: result.plant.id } },
+					ZONE,
+					{ accountId: accountId.parse(a.account.id), displayName: a.principal.display_name, seated: true },
+					starter.items.map((i) => ({
+						title: i.title,
+						description: normalizeDescription(i.description),
+						category: starter.category,
+						priority: i.priority,
+						doneAt: done.get(i.key) ?? null,
+					})),
+				);
 				const relationships: z.infer<typeof c.conversionRelationship>[] = [];
 
 				const notices: RelationshipNotice[] = [];
