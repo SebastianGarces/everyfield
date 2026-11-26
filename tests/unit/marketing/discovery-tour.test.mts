@@ -18,7 +18,8 @@ const visibilityListeners = new Set<() => void>();
 Object.assign(document, {
 	hidden: false,
 	getElementById: () => null,
-	addEventListener: (type: string, listener: () => void) => type === "visibilitychange" && visibilityListeners.add(listener),
+	addEventListener: (type: string, listener: () => void) =>
+		type === "visibilitychange" && visibilityListeners.add(listener),
 	removeEventListener: (_: string, listener: () => void) => visibilityListeners.delete(listener),
 });
 
