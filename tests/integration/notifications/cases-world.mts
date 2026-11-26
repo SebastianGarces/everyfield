@@ -93,8 +93,15 @@ export async function casesWorld(prefix: string, start: string) {
 		now: () => new Date(),
 	});
 	async function tick(at?: string) {
-		if (at) await w.at(at);
-		const response = await run();
+		if (!at) return ran(await run());
+		await w.at(at, "stopped");
+		try {
+			await ran(await run());
+		} finally {
+			await w.at(at);
+		}
+	}
+	async function ran(response: Response) {
 		const body = await response.json();
 		assert.equal(response.status, 200, JSON.stringify(body));
 	}

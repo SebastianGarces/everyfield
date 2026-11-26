@@ -103,8 +103,8 @@ export async function clockedWorld(prefix: string, start: string) {
 		});
 	const create = async (who: Who, input: object) =>
 		ok(await write(who, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } })).task;
-	async function at(instant: string) {
-		await pinSchemaClock(admin, database.schema, new Date(instant));
+	async function at(instant: string, clock: "running" | "stopped" = "running") {
+		await pinSchemaClock(admin, database.schema, new Date(instant), clock);
 		mock.timers.setTime(Date.parse(instant));
 	}
 	const claim = () => claimDue(db, ["mail"], 100);
