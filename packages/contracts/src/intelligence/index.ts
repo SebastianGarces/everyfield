@@ -67,24 +67,48 @@ export const carePage = z.strictObject({
 });
 export type CarePage = z.infer<typeof carePage>;
 const SUPPORT_RUN_WEEKS = 3;
+const SUPPORT_QUESTION = "Would it help to talk with someone you trust?";
 const hard = (level: CareLevel | undefined) => level === "strained" || level === "struggling";
+function runsOf(weeks: readonly CareWeek[], area: CareArea) {
+	const runs: { start: number; length: number }[] = [];
+	let start = -1;
+	weeks.forEach((w, i) => {
+		const level = hard(w.answer?.answers[area]);
+		if (level && start >= 0 && w.ordinal === weeks[i - 1]!.ordinal - 1) return;
+		if (start >= 0) runs.push({ start, length: i - start });
+		start = level ? i : -1;
+	});
+	if (start >= 0) runs.push({ start, length: weeks.length - start });
+	return runs;
+}
 export function supportOf(weeks: readonly CareWeek[]) {
-	const latest = weeks[0]?.ordinal ?? null;
-	const streak = (area: CareArea) => {
-		const run = weeks.findIndex((w, i) => w.ordinal !== (latest ?? 0) - i || !hard(w.answer?.answers[area]));
-		return run < 0 ? weeks.length : run;
-	};
-	const streaks = Object.fromEntries(CARE_AREAS.map((area) => [area, streak(area)])) as Record<CareArea, number>;
+	const runs = CARE_AREAS.map((area) => [area, runsOf(weeks, area)] as const);
+	const streaks = Object.fromEntries(runs.map(([area, r]) => [area, r[0]?.start === 0 ? r[0].length : 0])) as Record<
+		CareArea,
+		number
+	>;
+	const question = CARE_AREAS.some((area) => streaks[area] >= SUPPORT_RUN_WEEKS);
+	const older = runs.flatMap(([, r]) =>
+		r.filter((x) => x.start > 0 && x.length >= SUPPORT_RUN_WEEKS).map((x) => x.start),
+	);
 	return {
-		question: CARE_AREAS.some((area) => streaks[area] >= SUPPORT_RUN_WEEKS),
-		ordinal: latest,
+		question,
+		text: question ? SUPPORT_QUESTION : null,
+		ordinal: weeks[0]?.ordinal ?? null,
+		endsOn: question ? weeks[0]!.startsOn : null,
+		historicalEndsOn: older.length ? weeks[Math.min(...older)]!.startsOn : null,
+		missingWeeks: weeks.slice(1).flatMap((w) => (w.answer ? [] : [w.startsOn])),
 		streaks,
 	};
 }
 export const careTrends = carePage.extend({
 	support: z.strictObject({
 		question: z.boolean(),
+		text: z.literal(SUPPORT_QUESTION).nullable(),
 		ordinal: z.int().min(1).nullable(),
+		endsOn: localDate.nullable(),
+		historicalEndsOn: localDate.nullable(),
+		missingWeeks: z.array(localDate),
 		streaks: z.strictObject(
 			Object.fromEntries(CARE_AREAS.map((area) => [area, z.int().min(0)])) as Record<CareArea, z.ZodInt>,
 		),
