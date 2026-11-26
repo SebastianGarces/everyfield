@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { instant, localDate, timeZone } from "../common/time.ts";
 import { accountAvatarPath, type AppAssetPath } from "../common/assets.ts";
-import { accountId, defineSafeError, recordId, revision, safeError } from "../common/values.ts";
+import { accountId, defineSafeError, personId, recordId, revision, safeError } from "../common/values.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 import { organizationProfileResult, sharingResult } from "../organizations/results.ts";
 import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
@@ -71,6 +71,14 @@ export const plantTimezoneResult = z.discriminatedUnion("status", [
 		...savedPlantTimezone,
 	}),
 ]);
+const leadPerson = z.strictObject({ personId, name: z.string() });
+export const leadPlanterRead = z.strictObject({
+	revision,
+	canEdit: z.boolean(),
+	lead: z.strictObject({ roleId: recordId, holder: leadPerson.nullable() }).nullable(),
+	people: z.array(leadPerson),
+});
+export const leadPlanterResult = z.strictObject({ plant: plantOwner, revision, personId });
 export const settingsError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("stale_preview", {}, "refresh"),
@@ -78,6 +86,7 @@ export const settingsError = z.discriminatedUnion("code", [
 	defineSafeError("deadline_passed", {}, "never"),
 	defineSafeError("manual_owner_exception_required", {}, "never"),
 ]);
+export type LeadPlanterRead = z.infer<typeof leadPlanterRead>;
 export type SectionResult = z.infer<typeof sectionResult>;
 export type EmailChangeRequested = { status: "verification_requested"; mailDelayed?: true };
 export type SettingsError = z.infer<typeof settingsError>;

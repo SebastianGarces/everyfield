@@ -288,7 +288,7 @@ flowchart LR
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 5 | 13 | 12 | 6 | 2 |
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
-| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 8 | 5 | 2 |
+| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 9 | 5 | 2 |
 | [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 4 | 6 | 0 | 0 | 0 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 3 | 4 | 3 | 1 |
