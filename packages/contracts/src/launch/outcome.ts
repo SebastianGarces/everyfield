@@ -155,7 +155,7 @@ export const evidence = z.strictObject({
 });
 export type Evidence = z.infer<typeof evidence>;
 export function evidenceOf(
-	submitted: { answers: DebriefAnswers; submittedAt: string | null } | null,
+	submitted: { answers: Pick<DebriefAnswers, "missingNames" | "missingCount">; submittedAt: string | null } | null,
 ): z.input<typeof evidence> {
 	if (!submitted)
 		return {
