@@ -17,7 +17,7 @@ def main():
     if result:
         return result
     env_file = args.env_file or ROOT / 'apps/web/.env.local'
-    return subprocess.call(command + ['exec', 'tsx', '--env-file-if-exists=' + str(env_file), 'src/schema/check-current.ts'], cwd=ROOT)
+    return subprocess.call(command + ['exec', 'tsx', '--conditions=react-server', '--env-file-if-exists=' + str(env_file), 'src/schema/check-current.ts'], cwd=ROOT)
 
 if __name__ == '__main__':
     raise SystemExit(main())
