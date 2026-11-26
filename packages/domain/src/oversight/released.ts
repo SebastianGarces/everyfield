@@ -15,7 +15,8 @@ import {
 
 const releasedObject = sql`json_build_object('runId',rr.id,'asOf',${iso("rr.as_of")},'phase',rr.phase,
 	'concerns',${concernsSql("rr")},'strengths',${strengthsSql("rr")})`;
-export const releasedJson = (plant: SQL, now: SQL) => sql`(SELECT ${releasedObject} FROM ${releasedRun(plant, now)} rr)`;
+export const releasedJson = (plant: SQL, now: SQL) =>
+	sql`(SELECT ${releasedObject} FROM ${releasedRun(plant, now)} rr)`;
 export const capturedReleasedJson = (run: SQL) =>
 	sql`(SELECT ${releasedObject} FROM assessment_run rr WHERE rr.id=${run} AND rr.outcome='published')`;
 export const released = z

@@ -46,13 +46,7 @@ export type RefreshConfig = {
 	leaseMs?: number;
 };
 export type RefreshSettlement =
-	| "published"
-	| "refused_stale_claim"
-	| "superseded"
-	| "failed"
-	| "deferred"
-	| "degraded"
-	| "reference_not_ready";
+	"published" | "refused_stale_claim" | "superseded" | "failed" | "deferred" | "degraded" | "reference_not_ready";
 export type RefreshClaim = { runId: string; organization: string; generation: number; owner: string };
 
 export const VIOLATIONS = ["unsupported_numeric_value", "prohibited_fields", "invalid_reference_citation"] as const;
@@ -189,7 +183,8 @@ async function settle(tx: Db, claim: RefreshClaim, outcome: string, violations: 
 }
 
 async function publish(tx: Db, claim: RefreshClaim, config: RefreshConfig, violations: Violation[]) {
-	const { rows } = await tx.execute(sql`WITH run AS (SELECT * FROM network_intelligence_run WHERE id=${claim.runId}::uuid
+	const { rows } =
+		await tx.execute(sql`WITH run AS (SELECT * FROM network_intelligence_run WHERE id=${claim.runId}::uuid
 	FOR UPDATE)
 SELECT run.claim_generation=${claim.generation} AND run.lease_owner IS NOT DISTINCT FROM ${claim.owner}
 	AND run.outcome='pending' AS current,
@@ -217,12 +212,16 @@ SELECT run.claim_generation=${claim.generation} AND run.lease_owner IS NOT DISTI
 }
 
 async function findingsOf(db: Db, organization: string, runId: string): Promise<NetworkFinding[]> {
-	const r = await runContributions(db, sql`${organization}::uuid`, sql`${runId}::uuid`);
-	if (!r.ranOn) return [];
+	const { ranOn, rows } = await runContributions(db, sql`${organization}::uuid`, sql`${runId}::uuid`);
+	if (!ranOn) return [];
+	const finding = (level: C.Level, group: string, p: z.input<typeof C.intelligencePattern>) =>
+		({
+			...Object.fromEntries(Object.entries(p).filter(([k]) => k !== "plants" && k !== "rating")),
+			level,
+			group,
+		}) as NetworkFinding;
 	return C.LEVELS.flatMap((level) =>
-		groupsOf(level, r.ranOn!, r.rows, [], {}).flatMap((g) =>
-			g.patterns.map(({ plants: _, rating: __, ...p }) => ({ ...p, level, group: g.key }) as NetworkFinding),
-		),
+		groupsOf(level, ranOn, rows, [], {}).flatMap((g) => g.patterns.map((p) => finding(level, g.key, p))),
 	);
 }
 
@@ -416,9 +415,7 @@ const ranOnSql = (o: SQL, run: SQL) => sql`(SELECT (r.ran_at AT TIME ZONE o.time
 	FROM network_intelligence_run r JOIN organization o ON o.id=r.organization_id WHERE r.id=${run} AND o.id=${o})`;
 
 async function runContributions(db: Db, o: SQL, run: SQL) {
-	const { rows } = await db.execute(
-		sql`SELECT ${ranOnSql(o, run)} AS ran_on, ${contributionsSql(o, run)} AS rows`,
-	);
+	const { rows } = await db.execute(sql`SELECT ${ranOnSql(o, run)} AS ran_on, ${contributionsSql(o, run)} AS rows`);
 	const r = z.object({ ran_on: z.string().nullable(), rows: z.array(contribution) }).parse(rows[0]);
 	return { ranOn: r.ran_on, rows: r.rows };
 }

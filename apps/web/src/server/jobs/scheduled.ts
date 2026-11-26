@@ -3,6 +3,7 @@ import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { createAssessmentJob, createRelease, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
+import { runIntelligenceRefreshBatch, scheduleIntelligenceRefresh } from "@everyfield/domain/oversight";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
 import { closeLostJobs, type EffectPorts } from "@everyfield/evry";
 import {
@@ -109,6 +110,8 @@ export function scheduledJobs(config: {
 					assessments && (() => runAssessmentBatch(assessing, db, assessments.drafter, 2, until)),
 				),
 			],
+			["network-intelligence-demand", null, async () => (await scheduleIntelligenceRefresh(db)).length],
+			["network-intelligence", null, () => runIntelligenceRefreshBatch(db)],
 			["feedback-publication", null, feedbackPublication && (() => feedbackPublication(10, until))],
 			["wiki-embedding", null, wikiEmbedding && (() => wikiEmbedding(10, until))],
 			["mail-expiry", null, () => expireStaleMail(db)],

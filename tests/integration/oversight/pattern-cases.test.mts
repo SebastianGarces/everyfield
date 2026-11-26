@@ -97,7 +97,9 @@ const REGION: Record<string, { code: string; city: string }> = {
 	"fixture-region-Y": { code: "15380", city: "Buffalo" },
 };
 const CITY: Record<string, string> = { "US:NY": "New York", "US:NJ": "Newark", "CA:ON": "Toronto" };
-const RULE_OF: Record<string, "NIR-01" | "NIR-02" | "NIR-03" | "NIR-04" | "NIR-05" | "NIR-06"> = { "NEX-008": "NIR-02" };
+const RULE_OF: Record<string, "NIR-01" | "NIR-02" | "NIR-03" | "NIR-04" | "NIR-05" | "NIR-06"> = {
+	"NEX-008": "NIR-02",
+};
 for (const n of [1, 2, 3, 4, 5, 6, 7, 19, 20, 21, 22, 23]) RULE_OF[`NEX-${String(n).padStart(3, "0")}`] = "NIR-01";
 for (const n of [9, 10, 11]) RULE_OF[`NEX-0${String(n).padStart(2, "0")}`] = "NIR-03";
 for (const n of [12, 13]) RULE_OF[`NEX-0${n}`] = "NIR-04";
@@ -605,7 +607,11 @@ const runOf = (runId: string) =>
 test("AC:NEX-008 one plant's released strength alone is a named row and no NIR-02 finding", async () => {
 	const c = nex("NEX-008");
 	const args = c.action.arguments as unknown as Args;
-	const single = { ...c, id: "NEX-008-single", action: { ...c.action, arguments: { ...args, plants: [args.plants[0]!] } } };
+	const single = {
+		...c,
+		id: "NEX-008-single",
+		action: { ...c.action, arguments: { ...args, plants: [args.plants[0]!] } },
+	};
 	const w = await build(single as Case);
 	await refresh(w.A);
 	for (const level of ["region", "state", "country", "portfolio"] as const)
@@ -683,7 +689,10 @@ test("AC:NEX-025 AC:NI-021 while the network rubric is only a written candidate 
 	const niExpected = ni.expected.result as { error_code: string; new_assessments: number };
 	const w = await build(c);
 	await c0.admin.execute(sql`UPDATE network_reference SET activation_number=NULL,activated_at=NULL`);
-	const candidate = await writeNetworkReference(c0.db, { rubricVersion: RUBRIC_VERSION, contentHash: NETWORK_RUBRIC_HASH });
+	const candidate = await writeNetworkReference(c0.db, {
+		rubricVersion: RUBRIC_VERSION,
+		contentHash: NETWORK_RUBRIC_HASH,
+	});
 	const counts = () =>
 		c0.one<{ runs: number; assessments: number }>(sql`SELECT
 		(SELECT count(*)::int FROM network_intelligence_run WHERE organization_id=${w.A.id}) AS runs,

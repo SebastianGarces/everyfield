@@ -340,10 +340,14 @@ test("AC:B02-003 the 28-day launch window counts calendar days across the DST ch
 		'manual',${`manual/${run}`},${args.assessment_available},${args.assessment_available},${args.assessment_available},
 		${args.assessment_available})`);
 	const released = async (ms: number) => {
-		await createRelease({ clock: { now: () => instant.parse(new Date(ms).toISOString()) } }).releaseAssessmentToOversight(
-			f.db,
-			{ plantId: c.w.id, assessmentId: run, releaseCause: "elapsed_72_hours", requestKey: key() },
-		);
+		await createRelease({
+			clock: { now: () => instant.parse(new Date(ms).toISOString()) },
+		}).releaseAssessmentToOversight(f.db, {
+			plantId: c.w.id,
+			assessmentId: run,
+			releaseCause: "elapsed_72_hours",
+			requestKey: key(),
+		});
 		return (
 			await one<{ found: boolean }>(
 				sql`SELECT EXISTS(SELECT FROM ${releasedRun(sql`${c.w.id}::uuid`, sql`${new Date(ms).toISOString()}::timestamptz`)} rr) AS found`,

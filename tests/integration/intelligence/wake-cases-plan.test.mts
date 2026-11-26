@@ -8,6 +8,7 @@ import { createSeatService } from "../../../packages/domain/src/identity/seats.t
 import {
 	ASSESSMENT_TIMING,
 	createAssessmentJob,
+	createRelease,
 	createSignals,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
@@ -26,7 +27,14 @@ import {
 } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
-import { readIntelligence } from "../../../packages/domain/src/oversight/intelligence.ts";
+import {
+	claimIntelligenceRefresh,
+	readIntelligence,
+	runIntelligenceRefresh,
+	scheduleIntelligenceRefresh,
+} from "../../../packages/domain/src/oversight/intelligence.ts";
+import { getPlant, listPlants } from "../../../packages/domain/src/oversight/index.ts";
+import { sharingOperations } from "../../../packages/domain/src/organizations/sharing.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { validateBundle } from "../../../packages/reference/src/index.ts";
@@ -443,7 +451,8 @@ const runsOf = (p: { id: string }) =>
 async function staleRuns(w: WakePlant, k: LoadedWakeCase, demand: string, captured: string) {
 	const sent = await W.notices(w.P);
 	const ia = k.staleInput.action.arguments;
-	assert.notEqual(ia.captured_source, ia.live_source);
+	if ("captured_source" in ia) assert.notEqual(ia.captured_source, ia.live_source);
+	else assert.notEqual(ia.captured_organization_state, ia.live_organization_state);
 	for (const s of [k.staleInput, k.staleClaim]) {
 		assert.equal(s.action.operation, "intelligence.publishAssessment");
 		assert.deepEqual(s.expected.result, { status: "superseded", current_assessment: "R0", notice_count: 0 });
@@ -542,6 +551,7 @@ async function unchangedInput(
 		facts: () => Promise<Json>;
 		action: string;
 		org?: (o: WakeOrg) => Promise<unknown>;
+		orgSweep?: () => Promise<string[]>;
 	},
 ) {
 	const e = k.expected.result as Json;
@@ -605,7 +615,16 @@ async function unchangedInput(
 	assert.deepEqual(await orgs(), org1);
 	assert.deepEqual(await auditsAfter(ids), events);
 
-	assert.equal(e.sweep_discovers_change, false);
+	if (e.sweep_discovers_change) {
+		assert.ok(o.orgSweep, "the change is one an organization sweep finds");
+		const queued = await o.orgSweep();
+		assert.ok(queued.includes(w.orgA.id) && !queued.includes(w.orgB.id), "the sweep finds Org-A's change only");
+		const pending = async (org: WakeOrg) =>
+			W.count(sql`SELECT count(*) AS n FROM network_intelligence_run WHERE organization_id=${org.id}
+				AND outcome='pending'`);
+		assert.deepEqual([await pending(w.orgA), await pending(w.orgB)], [1, 0], "one Network Intelligence demand");
+		assert.deepEqual(await orgs(), org1, "a queued demand changes no published result");
+	} else assert.equal(e.sweep_discovers_change, false);
 	const runs = (await runsOf(w.P)).length;
 	const demands = await W.sweep(w.P);
 	assert.ok(demands.length <= 1);
@@ -1156,3 +1175,187 @@ for (const r of UNCHANGED)
 		assert.deepEqual(listed(await facts(), inputBefore), inputBefore, "the arranged input-before");
 		await unchangedInput(w, k, { write: () => r.write(w, k), facts, action: r.action!, org: r.org });
 	});
+
+const sharing = sharingOperations({
+	invitation: async () => {},
+	invalidate: () => sql`UPDATE job SET state=state WHERE false`,
+});
+const orgLabel = (state: string) => (same: boolean) => (same ? state : { different_from: state });
+async function orgStates(w: WakePlant) {
+	const baseline = { a: await W.orgState(w.orgA), b: await W.orgState(w.orgB) };
+	return async () => ({
+		"Org-A-assessment_input_state": orgLabel("fixture-state-21")(
+			JSON.stringify(await W.orgState(w.orgA)) === JSON.stringify(baseline.a),
+		),
+		"Org-B-assessment_input_state": orgLabel("fixture-state-31")(
+			JSON.stringify(await W.orgState(w.orgB)) === JSON.stringify(baseline.b),
+		),
+	});
+}
+
+test("AC:MW-CASE-022 privacy.setSharing fails all or nothing with the wakeup paused: Org-A's input moves, Org-B's stays, the organization sweep finds the change, a replay adds nothing and stale publications are superseded", async () => {
+	const k = wakeCase("MW-CASE-022");
+	assert.equal(k.action.operation, "privacy.setSharing");
+	for (const s of [k.failure, k.replay]) assert.equal(s.action.operation, k.action.operation);
+	const args = k.action.arguments as { category: string; enabled: boolean; request_key: string };
+	const w = await W.plant(k.id, async () => ({}));
+	const shared = async (p: { id: string }, o: WakeOrg) =>
+		(
+			await W.c.one<{ on: boolean }>(sql`SELECT shared_findings AS on FROM affiliation
+				WHERE plant_id=${p.id} AND organization_id=${o.id}`)
+		).on;
+	const states = await orgStates(w);
+	const facts = async () => ({
+		"Org-A-healthShared": await shared(w.P, w.orgA),
+		"Org-B-healthShared": await shared(w.Q, w.orgB),
+		...(await states()),
+	});
+	assert.deepEqual(await facts(), strip(k.given["input-before"] as Json));
+	const link = await W.c.one<{ revision: string; consent: string }>(sql`SELECT revision::text AS revision,
+		consent_revision::text AS consent FROM affiliation WHERE id=${w.P.affiliation}`);
+	const command = {
+		requestKey: W.key(args.request_key),
+		expectedRevision: link.revision,
+		input: {
+			plant: { kind: "plant", id: w.P.id },
+			organization: { kind: "organization", id: w.orgA.id, organizationKind: "sending_network" },
+			relationshipId: w.P.affiliation,
+			expectedConsentRevision: link.consent,
+			category: args.category,
+			enabled: args.enabled,
+		},
+	};
+	const write = () =>
+		gatedTransaction(W.db, (tx) =>
+			sharing["privacy.setSharing"](tx, w.A.session as never, w.A.ctx.selected as never, command as never),
+		);
+	await unchangedInput(w, k, {
+		write,
+		facts,
+		action: "sharing.changed",
+		orgSweep: () => scheduleIntelligenceRefresh(W.db),
+	});
+
+	const s = k.staleInput;
+	const ia = s.action.arguments as { captured_organization_state: string; live_organization_state: string };
+	assert.notEqual(ia.captured_organization_state, ia.live_organization_state);
+	assert.deepEqual(s.expected.result, { status: "superseded", current_assessment: "R0", notice_count: 0 });
+	const { id: due } = await W.c.one<{ id: string }>(sql`SELECT id FROM network_intelligence_run
+		WHERE organization_id=${w.orgA.id} AND outcome='pending'`);
+	const claim = (await claimIntelligenceRefresh(W.db, {}, due))!;
+	const shown = await W.orgState(w.orgA);
+	const sent = await W.notices(w.P);
+	const again = await W.c.one<{ revision: string; consent: string }>(sql`SELECT revision::text AS revision,
+		consent_revision::text AS consent FROM affiliation WHERE id=${w.P.affiliation}`);
+	await gatedTransaction(W.db, (tx) =>
+		sharing["privacy.setSharing"](
+			tx,
+			w.A.session as never,
+			w.A.ctx.selected as never,
+			{
+				...command,
+				requestKey: randomUUID(),
+				expectedRevision: again.revision,
+				input: { ...command.input, expectedConsentRevision: again.consent, enabled: true },
+			} as never,
+		),
+	);
+	assert.equal(
+		await runIntelligenceRefresh(W.db, claim),
+		s.expected.result.status,
+		"Org-A's captured contributors moved",
+	);
+	assert.equal(
+		(await W.c.one<{ outcome: string }>(sql`SELECT outcome FROM network_intelligence_run WHERE id=${due}`)).outcome,
+		"superseded",
+	);
+	const kept = (await W.orgState(w.orgA))!;
+	assert.ok(shown?.run, "Org-A has a published result");
+	assert.deepEqual([kept.run, kept.history], [shown.run, shown.history], "Org-A keeps its published result");
+	assert.equal(await W.current(w.P), w.r0.runId, "R0 stays current");
+	assert.equal(await W.notices(w.P), sent, "no notice");
+});
+
+test("AC:MW-CASE-024 intelligence.releaseAssessmentToOversight fails all or nothing with the wakeup paused: oversight reads the persisted release, P's and the organizations' inputs stay, the organization sweep finds the change, a replay adds nothing and stale publications are superseded", async () => {
+	const k = wakeCase("MW-CASE-024");
+	assert.equal(k.action.operation, "intelligence.releaseAssessmentToOversight");
+	for (const s of [k.failure, k.replay]) assert.equal(s.action.operation, k.action.operation);
+	const args = k.action.arguments as {
+		releaseCause: "elapsed_72_hours";
+		currentSharingWitness: { shared_findings: boolean };
+		request_key: string;
+	};
+	const before = k.given["input-before"] as { assessmentAvailableAt: string };
+	let earlier = "";
+	const w = await W.plant(
+		k.id,
+		async (base) => {
+			earlier = (await W.publish(base.P)).runId;
+			return {};
+		},
+		{ seen: false },
+	);
+	const available = before.assessmentAvailableAt;
+	await W.c.admin.execute(sql`UPDATE assessment_run SET available_at=${available}::timestamptz-interval '9 days'
+		WHERE id=${earlier}`);
+	await W.c.admin.execute(sql`UPDATE assessment_run SET available_at=${available}::timestamptz WHERE id=${w.r0.runId}`);
+	const label: Record<string, string> = { [earlier]: "Assessment-R0", [w.r0.runId]: "Assessment-R1" };
+	const iso = (at: Date | string) => new Date(at).toISOString().replace(".000Z", "Z");
+	const states = await orgStates(w);
+	const facts = async () => {
+		const run = await W.c.one<{ available_at: string; opened: boolean }>(sql`SELECT available_at,
+			EXISTS(SELECT FROM assessment_seen s WHERE s.run_id=r.id) AS opened FROM assessment_run r WHERE r.id=${w.r0.runId}`);
+		const shown = (await getPlant(W.db, w.orgA.reader, w.P.id, () => {}))!.assessment;
+		assert.ok(shown.status === "released");
+		const { "Org-A-assessment_input_state": orgA } = await states();
+		return {
+			assessmentAvailableAt: iso(run.available_at),
+			asOf: iso(new Date(Date.parse(run.available_at) + 72 * 3_600_000)),
+			eligibleHumanOpened: run.opened,
+			releasedAssessment: label[shown.runId] ?? shown.runId,
+			plantassessment_input_state: (await W.inputState(w.P)) === w.r0.sourceRevision ? "fixture-state-11" : "changed",
+			"Org-A-assessment_input_state": orgA,
+		};
+	};
+	assert.deepEqual(await facts(), strip(k.given["input-before"] as Json));
+	assert.equal(
+		(
+			await W.c.one<{ on: boolean }>(sql`SELECT shared_findings AS on FROM affiliation
+				WHERE plant_id=${w.P.id} AND organization_id=${w.orgA.id}`)
+		).on,
+		args.currentSharingWitness.shared_findings,
+		"the current sharing witness",
+	);
+	const release = createRelease({ clock: W.clock });
+	const input = {
+		plantId: w.P.id,
+		assessmentId: w.r0.runId,
+		releaseCause: args.releaseCause,
+		requestKey: W.key(args.request_key),
+	};
+	const write = async () => {
+		const reply = await release.releaseAssessmentToOversight(W.db, input);
+		assert.equal(reply.status, "ok");
+		return reply;
+	};
+	await unchangedInput(w, k, {
+		write,
+		facts,
+		action: "intelligence.released",
+		orgSweep: () => scheduleIntelligenceRefresh(W.db),
+	});
+	const persisted = await W.c.one<{ cause: string; request_key: string }>(sql`SELECT cause,request_key::text
+		FROM assessment_release WHERE run_id=${w.r0.runId}`);
+	assert.deepEqual(persisted, { cause: args.releaseCause, request_key: input.requestKey }, "one persisted release");
+	const shown = await listPlants(W.db, w.orgA.reader);
+	const row = shown!.plants.find((p) => p.plantId === w.P.id)!;
+	assert.equal(row.health === "not_assessed", false, "listPlants reads the same release");
+	const due = await W.c.one<{ id: string }>(sql`SELECT id FROM network_intelligence_run
+		WHERE organization_id=${w.orgA.id} AND outcome='pending'`);
+	const claim = (await claimIntelligenceRefresh(W.db, {}, due.id))!;
+	assert.equal(await runIntelligenceRefresh(W.db, claim), "published");
+	const next = (await readIntelligence(W.db, w.orgA.reader, { level: "portfolio", runId: null }))!;
+	const p = next.groups.flatMap((g) => g.rows).find((r) => r.plantId === w.P.id)!;
+	assert.ok(p.status === "shared" && p.assessment.status === "released");
+	assert.equal(p.assessment.runId, w.r0.runId, "Network Intelligence's next run reads the persisted release");
+});

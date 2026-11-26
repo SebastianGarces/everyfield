@@ -1,22 +1,16 @@
 import type { Clock } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 import { iso, plantHidden } from "./assessment.ts";
 import { RELEASE_HOURS } from "./views.ts";
 
-export const releaseRequest = z.strictObject({
-	plantId: z.uuid(),
-	assessmentId: z.uuid(),
-	releaseCause: z.literal("elapsed_72_hours"),
-	requestKey: z.uuid(),
-});
-const released = z.object({ runId: z.uuid(), releasedAt: z.string(), cause: z.enum(["opened", "elapsed_72_hours"]) });
-export type Release = z.infer<typeof released>;
-export type ReleaseReply =
-	| { status: "ok"; value: Release }
-	| { status: "refused"; error: { code: "invalid_input" | "not_found" | "not_due" } };
+const refusals = defineRefusals(c.releaseError);
+const deny: Deny<typeof c.releaseError> = refusals.deny;
+const { settle } = refusals;
 
 const releaseJson = (x: "x" | "e") =>
 	sql`json_build_object('runId',${sql.raw(x)}.run_id,'releasedAt',${x === "x" ? iso("x.released_at") : iso("e.released_at")},
@@ -39,26 +33,28 @@ export function createRelease(config: { clock?: Clock } = {}) {
 	const now = () =>
 		config.clock ? sql`${new Date(config.clock.now()).toISOString()}::timestamptz` : sql`clock_timestamp()`;
 	return {
-		async releaseAssessmentToOversight(db: Pick<Database, "execute">, raw: unknown): Promise<ReleaseReply> {
-			const q = releaseRequest.safeParse(raw);
-			if (!q.success) return { status: "refused", error: { code: "invalid_input" } };
-			const { plantId, assessmentId, requestKey } = q.data;
-			const { rows } = await db.execute(sql`${releaseSql(
-				sql`r.id=${assessmentId}::uuid AND r.plant_id=${plantId}::uuid`,
-				now(),
-				sql`${requestKey}::uuid`,
-			)}
+		async releaseAssessmentToOversight(db: Pick<Database, "execute">, raw: unknown): Promise<c.ReleaseReply> {
+			return settle(async () => {
+				const q = c.releaseRequest.safeParse(raw);
+				if (!q.success) deny("invalid_input");
+				const { plantId, assessmentId, requestKey } = q.data;
+				const { rows } = await db.execute(sql`${releaseSql(
+					sql`r.id=${assessmentId}::uuid AND r.plant_id=${plantId}::uuid`,
+					now(),
+					sql`${requestKey}::uuid`,
+				)}
 SELECT (SELECT ${releaseJson("x")} FROM x) AS added,
 	(SELECT ${releaseJson("e")} FROM assessment_release e WHERE e.run_id=${assessmentId}::uuid
 		AND e.plant_id=${plantId}::uuid) AS existing,
 	EXISTS(SELECT FROM assessment_run r WHERE r.id=${assessmentId}::uuid AND r.plant_id=${plantId}::uuid
 		AND r.outcome='published') AS found`);
-			const r = z
-				.object({ added: released.nullable(), existing: released.nullable(), found: z.boolean() })
-				.parse(rows[0]);
-			const value = r.added ?? r.existing;
-			if (value) return { status: "ok", value };
-			return { status: "refused", error: { code: r.found ? "not_due" : "not_found" } };
+				const r = z
+					.object({ added: c.releaseReceipt.nullable(), existing: c.releaseReceipt.nullable(), found: z.boolean() })
+					.parse(rows[0]);
+				const value = r.added ?? r.existing;
+				if (!value) deny(r.found ? "not_due" : "not_found");
+				return value;
+			});
 		},
 
 		async releaseDueAssessments(db: Pick<Database, "execute">, limit = 50) {

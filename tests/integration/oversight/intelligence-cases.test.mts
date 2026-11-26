@@ -1134,7 +1134,7 @@ test("AC:NI-025 a source correction, a new released plant result and a new portf
 		"portfolio reference version",
 	]);
 	assert.deepEqual(expected("NI-025"), { new_assessment: "R2", old_assessment: "R1", R1_rewritten: false });
-	assert.equal(k.expected.event, null);
+	assert.equal((k.expected as unknown as { event: unknown }).event, null);
 	const R = await c0.plant("R Corrected");
 	await publish(R);
 	const o = await org("Correction Network");
@@ -1168,13 +1168,17 @@ test("AC:NI-025 a source correction, a new released plant result and a new portf
 	);
 
 	const activation = async (runId: string) =>
-		(await c0.one<{ n: number }>(sql`SELECT reference_activation AS n FROM network_intelligence_run WHERE id=${runId}`)).n;
+		(await c0.one<{ n: number }>(sql`SELECT reference_activation AS n FROM network_intelligence_run WHERE id=${runId}`))
+			.n;
 	const snapshotOf = async (runId: string) => {
 		const { history: _, ...shown } = await view(o.admin, "portfolio", runId);
 		return { rows: await stored(runId), shown, activation: await activation(runId) };
 	};
 	const before = await snapshotOf(r2);
-	const reference = await writeNetworkReference(c0.db, { rubricVersion: RUBRIC_VERSION, contentHash: NETWORK_RUBRIC_HASH });
+	const reference = await writeNetworkReference(c0.db, {
+		rubricVersion: RUBRIC_VERSION,
+		contentHash: NETWORK_RUBRIC_HASH,
+	});
 	assert.equal(await validateNetworkReference(c0.db, reference), "validated");
 	const number = (await activateNetworkReference(c0.db, reference))!;
 	assert.ok((await scheduleIntelligenceRefresh(c0.db)).includes(o.id), "the new reference version is a refresh demand");

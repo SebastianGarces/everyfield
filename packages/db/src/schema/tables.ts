@@ -6602,7 +6602,10 @@ export const network_intelligence_run = pgTable(
 			"network_intelligence_run_outcome",
 			sql`(outcome = ANY (ARRAY['pending'::text, 'deferred'::text, 'published'::text, 'failed'::text, 'degraded'::text, 'superseded'::text]))`,
 		),
-		check("network_intelligence_run_claim", sql`((claim_generation >= 1) AND ((lease_owner IS NULL) = (lease_until IS NULL)))`),
+		check(
+			"network_intelligence_run_claim",
+			sql`((claim_generation >= 1) AND ((lease_owner IS NULL) = (lease_until IS NULL)))`,
+		),
 		foreignKey({
 			name: "network_intelligence_run_organization",
 			columns: [t.organization_id],
