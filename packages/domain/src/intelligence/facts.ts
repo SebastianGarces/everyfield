@@ -15,7 +15,7 @@ import { compatible } from "../teams/training/reads.ts";
 import { outcomeEvidence } from "../tasks/origin.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
 import { foundationArticles } from "../onboarding/reading.ts";
-import { followUpTask, OPEN } from "../followups/core.ts";
+import { followUpTask, OPEN } from "../followups/queries.ts";
 import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
