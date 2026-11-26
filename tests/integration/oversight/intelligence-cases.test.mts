@@ -68,6 +68,7 @@ const COLUMNS = [
 	"share_activity",
 	"shared_findings",
 ] as const;
+const ACCOUNT_ONLY = ["share_foundations"] as const;
 type Column = (typeof COLUMNS)[number];
 const AUSTIN = { city: "Austin", stateProvince: "TX", country: "US" };
 const STREET = "4100 Private Street";
@@ -284,7 +285,11 @@ test("AC:NI-001 AC:NI-033 AC:NI-037 two distinct released contributors make a pa
 	for (const p of patternsOf(v)) assert.doesNotMatch(JSON.stringify(patternText(p)), /anonym|consent/i);
 	const consent = await c0.rows<{ column_name: string }>(sql`SELECT column_name FROM information_schema.columns
 		WHERE table_schema=${c0.database.schema} AND table_name='affiliation' AND column_name ~ '^share'`);
-	assert.deepEqual(consent.map((c) => c.column_name).sort(), [...COLUMNS].sort(), "no extra consent column");
+	assert.deepEqual(
+		consent.map((c) => c.column_name).sort(),
+		[...COLUMNS, ...ACCOUNT_ONLY].sort(),
+		"no extra consent column",
+	);
 	assert.equal(expected("NI-033").extra_required_consent, false);
 	assert.equal(expected("NI-033").formal_anonymity_claim, false);
 	assert.deepEqual(expected("NI-037").allowed_fields, ["plant_name", "lens_state", "shared_reason", "plant_link"]);
@@ -476,7 +481,13 @@ test("AC:NI-006 the shared_findings key is the one Plant Health switch: off, the
 	const consent = await c0.rows<{ column_name: string }>(sql`SELECT column_name FROM information_schema.columns
 		WHERE table_schema=${c0.database.schema} AND table_name='affiliation'
 		AND (column_name ~ 'shar|health|finding|consent|intelligence')`);
-	assert.deepEqual(consent.map((c) => c.column_name).sort(), ["consent_revision", ...COLUMNS].sort());
+	assert.deepEqual(consent.map((c) => c.column_name).sort(), ["consent_revision", ...COLUMNS, ...ACCOUNT_ONLY].sort());
+	for (const column of ACCOUNT_ONLY)
+		await assert.rejects(
+			c0.admin.execute(sql`UPDATE affiliation SET ${sql.raw(column)}=true WHERE id=${affiliation}`),
+			(e: Error) => /affiliation_ck_3/.test(e.cause instanceof Error ? e.cause.message : e.message),
+			`${column} is an account-link switch a plant link cannot turn on`,
+		);
 	assert.equal(e.second_toggle, false);
 });
 
