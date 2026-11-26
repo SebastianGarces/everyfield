@@ -25,8 +25,6 @@ on:
 permissions:
   contents: read
 
-# While promote.yml is on (TRUNK_PROMOTE is "true"), each commit builds in its own group and nothing is cancelled,
-# so every deploying commit gets a deployment promote can put live. Off, one group cancels older builds as before.
 concurrency:
   group: ${{ vars.TRUNK_PROMOTE == 'true' && format('deploy-production-{0}', github.sha) || 'deploy-production' }}
   cancel-in-progress: ${{ vars.TRUNK_PROMOTE != 'true' }}
@@ -62,7 +60,6 @@ jobs:
           TRUNK_PROMOTE: ${{ vars.TRUNK_PROMOTE }}
         run: |
           if [ "$TRUNK_PROMOTE" = "true" ]; then
-            # Build only: promote.yml puts it on the production domain after CI passes at this commit.
             url=$(npx --yes "$VERCEL_CLI" deploy --prebuilt --prod --skip-domain --meta "githubCommitSha=$GITHUB_SHA")
             echo "Production build for \`$GITHUB_SHA\`: $url (not live; promote.yml promotes it after green CI)" >> "$GITHUB_STEP_SUMMARY"
           else
