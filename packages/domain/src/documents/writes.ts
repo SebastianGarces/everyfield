@@ -770,8 +770,7 @@ async function createOwnFromTemplate(db: Database | Transaction, authority: Requ
 					FROM inserted
 					RETURNING id
 				)
-				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM inserted) AS id, (SELECT revision FROM inserted) AS revision,
-					(SELECT count(*) FROM added) AS written, (SELECT count(*) FROM aud) AS audited`,
+				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM inserted) AS id, (SELECT revision FROM inserted) AS revision`,
 			);
 		} catch (error) {
 			if (postgresCode(error) !== "23505") throw error;
