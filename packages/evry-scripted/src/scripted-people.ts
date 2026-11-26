@@ -21,7 +21,8 @@ function asked(text: string): Ask | null {
 	if (TECH_SKILLS.test(text))
 		return {
 			input: { skillCategories: ["tech"] },
-			none: (inChurch) => `No one in this church has a Tech skill recorded. That covers all ${inChurch} people in this church.`,
+			none: (inChurch) =>
+				`No one in this church has a Tech skill recorded. That covers all ${inChurch} people in this church.`,
 			answer: (out, rows, inChurch) => {
 				const held = rows.map((r) => `${r.label} (${techSkills(r)})`);
 				return `${String(out.total)} of the ${inChurch} people in this church have a Tech skill recorded: ${and(held)}. That covers all ${inChurch} people in this church.`;
