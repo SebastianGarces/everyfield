@@ -233,6 +233,36 @@ export function auditCreated(cmd: AuditCommand, rows: readonly TaskRow[], source
 		});
 }
 
+export function carryTasks(
+	cmd: AuditCommand,
+	zone: TimeZone,
+	assignee: TaskRow["assignees"][number],
+	steps: readonly (Pick<TaskRow, "title" | "description" | "category" | "priority"> & { doneAt: Date | null })[],
+) {
+	const rows = steps.map(({ doneAt, ...step }) => {
+		const row = newTask(zone, { ...step, status: doneAt ? "complete" : "not_started", assignees: [assignee] });
+		return { row: doneAt ? { ...row, completed_at: doneAt } : row, doneAt };
+	});
+	cmd.writes.push(
+		...insertTasks(
+			cmd.actor.plantId,
+			cmd.actor.accountId,
+			rows.map((r) => r.row),
+		),
+	);
+	for (const { row, doneAt } of rows)
+		auditRow(cmd, {
+			taskId: row.id,
+			action: doneAt ? "tasks.completed" : "tasks.changed",
+			kind: "create",
+			before: null,
+			after: audited(row),
+			beforeRevision: null,
+			afterRevision: row.revision,
+			occurredAt: doneAt ?? undefined,
+		});
+}
+
 export const audited = (r: TaskRow) => ({
 	title: r.title,
 	description: r.description,

@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { namesFor, ownResidencyLinks, readDiscoverySharing, viewerOf } from "../organizations/mount";
 import { DiscoveryHome } from "./DiscoveryHome";
 import { FOUNDATION_ARTICLES } from "./foundations";
-import { onboardingEntry } from "./mount";
+import { discoverySteps, onboardingEntry } from "./mount";
 import { parseEntry } from "./port";
 
 export const discoveryHomeMetadata: Metadata = { title: "Discovery", robots: { index: false, follow: false } };
@@ -27,7 +27,7 @@ export async function DiscoveryHomePage() {
 		);
 	const profile = load.entry.profile;
 	const who = await viewerOf();
-	const [names, residencies, sharing] = await Promise.all([
+	const [names, residencies, sharing, steps] = await Promise.all([
 		who.kind === "viewer"
 			? namesFor(
 					who.mount.db,
@@ -39,6 +39,7 @@ export async function DiscoveryHomePage() {
 		who.kind === "viewer"
 			? readDiscoverySharing(who.mount.db, who.authority)
 			: ({} as Record<string, { shareFoundations: boolean }>),
+		discoverySteps(viewer),
 	]);
 	const live = residencies.find((l) => l.sharing.status === "active");
 	const read = new Set<string>(profile.reading.articles.map((a) => a.articleId));
@@ -59,6 +60,10 @@ export async function DiscoveryHomePage() {
 					sharesFoundations: sharing[r.relationshipId]?.shareFoundations === true,
 				})),
 				residency: live ? { organizationName: live.organizationName } : null,
+				steps: {
+					done: steps?.steps.filter((s) => s.doneAt !== null).length ?? 0,
+					total: steps?.steps.length ?? 0,
+				},
 			}}
 		/>
 	);

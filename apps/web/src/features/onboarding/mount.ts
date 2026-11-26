@@ -13,12 +13,24 @@ import type { Database } from "@everyfield/db/client";
 import { database } from "../../server/database";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
-import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
+import {
+	createOnboardingProducer,
+	readDiscoverySteps,
+	readOnboardingEntry,
+	withOnboardingWrite,
+} from "@everyfield/domain/onboarding";
 import { requestMailDelay } from "../../server/switches.ts";
 import { getViewer } from "../../server/request-context";
 import type { WriteTx } from "@everyfield/domain/access";
 
-export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
+export type Op =
+	| "createPlant"
+	| "createDiscovery"
+	| "convertDiscovery"
+	| "setDiscoveryStep"
+	| "declareJourney"
+	| "answerLead"
+	| "complete";
 type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.infer<typeof c.onboardingError> };
 
 function onboardingMail(v: ServerConfig, transport?: MailTransport) {
@@ -93,6 +105,14 @@ export async function onboardingEntry(session: Awaited<ReturnType<typeof getView
 	return entry.kind === "confirm_email" ? { ...entry, ...(await requestMailDelay()) } : entry;
 }
 
+export type DiscoverySteps = z.infer<typeof c.discoverySteps>;
+export async function discoverySteps(session: Awaited<ReturnType<typeof getViewer>>): Promise<DiscoverySteps | null> {
+	if (!session.authority) return null;
+	const m = onboardingMount();
+	const read = await readDiscoverySteps(m.db, m.producer, session.authority);
+	return read.status === "ok" ? read.value : null;
+}
+
 const refusal = (code: "unavailable" | "invalid_input"): Reply => ({
 	status: "refused",
 	error: c.onboardingError.parse({ code, details: {}, correlationId: crypto.randomUUID(), retry: "never" }),
@@ -122,6 +142,10 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 		case "convertDiscovery": {
 			const q = c.convertDiscoveryRequest.safeParse(input);
 			return q.success ? run(account, (tx) => p.convertDiscovery(tx, account, q.data)) : refusal("invalid_input");
+		}
+		case "setDiscoveryStep": {
+			const q = c.setDiscoveryStepRequest.safeParse(input);
+			return q.success ? run(account, (tx) => p.setDiscoveryStep(tx, account, q.data)) : refusal("invalid_input");
 		}
 	}
 	const context = s.authority?.actor.context;

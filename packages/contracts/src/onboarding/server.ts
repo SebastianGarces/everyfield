@@ -23,6 +23,16 @@ export interface OnboardingProducer<Tx> {
 		context: OnboardingContext,
 		raw: unknown,
 	) => Promise<OnboardingReply<z.infer<typeof result.discoveryProfileResult>>>;
+	getDiscoverySteps: (
+		tx: Tx,
+		context: OnboardingContext,
+		raw: unknown,
+	) => Promise<OnboardingReply<z.infer<typeof result.discoverySteps>>>;
+	setDiscoveryStep: (
+		tx: Tx,
+		context: OnboardingWriteContext,
+		raw: unknown,
+	) => Promise<OnboardingReply<z.infer<typeof result.discoverySteps>>>;
 	convertDiscovery: (
 		tx: Tx,
 		context: OnboardingWriteContext,

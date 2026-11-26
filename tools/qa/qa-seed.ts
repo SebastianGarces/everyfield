@@ -7,6 +7,7 @@ import { communicationWriter, type DeliveryTransport } from "../../packages/doma
 import { mailAddressHash } from "../../packages/domain/src/communication/delivery.ts";
 import type { Instant } from "../../packages/contracts/src/common/time.ts";
 import { nativeFromText } from "../../packages/contracts/src/documents/native.ts";
+import { discoverySteps } from "../../packages/contracts/src/onboarding/results.ts";
 import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
 import { createIdentityService, createInvitationService } from "../../packages/domain/src/identity/index.ts";
@@ -1194,6 +1195,7 @@ async function expiredRequest(
 
 const DISCOVERY_PLANTER = { name: "Jo Rivera", login: QA_LOGINS.discovery } as const;
 const DISCOVERY_CHURCH = "Grace Church (QA)";
+const DISCOVERY_STEPS_DONE = ["vision-summary", "meet-a-coach"] as const;
 const DISCOVERY_DOCUMENTS = [
 	["Notes on my calling", "Why I believe God is calling me to plant, and what I still need to test."],
 	["Questions for my sending church", "What support they can give, and what they expect from me before launch."],
@@ -1321,6 +1323,38 @@ async function discoveryPlanter(
 			}),
 		);
 		done.push(`Discovery document ${title}`);
+	}
+	const [profile] = await rows(
+		admin,
+		sql`SELECT d.converted_at IS NOT NULL AS converted, ARRAY(SELECT s->>'key' FROM jsonb_array_elements(d.steps) s) AS keys
+		FROM discovery d WHERE d.account_id=${jo}`,
+	);
+	if (!profile || profile.converted) return;
+	const open = DISCOVERY_STEPS_DONE.filter((key) => !(profile.keys as string[]).includes(key));
+	if (!open.length) return;
+	const c = { session: await m.sessionOf(DISCOVERY_PLANTER.login), selected };
+	for (const stepKey of open) {
+		const view = discoverySteps.parse(
+			ok(
+				"Discovery steps",
+				await gatedTransaction(runtime, (tx) => onboarding.getDiscoverySteps(tx as never, c as never, {})),
+			),
+		);
+		ok(
+			`Discovery step ${stepKey}`,
+			await gatedTransaction(runtime, (tx) =>
+				onboarding.setDiscoveryStep(
+					tx as never,
+					c as never,
+					{
+						requestKey: randomUUID(),
+						expectedRevision: view.revision,
+						input: { discoveryId: view.discoveryId, stepKey, done: true },
+					} as never,
+				),
+			),
+		);
+		done.push(`starter step ${stepKey} done by ${DISCOVERY_PLANTER.name}`);
 	}
 }
 
