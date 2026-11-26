@@ -16,7 +16,8 @@ flowchart LR
   s0 -.- s0_st3(("loading (manual)"))
   s0 -.- s0_st4(("error (manual)"))
   s0 --- s0_b0["save-for-church<br/>tests + cases + browser behavior"]
-  s0 --- s0_b1["filter<br/>tests + cases + browser behavior"]
+  s0 --- s0_b1["use-for-church<br/>tests + cases + browser behavior"]
+  s0 --- s0_b2["filter<br/>tests + cases + browser behavior"]
   s1["documents.church-library<br/>/documents/church /documents/church/archived"]
   s0 -- "link #quot;Church documents#quot;" --> s1
   s1 -.- s1_st0(("library"))
@@ -117,6 +118,25 @@ Save for your church keeps the filled template as a saved file in Saved for your
 agent-browser find role button click --name "Save for your church" --exact
 agent-browser wait --fn "!document.body.innerText.includes(\"Nothing saved for your church yet.\")"
 agent-browser wait --text "for your church."
+```
+
+#### documents.library#use-for-church
+
+Use for this church copies one of your own documents, including one written in Discovery before you started the church, into the church as a new document; the original stays private in Your documents. No other seat can copy, find or export that original.
+
+- Operations: documents.useForChurch, documents.listOwned
+- Catalog: DOC-016
+- Cases: CASE-DOC-016
+- Test: `tests/integration/documents/discovery.test.mts`: `INV-tenancy AC:CASE-DOC-016: after a Discovery planter starts a church, Use for this church copies one Discovery document and leaves the original private`
+- Test: `tests/integration/target/wp-056/roles-discovery.test.mts`: `INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, the church's Member finds none of the planter's Discovery documents in any search, Evry read or count`
+- Test: `tests/integration/target/wp-056/roles-discovery.test.mts`: `INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, the sending director finds none of the planter's Discovery documents in any search, Evry read or count`
+- Test: `tests/integration/target/wp-056/roles-discovery.test.mts`: `INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, no export the church's Member can run carries the planter's Discovery documents, and one that names them is refused`
+- Test: `tests/integration/target/wp-056/roles-discovery.test.mts`: `INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, no export the sending director can run carries the planter's Discovery documents, and one that names them is refused`
+- Browser, behavior proof (acts and checks the result), from state templates:
+
+```bash
+agent-browser find role button click --name "Use for this church" --exact
+agent-browser wait --text "The original stays in Your documents"
 ```
 
 #### documents.library#filter

@@ -159,3 +159,130 @@ test("INV-tenancy AC:CASE-DOC-016: documents written in Discovery stay the plant
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${planter.id}::uuid`);
 	assert.ok(((await titles(planter, false)) as string[]).includes("Call notes"));
 });
+
+test("INV-tenancy AC:CASE-DOC-016: after a Discovery planter starts a church, Use for this church copies one Discovery document and leaves the original private", async () => {
+	const ruth = await database.actor(null, "owner", { user: { name: "Ruth Planter" } });
+	await admin.execute(sql`INSERT INTO discovery(id,account_id,revision) VALUES(${randomUUID()},${ruth.id},1)`);
+	const inDiscovery = await authority(ruth);
+	const notes = ok(
+		await documentsWriter.saveNative(db, inDiscovery, {
+			title: "Harbor vision notes",
+			body: nativeFromText("We will gather near the river"),
+			expectedRevision: "0",
+		}),
+	);
+	const letter = ok(
+		await documentsWriter.saveNative(db, inDiscovery, {
+			title: "Sending letter",
+			body: nativeFromText("Dear friends"),
+			expectedRevision: "0",
+		}),
+	);
+	const church = await database.plant({ name: "River Gate" });
+	await database.seat(ruth, church, "owner");
+	await admin.execute(sql`UPDATE discovery SET converted_at=clock_timestamp(), converted_plant_id=${church.id}::uuid
+		WHERE account_id=${ruth.id}::uuid`);
+	const teamAdmin = await database.actor(church, "admin");
+	const teamMember = await database.actor(church, "member");
+	const own = await authority(ruth);
+	const count = async (query: ReturnType<typeof sql>) => (await admin.execute<{ n: number }>(query)).rows[0]?.n ?? -1;
+	const churchDocuments = () => count(sql`SELECT count(*)::int AS n FROM document WHERE tenant_id=${church.id}::uuid`);
+	const copies = (revisionId: string) =>
+		count(sql`SELECT count(*)::int AS n FROM document WHERE copied_from_revision_id=${revisionId}::uuid`);
+	const audits = (requestKey: string) =>
+		count(sql`SELECT count(*)::int AS n FROM audit_event WHERE request_key=${requestKey}`);
+
+	const sources = ok(await documentsWriter.listCopySources(db, own, {})).documents;
+	assert.deepEqual(sources.map((s) => [s.title, s.revisionId]).sort(), [
+		["Harbor vision notes", notes.revisionId],
+		["Sending letter", letter.revisionId],
+	]);
+
+	for (const other of [teamAdmin, teamMember, director, database.actors.owner]) {
+		const a = await authority(other);
+		const listed = await documentsWriter.listCopySources(db, a, {});
+		const ids = listed.status === "ok" ? listed.value.documents.map((d) => d.id) : [];
+		assert.equal(ids.includes(notes.id), false);
+		const guessed = randomUUID();
+		refused(
+			await documentsWriter.useForChurch(db, a, {
+				documentId: notes.id,
+				revisionId: notes.revisionId,
+				requestKey: guessed,
+			}),
+		);
+		assert.equal(await copies(notes.revisionId), 0);
+		assert.equal(await audits(guessed), 0);
+	}
+
+	const requestKey = randomUUID();
+	const copy = ok(
+		await documentsWriter.useForChurch(db, own, { documentId: notes.id, revisionId: notes.revisionId, requestKey }),
+	);
+	assert.equal(copy.tenantId, church.id);
+	assert.notEqual(copy.id, notes.id);
+	assert.equal(copy.title, "Harbor vision notes");
+	assert.equal(text(copy.body), "We will gather near the river");
+	assert.equal(copy.copiedFromRevisionId, notes.revisionId);
+	assert.equal(
+		ok(await documentsWriter.useForChurch(db, own, { documentId: notes.id, revisionId: notes.revisionId, requestKey }))
+			.id,
+		copy.id,
+	);
+	assert.equal(await copies(notes.revisionId), 1);
+	assert.equal(await audits(requestKey), 1);
+
+	for (const seat of [ruth, teamAdmin, teamMember]) {
+		const a = await authority(seat);
+		const listed = ok(await documentsWriter.listOwned(db, a, {})).documents.map((d) => [d.id, d.title]);
+		assert.deepEqual(listed, [[copy.id, "Harbor vision notes"]]);
+		assert.equal(
+			text(ok(await documentsWriter.read(db, a, { documentId: copy.id })).body),
+			"We will gather near the river",
+		);
+	}
+	const mine = ok(await documentsWriter.listMine(db, own, {})).documents.map((d) => d.id);
+	assert.deepEqual(mine.sort(), [notes.id, letter.id].sort());
+	const original = ok(await documentsWriter.readMine(db, own, { documentId: notes.id }));
+	assert.equal(original.tenantId, ruth.id);
+	assert.equal(original.revisionId, notes.revisionId);
+	assert.equal(text(original.body), "We will gather near the river");
+
+	const editedCopy = ok(
+		await documentsWriter.saveNative(db, own, {
+			documentId: copy.id,
+			title: "Harbor vision notes",
+			body: nativeFromText("The church will gather near the river"),
+			expectedRevision: copy.revision,
+		}),
+	);
+	assert.equal(
+		text(ok(await documentsWriter.readMine(db, own, { documentId: notes.id })).body),
+		"We will gather near the river",
+	);
+	const editedOriginal = ok(
+		await documentsWriter.saveMine(db, own, {
+			documentId: notes.id,
+			title: "Harbor vision notes",
+			body: nativeFromText("Ruth's private second thoughts"),
+			expectedRevision: original.revision,
+		}),
+	);
+	const readCopy = ok(await documentsWriter.read(db, own, { documentId: copy.id }));
+	assert.equal(text(readCopy.body), "The church will gather near the river");
+	assert.equal(readCopy.revision, editedCopy.revision);
+	assert.equal(readCopy.copiedFromRevisionId, notes.revisionId);
+
+	const before = await churchDocuments();
+	const stale = randomUUID();
+	refused(
+		await documentsWriter.useForChurch(db, own, {
+			documentId: notes.id,
+			revisionId: notes.revisionId,
+			requestKey: stale,
+		}),
+	);
+	assert.equal(await churchDocuments(), before);
+	assert.equal(await audits(stale), 0);
+	assert.notEqual(editedOriginal.revisionId, notes.revisionId);
+});
