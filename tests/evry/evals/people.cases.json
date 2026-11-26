@@ -117,5 +117,23 @@
 			"forbid": ["/Sam Patel|Oct 28|\\b84\\b/"],
 			"derivation": "PIP-04 on the scripted model: the recorded moves into core group are Sam Patel Oct 28, Priya Shah Nov 2 and Mike Brennan Nov 5; this month is November in America/Chicago, so the answer is 2."
 		}
+	},
+	{
+		"case_id": "PPL-06",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "anyone with sound or tech skills?",
+		"eval": {
+			"church": "assessed",
+			"calls": [{ "operation": "people.listPeople", "input": { "skillCategories": ["tech"] } }],
+			"only": ["people.listPeople"],
+			"maxCalls": { "people.getPersonSkills": 0, "people.listPeople": 1 },
+			"require": ["/^No one in this church has a Tech skill recorded\\. That covers all \\d+ people in this church\\.$/"],
+			"forbid": ["/:\\s*\\./", "/\\b0 of the\\b/"],
+			"derivation": "Zero matches on the scripted model: the assessed church (intelligence-church.mts) records no skills, so the Tech filter finds no one and the reply says so plainly, with no empty list."
+		}
 	}
 ]

@@ -14,6 +14,7 @@ const and = (items: string[]) => new Intl.ListFormat("en-US", { type: "conjuncti
 type Ask = {
 	input: Record<string, unknown>;
 	answer: (out: Output, rows: Row[], inChurch: number) => string;
+	none: (inChurch: number) => string;
 	names?: true;
 };
 
@@ -22,6 +23,7 @@ function asked(text: string): Ask | null {
 		return {
 			input: { skillCategories: ["tech"] },
 			names: true,
+			none: (inChurch) => `No one in this church has a Tech skill recorded. That covers all ${inChurch} people in this church.`,
 			answer: (out, rows, inChurch) => {
 				const held = rows.map((r) => `${r.label} (${techSkills(r)})`);
 				return `${String(out.total)} of the ${inChurch} people in this church have a Tech skill recorded: ${and(held)}. That covers all ${inChurch} people in this church.`;
@@ -30,11 +32,13 @@ function asked(text: string): Ask | null {
 	if (NO_PHOTO.test(text))
 		return {
 			input: { hasPhoto: false },
+			none: (inChurch) => `All ${inChurch} people in this church have a photo.`,
 			answer: (out, _, inChurch) => `${String(out.total)} of the ${inChurch} people in this church have no photo.`,
 		};
 	if (NO_HOUSEHOLD.test(text))
 		return {
 			input: { inHousehold: false },
+			none: (inChurch) => `All ${inChurch} people in this church are in a household.`,
 			answer: (out, _, inChurch) =>
 				`${String(out.total)} of the ${inChurch} people in this church are in no household.`,
 		};
@@ -42,6 +46,8 @@ function asked(text: string): Ask | null {
 		return {
 			input: { adultClassification: "child" },
 			names: true,
+			none: () =>
+				"No household in this church has a child recorded. People with no adult or child recorded aren't counted.",
 			answer: (_, rows) => {
 				const homes = new Map<string, { name: string; children: string[] }>();
 				for (const r of rows) {
@@ -59,6 +65,7 @@ function asked(text: string): Ask | null {
 		return {
 			input: { movedInto: { stage: "core_group", from: `${today.slice(0, 8)}01`, through: today } },
 			names: true,
+			none: () => "No people moved into core group this month.",
 			answer: (out, rows) => {
 				const moves = rows.map((r) => `${r.label} on ${dayText(String(r.fields.movedOn), { year: "never" })}`);
 				return `${counted(Number(out.total), "person", "people")} moved into core group this month: ${and(moves)}.`;
@@ -95,5 +102,6 @@ export function peopleStep(options: LanguageModelV4CallOptions, text: string): C
 	if (!out) return call("people_read", { operation: "people.listPeople", input: ask.input });
 	const rows = out.rows ?? [];
 	const inChurch = Number(out.facts?.peopleInChurch);
-	return say(ask.answer(out, rows, inChurch) + (rows.length ? nextPage(out, rows, !!ask.names) : ""));
+	if (!rows.length) return say(ask.none(inChurch));
+	return say(ask.answer(out, rows, inChurch) + nextPage(out, rows, !!ask.names));
 }

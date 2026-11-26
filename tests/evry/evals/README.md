@@ -17,7 +17,7 @@ blob that can match a push-protection pattern by chance. `recorder.test.mts` (`t
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
 | `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (425 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
-| `golden.test.mts`        | `people.cases.json` (5 church-wide People questions on Hope Fellowship, on the scripted model)                           | Each answer's exact seed counts, names and page offer; no recording, no judge               |
+| `golden.test.mts`        | `people.cases.json` (5 church-wide People questions on Hope Fellowship, plus one zero-match case, on the scripted model)                           | Each answer's exact seed counts, names and page offer; no recording, no judge               |
 | `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
 | `followups.test.mts`     | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
@@ -190,7 +190,9 @@ stage-move filter, and expects the seed's exact answer: the Tech skills of Mark 
 people, 79 with no photo and 66 in no household (each naming the first page of 24 and offering page 2), the Rivera
 and Nguyen households' recorded children, and the 2 moves into core group this month (Priya Shah on Nov 2, Mike
 Brennan on Nov 5). The golden church has two Okafor households, in Austin and Leander (`HOUSEHOLDS` in
-`golden-church.mts`), so a household list names Okafor twice.
+`golden-church.mts`), so a household list names Okafor twice. PPL-06 asks the Tech question on the assessed church
+(`intelligence-church.mts`), which records no skills, so it checks the zero-match reply: a plain sentence with no empty
+list.
 
 ## The launch suite (scripted model)
 
