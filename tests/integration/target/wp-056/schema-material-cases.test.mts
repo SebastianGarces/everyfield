@@ -1,6 +1,7 @@
 import "../../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { AsyncResource } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { PgDialect } from "../../../../packages/db/node_modules/drizzle-orm/pg-core/index.js";
 import { sql, type SQL } from "../../../../packages/db/src/query.ts";
@@ -222,11 +223,11 @@ test("AC:SCHEMA-012 every assessment input table changes the source revision, no
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	let mutated: string | null = null;
 	const racing = scriptedAssessmentDrafter({
-		during: async () => {
+		during: AsyncResource.bind(async () => {
 			if (mutated) return;
 			await c0.committed(p, "Joined Mid-Draft", 0);
 			mutated = await state(c0.admin, p.id, p.actor);
-		},
+		}),
 	});
 	await runAssessmentBatch(job, c0.db, racing, 1);
 	const old = (await runs(p)).slice(before.length);
