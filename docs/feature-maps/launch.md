@@ -80,13 +80,13 @@ agent-browser wait --url "**/signin?returnTo=%2Flaunch"
 
 #### launch.plan#outcome
 
-Once the date arrives, Record Launch Sunday saves what happened, named guests become People, and corrections keep history.
+Once Launch Sunday is scheduled, Record Launch Sunday saves what happened on a day that has come, named guests become People, and corrections keep history.
 
 - Operations: launch.recordOutcome, launch.correctOutcome
 - Catalog: LCH-006, LCH-007
 - Cases: CASE-LCH-006, CASE-LCH-007
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside the planned Oct 10, which stays, and no meeting is made`
-- Test: `tests/integration/launch/outcome.test.mts`: `a launch with no date, a later date or a postponement refuses an outcome until Launch Sunday arrives, with nothing written`
+- Test: `tests/integration/launch/outcome.test.mts`: `a launch with no date or a postponement refuses an outcome, with nothing written, and a scheduled launch records a held date before or on its planned date`
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up`
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history once; the phase stays and no task is made`
 - Browser, behavior proof (acts and checks the result), from state no-date:

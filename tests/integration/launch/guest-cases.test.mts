@@ -481,13 +481,8 @@ test("AC:CASE-LCH-006 the held date sits apart from the plan, Jamie is one new l
 	let p = await plan(ch.owner);
 	ok(await move(ch.owner, String(input.planned_date), "Moved up for the school calendar", p.launch!.revision));
 	p = await plan(ch.owner);
-	const start = await footprint(ch.w);
-	const early = refused(await record(ch.owner, { actualDate: input.actual_date }, p.revision), "not_ready");
-	assert.deepEqual(early.details, { needs: "launch_sunday" });
-	assert.deepEqual(await footprint(ch.w), start);
-
-	ok(await move(ch.owner, String(input.actual_date), "Launched a day early", p.launch!.revision));
-	p = await plan(ch.owner);
+	assert.deepEqual([p.launch!.status, p.launch!.targetDate, p.today], ["scheduled", input.planned_date, "2026-10-13"]);
+	refused(await record(ch.owner, { actualDate: "2026-10-14" }, p.revision), "invalid_outcome");
 	const untouchedP = await footprint(ch.w);
 	refused(await record(casey, { actualDate: input.actual_date }, p.revision), "not_ready");
 	assert.deepEqual(await footprint(ch.w), untouchedP, "another church's Admin acts only on their own launch");
@@ -524,6 +519,7 @@ test("AC:CASE-LCH-006 the held date sits apart from the plan, Jamie is one new l
 		},
 		c.expected.result,
 	);
+	assert.equal(p.launch!.targetDate, input.planned_date, "the planned date stays as it was");
 	assert.deepEqual(named(p), [input.new_guest_name]);
 	assert.deepEqual(p.evidence.guestNamesEntered.remaining, input.debrief_count);
 	assert.deepEqual(await one(alexRow), alexBefore, "Alex is not touched");
