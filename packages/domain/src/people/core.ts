@@ -422,8 +422,8 @@ const auditedValues = new Map<string, z.ZodType>([
 	["photo", z.uuid().nullable()],
 	["skill", z.object({ id: z.uuid(), category: z.string(), proficiency: z.string().nullable() }).nullable()],
 ]);
-export function peopleValues(before?: Revisioned | null, after?: Revisioned | null) {
-	const delta = personChanges(before ?? undefined, after ?? undefined);
+export function peopleValues(before?: Revisioned, after?: Revisioned) {
+	const delta = personChanges(before, after);
 	const changed = Object.keys({ ...delta.before, ...delta.after });
 	const kept = (value: Record<string, unknown>) =>
 		Object.fromEntries(
@@ -581,7 +581,7 @@ export async function mutation<T>(
 		after_value: note ? entry?.after_value : delta.after,
 		reason: result.reason ?? entry?.reason ?? null,
 		...(note
-			? { metadata: entry?.metadata ?? result.metadata ?? { category: "note" } }
+			? { metadata: entry?.metadata ?? result.metadata }
 			: result.metadata
 				? { metadata: result.metadata }
 				: {}),
