@@ -15,6 +15,7 @@ import { compatible } from "../teams/training/reads.ts";
 import { outcomeEvidence } from "../tasks/origin.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
 import { foundationArticles } from "../onboarding/reading.ts";
+import { followUpTask, OPEN } from "../followups/queries.ts";
 import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
@@ -65,6 +66,23 @@ export const factInputs = z.strictObject({
 	),
 	interviews: presence,
 	fourCs: presence,
+	sources: z.array(z.strictObject({ source: z.enum(c.SOURCE_KEYS), count: z.int() })),
+	tenures: z.array(
+		z.strictObject({ personId: z.uuid(), from: z.string(), to: z.string().nullable(), leadership: z.boolean() }),
+	),
+	roster: z.array(z.strictObject({ personId: z.uuid(), on: z.string(), attended: z.boolean() })),
+	candidates: z.array(
+		z.strictObject({
+			personId: z.uuid(),
+			kind: z.enum(["answered", "corrected", "retracted", "reaffirmed"]),
+			attended: z.boolean().nullable(),
+			volunteered: z.boolean().nullable(),
+			start: z.string().nullable(),
+			end: z.string().nullable(),
+		}),
+	),
+	contacts: z.array(z.strictObject({ personId: z.uuid(), at: instant })),
+	tasks: z.array(z.strictObject({ id: z.uuid(), personId: z.uuid(), owners: z.array(z.uuid()), overdue: z.boolean() })),
 	launch: z
 		.strictObject({
 			target: z.string().nullable(),
@@ -79,6 +97,7 @@ export const factInputs = z.strictObject({
 export type FactInputs = z.infer<typeof factInputs>;
 
 const DAY = 86_400_000;
+const CANDIDATE_DAYS = 60;
 const within = (date: string, from: string, to: string) => date >= from && date <= to;
 type Named = { id: string; name: string };
 const byName = (a: Named, b: Named) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
@@ -153,12 +172,86 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
 }
 
-const revisionOf = (inputs: FactInputs | (Omit<FactInputs, "phase"> & { phase: undefined })) =>
-	createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
+const REPORT_INPUTS = ["sources", "tenures", "roster", "candidates", "contacts", "tasks"] as const;
+function assessedInputs(inputs: FactInputs): Partial<FactInputs> {
+	const assessed: Partial<FactInputs> = { ...inputs };
+	for (const key of REPORT_INPUTS) delete assessed[key];
+	return assessed;
+}
+const revisionOf = (inputs: FactInputs, phase = true) => {
+	const assessed = assessedInputs(inputs);
+	if (!phase) delete assessed.phase;
+	return createHash("sha256").update(JSON.stringify(assessed)).digest("hex");
+};
 
 function revisionMatches(inputs: FactInputs, stored: string) {
-	const storedBeforePhase = { ...inputs, phase: undefined };
-	return revisionOf(inputs) === stored || revisionOf(storedBeforePhase) === stored;
+	return revisionOf(inputs) === stored || revisionOf(inputs, false) === stored;
+}
+
+function attendanceRun(rows: FactInputs["roster"], today: string) {
+	const missed = max(rows.filter((r) => !r.attended).map((r) => r.on));
+	const start = rows
+		.filter((r) => r.attended && (missed === null || r.on > missed))
+		.map((r) => r.on)
+		.sort()[0];
+	return start === undefined ? null : daysBetween(start, today) + 1;
+}
+
+function volunteeringRun(rows: FactInputs["tenures"], today: string) {
+	if (!rows.length) return null;
+	const held = rows.filter((t) => t.from <= today);
+	const earliest = (ts: typeof held) => ts.map((t) => t.from).sort()[0];
+	const extend = (start: string): string => {
+		const reach = addDays(start, -1);
+		const before = earliest(held.filter((t) => t.from < start && (t.to === null || t.to >= reach)));
+		return before === undefined ? start : extend(before);
+	};
+	const current = earliest(held.filter((t) => t.to === null || t.to >= today));
+	return current === undefined ? 0 : daysBetween(extend(current), today) + 1;
+}
+
+function leadershipOf(
+	inputs: FactInputs,
+	active: { id: string; name: string }[],
+	today: string,
+): z.input<typeof c.leadership> {
+	const people = active.map((p) => {
+		const attendanceDays = attendanceRun(
+			inputs.roster.filter((r) => r.personId === p.id),
+			today,
+		);
+		const volunteeringDays = volunteeringRun(
+			inputs.tenures.filter((t) => t.personId === p.id),
+			today,
+		);
+		const status =
+			attendanceDays === null || volunteeringDays === null
+				? ("unknown" as const)
+				: Math.min(attendanceDays, volunteeringDays) >= CANDIDATE_DAYS
+					? ("candidate" as const)
+					: ("not_yet" as const);
+		return { person: { id: p.id, name: p.name }, attendanceDays, volunteeringDays, status };
+	});
+	const attested = new Set(
+		inputs.candidates
+			.filter(
+				(a) =>
+					a.kind !== "retracted" &&
+					a.attended &&
+					a.volunteered &&
+					a.start !== null &&
+					a.end !== null &&
+					a.end <= today &&
+					daysBetween(a.start, a.end) + 1 >= CANDIDATE_DAYS,
+			)
+			.map((a) => a.personId),
+	);
+	type Basis = z.input<typeof c.leadership>["candidates"][number]["basis"];
+	const candidates = people.flatMap((p) => {
+		const basis: Basis | null = p.status === "candidate" ? "records" : attested.has(p.person.id) ? "attestation" : null;
+		return basis ? [{ person: p.person, basis }] : [];
+	});
+	return { windowDays: CANDIDATE_DAYS, candidates: candidates.sort((a, b) => byName(a.person, b.person)), people };
 }
 
 export function buildFacts(
@@ -241,15 +334,26 @@ export function buildFacts(
 		})
 		.map(({ id, name }) => ({ id, name }))
 		.sort(byName);
+	const ledOn = (id: string) =>
+		inputs.tenures.some(
+			(t) => t.personId === id && t.leadership && t.from <= priorEnd && (t.to === null || t.to >= priorStart),
+		);
+	const leaderDisengaged = disengaged.filter((p) => ledOn(p.id));
+	const flagged = disengaged.length >= c.COHESION_MIN && disengaged.length >= c.COHESION_SHARE * active.length;
 	const cohesion: z.input<typeof c.cohesion> = {
-		status: !inputs.anyAttendance
-			? "unknown"
-			: disengaged.length >= c.COHESION_MIN && disengaged.length >= c.COHESION_SHARE * active.length
-				? "flagged"
-				: "steady",
+		status: !inputs.anyAttendance ? "unknown" : flagged ? "flagged" : "steady",
 		reason: inputs.anyAttendance ? null : "no_attendance",
 		disengaged,
 		committed: active.length,
+		ratio: inputs.anyAttendance && active.length ? disengaged.length / active.length : null,
+		leaderDisengaged,
+		voice: !inputs.anyAttendance
+			? null
+			: flagged && leaderDisengaged.length
+				? "direct"
+				: flagged || leaderDisengaged.length
+					? "watch"
+					: "steady",
 	};
 
 	const measures = inputs.followUps.map((f) =>
@@ -343,6 +447,36 @@ export function buildFacts(
 		foundations_complete: foundations,
 	};
 
+	const sources: z.input<typeof c.sourceMix> = {
+		cohort: "live_people",
+		total: inputs.sources.reduce((n, x) => n + x.count, 0),
+		counts: Object.fromEntries(inputs.sources.filter((x) => x.count > 0).map((x) => [x.source, x.count])),
+	};
+	const asOfMs = Date.parse(asOf);
+	const lastContact = new Map(inputs.contacts.map((x) => [x.personId, x.at]));
+	const contact: z.input<typeof c.contactFreshness> = {
+		recentDays: c.CONTACT_RECENT_DAYS,
+		people: active
+			.map((p) => {
+				const at = lastContact.get(p.id) ?? null;
+				const age = at === null ? null : asOfMs - Date.parse(at);
+				return {
+					person: { id: p.id, name: p.name },
+					lastContactedAt: at,
+					recent: age === null || age < 0 ? null : age < c.CONTACT_RECENT_DAYS * DAY,
+				};
+			})
+			.sort((a, b) => byName(a.person, b.person)),
+	};
+	const owned = inputs.tasks.filter((t) => t.owners.length > 0);
+	const unowned = inputs.tasks.filter((t) => t.owners.length === 0);
+	const ownership: z.input<typeof c.ownership> = {
+		owners: new Set(owned.flatMap((t) => t.owners)).size,
+		owned: owned.map((t) => t.id),
+		unowned: unowned.map((t) => t.id),
+		staleUnownedPeople: new Set(unowned.filter((t) => t.overdue).map((t) => t.personId)).size,
+	};
+
 	return c.plantFacts.parse({
 		asOf,
 		today,
@@ -359,6 +493,10 @@ export function buildFacts(
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
 		launch,
 		firstService,
+		sources,
+		leadership: leadershipOf(inputs, active, today),
+		contact,
+		ownership,
 		criteria,
 	});
 }
@@ -445,6 +583,36 @@ function inputsSql() {
   FROM interview i JOIN person p ON p.id=i.person_id AND p.tenant_id=i.plant_id AND p.state='live' WHERE i.plant_id=x.plant),
  'fourCs',(SELECT jsonb_build_object('count',count(*)::int,'latestOn',max(f.assessed_on)::text)
   FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant),
+ 'sources',coalesce((SELECT jsonb_agg(jsonb_build_object('source',q.src,'count',q.n) ORDER BY q.src) FROM (
+  SELECT CASE WHEN p.source='other' AND nullif(btrim(p.source_details),'') IS NULL THEN 'unknown' ELSE p.source END AS src,
+   count(*)::int AS n FROM person p WHERE p.tenant_id=x.plant AND p.plant_id IS NOT NULL AND p.state='live' GROUP BY 1) q),'[]'::jsonb),
+ 'tenures',coalesce((SELECT jsonb_agg(jsonb_build_object('personId',tn.person_id,'from',tn.started_on::text,
+   'to',tn.ended_on::text,'leadership',r.leadership) ORDER BY tn.person_id,tn.started_on,tn.id)
+  FROM team_tenure tn JOIN team_role r ON r.id=tn.role_id AND r.plant_id=tn.plant_id
+  JOIN person p ON p.id=tn.person_id AND p.tenant_id=tn.plant_id AND p.state='live'
+  WHERE tn.plant_id=x.plant AND tn.started_on<=x.today),'[]'::jsonb),
+ 'roster',coalesce((SELECT jsonb_agg(jsonb_build_object('personId',q.person_id,'on',q.on_date,'attended',q.attended)
+   ORDER BY q.person_id,q.on_date,q.attended) FROM (
+  SELECT pa.person_id,${heldOn(sql`m`)}::text AS on_date,bool_or(pa.presence='attended') AS attended
+  FROM meeting m JOIN participation pa ON pa.meeting_id=m.id AND pa.plant_id=m.plant_id AND pa.removed_at IS NULL
+  WHERE ${held(sql`m`)} AND ${heldOn(sql`m`)}>x.today-${c.CANDIDATE_LOOKBACK_DAYS}::int
+  GROUP BY pa.person_id,m.id,2) q),'[]'::jsonb),
+ 'candidates',coalesce((SELECT jsonb_agg(jsonb_build_object('personId',a.person_id,'kind',r.kind,
+   'attended',r.attendance_continuous,'volunteered',r.volunteering_continuous,'start',r.period_start::text,
+   'end',r.period_end::text) ORDER BY a.person_id)
+  FROM attestation a JOIN LATERAL (SELECT v.* FROM attestation_revision v WHERE v.attestation_id=a.id
+   ORDER BY v.revision DESC LIMIT 1) r ON true
+  WHERE a.plant_id=x.plant AND a.key='leadership_candidate' AND a.person_id IS NOT NULL),'[]'::jsonb),
+ 'contacts',coalesce((SELECT jsonb_agg(jsonb_build_object('personId',q.person_id,'at',${iso(sql`q.at`)})
+   ORDER BY q.person_id) FROM (SELECT e.person_id,max(e.occurred_at) AS at FROM contact_outcome e
+   WHERE e.plant_id=x.plant AND e.voided_at IS NULL AND e.outcome='contacted' GROUP BY e.person_id) q),'[]'::jsonb),
+ 'tasks',coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'personId',t.person_id,
+   'owners',(SELECT coalesce(jsonb_agg(DISTINCT ta.account_id),'[]'::jsonb) FROM task_assignee ta WHERE ta.task_id=t.id
+    AND ${eligibleOwner(sql`ta.account_id`, sql`t.plant_id`)}),
+   'overdue',CASE t.due_kind WHEN 'timed' THEN x.at>t.due_at
+    WHEN 'date_only' THEN x.at>=((t.due_date+1)::timestamp AT TIME ZONE x.zone) ELSE false END) ORDER BY t.id)
+  FROM task t JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
+  WHERE t.plant_id=x.plant AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}),'[]'::jsonb),
  'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status,
   'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
   FROM launch l WHERE l.plant_id=x.plant)
@@ -506,7 +674,8 @@ export async function captureFacts(db: Pick<Database, "execute">, plant: string,
 }
 
 export async function captureInputs(db: Pick<Database, "execute">, plant: string, at: string) {
-	return (await measureInputs(db, plant, at))?.inputs ?? null;
+	const m = await measureInputs(db, plant, at);
+	return m && assessedInputs(m.inputs);
 }
 
 export function createFacts(config: { clock?: Clock } = {}) {

@@ -184,8 +184,33 @@ export const trendRun = z.strictObject({
 	asOf: instant,
 	measuredOn: localDate,
 	phase: phaseNumber,
+	formulaVersion: z.string(),
 	values: z.array(trendValue).length(TREND_FACTS.length),
+	rates: z.strictObject({
+		followUpWithin48Hours: z.number().min(0).max(1).nullable(),
+		actualContact: z.number().min(0).max(1).nullable(),
+	}),
 });
 export const assessmentHistory = z.strictObject({ runs: z.array(trendRun).max(TREND_RUNS) });
 export type AssessmentHistory = z.infer<typeof assessmentHistory>;
 export const readAssessmentHistoryRequest = z.strictObject({});
+
+const focusSeverity = z.enum(["info", "low", "medium", "high", "critical"]);
+const focusPoint = z.strictObject({ title: z.string(), severity: focusSeverity, lenses: z.array(lensKey) });
+export const drilldownItem = z.strictObject({
+	lens: lensKey,
+	label: z.string(),
+	severity: z.enum(["medium", "high"]),
+	evidence: z.array(evidenceFact),
+});
+export type DrilldownItem = z.infer<typeof drilldownItem>;
+export const focusView = z.strictObject({
+	runId: recordId,
+	primary: focusPoint,
+	supplements: z.tuple([focusPoint, focusPoint]),
+	positives: z.array(focusPoint),
+	drilldown: z.array(drilldownItem),
+});
+export type FocusView = z.infer<typeof focusView>;
+export const focusReply = z.strictObject({ focus: focusView.nullable() });
+export const readFocusRequest = z.strictObject({});
