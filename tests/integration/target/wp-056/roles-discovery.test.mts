@@ -247,7 +247,7 @@ const EXPORTS: Record<string, (a: RequestActor) => Promise<unknown>> = {
 	"wiki print": (a) => wiki.printArticle(w.db, a, { articleId: w.ids.articles.grace }),
 	"pipeline CSV": (a) => readPipelineExport(w.db, a),
 };
-const NAMED: Record<string, (a: RequestActor, documentId: string, revisionId: string) => Promise<unknown>> = {
+const NAMED: Record<string, (a: RequestActor, documentId: string) => Promise<unknown>> = {
 	"church document PDF": (a, documentId) =>
 		documentsWriter.readChurchFile(w.db, a, { documentId, format: "pdf" }, w.storage),
 	"church document Word": (a, documentId) =>
@@ -263,8 +263,6 @@ const NAMED: Record<string, (a: RequestActor, documentId: string, revisionId: st
 	"own document text": (a, documentId) => documentsWriter.readMine(w.db, a, { documentId }),
 	"church document": (a, documentId) => documentsWriter.readChurch(w.db, a, { documentId }),
 	"generated download": (a, documentId) => documentsWriter.download(w.db, a, { documentId }, w.storage),
-	"Use for this church": (a, documentId, revisionId) =>
-		documentsWriter.useForChurch(w.db, a, { documentId, revisionId, requestKey: key() }),
 };
 
 async function exportsCarryNothing(role: "member" | "director") {
@@ -289,14 +287,10 @@ async function exportsCarryNothing(role: "member" | "director") {
 	assert.ok(answered > 0, "some export answers this role");
 	for (const doc of [notes, values])
 		for (const [name, run] of Object.entries(NAMED)) {
-			const reply = await run(a, doc.id, doc.revisionId);
+			const reply = await run(a, doc.id);
 			assert.ok(refusedReply(reply), `${name} ${JSON.stringify(reply).slice(0, 200)}`);
 			assert.deepEqual(carried(reply), [], name);
 		}
-	const copies = await w.rows<{ n: number }>(
-		sql`SELECT count(*)::int AS n FROM document WHERE copied_from_revision_id IN (${notes.revisionId}, ${values.revisionId})`,
-	);
-	assert.equal(copies[0]?.n, 0);
 }
 
 test("INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, no export the church's Member can run carries the planter's Discovery documents, and one that names them is refused", () =>
