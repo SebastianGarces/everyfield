@@ -30,7 +30,10 @@ const KINDS: Record<Kind, { label: string; description: string; organization?: s
 		description: "Support the planters in your network.",
 		organization: "Network name",
 	},
-	discovery: { label: "I’m exploring", description: "Look around before you start a plant." },
+	discovery: {
+		label: "I’m exploring",
+		description: "Free for as long as you need. Read, write and test the call before you start a church.",
+	},
 };
 const ORDER: Kind[] = ["plant_precreation", "sending_church", "sending_network", "discovery"];
 
@@ -188,7 +191,9 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 
 	return (
 		<>
-			<AuthHeading title="Create your account">Start your church, or join as a sending church or network.</AuthHeading>
+			<AuthHeading title="Create your account">
+				Start your church, explore for free first, or join as a sending church or network.
+			</AuthHeading>
 			<form noValidate onSubmit={submit} className="mt-6 flex flex-col gap-4">
 				<div className="min-w-0">
 					<p id={kindLabel} className="text-sm font-medium text-ink-2">

@@ -28,6 +28,7 @@ export const QA_LOGINS = {
 	endedResident: "delivered+qa-resident-ended@resend.dev",
 	hillOwner: "delivered+qa-hill-owner@resend.dev",
 	discoverySender: "delivered+qa-discovery-sender@resend.dev",
+	discovery: "delivered+qa-discovery@resend.dev",
 } as const;
 
 export const QA_ROLES = { runtime: "evf_qa_runtime", auth: "evf_qa_auth" } as const;

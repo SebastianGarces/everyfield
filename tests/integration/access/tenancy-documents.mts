@@ -62,13 +62,13 @@ export async function seedDocuments(t: Tenancy) {
 		await docs.generate(db, owner, { templateId: "commitment-card", format: "pdf", requestKey: key() }, seeding),
 	).id;
 	await t.f.admin.execute(sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${t.ownerA.id}`);
-	ok(
+	a.personalDoc = ok(
 		await docs.saveNative(db, await t.f.actor(t.ownerA.session), {
 			title: `${MARK} personal plan`,
 			body: nativeFromText(`${MARK} my own notes`),
 			expectedRevision: "0",
 		}),
-	);
+	).id;
 	await t.f.admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${t.ownerA.id}`);
 }
 
@@ -140,6 +140,8 @@ export function documentsCases(t: Tenancy, who: TenancyOwner) {
 		w("listCopySources", () => docs.listCopySources(db, who.actor, {}), { value: { documents: [] } }),
 		w("listExports", () => docs.listExports(db, who.actor, doc), gone(a.churchDoc)),
 		w("listOwned", () => docs.listOwned(db, who.actor, {}), { value: { documents: [] } }),
+		w("listMine", () => docs.listMine(db, who.actor, {}), { value: { documents: [] } }),
+		w("readMine", () => docs.readMine(db, who.actor, { documentId: a.personalDoc }), gone(a.personalDoc)),
 		w("readChurch", () => docs.readChurch(db, who.actor, doc), gone(a.churchDoc)),
 		w("readChurchFile", () => docs.readChurchFile(db, who.actor, { ...doc, format: "pdf" }, storage), {
 			...gone(a.churchDoc),

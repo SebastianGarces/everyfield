@@ -25,14 +25,16 @@
 			"reach": [
 				{
 					"rail": "People",
-					"personas": ["owner", "admin", "member"]
+					"personas": ["owner", "admin", "member", "discovery", "resident"]
 				}
 			],
 			"personas": {
 				"owner": "write",
 				"admin": "write",
 				"member": "read",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{
@@ -92,6 +94,24 @@
 						{
 							"role": "heading",
 							"name": "We could not load your people"
+						}
+					]
+				},
+				{
+					"id": "locked",
+					"reach": {
+						"persona": "discovery",
+						"open": "/people",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "People opens when you start your church"
+						},
+						{
+							"role": "link",
+							"name": "Start a church"
 						}
 					]
 				}

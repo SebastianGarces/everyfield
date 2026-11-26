@@ -32,9 +32,11 @@ export async function HomePage({ searchParams }: { searchParams: Search }) {
 	const returnTo = one(search.returnTo);
 	if (viewer.status === "unauthenticated") redirect("/signin");
 	const plant =
-		viewer.status === "active"
-			? await dashboardReader.resolveHome(requestDatabase(), viewer.authority ?? null)
-			: "none";
+		viewer.status !== "active"
+			? "none"
+			: viewer.discovery
+				? "discovery"
+				: await dashboardReader.resolveHome(requestDatabase(), viewer.authority ?? null);
 	redirect(landingFor({ status: viewer.status, plant, returnTo }));
 }
 

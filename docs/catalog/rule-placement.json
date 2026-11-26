@@ -4757,6 +4757,16 @@
       "requirement": "REQ-IDN-020",
       "operation": "associations.listInvitations",
       "reason": "T-632: the pending list those invitation actions start from."
+    },
+    {
+      "requirement": "REQ-DOC-022",
+      "operation": "documents.createMineFromTemplate",
+      "reason": "T-661: Discovery templates."
+    },
+    {
+      "requirement": "REQ-IDN-020",
+      "operation": "discovery.setSharing",
+      "reason": "T-661: ordinary link sharing."
     }
   ],
   "rule_additions": [
@@ -5175,6 +5185,16 @@
       "id": "associations.listInvitations",
       "requirement": "REQ-IDN-020",
       "reason": "T-632: Evry lists the pending link invitations the asker's own side sent or received, so one can be resent, withdrawn or declined."
+    },
+    {
+      "id": "documents.createMineFromTemplate",
+      "requirement": "REQ-DOC-022",
+      "reason": "T-661: a Discovery planter makes a private document from one of five editable templates."
+    },
+    {
+      "id": "discovery.setSharing",
+      "requirement": "REQ-IDN-020",
+      "reason": "T-661: the one foundations sharing choice on an ordinary Discovery link."
     }
   ],
   "shared_rewrites": {

@@ -26,8 +26,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-production
-  cancel-in-progress: true
+  group: ${{ vars.TRUNK_PROMOTE == 'true' && format('deploy-production-{0}', github.sha) || 'deploy-production' }}
+  cancel-in-progress: ${{ vars.TRUNK_PROMOTE != 'true' }}
 
 env:
   NODE_VERSION: "24.22.1"
@@ -56,6 +56,13 @@ jobs:
       - name: Production build
         run: npx --yes "$VERCEL_CLI" build --prod
       - name: Deploy the prebuilt output to production
+        env:
+          TRUNK_PROMOTE: ${{ vars.TRUNK_PROMOTE }}
         run: |
-          url=$(npx --yes "$VERCEL_CLI" deploy --prebuilt --prod --meta "githubCommitSha=$GITHUB_SHA")
-          echo "Production deployment for \`$GITHUB_SHA\`: $url" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TRUNK_PROMOTE" = "true" ]; then
+            url=$(npx --yes "$VERCEL_CLI" deploy --prebuilt --prod --skip-domain --meta "githubCommitSha=$GITHUB_SHA")
+            echo "Production build for \`$GITHUB_SHA\`: $url (not live; promote.yml promotes it after green CI)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(npx --yes "$VERCEL_CLI" deploy --prebuilt --prod --meta "githubCommitSha=$GITHUB_SHA")
+            echo "Production deployment for \`$GITHUB_SHA\`: $url" >> "$GITHUB_STEP_SUMMARY"
+          fi

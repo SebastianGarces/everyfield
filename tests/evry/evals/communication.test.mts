@@ -107,7 +107,7 @@ let admin: Database;
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: ActorName) => (await freshActor(ACTOR_SPECS[who].session))!;
 const read = (who: EvryActor, operation: string, input: unknown = {}) =>

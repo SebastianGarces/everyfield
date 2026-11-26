@@ -77,6 +77,7 @@ export type Seeded = Record<
 	| "deletedDoc"
 	| "deletedExport"
 	| "native"
+	| "personalDoc"
 	| "generated"
 	| "venue"
 	| "vision"

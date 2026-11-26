@@ -8,8 +8,10 @@ import {
 	pendingFor,
 	query,
 	readHistory,
+	readDiscoverySharing,
 	readPipelineConsents,
 	readPlantSharing,
+	readSharedFoundations,
 	ownResidencyLinks,
 	scopeOf,
 	subjectFacts,
@@ -36,25 +38,28 @@ export async function SharingPage() {
 	if (who.kind !== "viewer") return refused;
 	const { mount: m, viewer } = who;
 	const listed = viewer.kind !== "account";
-	const [residencies, facts, targets, pipeline, aggregate, history, pending, sharing] = await Promise.all([
-		ownResidencyLinks(),
-		listed ? subjectFacts(m.db, viewer) : { revision: "0", zone: "UTC" },
-		viewer.canManage ? targetsFor(m.db, viewer, new Set()) : Promise.resolve([]),
-		readPipelineConsents(m.db, who.authority),
-		viewer.kind === "sending_network" && viewer.selected.kind === "organization"
-			? query(m, who.authority, viewer.selected, (tx, s, o) =>
-					m.adapter["pipelineSharing.checkAggregateAccess"](
-						tx,
-						s,
-						o,
-						pipelineAggregateAccessRequest.parse({ network: viewer.selected }),
-					),
-				)
-			: Promise.resolve(null),
-		listed ? readHistory(m.db, who.authority, scopeOf(viewer)) : null,
-		listed ? pendingFor(m.db, viewer) : [],
-		listed ? readPlantSharing(m.db, who.authority) : {},
-	]);
+	const [residencies, facts, targets, pipeline, aggregate, history, pending, sharing, discovery, foundations] =
+		await Promise.all([
+			ownResidencyLinks(),
+			listed ? subjectFacts(m.db, viewer) : { revision: "0", zone: "UTC" },
+			viewer.canManage ? targetsFor(m.db, viewer, new Set()) : Promise.resolve([]),
+			readPipelineConsents(m.db, who.authority),
+			viewer.kind === "sending_network" && viewer.selected.kind === "organization"
+				? query(m, who.authority, viewer.selected, (tx, s, o) =>
+						m.adapter["pipelineSharing.checkAggregateAccess"](
+							tx,
+							s,
+							o,
+							pipelineAggregateAccessRequest.parse({ network: viewer.selected }),
+						),
+					)
+				: Promise.resolve(null),
+			listed ? readHistory(m.db, who.authority, scopeOf(viewer)) : null,
+			listed ? pendingFor(m.db, viewer) : [],
+			listed ? readPlantSharing(m.db, who.authority) : {},
+			listed ? readDiscoverySharing(m.db, who.authority) : {},
+			listed ? readSharedFoundations(m.db, who.authority) : {},
+		]);
 	if (!listed && residencies.length === 0) return refused;
 	const names = await namesFor(m.db, viewer, [
 		...(history?.status === "available" ? idsIn(history) : []),
@@ -70,7 +75,7 @@ export async function SharingPage() {
 		pipeline,
 		aggregate: aggregate?.status === "ok" ? aggregate.value : null,
 		residencies,
-		connections: history ? { history, pending, sharing } : null,
+		connections: history ? { history, pending, sharing, discovery, foundations } : null,
 	};
 	return <RealSharing data={data} />;
 }

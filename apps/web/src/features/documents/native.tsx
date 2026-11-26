@@ -15,15 +15,15 @@ import {
 	Skeleton,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
 import { copyToChurch } from "./actions.ts";
 import type { DocumentOutcome } from "./outcome.ts";
-import { loadCopySources, loadWrittenDocuments } from "./fetch.ts";
+import { loadCopySources, loadMyDocuments, loadWrittenDocuments } from "./fetch.ts";
 import { documentProblem, type CopySource, type OwnedView } from "./model.ts";
-import { SECTION } from "./written/notes.tsx";
+import { ONLY_YOU, SECTION } from "./written/notes.tsx";
 import { loadProblem } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
@@ -44,11 +44,82 @@ const writtenDocuments = createRead(() => loadWrittenDocuments(), {
 	}),
 });
 
+const myDocuments = createRead(() => loadMyDocuments(), {
+	failed: (): DocumentOutcome<OwnedView[]> | ReadFailure => ({ status: "lost" }),
+});
+
 const copySources = createRead(() => loadCopySources(), {
 	failed: (): DocumentOutcome<CopySource[]> | ReadFailure => ({ status: "lost" }),
 });
 
-export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit: boolean }) {
+function DocumentRows({ documents }: { documents: OwnedView[] }) {
+	return (
+		<ul className="flex flex-col gap-2">
+			{documents.map((document) => {
+				const label = KIND_LABEL[document.kind];
+				return (
+					<li key={document.id}>
+						<IntentLink href={`/documents/written/${document.id}`} className={ROW}>
+							<span className="min-w-0 font-medium text-ink">{document.title}</span>
+							<span className="flex items-center gap-2">
+								{label ? <Tag>{label}</Tag> : null}
+								<Icon icon={ArrowRight01Icon} size={18} className="text-text-3" />
+							</span>
+						</IntentLink>
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
+export function MyDocuments() {
+	const listed = useRead(myDocuments);
+	const result = listed.value;
+	if (!result || (result.status === "ok" && result.value.length === 0)) return null;
+	return (
+		<section aria-labelledby="mine-heading" className="mt-8 flex flex-col gap-4">
+			<div>
+				<h2 id="mine-heading" className="font-title text-title-sm tracking-[-0.02em] text-ink">
+					{SECTION.account}
+				</h2>
+				<p className="mt-1 text-sm text-text-2 text-pretty">
+					{ONLY_YOU} Your team doesn’t see them unless you copy one into this church.
+				</p>
+			</div>
+			{result.status === "ok" ? (
+				<DocumentRows documents={result.value} />
+			) : (
+				<Card>
+					<EmptyState
+						icon={File02Icon}
+						title="Your documents did not load"
+						headingLevel="h3"
+						action={
+							<Button variant="secondary" onClick={listed.retry}>
+								Try again
+							</Button>
+						}
+					>
+						{loadProblem(result, "This is a loading problem. Nothing was changed.")}
+					</EmptyState>
+				</Card>
+			)}
+		</section>
+	);
+}
+
+export function NativeDocuments({
+	written,
+	canEdit,
+	note,
+	className = "mt-8",
+}: {
+	written: Scope;
+	canEdit: boolean;
+	note?: string;
+	className?: string;
+}) {
 	const listed = useRead(writtenDocuments);
 	const [copyOpen, setCopyOpen] = useState(false);
 	const evidenceLabel = written === "church" ? "Core values for your church" : "Your core values";
@@ -63,11 +134,14 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 	) : null;
 
 	return (
-		<section aria-labelledby="written-heading" className="mt-8 flex flex-col gap-4">
+		<section aria-labelledby="written-heading" className={cn(className, "flex flex-col gap-4")}>
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<h2 id="written-heading" className="font-title text-title-sm tracking-[-0.02em] text-ink">
-					{SECTION[written]}
-				</h2>
+				<div className="min-w-0">
+					<h2 id="written-heading" className="font-title text-title-sm tracking-[-0.02em] text-ink">
+						{SECTION[written]}
+					</h2>
+					{note ? <p className="mt-1 text-sm text-text-2 text-pretty">{note}</p> : null}
+				</div>
 				<div className="flex flex-wrap gap-2">
 					{written === "church" && canEdit ? (
 						<Button
@@ -131,22 +205,7 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 									</EmptyState>
 								</Card>
 							) : (
-								<ul className="flex flex-col gap-2">
-									{result.value.documents.map((document) => {
-										const label = KIND_LABEL[document.kind];
-										return (
-											<li key={document.id}>
-												<IntentLink href={`/documents/written/${document.id}`} className={ROW}>
-													<span className="min-w-0 font-medium text-ink">{document.title}</span>
-													<span className="flex items-center gap-2">
-														{label ? <Tag>{label}</Tag> : null}
-														<Icon icon={ArrowRight01Icon} size={18} className="text-text-3" />
-													</span>
-												</IntentLink>
-											</li>
-										);
-									})}
-								</ul>
+								<DocumentRows documents={result.value.documents} />
 							)}
 						</div>
 					)

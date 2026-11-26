@@ -162,3 +162,13 @@ export const pipelineAggregateAccessResult = z.strictObject({
 	allowed: z.boolean(),
 	minimumContributors: z.literal(2),
 });
+export const discoverySharing = z.strictObject({
+	relationshipId: recordId,
+	revision,
+	consentRevision: revision,
+	shareFoundations: z.boolean(),
+});
+export const sharedFoundations = z.strictObject({
+	completed: z.array(recordId).max(6),
+	total: z.number().int().min(0).max(6),
+});

@@ -14,12 +14,21 @@ import { kindLabel, subjectOf } from "./model";
 import { formatDay } from "../../components/dates.ts";
 import { ProblemLine } from "./parts";
 import { SharingChoices, type ReadSharing, type SaveSharing, type SharingRow } from "./Sharing";
+import {
+	FoundationsSwitch,
+	FoundationsView,
+	type DiscoveryRow,
+	type SaveDiscoverySharing,
+	type SharedFoundations,
+} from "./DiscoverySharing";
 import type { History, NameOf, Invitation, Relationship, Run, SendInvitation } from "./port";
 
 export type ConnectionsData = {
 	history: { status: "unavailable" } | History;
 	pending: Invitation[];
 	sharing: Record<string, SharingRow>;
+	discovery: Record<string, DiscoveryRow>;
+	foundations: Record<string, SharedFoundations>;
 };
 
 export function Connections({
@@ -34,6 +43,7 @@ export function Connections({
 	end,
 	invite,
 	readSharing,
+	saveDiscovery,
 	initial,
 }: {
 	side: Side;
@@ -48,6 +58,7 @@ export function Connections({
 	end: EndConnection;
 	invite?: { targets: InviteTarget[]; readDisclosure: ReadDisclosure; expectedRevision: string };
 	readSharing?: { read: ReadSharing; save: SaveSharing };
+	saveDiscovery?: SaveDiscoverySharing;
 }) {
 	const [status, setStatus] = useState("");
 	const fetch = useCallback(() => load(), [load]);
@@ -109,7 +120,7 @@ export function Connections({
 					</div>
 				}
 			>
-				{({ history, pending, sharing }) =>
+				{({ history, pending, sharing, discovery, foundations }) =>
 					history.status === "unavailable" ? (
 						<NotAvailable scope="section" />
 					) : (
@@ -130,6 +141,16 @@ export function Connections({
 								readSharing={readSharing}
 								onRevision={(relationshipId, revision) =>
 									update((d) => ({ ...d, history: withRevision(d.history, relationshipId, revision) }))
+								}
+								discovery={discovery}
+								foundations={foundations}
+								saveDiscovery={saveDiscovery}
+								onDiscovery={(row) =>
+									update((d) => ({
+										...d,
+										discovery: { ...d.discovery, [row.relationshipId]: row },
+										history: withRevision(d.history, row.relationshipId, row.revision),
+									}))
 								}
 								stale={refreshing}
 							/>
@@ -210,6 +231,10 @@ function ActiveList({
 	readSharing,
 	sharing,
 	onRevision,
+	discovery,
+	foundations,
+	saveDiscovery,
+	onDiscovery,
 	stale,
 }: {
 	side: Side;
@@ -222,6 +247,10 @@ function ActiveList({
 	readSharing?: SharingPort;
 	sharing: Record<string, SharingRow>;
 	onRevision: (relationshipId: string, revision: string) => void;
+	discovery: Record<string, DiscoveryRow>;
+	foundations: Record<string, SharedFoundations>;
+	saveDiscovery?: SaveDiscoverySharing;
+	onDiscovery: (row: DiscoveryRow) => void;
 	stale: boolean;
 }) {
 	const rows = history.activeRelationships;
@@ -248,6 +277,10 @@ function ActiveList({
 					readSharing={readSharing}
 					sharing={sharing[relationship.id]}
 					onRevision={onRevision}
+					discovery={discovery[relationship.id]}
+					foundations={foundations[relationship.id]}
+					saveDiscovery={saveDiscovery}
+					onDiscovery={onDiscovery}
 					stale={stale}
 				/>
 			))}
@@ -266,6 +299,10 @@ function ActiveRow({
 	readSharing,
 	sharing,
 	onRevision,
+	discovery,
+	foundations,
+	saveDiscovery,
+	onDiscovery,
 	stale,
 }: {
 	side: Side;
@@ -278,12 +315,16 @@ function ActiveRow({
 	readSharing?: SharingPort;
 	sharing?: SharingRow;
 	onRevision: (relationshipId: string, revision: string) => void;
+	discovery?: DiscoveryRow;
+	foundations?: SharedFoundations;
+	saveDiscovery?: SaveDiscoverySharing;
+	onDiscovery: (row: DiscoveryRow) => void;
 	stale: boolean;
 }) {
 	const subject = side === "subject";
 	const other = subject ? relationship.pair.organization : subjectOf(relationship.pair);
 	const kind =
-		other.kind === "organization" ? kindLabel(other) : other.kind === "plant" ? "Church plant" : "Discovery account";
+		other.kind === "organization" ? kindLabel(other) : other.kind === "plant" ? "Church plant" : "Exploring planting";
 	return (
 		<li className="border-t border-line py-3.5 first:border-t-0">
 			<div className="flex items-center gap-3">
@@ -325,6 +366,17 @@ function ActiveRow({
 						save={readSharing.save}
 						onChanged={(revision) => onRevision(relationship.id, revision)}
 					/>
+				</div>
+			) : null}
+			{relationship.pair.kind === "discovery" ? (
+				<div className="pl-12 max-app-sm:pl-0">
+					{subject ? (
+						discovery && saveDiscovery ? (
+							<FoundationsSwitch row={discovery} organizationName={name} save={saveDiscovery} onSaved={onDiscovery} />
+						) : null
+					) : (
+						<FoundationsView shared={foundations} />
+					)}
 				</div>
 			) : null}
 		</li>

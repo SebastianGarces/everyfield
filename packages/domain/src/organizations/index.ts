@@ -8,6 +8,7 @@ import type { GeographyReference } from "./profile.ts";
 import { profileOperations } from "./profile.ts";
 import { relationshipCommands } from "./relationships.ts";
 import { sharingOperations } from "./sharing.ts";
+import { discoverySharingOperations } from "./discovery-sharing.ts";
 export function createOrganizationAdapter(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
@@ -17,12 +18,14 @@ export function createOrganizationAdapter(
 		...sharingOperations(effects),
 		...consentOperations(effects),
 		...profileOperations(effects, geography),
+		...discoverySharingOperations(effects),
 		"associations.getHistory": getHistory,
 	};
 }
 export { connectionLink } from "../proofs.ts";
 export { readAnswerableInvitation } from "./relationships.ts";
 export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
+export { readDiscoverySharing, readSharedFoundations } from "./discovery-sharing.ts";
 export {
 	milestone,
 	milestoneCategory,
