@@ -1454,7 +1454,10 @@
       "prayer_rhythm_established",
       "prayer_in_gatherings",
       "systems_tested",
-      "leadership_candidate"
+      "leadership_candidate",
+      "worship_agreement",
+      "community",
+      "relationship"
     ],
     "audit_event.action": [
       "account.deletion_requested",
@@ -11354,6 +11357,13 @@
             "person_id"
           ],
           "where": "(person_id IS NOT NULL)"
+        },
+        {
+          "columns": [
+            "plant_id",
+            "key"
+          ],
+          "where": "(key = 'worship_agreement'::text)"
         }
       ],
       "foreign_keys": [
@@ -11432,7 +11442,8 @@
         "state in ('answered', 'unanswered', 'retracted')",
         "((key <> 'leadership_candidate'::text) OR ((person_id IS NOT NULL) AND (period_start IS NOT NULL) AND (period_end IS NOT NULL) AND (attendance_continuous IS NOT NULL) AND (volunteering_continuous IS NOT NULL)))",
         "((period_end IS NULL) OR (period_start <= period_end))",
-        "((key <> ALL (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text])) OR (((state = 'answered'::text) AND (answer IS NOT NULL)) OR ((state = ANY (ARRAY['unanswered'::text, 'retracted'::text])) AND (answer IS NULL))))"
+        "((key <> ALL (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text])) OR (((state = 'answered'::text) AND (answer IS NOT NULL)) OR ((state = ANY (ARRAY['unanswered'::text, 'retracted'::text])) AND (answer IS NULL))))",
+        "(((key <> 'worship_agreement'::text) OR (person_id IS NOT NULL)) AND ((key <> ALL (ARRAY['community'::text, 'relationship'::text])) OR ((person_id IS NULL) AND (statement IS NOT NULL))))"
       ],
       "indexes": {
         "attestation_ref_1": {
@@ -11520,6 +11531,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "attestation_uq_3": {
+          "name": "attestation_uq_3",
+          "isUnique": true,
+          "where": "(key = 'worship_agreement'::text)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -11541,7 +11574,8 @@
           "attestation_ck_2",
           "attestation_ck_3",
           "attestation_ck_4",
-          "attestation_ck_5"
+          "attestation_ck_5",
+          "attestation_ck_6"
         ]
       },
       "policies": {},
@@ -11844,7 +11878,7 @@
         "((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))",
         "((period_end IS NULL) OR (period_start <= period_end))",
         "((detail IS NULL) OR ((char_length(detail) >= 1) AND (char_length(detail) <= 500))) AND ((reference IS NULL) OR ((char_length(reference) >= 1) AND (char_length(reference) <= 500)))",
-        "key in ('values_documented', 'financial_base_established', 'core_group_giving', 'prayer_leader_assigned', 'prayer_rhythm_established', 'prayer_in_gatherings', 'systems_tested', 'leadership_candidate')",
+        "key in ('values_documented', 'financial_base_established', 'core_group_giving', 'prayer_leader_assigned', 'prayer_rhythm_established', 'prayer_in_gatherings', 'systems_tested', 'leadership_candidate', 'worship_agreement', 'community', 'relationship')",
         "((key <> 'leadership_candidate'::text) OR ((person_id IS NOT NULL) AND (period_start IS NOT NULL) AND (period_end IS NOT NULL) AND (attendance_continuous IS NOT NULL) AND (volunteering_continuous IS NOT NULL)))"
       ],
       "indexes": {

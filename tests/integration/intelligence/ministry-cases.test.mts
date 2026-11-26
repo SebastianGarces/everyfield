@@ -13,6 +13,7 @@ import {
 	readingOf,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
+import { installGeographyRelease } from "../../../packages/domain/src/organizations/index.ts";
 import { readCatalog } from "../../../packages/domain/src/phases/index.ts";
 import { teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -108,6 +109,13 @@ const attest = (p: ChurchPlant, key: string, value: "yes" | "not_yet", asOf?: st
 		expectedRevision: "0",
 		input: { key, value, ...(asOf ? { asOf } : {}) },
 	});
+const readiness = (p: ChurchPlant, input: c.ReadinessInput) =>
+	signals.attestReadiness(w.db, p.actor, { requestKey: randomUUID(), expectedRevision: "0", input });
+const roots = () =>
+	w.one<{ plants: number; seats: number; affiliations: number; grants: number }>(
+		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM seat) seats,
+		(SELECT count(*)::int FROM affiliation) affiliations,(SELECT count(*)::int FROM platform_grant) grants`,
+	);
 async function publish(p: ChurchPlant) {
 	const requestId = randomUUID();
 	ok(await assessments.requestRefresh(w.db, p.actor, { requestId }));
@@ -445,5 +453,141 @@ test("AC:B01-024 AC:B01-027 lens evidence keeps each answer's own status, a retr
 			input: { key: "worship_agreement", value: "yes" },
 		}),
 		"invalid_input",
+	);
+});
+
+test("AC:B01-005 a dated agreement names a worship leader who has no account; an active worship assignment alone still identifies one", async () => {
+	const k = K("B01-005");
+	assert.equal(k.clock.now, NOW);
+	const p = await w.plant("Agreed worship church");
+	assert.equal((await read(p)).criteria.worship_leader, "unknown");
+	const robin = await w.person(p, "Robin Agreed");
+	const { linked } = await w.one<{ linked: string | null }>(
+		sql`SELECT linked_account_id AS linked FROM person WHERE id=${robin.id}`,
+	);
+	assert.equal(linked, arg<null>(k, "account"));
+	assert.equal(arg<boolean>(k, "agreed_to_worship"), true);
+	ok(await readiness(p, { key: "worship_agreement", personId: robin.id, asOf: arg<string>(k, "attestation_date") }));
+	const r = await read(p);
+	assert.equal(r.criteria.worship_leader === "met", k.expected.result.worship_identified);
+	assert.equal(linked !== null, k.expected.result.account_required);
+	assert.deepEqual(r.readiness, [
+		{
+			key: "worship_agreement",
+			state: "answered",
+			asOf: arg<string>(k, "attestation_date"),
+			named: "Robin Agreed",
+			personId: robin.id,
+		},
+	]);
+	assert.deepEqual(
+		r.coverage.responsibilities.find((x) => x.key === "worship")!.people,
+		[],
+		"no responsibility is filled",
+	);
+	const row = (await exit(p, 1)).worship_leader!;
+	assert.deepEqual([row.status, row.reading], ["met", "Robin Agreed agreed to lead worship as of 2026-10-01"]);
+
+	const q = await w.plant("Assigned worship church");
+	await imported(q, ["worship"]);
+	await assign(q, await templateRole(q, "worship_lead"), (await w.person(q, "Jordan Assigned")).id);
+	const assigned = await read(q);
+	assert.deepEqual([assigned.criteria.worship_leader, assigned.readiness], ["met", undefined]);
+	assert.deepEqual(
+		[(await exit(q, 1)).worship_leader!.status, (await exit(q, 1)).worship_leader!.reading],
+		["met", null],
+	);
+});
+
+test("AC:B01-007 a retracted worship agreement no longer qualifies, and its history keeps the old date", async () => {
+	const k = K("B01-007");
+	assert.equal(k.clock.now, NOW);
+	const p = await w.plant("Retracted worship church");
+	const casey = await w.person(p, "Casey Retracted");
+	const key = arg<c.ReadinessKey>(k, "attestation");
+	assert.equal(key, "worship_agreement");
+	const given = ok(
+		await readiness(p, { key: "worship_agreement", personId: casey.id, asOf: arg<string>(k, "old_date") }),
+	).attestation;
+	assert.equal((await exit(p, 1)).worship_leader!.status, "met");
+	assert.equal(arg<string>(k, "correction"), "retracted");
+	ok(
+		await signals.correctReadiness(w.db, p.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: given.revision,
+			input: { action: "retract", key },
+		}),
+	);
+	const row = (await exit(p, 1)).worship_leader!;
+	assert.equal(row.status === "met", k.expected.result.current_qualifies);
+	assert.deepEqual([row.status, row.reading], ["unknown", null]);
+	assert.deepEqual(
+		(await read(p)).readiness!.map((x) => [x.key, x.state]),
+		[["worship_agreement", "retracted"]],
+	);
+	const seen = ok(await signals.readReadiness(w.db, p.actor, { key }));
+	assert.deepEqual(
+		seen.history.map((h) => [h.kind, h.asOf, h.named]),
+		[
+			["retracted", seen.today, "Casey Retracted"],
+			["answered", k.expected.result.old_attestation_date, "Casey Retracted"],
+		],
+	);
+	assert.equal(seen.history.length === 2, k.expected.result.history_retained);
+	assert.deepEqual(seen.attestations.find((x) => x.key === key)!.state, "retracted", "Retracted is not Not answered");
+});
+
+test("AC:B01-008 a dated statement names the chosen community; the reporting Region and city attest nothing", async () => {
+	const k = K("B01-008");
+	assert.equal(k.clock.now, NOW);
+	await installGeographyRelease(w.admin);
+	const p = await w.plant("Named area church");
+	await w.admin.execute(sql`UPDATE plant SET city='Austin',state_province='TX' WHERE id=${p.id}`);
+	await w.admin.execute(sql`INSERT INTO plant_geography(plant_id,city,state_province,country,region_item_id,
+		reference_version_id,committed_at,effective_at)
+		SELECT ${p.id},'Austin','TX','US',i.id,v.id,clock_timestamp(),clock_timestamp()
+		FROM reference_item i CROSS JOIN reference_version v JOIN reference_item d ON d.id=v.item_id AND d.kind='geography_dataset'
+		WHERE i.kind='geography_region' ORDER BY i.canonical_key LIMIT 1`);
+	assert.equal(arg<string>(k, "reporting_region"), "CBSAfixture");
+	assert.equal(
+		(
+			await w.one<{ n: number }>(
+				sql`SELECT count(*)::int AS n FROM plant_geography WHERE plant_id=${p.id} AND region_item_id IS NOT NULL`,
+			)
+		).n,
+		1,
+	);
+	const bare = (await exit(p, 1)).geographic_area!;
+	assert.deepEqual([bare.status, bare.reading, bare.evidence], ["unknown", null, []]);
+	assert.equal(bare.status === "met", k.expected.result.automatic_region_attestation);
+	ok(await readiness(p, { key: "community", area: arg<string>(k, "chosen_area_attestation"), plan: "Area plan v1" }));
+	const row = (await exit(p, 1)).geographic_area!;
+	assert.equal(row.status, "met");
+	const named = row.evidence.find((e) => e.key === "readiness.community")!.value;
+	assert.equal(named, k.expected.result.named_area);
+	assert.equal(row.reading, `Chosen community: ${k.expected.result.named_area} as of 2026-10-13`);
+});
+
+test("AC:B01-022 an attested outside relationship meets the coach criterion and creates no plant, seat, affiliation or grant", async () => {
+	const k = K("B01-022");
+	assert.equal(k.clock.now, NOW);
+	const p = await w.plant("Attested relationship church");
+	assert.equal((await w.one<{ phase: number }>(sql`SELECT phase FROM plant WHERE id=${p.id}`)).phase, 1);
+	assert.deepEqual(
+		[(await exit(p, 0)).coach_assigned!.status, (await exit(p, 0)).coach_assigned!.reading],
+		["unknown", null],
+	);
+	assert.equal(arg<boolean>(k, "real_external_relationship_attested"), true);
+	assert.deepEqual([arg<null>(k, "plant"), arg<boolean>(k, "app_grant")], [null, false]);
+	const before = await roots();
+	ok(await readiness(p, { key: "relationship", organization: "Sending Church of Austin", asOf: "2026-09-01" }));
+	const after = await roots();
+	const coach = (await exit(p, 0)).coach_assigned!;
+	assert.equal(coach.status, k.expected.result.relationship_criterion);
+	assert.equal(coach.reading, "Relationship with Sending Church of Austin attested as of 2026-09-01");
+	assert.equal(after.plants !== before.plants, k.expected.result.plant_created);
+	assert.equal(
+		after.seats - before.seats + (after.affiliations - before.affiliations) + (after.grants - before.grants),
+		k.expected.result.new_grants,
 	);
 });

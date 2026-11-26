@@ -177,6 +177,11 @@ const MANUAL = sql.join(
 	c.SIGNAL_KEYS.map((k) => sql`${k}`),
 	sql`,`,
 );
+const READINESS = sql.join(
+	c.READINESS_ATTESTATIONS.map((k) => sql`${k.key}`),
+	sql`,`,
+);
+const SIGNALS_AND_CANDIDATES = sql`${MANUAL},${"leadership_candidate"}`;
 
 const audit = (s: Scope, action: "recorded" | "corrected", from: SQL) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
@@ -188,7 +193,8 @@ const appendRevision = (s: Scope, kind: c.HumanRevision["kind"], key: string, pr
   request_fingerprint,recorded_at)
   SELECT x.plant_id,x.id,x.revision,x.key,x.person_id,${kind},x.answer,x.as_of,x.statement,x.source_description,
   x.period_start,x.period_end,x.attendance_continuous,x.volunteering_continuous,
-  CASE WHEN x.key='leadership_candidate' THEN ${c.CANDIDATE_QUESTION_VERSION} ELSE ${c.SIGNAL_QUESTION_VERSION} END,
+  CASE WHEN x.key='leadership_candidate' THEN ${c.CANDIDATE_QUESTION_VERSION}
+   WHEN x.key IN (${READINESS}) THEN ${c.READINESS_QUESTION_VERSION} ELSE ${c.SIGNAL_QUESTION_VERSION} END,
   ${s.me}::uuid,${key},${print},${s.at} FROM ${from} x RETURNING *`;
 
 const writeRow = z.object({
@@ -203,19 +209,96 @@ const writeRow = z.object({
 });
 type WriteRow = z.infer<typeof writeRow>;
 
+const readinessJson = (r: SQL, s: Scope) =>
+	sql`jsonb_build_object('id',${r}.id,'key',${r}.key,'kind',${r}.kind,'asOf',${r}.as_of,'detail',${r}.detail,
+ 'reference',${r}.reference,'personId',${r}.person_id,
+ 'personName',(SELECT pe.display_name FROM person pe WHERE pe.id=${r}.person_id AND pe.tenant_id=${s.plant}::uuid),
+ 'revision',(${r}.revision)::text,'authorName',${nameOf(sql`${r}.author_id`, s)},'recordedAt',${iso(sql`${r}.recorded_at`)},
+ 'questionVersion',${r}.question_version)`;
+const readinessRow = z.object({
+	id: z.uuid(),
+	key: c.readinessKey,
+	kind: c.readinessRevision.shape.kind,
+	asOf: z.string(),
+	detail: z.string().nullable(),
+	reference: z.string().nullable(),
+	personId: z.uuid().nullable(),
+	personName: z.string().nullable(),
+	revision: z.string(),
+	authorName: z.string().nullable(),
+	recordedAt: z.string(),
+	questionVersion: z.string(),
+});
+type ReadinessRow = z.infer<typeof readinessRow>;
+const namedOf = (r: ReadinessRow) => (r.key === "worship_agreement" ? r.personName : r.detail);
+const noteOf = (r: ReadinessRow) => (r.key === "worship_agreement" ? r.detail : null);
+
+function readinessFrom(key: c.ReadinessKey, row: ReadinessRow | null): c.ReadinessEntry {
+	const answered = row !== null && row.kind !== "retracted";
+	return c.readinessEntry.parse({
+		key,
+		state: row === null ? "unanswered" : answered ? "answered" : "retracted",
+		asOf: row?.asOf ?? null,
+		named: answered ? namedOf(row) : null,
+		personId: answered ? row.personId : null,
+		statement: answered ? noteOf(row) : null,
+		reference: answered ? row.reference : null,
+		authorName: row?.authorName ?? null,
+		recordedAt: row?.recordedAt ?? null,
+		revision: row?.revision ?? "0",
+	});
+}
+const readinessRevisionOf = (row: ReadinessRow): c.ReadinessRevision =>
+	c.readinessRevision.parse({
+		id: row.id,
+		key: row.key,
+		revision: Number(row.revision),
+		kind: row.kind,
+		asOf: row.asOf,
+		named: namedOf(row),
+		personId: row.personId,
+		statement: noteOf(row),
+		reference: row.reference,
+		authorName: row.authorName,
+		recordedAt: row.recordedAt,
+		questionVersion: row.questionVersion,
+	});
+function storedOf(i: c.ReadinessInput) {
+	switch (i.key) {
+		case "relationship":
+			return { personId: null, statement: i.organization, reference: c.textOf(i.mentor) };
+		case "community":
+			return { personId: null, statement: i.area, reference: c.textOf(i.plan) };
+		case "worship_agreement":
+			return { personId: i.personId, statement: c.textOf(i.statement), reference: null };
+	}
+}
+const readinessPageRow = z.object({
+	ok: z.boolean().nullable(),
+	today: z.string().nullable(),
+	current: z.array(readinessRow),
+	history: z.array(readinessRow),
+});
+
 const keyTaken = (error: unknown) =>
 	(error as { code?: string; constraint?: string })?.code === "23505" &&
 	(error as { constraint?: string }).constraint === "attestation_revision_uq_1";
 
 export function createSignals(config: { clock?: Clock } = {}) {
-	async function write(db: Pick<Database, "execute">, s: Scope, key: string, statement: SQL): Promise<WriteRow> {
+	async function write(
+		db: Pick<Database, "execute">,
+		s: Scope,
+		key: string,
+		statement: SQL,
+		json: (r: SQL, s: Scope) => SQL = stateJson,
+	): Promise<WriteRow> {
 		try {
 			return writeRow.parse((await db.execute(statement)).rows[0]);
 		} catch (error) {
 			if (!keyTaken(error)) throw error;
 			const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok)
  SELECT (SELECT ok FROM gate) AS ok,${todayText(s)} AS today,
- (SELECT jsonb_build_object('fingerprint',r.request_fingerprint,'state',${stateJson(sql`r`, s)}) FROM attestation_revision r
+ (SELECT jsonb_build_object('fingerprint',r.request_fingerprint,'state',${json(sql`r`, s)}) FROM attestation_revision r
   WHERE r.plant_id=${s.plant}::uuid AND r.request_key=${key} AND (SELECT ok FROM gate)) AS prior,NULL AS cur,
  (SELECT jsonb_build_object('name',pe.display_name) FROM person pe JOIN attestation_revision r ON r.person_id=pe.id
   WHERE r.plant_id=${s.plant}::uuid AND r.request_key=${key} AND pe.tenant_id=r.plant_id AND (SELECT ok FROM gate)) AS person,NULL AS written`);
@@ -231,6 +314,45 @@ export function createSignals(config: { clock?: Clock } = {}) {
 	const signalClosing = (s: Scope) => sql`${closing(s)},
  (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',NULL::boolean) FROM cur) AS cur,
  (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`;
+
+	const whoOf = (s: Scope, personId: string | null) =>
+		personId === null
+			? sql`who AS (SELECT NULL::text AS display_name WHERE (SELECT ok FROM gate))`
+			: sql`who AS (SELECT pe.display_name FROM person pe WHERE pe.id=${personId}::uuid AND pe.tenant_id=${s.plant}::uuid
+  AND pe.state='live' AND (SELECT ok FROM gate) FOR SHARE)`;
+	const readinessClosing = (s: Scope, same: SQL) => sql`(SELECT ok FROM gate) AS ok,${todayText(s)} AS today,
+ (SELECT jsonb_build_object('fingerprint',p.request_fingerprint,'state',${readinessJson(sql`p`, s)}) FROM prior p) AS prior,
+ (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',${same}) FROM cur) AS cur,
+ (SELECT jsonb_build_object('name',coalesce(who.display_name,'')) FROM who) AS person,
+ (SELECT ${readinessJson(sql`x`, s)} FROM rev x) AS written`;
+
+	function readinessOutcome(
+		r: WriteRow,
+		print: string,
+		key: c.ReadinessKey,
+		asOf: string | undefined,
+		expected: string,
+		named: boolean,
+		correcting: boolean,
+	): z.output<typeof c.readinessWriteResult> {
+		const saved = (row: unknown) =>
+			c.readinessWriteResult.parse({ outcome: "saved", attestation: readinessFrom(key, readinessRow.parse(row)) });
+		if (r.prior) {
+			if (r.prior.fingerprint !== print) deny("idempotency_conflict");
+			return saved(r.prior.state);
+		}
+		if (!r.ok) deny("access_denied");
+		if (r.written) return saved(r.written);
+		if (asOf && asOf > localToday(r)) deny("invalid_input");
+		if (named && !r.person) deny("not_found");
+		if (correcting) {
+			if (!r.cur) deny("not_current");
+			if (r.cur.revision !== expected) deny("revision_conflict");
+			if (r.cur.state !== "answered") deny("not_current");
+			if (r.cur.same) deny("no_change");
+		}
+		return deny("revision_conflict");
+	}
 
 	function replayOf(r: WriteRow, print: string) {
 		if (!r.prior) return null;
@@ -324,7 +446,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   WHERE pe.tenant_id=${s.plant}::uuid AND pe.state='live' AND (SELECT ok FROM gate)
   ORDER BY pe.display_name,pe.id LIMIT ${PEOPLE_LIMIT}),
  hist AS (SELECT r.* FROM attestation_revision r WHERE r.plant_id=${s.plant}::uuid AND (SELECT ok FROM gate)
-  ORDER BY r.recorded_at DESC,r.revision DESC,r.id LIMIT ${PAGE_HISTORY})
+  AND r.key IN (${SIGNALS_AND_CANDIDATES}) ORDER BY r.recorded_at DESC,r.revision DESC,r.id LIMIT ${PAGE_HISTORY})
  SELECT (SELECT ok FROM gate) AS ok,(SELECT zone FROM ctx) AS zone,(SELECT today FROM ctx)::text AS today,
  coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}) FROM sig x),'[]'::jsonb) AS signals,
  coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}||jsonb_build_object('personId',x.pid,'personName',x.pname,'personState',x.pstate)
@@ -355,7 +477,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				const q = parse(c.getHistoryRequest, raw);
 				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
  hist AS (SELECT r.* FROM attestation_revision r WHERE r.plant_id=${s.plant}::uuid AND (SELECT ok FROM gate)
-  AND ${q.key === null ? sql`true` : sql`r.key=${q.key} AND r.person_id IS NULL`}
+  AND ${q.key === null ? sql`r.key IN (${SIGNALS_AND_CANDIDATES})` : sql`r.key=${q.key} AND r.person_id IS NULL`}
   ORDER BY r.recorded_at DESC,r.revision DESC,r.id LIMIT ${HISTORY_LIMIT})
  SELECT (SELECT ok FROM gate) AS ok,
  coalesce((SELECT jsonb_agg(${historyJson(sql`h`, s)} ORDER BY h.recorded_at DESC,h.revision DESC,h.id) FROM hist h),'[]'::jsonb) AS history`);
@@ -573,6 +695,109 @@ export function createSignals(config: { clock?: Clock } = {}) {
  (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`,
 				);
 				return candidateOutcome(r, print, i.personId, f?.asOf, f?.periodEnd, q.expectedRevision, true);
+			});
+		},
+
+		async readReadiness(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const s = scopeOf(authority, config.clock);
+				const q = parse(c.readReadinessRequest, raw);
+				const keys = q.key === null ? READINESS : sql`${q.key}`;
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
+ cur AS (SELECT r.* FROM attestation a
+  JOIN LATERAL (SELECT x.* FROM attestation_revision x WHERE x.attestation_id=a.id ORDER BY x.revision DESC LIMIT 1) r ON true
+  WHERE a.plant_id=${s.plant}::uuid AND a.key IN (${READINESS}) AND (SELECT ok FROM gate)),
+ hist AS (SELECT r.* FROM attestation_revision r WHERE r.plant_id=${s.plant}::uuid AND r.key IN (${keys})
+  AND (SELECT ok FROM gate) ORDER BY r.recorded_at DESC,r.revision DESC,r.id LIMIT ${HISTORY_LIMIT})
+ SELECT (SELECT ok FROM gate) AS ok,${todayText(s)} AS today,
+ coalesce((SELECT jsonb_agg(${readinessJson(sql`x`, s)}) FROM cur x),'[]'::jsonb) AS current,
+ coalesce((SELECT jsonb_agg(${readinessJson(sql`h`, s)} ORDER BY h.recorded_at DESC,h.revision DESC,h.id) FROM hist h),'[]'::jsonb) AS history`);
+				const r = readinessPageRow.parse(rows[0]);
+				if (!r.ok || !r.today) deny("access_denied");
+				const byKey = new Map(r.current.map((x) => [x.key, x]));
+				return c.readinessPage.parse({
+					today: r.today,
+					attestations: c.READINESS_ATTESTATIONS.map(({ key }) => readinessFrom(key, byKey.get(key) ?? null)),
+					history: r.history.map(readinessRevisionOf),
+				});
+			});
+		},
+
+		async attestReadiness(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const s = scopeOf(authority, config.clock);
+				const q = parse(c.attestReadinessRequest, raw);
+				const i = q.input;
+				const v = storedOf(i);
+				const print = fingerprint(["readiness", i, q.expectedRevision]);
+				const r = await write(
+					db,
+					s,
+					q.requestKey,
+					sql`WITH ${opening(s, q.requestKey)},
+ ctx AS (SELECT ${todayOf(s)} AS today),
+ ${whoOf(s, v.personId)},
+ cur AS (SELECT a.* FROM attestation a WHERE a.plant_id=${s.plant}::uuid AND a.key=${i.key}
+  AND (SELECT ok FROM gate) FOR UPDATE),
+ want AS (SELECT coalesce(${nullable(i.asOf)}::date,x.today) AS as_of FROM ctx x WHERE (SELECT ok FROM gate)
+  AND EXISTS(SELECT FROM who) AND NOT EXISTS(SELECT FROM prior) AND coalesce(${nullable(i.asOf)}::date,x.today)<=x.today),
+ born AS (INSERT INTO attestation(plant_id,key,person_id,state,answer,as_of,attested_at,statement,source_description,revision)
+  SELECT ${s.plant}::uuid,${i.key},${v.personId}::uuid,'answered',true,w.as_of,${s.at},${v.statement},${v.reference},1
+  FROM want w WHERE ${q.expectedRevision}::bigint=0 AND NOT EXISTS(SELECT FROM cur) ON CONFLICT DO NOTHING RETURNING *),
+ again AS (UPDATE attestation a SET state='answered',answer=true,person_id=${v.personId}::uuid,as_of=w.as_of,
+  attested_at=${s.at},statement=${v.statement},source_description=${v.reference},revision=a.revision+1
+  FROM want w, cur WHERE a.id=cur.id AND a.state='retracted' AND a.revision=${q.expectedRevision}::bigint RETURNING a.*),
+ changed AS (SELECT * FROM born UNION ALL SELECT * FROM again),
+ rev AS (${appendRevision(s, "answered", q.requestKey, print, sql`changed`)}),
+ aud AS (${audit(s, "recorded", sql`changed`)})
+ SELECT ${readinessClosing(s, sql`false`)}`,
+					readinessJson,
+				);
+				return readinessOutcome(r, print, i.key, i.asOf, q.expectedRevision, v.personId !== null, false);
+			});
+		},
+
+		async correctReadiness(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const s = scopeOf(authority, config.clock);
+				const q = parse(c.correctReadinessRequest, raw);
+				const i = q.input;
+				const f = i.action === "correct" ? i.attestation : null;
+				const key = i.action === "correct" ? i.attestation.key : i.key;
+				const v = f ? storedOf(f) : null;
+				const given = f?.asOf ?? null;
+				const print = fingerprint(["readiness-correct", i, q.expectedRevision]);
+				const wanted = v
+					? sql`(${v.personId}::uuid,${v.statement}::text,${v.reference}::text,coalesce(${given}::date,(SELECT today FROM ctx)))`
+					: sql`NULL`;
+				const r = await write(
+					db,
+					s,
+					q.requestKey,
+					sql`WITH ${opening(s, q.requestKey)},
+ ctx AS (SELECT ${todayOf(s)} AS today),
+ ${whoOf(s, v?.personId ?? null)},
+ cur AS (SELECT a.* FROM attestation a WHERE a.plant_id=${s.plant}::uuid AND a.key=${key}
+  AND (SELECT ok FROM gate) FOR UPDATE),
+ want AS (SELECT coalesce(${given}::date,x.today) AS as_of FROM ctx x WHERE (SELECT ok FROM gate)
+  AND EXISTS(SELECT FROM who) AND NOT EXISTS(SELECT FROM prior) AND coalesce(${given}::date,x.today)<=x.today),
+ edited AS (UPDATE attestation a SET ${
+		v
+			? sql`state='answered',answer=true,person_id=${v.personId}::uuid,statement=${v.statement},
+  source_description=${v.reference},`
+			: sql`state='retracted',answer=NULL,`
+ }as_of=w.as_of,attested_at=${s.at},revision=a.revision+1
+  FROM want w, cur WHERE a.id=cur.id AND a.state='answered' AND a.revision=${q.expectedRevision}::bigint
+  ${v ? sql`AND (a.person_id,a.statement,a.source_description,a.as_of) IS DISTINCT FROM ${wanted}` : sql``} RETURNING a.*),
+ rev AS (${appendRevision(s, v ? "corrected" : "retracted", q.requestKey, print, sql`edited`)}),
+ aud AS (${audit(s, "corrected", sql`edited`)})
+ SELECT ${readinessClosing(
+		s,
+		v ? sql`(cur.person_id,cur.statement,cur.source_description,cur.as_of) IS NOT DISTINCT FROM ${wanted}` : sql`false`,
+ )}`,
+					readinessJson,
+				);
+				return readinessOutcome(r, print, key, given ?? undefined, q.expectedRevision, v?.personId != null, true);
 			});
 		},
 	};

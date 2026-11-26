@@ -434,6 +434,10 @@ export const attestation = pgTable(
 			"attestation_ck_5",
 			sql`((key <> ALL (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text])) OR (((state = 'answered'::text) AND (answer IS NOT NULL)) OR ((state = ANY (ARRAY['unanswered'::text, 'retracted'::text])) AND (answer IS NULL))))`,
 		),
+		check(
+			"attestation_ck_6",
+			sql`(((key <> 'worship_agreement'::text) OR (person_id IS NOT NULL)) AND ((key <> ALL (ARRAY['community'::text, 'relationship'::text])) OR ((person_id IS NULL) AND (statement IS NOT NULL))))`,
+		),
 		index("attestation_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
 		index("attestation_ref_2").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		uniqueIndex("attestation_uq_1")
@@ -442,6 +446,9 @@ export const attestation = pgTable(
 		uniqueIndex("attestation_uq_2")
 			.using("btree", table.plant_id.asc().nullsLast(), table.key.asc().nullsLast(), table.person_id.asc().nullsLast())
 			.where(sql`(person_id IS NOT NULL)`),
+		uniqueIndex("attestation_uq_3")
+			.using("btree", table.plant_id.asc().nullsLast(), table.key.asc().nullsLast())
+			.where(sql`(key = 'worship_agreement'::text)`),
 	],
 );
 export const attestation_revision = pgTable(
@@ -514,7 +521,7 @@ export const attestation_revision = pgTable(
 		),
 		check(
 			"attestation_revision_ck_5",
-			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text]))`,
+			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text, 'worship_agreement'::text, 'community'::text, 'relationship'::text]))`,
 		),
 		check(
 			"attestation_revision_ck_6",
