@@ -15,7 +15,13 @@ import { accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.discovery);
 
-const TAB_ICONS = { wiki: ICONS.book, documents: ICONS.edit, templates: File02Icon, tasks: ICONS.task, ready: ICONS.flag };
+const TAB_ICONS = {
+	wiki: ICONS.book,
+	documents: ICONS.edit,
+	templates: File02Icon,
+	tasks: ICONS.task,
+	ready: ICONS.flag,
+};
 const SCREENS = [
 	<WikiScreen key="wiki" />,
 	<DocumentsScreen key="documents" />,
