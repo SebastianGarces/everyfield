@@ -26,8 +26,7 @@ async function gate(returnTo: SitePath, title: string): Promise<{ viewer: PlantS
 	return {
 		blocked: (
 			<PageState page={title} tone="lock" title="Follow-ups are not part of your seat">
-				Follow-ups belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
-				show here.
+				Follow-ups belong to a church plant account. You have no current seat in one, so there is nothing to show here.
 			</PageState>
 		),
 	};
