@@ -118,6 +118,6 @@ export async function saveDiscoverySharing(input: unknown) {
 	const saved = discoverySaved.safeParse(input);
 	return {
 		reply,
-		row: saved.success ? await loadDiscoverySharing(await who(), saved.data.input.relationshipId) : null,
+		row: saved.success ? await loadDiscoverySharing(w, saved.data.input.relationshipId) : null,
 	};
 }

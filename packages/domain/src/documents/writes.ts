@@ -722,24 +722,17 @@ async function createOwnFromTemplate(db: Database | Transaction, authority: Requ
 		const docId = stableId(scope.tenantId, "own-template", input.requestKey);
 		const open = sql`${gateSql(scope, true)} AND EXISTS(SELECT FROM discovery x
 			WHERE x.account_id = ${scope.accountId}::uuid AND x.converted_at IS NULL)`;
+		const prior = sql`(SELECT a.after_value->>'template' FROM audit_event a WHERE a.tenant_id = ${scope.tenantId}::uuid
+			AND a.request_key = ${input.requestKey} AND a.action = 'documents.created_from_template')`;
+		const replay = (chosen: string | null | undefined) =>
+			chosen === template.id ? readOwned(db, authority, { documentId: docId }, ownScope) : deny("conflict");
 		const [facts] = await rowsOf<{ ok: boolean; name: string | null; prior: string | null }>(
 			db,
 			sql`SELECT ${open} AS ok, (SELECT i.display_name FROM seat_identity(${scope.accountId}::uuid) i) AS name,
-				(SELECT a.after_value->>'template' FROM audit_event a WHERE a.tenant_id = ${scope.tenantId}::uuid
-					AND a.request_key = ${input.requestKey} AND a.action = 'documents.created_from_template') AS prior`,
+				${prior} AS prior`,
 		);
 		if (!facts?.ok) deny("unavailable");
-		const again = async () => {
-			const [prior] = await rowsOf<{ template: string | null }>(
-				db,
-				sql`SELECT a.after_value->>'template' AS template FROM audit_event a WHERE a.tenant_id = ${scope.tenantId}::uuid
-					AND a.request_key = ${input.requestKey} AND a.action = 'documents.created_from_template'`,
-			);
-			if (prior?.template !== template.id) deny("conflict");
-			return readOwned(db, authority, { documentId: docId }, ownScope);
-		};
-		if (facts.prior !== null)
-			return facts.prior === template.id ? readOwned(db, authority, { documentId: docId }, ownScope) : deny("conflict");
+		if (facts.prior !== null) return replay(facts.prior);
 		const body = JSON.stringify(ownTemplateBody(template, facts.name));
 		const hash = hashOf(body);
 		const revId = stableId(scope.tenantId, "own-template-revision", input.requestKey);
@@ -774,7 +767,8 @@ async function createOwnFromTemplate(db: Database | Transaction, authority: Requ
 			);
 		} catch (error) {
 			if (postgresCode(error) !== "23505") throw error;
-			return again();
+			const [raced] = await rowsOf<{ prior: string | null }>(db, sql`SELECT ${prior} AS prior`);
+			return replay(raced?.prior);
 		}
 		const row = found[0];
 		if (!row?.ok || !row.id || !row.revision) deny("unavailable");
