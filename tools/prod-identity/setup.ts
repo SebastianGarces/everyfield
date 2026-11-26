@@ -6,7 +6,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs, parseEnv } from "node:util";
-import { mailKeys } from "../../apps/web/src/server/config.ts";
+import { mailKeys } from "../../apps/web/src/server/mail-keys.ts";
 import { PROD_ENDPOINT, Redactor, roleUrl } from "../qa/qa-guard.ts";
 
 export const ADMIN_ENV = "PROD_IDENTITY_ADMIN_URL";

@@ -137,7 +137,7 @@ function stopServer(dir: string) {
 
 function runTests(dir: string, files: string[], engine: Engine): Promise<string> {
 	const out = createWriteStream(join(dir, `${engine}.log`));
-	const child = spawn(process.execPath, ["--test", "--test-concurrency=1", ...files], {
+	const child = spawn(process.execPath, ["--conditions=react-server", "--test", "--test-concurrency=1", ...files], {
 		cwd: root,
 		env: { ...shared(dir), UI_BASE_URL: ORIGIN, UI_ENGINE: engine },
 		stdio: ["ignore", "pipe", "pipe"],

@@ -3916,7 +3916,11 @@ export const leadership_conversation = pgTable(
 		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
-		foreignKey({ name: "leadership_conversation_staff", columns: [table.staff_seat_id], foreignColumns: [seat.id] })
+		foreignKey({
+			name: "leadership_conversation_staff",
+			columns: [table.staff_seat_id, table.organization_id],
+			foreignColumns: [seat.id, seat.organization_id],
+		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		primaryKey({ name: "leadership_conversation_pkey", columns: [table.id] }),
@@ -5084,6 +5088,7 @@ export const seat = pgTable(
 		check("seat_ck_0", sql`(revision >= 1)`),
 		check("seat_ck_1", sql`(role = ANY (ARRAY['owner'::text, 'admin'::text, 'member'::text]))`),
 		check("seat_ck_2", sql`(num_nonnulls(plant_id, organization_id) = 1)`),
+		unique("seat_id_organization").on(table.id, table.organization_id),
 		index("seat_ref_3").using("btree", table.invitation_id.asc().nullsLast()),
 		uniqueIndex("seat_uq_0")
 			.using("btree", table.account_id.asc().nullsLast())

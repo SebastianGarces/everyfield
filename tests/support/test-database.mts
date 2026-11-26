@@ -41,7 +41,12 @@ export async function dropSchema(admin: Database, name: string) {
 	});
 }
 
-export async function pinSchemaClock(admin: Database, schema: string, at: Date) {
+export async function pinSchemaClock(
+	admin: Database,
+	schema: string,
+	at: Date,
+	clock: "running" | "stopped" = "running",
+) {
 	const name = identifier(schema);
 	const { rows } = await admin.execute<{ shift: string }>(
 		sql`SELECT (${at.toISOString()}::timestamptz - pg_catalog.clock_timestamp())::text AS shift`,
@@ -55,7 +60,7 @@ export async function pinSchemaClock(admin: Database, schema: string, at: Date) 
 	])
 		await admin.execute(
 			sql.raw(`CREATE OR REPLACE FUNCTION ${name}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
-				AS $$ SELECT pg_catalog.${fn}() + '${shift}'::interval $$`),
+				AS $$ SELECT ${clock === "stopped" ? `'${at.toISOString()}'::timestamptz` : `pg_catalog.${fn}() + '${shift}'::interval`} $$`),
 		);
 }
 
