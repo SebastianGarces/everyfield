@@ -95,6 +95,7 @@ const discoveryPage = z.object({
 			z.object({ id: z.literal("wiki"), label: text, line: text }),
 			z.object({ id: z.literal("documents"), label: text, line: text }),
 			z.object({ id: z.literal("templates"), label: text, line: text }),
+			z.object({ id: z.literal("tasks"), label: text, line: text }),
 			z.object({ id: z.literal("ready"), label: text, line: text }),
 		]),
 	}),

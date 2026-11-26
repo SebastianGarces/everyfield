@@ -376,6 +376,11 @@
             "line": "Start from a template. It opens as a private document with your name already filled in."
           },
           {
+            "id": "tasks",
+            "label": "Tasks",
+            "line": "Your starter steps for the discovery season. Check each one off as you go."
+          },
+          {
             "id": "ready",
             "label": "When you're ready",
             "line": "Start your church plant, and the rest opens up."
