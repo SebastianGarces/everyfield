@@ -11899,10 +11899,12 @@
           "tableFrom": "leadership_conversation",
           "tableTo": "seat",
           "columnsFrom": [
-            "staff_seat_id"
+            "staff_seat_id",
+            "organization_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "organization_id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
@@ -23083,7 +23085,16 @@
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "seat_id_organization": {
+          "name": "seat_id_organization",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "organization_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "seat_ck_0": {

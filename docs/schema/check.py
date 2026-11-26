@@ -38,7 +38,7 @@ def scope_exception_name(table, fk):
             f"{fk['references']['table']}({', '.join(fk['references']['columns'])})")
 
 
-def owner_columns(table):
+def direct_owner_columns(table):
     """Recognize tenant aliases from root FKs and unconditional (id, owner) keys."""
     if table['name'] in OWNER_ROOTS:
         return {'id'}
@@ -51,6 +51,25 @@ def owner_columns(table):
     for key in table['unique_keys']:
         if not key.get('where') and len(key['columns']) == 2 and 'id' in key['columns']:
             owners.update(set(key['columns']) & OWNER_COLUMNS)
+    return owners
+
+
+def owner_columns(tables):
+    """D-2870: a composite FK pairing an owner column with a parent's owner column makes it owned, transitively."""
+    by_name = {t['name']: t for t in tables}
+    owners = {t['name']: direct_owner_columns(t) for t in tables}
+    changed = True
+    while changed:
+        changed = False
+        for table in tables:
+            for fk in table['foreign_keys']:
+                parent = owners.get(fk['references']['table'], set())
+                if len(fk['columns']) < 2 or fk['references']['table'] not in by_name:
+                    continue
+                for left, right in zip(fk['columns'], fk['references']['columns']):
+                    if left in OWNER_COLUMNS and right in parent and left not in owners[table['name']]:
+                        owners[table['name']].add(left)
+                        changed = True
     return owners
 
 
@@ -111,6 +130,7 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
     errors = []
     tables = schema['tables']
     by_name = {t['name']: t for t in tables}
+    owners = owner_columns(tables)
     if len(by_name) != len(tables):
         errors.append(f'{label}: duplicate table name')
     domains = {d['id'] for d in schema.get('domains', [])}
@@ -197,7 +217,7 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
             target = by_name[target_name]
             target_columns = {c['name']: c for c in target['columns']}
             if authority:
-                child_owners, parent_owners = owner_columns(table), owner_columns(target)
+                child_owners, parent_owners = owners[name], owners[target_name]
                 exception = fk.get('scope_exception', '').strip()
                 exception_name = scope_exception_name(name, fk)
                 if (exception and documented_exceptions is not None
