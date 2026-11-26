@@ -85,6 +85,10 @@ test("AC:SEC-09 mail callbacks are admitted only by a fresh signature over their
 		assert.equal(args.signature_valid, false);
 		const start = await state();
 		const now = Math.floor(Date.now() / 1000);
+		const routeFreshnessWindowSeconds = 300;
+		const slackForRequestDelaySeconds = 60;
+		const futureStampOutsideWindow =
+			Math.ceil(Date.now() / 1000) + routeFreshnessWindowSeconds + slackForRequestDelaySeconds;
 		const body = event("email.bounced", args.provider_id, { bounce: { type: "Permanent" } });
 		const attempts: [string, Request][] = [
 			["unsigned", callback(body, { id: args.event_id, signature: "" })],
@@ -98,10 +102,7 @@ test("AC:SEC-09 mail callbacks are admitted only by a fresh signature over their
 			["signed other bytes", callback(`${body} `, { id: args.event_id, signature: sign(args.event_id, now, body) })],
 			["signed other id", callback(body, { id: args.event_id, signature: sign("evt-other", now, body) })],
 			["stale timestamp", callback(body, { id: args.event_id, stamp: now - 301 })],
-			// The route compares against its own later, unfloored clock read, so `now + 301` from a floored
-			// read lands inside the 300 s window when the sub-second part plus the elapsed time reach 1 s
-			// (run 45830498780). Ceil the read and add 60 s for the time before the last request.
-			["future timestamp", callback(body, { id: args.event_id, stamp: Math.ceil(Date.now() / 1000) + 300 + 60 })],
+			["future timestamp", callback(body, { id: args.event_id, stamp: futureStampOutsideWindow })],
 			[
 				"no timestamp",
 				new Request("https://app.everyfield.test/api/webhooks/resend", {
