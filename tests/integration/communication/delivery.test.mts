@@ -1581,12 +1581,19 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 			)
 		)[0]!.n;
 	assert.equal(await count(), 1);
+	const sentMail = async () =>
+		rows(
+			sql`SELECT state, provider_message_id FROM mail WHERE logical_key LIKE ${"communication/" + saved.communicationId + "/%"}`,
+		);
+	const prior = await sentMail();
 	await f.admin.execute(sql`UPDATE seat SET ended_at = clock_timestamp() WHERE id = ${seatId}`);
 	const blocked = await handoff(who, saved.communicationId, accepted.revision, seatPort);
 	assert.equal(blocked.status, "refused");
 	assert.equal(blocked.error.code, "access_denied");
 	assert.equal(await count(), 1);
 	assert.equal(seatPort.calls.send, 1);
+	assert.deepEqual(await sentMail(), prior);
+	assert.deepEqual(prior, [{ state: "accepted", provider_message_id: "prov-seat" }]);
 });
 
 test("INV-plain-text: the text part reads like the message: Tom & Ann, never &amp;, and each mail row names its message", async () => {

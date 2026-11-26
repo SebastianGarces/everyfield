@@ -256,7 +256,7 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 		],
 		"the earlier assignment stays in history with its dates",
 	);
-	refused(await trainingReader.readAssignmentHistory(db, await viewer(3), { teamId: worship.id }), "access_denied");
+	refused(await trainingReader.readAssignmentHistory(db, await viewer(3), { teamId: worship.id }), "unavailable");
 	await saveRoster(required.id, [alex, casey]);
 	assert.equal(
 		await count(
@@ -465,7 +465,7 @@ test("AC:TARGET-TEAM-009 completion revoke and redo keep the original credit", a
 		),
 		"unavailable",
 	);
-	refused(await trainingReader.readTrainingHistory(db, await viewer(3), { personId: alex }), "access_denied");
+	refused(await trainingReader.readTrainingHistory(db, await viewer(3), { personId: alex }), "unavailable");
 });
 
 test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", async () => {
@@ -1140,7 +1140,7 @@ test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 	);
 	refused(
 		await trainingReader.readPersonTraining(db, await viewer(3), { personId: await person("Local only") }),
-		"access_denied",
+		"unavailable",
 	);
 	const ownerView = await viewer(0);
 	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${actors[0]!.id} AND plant_id=${P}`);
@@ -1687,8 +1687,8 @@ test("AC:TARGET-TEAM-010 the person past the first hundred shows one current tea
 		[past],
 	);
 	for (const who of [3, 4]) {
-		refused(await teamsReader.listPersonAssignments(db, await viewer(who), { personId: past }), "access_denied");
-		refused(await trainingReader.readPersonTraining(db, await viewer(who), { personId: past }), "access_denied");
+		refused(await teamsReader.listPersonAssignments(db, await viewer(who), { personId: past }), "unavailable");
+		refused(await trainingReader.readPersonTraining(db, await viewer(who), { personId: past }), "unavailable");
 	}
 });
 
@@ -1743,7 +1743,7 @@ test("AC:GAP-TEAM-010 two ministries are two assignments, each program's evidenc
 	);
 	const readers: ((who?: number) => Promise<{ status: string }>)[] = [teams, training];
 	for (const reader of readers) {
-		const error = refused(await untouched(admin, () => reader(4)), "access_denied");
+		const error = refused(await untouched(admin, () => reader(4)), "unavailable");
 		assert.deepEqual(error.details, {});
 	}
 	await admin.execute(sql`ALTER TABLE team_tenure RENAME TO team_tenure_away`);
@@ -2031,8 +2031,8 @@ test("AC:TARGET-TEAM-016 AC:SME53-001 a reviewed list of two ministries and thei
 	assert.equal(ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: t.id })).trainingRate, 1 / 3);
 	assert.equal(ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: u.id })).trainingRate, null);
 	for (const [who, code] of [
-		[3, "access_denied"],
-		[4, "access_denied"],
+		[3, "unavailable"],
+		[4, "unavailable"],
 	] as const)
 		refused(
 			await trainingReader.readRequiredTrainingPreview(db, await viewer(who), {

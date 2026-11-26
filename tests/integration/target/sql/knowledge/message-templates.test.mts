@@ -3,6 +3,7 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 import { sql, type SQL } from "../../../../../packages/db/src/query.ts";
 import { systemTemplates } from "../../../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
@@ -16,18 +17,21 @@ const SOURCE = {
 	sha256: "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
 };
 const repository = new URL("../../../../../", import.meta.url);
-const database = await fixture({ prefix: "wp092ref", clock: new Date("2026-10-13T16:00:00.000Z") });
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+const CLOCK = new Date("2026-10-13T16:00:00.000Z");
+const database = await fixture({ prefix: "wp092ref", clock: CLOCK });
 const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant;
-const rows = async (query: SQL) => (await admin.execute(query)).rows;
+const rowsOf = (d: Fixture) => async (query: SQL) => (await d.admin.execute(query)).rows;
+const rows = rowsOf(database);
 const key = () => randomUUID();
 const sourceHash = async () =>
 	createHash("sha256")
 		.update(await readFile(new URL(SOURCE.path, repository)))
 		.digest("hex");
-const actorOf = async (who: Actor) => {
-	const a = await RequestActor.resolve(db, who.session);
+const actorOf = async (who: Actor, runtime = db) => {
+	const a = await RequestActor.resolve(runtime, who.session);
 	assert.ok(a instanceof RequestActor, JSON.stringify(a));
 	return a;
 };
@@ -41,8 +45,8 @@ const attempt = <V,>(run: Promise<V>) =>
 			reply: JSON.stringify({ ...error, message: error.message }),
 		}),
 	);
-async function writes() {
-	const [row] = await rows(sql`SELECT
+async function writes(query = rows) {
+	const [row] = await query(sql`SELECT
 		(SELECT count(*)::int FROM reference_item) AS reference_items,
 		(SELECT count(*)::int FROM record) AS records,
 		(SELECT count(*)::int FROM message_template) AS templates,
@@ -51,32 +55,31 @@ async function writes() {
 		(SELECT count(*)::int FROM job) AS jobs`);
 	return row;
 }
-const installedTemplates = async () =>
+const installedTemplates = async (query = rows) =>
 	(
-		await rows(sql`SELECT count(*)::int AS n FROM reference_item
+		await query(sql`SELECT count(*)::int AS n FROM reference_item
 			WHERE kind = 'mail_template' AND tenant_id = '00000000-0000-0000-0000-000000000000'::uuid`)
 	)[0]!.n;
 
-let A: Actor & { actor: RequestActor }, publisher: Actor, foreign: Actor;
-let fork: { templateId: string; bodyHtml: string };
-before(async () => {
-	A = { ...database.actors.admin, actor: await actorOf(database.actors.admin) };
-	publisher = await database.actor(null, "owner", { account: { registration_kind: "planter" } });
-	await admin.execute(
+async function churchWithForkBeforeInstall(d: Fixture) {
+	const runtime = d.pools.runtime;
+	const A = { ...d.actors.admin, actor: await actorOf(d.actors.admin, runtime) };
+	const publisher = await d.actor(null, "owner", { account: { registration_kind: "planter" } });
+	await d.admin.execute(
 		sql`INSERT INTO platform_grant(account_id, capability) VALUES (${publisher.id}::uuid, 'reference_publish')`,
 	);
-	const Q = await database.plant({ name: "Quarry Hill", timezone: "America/New_York" });
-	foreign = await database.actor(Q, "member");
+	const Q = await d.plant({ name: "Quarry Hill", timezone: "America/New_York" });
+	const foreign = await d.actor(Q, "member");
 	const forked = ok(
-		await withCommunicationWrite(db, A.actor, (tx, ctx) =>
+		await withCommunicationWrite(runtime, A.actor, (tx, ctx) =>
 			communicationWriter.forkTemplate(tx, ctx, {
 				requestKey: key(),
 				input: { sourceKey: "vision-meeting-invitation" },
 			}),
 		),
 	);
-	fork = ok(
-		await withCommunicationWrite(db, A.actor, (tx, ctx) =>
+	const fork: { templateId: string; bodyHtml: string } = ok(
+		await withCommunicationWrite(runtime, A.actor, (tx, ctx) =>
 			communicationWriter.updateTemplate(tx, ctx, {
 				requestKey: key(),
 				expectedRevision: forked.revision,
@@ -94,6 +97,13 @@ before(async () => {
 			}),
 		),
 	);
+	return { A, publisher, foreign, fork };
+}
+
+let A: Actor & { actor: RequestActor }, publisher: Actor, foreign: Actor;
+let fork: { templateId: string; bodyHtml: string };
+before(async () => {
+	({ A, publisher, foreign, fork } = await churchWithForkBeforeInstall(database));
 });
 after(() => database.close());
 
@@ -236,4 +246,97 @@ test("AC:GAP-REF-006 AC:CASE-COM-008 seven system templates install twice withou
 			assert.equal(await installedTemplates(), 7);
 		},
 	);
+});
+
+test("AC:REF-CASE-006 seven system templates install with no recipient, schedule or send; the vision invitation with no place or agenda shows no empty location icon or agenda prefix, and a church's fork stays its own", async () => {
+	const { given, expected } = JSON.parse(
+		await readFile(new URL("docs/acceptance/schema.json", repository), "utf8"),
+	).cases.find((c: { id: string }) => c.id === "REF-CASE-006");
+	const exec = given.execution;
+	const { result } = expected;
+	assert.equal(await sourceHash(), exec.catalog_sha256);
+	const d = await fixture({ prefix: "wp092ref6", clock: CLOCK });
+	after(() => d.close());
+	const query = rowsOf(d);
+	const runtime = d.pools.runtime;
+	const { A, publisher, fork } = await churchWithForkBeforeInstall(d);
+	assert.equal(await installedTemplates(query), 0);
+	const installer = messageTemplateInstaller(d.admin);
+	const R = await d.plant({ name: "Riverbend", timezone: "America/Chicago" });
+	const B = await d.actor(R, "admin");
+	const seeded = async () =>
+		Object.fromEntries(
+			Object.entries(
+				(
+					await query(sql`SELECT (SELECT count(*)::int FROM communication) AS schedules,
+			(SELECT count(*)::int FROM mail) AS sends,
+			(SELECT count(*)::int FROM mail WHERE recipient_account_id IS NOT NULL OR recipient_person_id IS NOT NULL) AS recipients,
+			(SELECT count(*)::int FROM job) AS jobs`)
+				)[0]!,
+			).map(([k, v]) => [k, Number(v)]),
+		) as Record<"schedules" | "sends" | "recipients" | "jobs", number>;
+	const before = await seeded();
+	const installed = ok(await attempt(installer.installMessageTemplates(caller(publisher), { source: SOURCE })));
+	assert.equal(installed.installed, result.system_templates);
+	assert.equal(installed.systemTemplateCount, result.system_templates);
+	assert.equal(installed.systemTemplateCount, exec.template_count);
+	assert.equal(await installedTemplates(query), result.system_templates);
+	const installedCounts = await seeded();
+	assert.deepEqual(
+		[
+			installedCounts.recipients - before.recipients,
+			installedCounts.schedules - before.schedules,
+			installedCounts.sends - before.sends,
+			installedCounts.jobs - before.jobs,
+		],
+		[result.seeded_recipients, result.seeded_schedules, result.seeded_sends, 0],
+	);
+	assert.equal(exec.recipients_in_seed, result.seeded_recipients);
+
+	const actor = await actorOf(B, runtime);
+	const invitation = ok(
+		await gatedTransaction(runtime, (tx) =>
+			communicationWriter.readMeetingTemplate(tx, actor, { meetingType: "vision_meeting" }),
+		),
+	);
+	const shipped = systemTemplates.find((t) => t.sourceKey === "vision-meeting-invitation")!;
+	assert.equal(shipped.name.toLowerCase(), String(exec.template).toLowerCase());
+	assert.equal(invitation.bodyHtml, shipped.bodyHtml);
+	const meeting = randomUUID();
+	await d.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,agenda,venue_name,venue_address)
+		VALUES(${meeting},${R.id},'vision_meeting',NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1,'[]'::jsonb,${exec.optional_location},${exec.optional_location})`);
+	const quiet = await writes(query);
+	const shown = ok(
+		await gatedTransaction(runtime, (tx) =>
+			communicationWriter.readPreview(tx, actor, {
+				bodyHtml: invitation.bodyHtml,
+				meetingId: meeting,
+				merge: { name: "Alex" },
+			}),
+		),
+	);
+	assert.deepEqual(await writes(query), quiet);
+	assert.equal(exec.optional_agenda, null);
+	for (const text of [shown.previewBody, shown.previewHtml]) {
+		assert.equal(/\p{Extended_Pictographic}/u.test(text), result.empty_optional_location_icon, text);
+		assert.equal(
+			/agenda\s*:|\{\{\s*meeting_(location|agenda)\s*\}\}/i.test(text),
+			result.empty_optional_agenda_prefix,
+			text,
+		);
+	}
+
+	assert.equal(exec.tenant_template_fork, "customized");
+	const [forkRow] = await query(sql`SELECT subject,body_html FROM message_template WHERE id=${fork.templateId}::uuid`);
+	assert.equal(
+		!isDeepStrictEqual(forkRow, { subject: "Our invitation", body_html: "<p>Welcome {{name}}.</p>" }),
+		result.tenant_fork_overwritten,
+	);
+	const own = ok(
+		await gatedTransaction(runtime, (tx) =>
+			communicationWriter.readMeetingTemplate(tx, A.actor, { meetingType: "vision_meeting" }),
+		),
+	);
+	assert.deepEqual([own.templateId, own.bodyHtml], [fork.templateId, "<p>Welcome {{name}}.</p>"]);
 });
