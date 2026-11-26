@@ -21,6 +21,10 @@
         "href": "/"
       },
       {
+        "label": "Discovery",
+        "href": "/discovery"
+      },
+      {
         "label": "Churches & Networks",
         "href": "/oversight"
       }
@@ -232,7 +236,11 @@
         "body": "We're inviting a small group of networks and sending churches during early access.",
         "cta_primary": "Talk to us about your network",
         "cta_secondary": "Request early access as a planter",
-        "note": "We will set up a short call to learn about the church plants you send."
+        "note": "We will set up a short call to learn about the church plants you send.",
+        "discovery": {
+          "lead": "Know someone discerning a call?",
+          "link": "Send them to Discovery, free."
+        }
       },
       "trust": {
         "headline": "Why you can trust these numbers.",
@@ -985,7 +993,11 @@
           "headline": "Bring your church plant into Everyfield.",
           "body": "Everyfield is in early access. Tell us about your church plant, and we will be in touch.",
           "cta_primary": "Request early access",
-          "cta_secondary": "Talk to us about your network"
+          "cta_secondary": "Talk to us about your network",
+          "discovery": {
+            "lead": "Still discerning a call to plant?",
+            "link": "Start with Discovery, free."
+          }
         },
         "footer": {
           "tagline": "Church planting software, from calling to Launch Sunday."
