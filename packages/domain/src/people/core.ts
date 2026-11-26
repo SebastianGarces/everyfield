@@ -13,7 +13,7 @@ import {
 	type SQLWrapper,
 } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { hash } from "../operations/canonical.ts";
+import { actorToken, hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { effectiveAdult, plantTodaySql } from "./adult.ts";
@@ -29,7 +29,7 @@ import {
 	type AuditWrite,
 	type WritePath,
 } from "../operations/writes.ts";
-export { hash };
+export { actorToken, hash };
 
 import { revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
@@ -529,7 +529,7 @@ export async function mutation<T>(
 		id: operationId,
 		tenant_id: context.selected.id,
 		actor_id: actor.accountId,
-		actor_token: hash([context.selected.id, actor.accountId]),
+		actor_token: actorToken(context.selected.id, actor.accountId),
 		subject_type: result.subjectType ?? (result.subject === context.selected.id ? context.selected.kind : "person"),
 		subject_id: result.subject,
 		action: result.action,

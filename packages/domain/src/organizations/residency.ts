@@ -6,7 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { liveResidency } from "../access/pipeline.ts";
 import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
+import { actorToken } from "../operations/canonical.ts";
 import { declareWrite, lockedWrite, nativeWrite } from "../operations/writes.ts";
 import { GLOBAL } from "../wiki/core.ts";
 import { answer, parse, refuse, type Executor } from "./seat.ts";
@@ -146,7 +146,7 @@ async function markMilestone(db: Database, authority: RequestActor, raw: unknown
    WHERE c.enrollment_id=${x.id}::uuid AND c.organization_id=${org}::uuid)
  ON CONFLICT (enrollment_id,milestone_id) DO NOTHING RETURNING id),
 a AS (INSERT INTO audit_event (id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
- SELECT ${randomUUID()}::uuid,${org}::uuid,${actor}::uuid,${hash([org, actor])},'development.milestone_marked','complete',
+ SELECT ${randomUUID()}::uuid,${org}::uuid,${actor}::uuid,${actorToken(org, actor)},'development.milestone_marked','complete',
   'development_enrollment',${x.id}::uuid,${JSON.stringify({ milestoneId: input.milestoneId, source: "resident" })}::jsonb
  FROM c RETURNING id)
 SELECT EXISTS(SELECT FROM c) AS added`);
