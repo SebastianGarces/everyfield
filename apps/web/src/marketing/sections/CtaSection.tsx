@@ -7,7 +7,7 @@ import { ACCESS_PATH } from "@/site";
 import { ICONS } from "../icons";
 import { Backdrop } from "../photo/Backdrop";
 
-type Cta = { headline: string; body: string; cta_primary: string; cta_secondary: string; note?: string };
+type Cta = { headline: string; body?: string; cta_primary: string; cta_secondary?: string; note?: string };
 
 export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; secondary?: string } }) {
 	return (
@@ -24,7 +24,7 @@ export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; sec
 					<Display as="h2" size="h1" className="max-w-[18ch]">
 						{c.headline}
 					</Display>
-					<p className="mx-auto max-w-[58ch] text-mk-lead text-mk-cream-90">{c.body}</p>
+					{c.body ? <p className="mx-auto max-w-[58ch] text-mk-lead text-mk-cream-90">{c.body}</p> : null}
 					<div className="mt-2 flex flex-wrap justify-center gap-3">
 						<ButtonLink
 							href={href?.primary ?? ACCESS_PATH}
@@ -33,9 +33,11 @@ export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; sec
 						>
 							{c.cta_primary}
 						</ButtonLink>
-						<ButtonLink href={href?.secondary ?? ACCESS_PATH} variant="photo-secondary">
-							{c.cta_secondary}
-						</ButtonLink>
+						{c.cta_secondary ? (
+							<ButtonLink href={href?.secondary ?? ACCESS_PATH} variant="photo-secondary">
+								{c.cta_secondary}
+							</ButtonLink>
+						) : null}
 					</div>
 					{c.note ? <p className="type-md text-mk-cream-90">{c.note}</p> : null}
 				</Reveal>

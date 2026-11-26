@@ -341,6 +341,118 @@
         ]
       }
     },
+    "discovery_page": {
+      "hero": {
+        "eyebrow": "Discovery",
+        "headline": "Still discerning a call to plant? Start here, free.",
+        "subhead": "Read the whole Everyfield wiki, keep private notes and work from real templates while you discern. No trial clock and no card.",
+        "cta_primary": "Start exploring free",
+        "note": "Early access is coming soon. Join the list and we'll let you know when it opens."
+      },
+      "tour": {
+        "label": "See what is in Discovery",
+        "tabs": [
+          {
+            "id": "wiki",
+            "label": "Wiki",
+            "line": "Every stage of a church plant. All of it, not a sample."
+          },
+          {
+            "id": "documents",
+            "label": "Documents",
+            "line": "A private space to write, pray and plan. Only you can see it."
+          },
+          {
+            "id": "templates",
+            "label": "Templates",
+            "line": "A real starting point, with your name already filled in."
+          },
+          {
+            "id": "ready",
+            "label": "When you're ready",
+            "line": "Start your church plant, and the rest opens up."
+          }
+        ]
+      },
+      "free": {
+        "eyebrow": "What you get free",
+        "headline": "Discovery is always free.",
+        "evry": {
+          "shown": false,
+          "line": "Ask Evry, Everyfield's assistant, questions about the wiki and your own documents."
+        }
+      },
+      "privacy": {
+        "eyebrow": "Privacy",
+        "headline": "Your work stays yours.",
+        "body": "You don't need a sending church or network to start. If you choose to link one, they see only your foundations progress, and only when you've turned sharing on. They never see your documents."
+      },
+      "how": {
+        "headline": "How it works",
+        "steps": [
+          "Sign up free. Choose I'm exploring.",
+          "Read, write and plan at your own pace. There's no clock.",
+          "When you're ready, start your church plant in Everyfield."
+        ]
+      },
+      "ready": {
+        "headline": "When you're ready to start your church plant",
+        "body": "Start your church plant in Everyfield and the rest opens up: your people, meetings, tasks, your launch journey toward Launch Sunday, and Evry with your church's context. Everything you wrote in Discovery comes with you and stays private to you.",
+        "seat": {
+          "headline": "Starting a church plant is when a seat comes in.",
+          "items": [
+            "We'll encourage you to ask your sending church or network to cover it, since that's how Everyfield is meant to work.",
+            "If you're planting independently, you can pay for your own seat."
+          ]
+        }
+      },
+      "senders": {
+        "eyebrow": "For sending churches and networks",
+        "headline": "Know someone discerning a call? Send them here.",
+        "body": "Discovery is free for them, and you don't need to set anything up. When they're ready to start their church plant, you can cover their seat.",
+        "link": "See Everyfield for sending churches and networks"
+      },
+      "faq": {
+        "headline": "Questions about Discovery",
+        "items": [
+          {
+            "id": "free",
+            "q": "Is it really free?",
+            "a": "Yes. Nothing in Discovery asks for payment."
+          },
+          {
+            "id": "time",
+            "q": "Is there a time limit?",
+            "a": "No. Discovery is always free."
+          },
+          {
+            "id": "card",
+            "q": "Do I need a card?",
+            "a": "No."
+          },
+          {
+            "id": "sending",
+            "q": "Do I need a sending church or network?",
+            "a": "No. You can sign up on your own. Linking one is optional."
+          },
+          {
+            "id": "seat",
+            "q": "Who pays once I start my church plant?",
+            "a": "We encourage planters to ask their sending church or network to cover their seat. If you're planting independently, you can pay for it yourself. Discovery is always free either way."
+          },
+          {
+            "id": "notes",
+            "q": "What happens to my notes when I start my church plant?",
+            "a": "They come with you and stay private to you."
+          }
+        ]
+      },
+      "cta": {
+        "headline": "Take the time the call deserves.",
+        "cta_primary": "Start exploring free",
+        "note": "Early access is coming soon. Join the list and we'll let you know when it opens."
+      }
+    },
     "access_page": {
       "note": "E2 (2026-10-14), revised by WP-097 (2026-10-18): copy for /access. One step form replaces the two forms. Step 1 asks who the visitor is; later steps show one or two fields. Field labels, help, errors, the privacy note and outcomes keep their approved 2026-10-14 text. New lines from 2026-10-18 for Sebastian's review: form.progress, form.back, form.continue, form.who, form.steps and organization (the church or network label replaces \"Network or church\"). form.submit reuses the planter submit label. {step}, {total} and {max} are template values. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. duplicate is unused; never render it, because it reveals an earlier request.",
       "hero": {

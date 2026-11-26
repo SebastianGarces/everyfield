@@ -16,11 +16,13 @@ type Page = { path: (typeof LIVE_PAGES)[number]; title: string; description: str
 const strip = (s: string) => s.replace(/\.$/, "");
 const J = COPY.journey.hero;
 const O = COPY.shared.oversight_page.hero;
+const D = COPY.shared.discovery_page;
 const A = COPY.shared.access_page.hero;
 const L = COPY.shared;
 export const PAGES = {
 	home: { path: "/", title: strip(J.headline), description: J.subhead, shareImage: "own" },
 	oversight: { path: "/oversight", title: strip(O.headline), description: O.subhead, shareImage: "own" },
+	discovery: { path: "/discovery", title: strip(D.free.headline), description: D.hero.subhead, shareImage: "own" },
 	access: { path: "/access", title: A.headline, description: A.subhead, shareImage: "home" },
 	privacy: {
 		path: "/privacy",

@@ -78,6 +78,26 @@ const accessPage = z.object({
 		offline: outcome,
 	}),
 });
+const eyebrowHead = z.object({ eyebrow: text, headline: text });
+const discoveryPage = z.object({
+	hero: z.object({ eyebrow: text, headline: text, subhead: text, cta_primary: text, note: text }),
+	tour: z.object({
+		label: text,
+		tabs: z.tuple([
+			z.object({ id: z.literal("wiki"), label: text, line: text }),
+			z.object({ id: z.literal("documents"), label: text, line: text }),
+			z.object({ id: z.literal("templates"), label: text, line: text }),
+			z.object({ id: z.literal("ready"), label: text, line: text }),
+		]),
+	}),
+	free: eyebrowHead.extend({ evry: z.object({ shown: z.boolean(), line: text }) }),
+	privacy: eyebrowHead.extend({ body: text }),
+	how: z.object({ headline: text, steps: z.array(text).length(3) }),
+	ready: headBody.extend({ seat: z.object({ headline: text, items: z.tuple([text, text]) }) }),
+	senders: eyebrowHead.extend({ body: text, link: text }),
+	faq: z.object({ headline: text, items: z.array(faqItem).min(1) }),
+	cta: z.object({ headline: text, cta_primary: text, note: text }),
+});
 const legalPage = z.object({
 	title: text,
 	updated: text.optional(),
@@ -123,6 +143,7 @@ const schema = z.object({
 			faq: z.object({ headline: text, items: z.array(faqItem).min(1) }),
 			cta,
 		}),
+		discovery_page: discoveryPage,
 		access_page: accessPage,
 		privacy_page: legalPage,
 		terms_page: legalPage,
