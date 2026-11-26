@@ -114,8 +114,9 @@ function matchAreas(locality: {
 export function unplacedRegion(
 	saved: boolean,
 	locality: Parameters<typeof matchAreas>[0],
-): Exclude<Placement, "placed" | "missing"> {
+): Exclude<Placement, "placed"> {
 	if (!inUnitedStates(locality.country)) return "unsupported_country";
+	if (!locality.city?.trim() && !locality.stateProvince?.trim()) return "missing";
 	if (saved && locality.city?.trim() && !matchAreas(locality).length) return "outside_reference";
 	return "unresolved";
 }

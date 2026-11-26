@@ -89,8 +89,16 @@ export function checkDraft(raw: unknown, input: c.ModelInput): c.Violation[] {
 		});
 		out.push(...numbersAndDates(p, values, input), ...wording(p), ...unknowns(p, facts));
 	}
+	draft.positives.forEach((p, i) => {
+		const cited = p.citations.flatMap((k) => facts.get(k) ?? []);
+		if (cited.length && cited.every(isUnknown))
+			out.push({ rule: "unknown_as_known", where: `positives.${i}`, detail: `${cited[0]?.key}: unknown` });
+	});
 	return out;
 }
+
+const UNKNOWN_STATES = new Set(["unknown", "unanswered", "retracted"]);
+const isUnknown = (f: c.FactEntry) => f.value === null || (f.status !== null && UNKNOWN_STATES.has(f.status));
 
 function numbersAndDates(p: Where, values: c.FactEntry["value"][], input: c.ModelInput): c.Violation[] {
 	const out: c.Violation[] = [];

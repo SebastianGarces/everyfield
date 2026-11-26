@@ -29,6 +29,7 @@ import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/ca
 import { ok, refusedWith } from "../../support/fixture.mts";
 import { recorded } from "../../support/recorded.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { caseOf, type Case } from "../target/sql/core/support.mts";
 
 let f: Fixture;
 let care: PrivateCare;
@@ -941,5 +942,161 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	assert.deepEqual(
 		records.filter((r) => /private|care|week|CARE-CANARY/i.test(r.row)),
 		[],
+	);
+});
+
+const careCase = (id: string) => caseOf("intelligence", id) as Case & { clock: { now: string } };
+
+test("AC:PI-CARE-001 another Admin saving into the author's week after a CRM merge gets a bare not-found: no body, existence, calendar or nudge", async () => {
+	const k = careCase("PI-CARE-001");
+	const input = k.given["case-input"] as { author: string; caller: string; CRM_merge: boolean; week: string };
+	now = new Date(k.clock.now).toISOString();
+	const w = await f.workspace();
+	const a = await seated(w, "admin");
+	const b = await seated(w, "admin");
+	const week = ok(await save(a, STRAINED, "0", "CARE-CANARY-PI")).week;
+	assert.deepEqual([input.week, week.ordinal], ["W1", 1]);
+	assert.equal(input.CRM_merge, true);
+	const ctx = { session: b.session, selected: plantOf(w) };
+	const person = async (displayName: string, email: string | null = null) =>
+		ok(
+			await gatedTransaction(f.db, (tx) =>
+				peopleWriter.createPerson(tx, ctx, {
+					requestKey: randomUUID(),
+					input: { displayName, adultClassification: "adult", email },
+				}),
+			),
+		).person;
+	const duplicate = await person("Alex Duplicate"),
+		linked = await person("Alex Author", a.email);
+	ok(
+		await gatedTransaction(f.db, (tx) =>
+			accountPersonProducer.ensureAccountPerson(tx, {
+				accountId: a.id as never,
+				owner: plantOf(w),
+				selection: {
+					kind: "reviewed_contact",
+					person: { owner: plantOf(w), personId: linked.id, revision: linked.revision },
+				} as never,
+			}),
+		),
+	);
+	const review = ok(
+		await gatedTransaction(f.db, (tx) =>
+			peopleMerge.getMergeReview(tx, ctx, { sourceId: duplicate.id, survivorId: linked.id }),
+		),
+	);
+	ok(
+		await gatedTransaction(f.db, (tx) =>
+			peopleMerge.mergePeople(tx, ctx, {
+				requestKey: randomUUID(),
+				input: { sourceId: duplicate.id, survivorId: linked.id, reviewDigest: review.reviewDigest, fieldChoices: {} },
+			}),
+		),
+	);
+	const authored = await footprint(a);
+	const quiet = await sideEffects(w);
+	const { value: guessed, added } = await recorded(f.admin, () => correct(b, week.id, STEADY, "0"));
+	refusedBare(guessed, "not_found");
+	assert.deepEqual(added, NOTHING);
+	const missing = await correct(b, randomUUID(), STEADY, "0");
+	assert.deepEqual(bare(guessed), bare(missing), "no existence signal");
+	assert.ok(guessed.status === "refused");
+	assert.deepEqual(Object.keys(guessed).sort(), ["error", "status"]);
+	assert.doesNotMatch(
+		JSON.stringify(guessed),
+		new RegExp(`${week.id}|CARE-CANARY|strained|support|nudge|calendar`, "i"),
+	);
+	refusedBare(
+		await care.save(f.db, b.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: "1",
+			input: { answers: STEADY, note: "", author: a.id, weekId: week.id },
+		}),
+		"invalid_input",
+	);
+	const e = k.expected.result;
+	assert.deepEqual(
+		{
+			error_code: guessed.error.code,
+			body: "week" in guessed ? guessed.week : null,
+			existence: JSON.stringify(bare(guessed)) === JSON.stringify(bare(missing)) ? null : guessed.error,
+			calendar: (await footprint(b)).revision,
+			support_nudge: "support" in guessed ? guessed.support : null,
+		},
+		e,
+	);
+	assert.deepEqual(await footprint(b), { calendars: 0, weeks: 0, revisions: 0, revision: null });
+	assert.deepEqual(await footprint(a), authored);
+	assert.deepEqual(await sideEffects(w), quiet, "no event, notice, message or task");
+	const mine = ok(await current(a));
+	assert.deepEqual(
+		[mine.week.id, mine.week.answer!.note, mine.week.answer!.answers],
+		[week.id, "CARE-CANARY-PI", STRAINED],
+	);
+});
+
+test("AC:PI-CARE-003 two zone edits and a racing save keep the open week, its original zone and one answer until the new zone's first Monday", async () => {
+	const k = careCase("PI-CARE-003");
+	const input = k.given["case-input"] as {
+		open_ordinal: number;
+		original_zone: string;
+		requested_zone: string;
+		concurrent_save: boolean;
+	};
+	now = new Date(k.clock.now).toISOString();
+	const w = await f.workspace();
+	const a = await seated(w, "admin", input.original_zone);
+	const open = ok(await save(a, STRAINED, "0")).week;
+	assert.deepEqual([open.ordinal, open.zone, open.startsOn], [input.open_ordinal, input.original_zone, "2026-10-12"]);
+	await changeZone(a, "America/Denver");
+	assert.equal(input.concurrent_save, true);
+	const preview = await previewZone(a, input.requested_zone);
+	const [saved, zoned] = await Promise.all([save(a, STEADY, await revisionOf(a)), setZone(a, preview)]);
+	assert.equal([saved, zoned].filter((r) => r.status === "ok").length, 1, JSON.stringify([saved, zoned]));
+	if (saved.status !== "ok") ok(await save(a, STEADY, await revisionOf(a)));
+	else ok(await setZone(a, await previewZone(a, input.requested_zone)));
+	const pending = await nextAt(a);
+	const reading = ok(await current(a));
+	const weeks = await rows<{ zone: string; ordinal: number }>(
+		sql`SELECT zone,ordinal FROM private_week WHERE author_id=${a.id} ORDER BY ordinal`,
+	);
+	const duplicates = await rows(
+		sql`SELECT ordinal FROM private_week WHERE author_id=${a.id} GROUP BY ordinal HAVING count(*)>1
+			UNION ALL SELECT revision FROM private_week_revision WHERE author_id=${a.id} GROUP BY week_id,revision HAVING count(*)>1`,
+	);
+	const ordinals: number[] = [];
+	for (const at of ["2026-10-18T11:00:00.000Z", "2026-10-19T06:59:59.000Z"]) {
+		now = at;
+		const later = ok(await current(a)).week;
+		assert.equal(later.id, open.id, at);
+		ordinals.push(later.ordinal);
+	}
+	assert.deepEqual(
+		{
+			current_ordinal: reading.week.ordinal,
+			pending_zone: pending?.zone,
+			new_ordinals_before_future_monday: ordinals.filter((n) => n !== input.open_ordinal).length,
+			original_zone_changed: weeks.some((x) => x.zone !== input.original_zone),
+			duplicate_answers: duplicates.length,
+		},
+		k.expected.result,
+	);
+	assert.deepEqual(
+		[reading.week.id, reading.week.zone, reading.week.answer!.answers, reading.week.revisions.length],
+		[open.id, input.original_zone, STEADY, 2],
+	);
+	assert.deepEqual(pending, { at: "2026-10-19T07:00:00Z", zone: input.requested_zone });
+	assert.equal(
+		(await one(sql`SELECT personal_timezone FROM account WHERE id=${a.id}`)).personal_timezone,
+		input.requested_zone,
+	);
+	const stored = await footprint(a);
+	assert.deepEqual([stored.calendars, stored.weeks, stored.revisions], [1, 1, 2]);
+	now = "2026-10-19T07:00:00.000Z";
+	const next = ok(await current(a)).week;
+	assert.deepEqual(
+		[next.id, next.ordinal, next.zone, next.startsOn],
+		[null, input.open_ordinal + 1, input.requested_zone, "2026-10-19"],
 	);
 });

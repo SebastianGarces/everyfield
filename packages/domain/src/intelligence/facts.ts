@@ -20,6 +20,7 @@ const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable(
 
 export const factInputs = z.strictObject({
 	zone: z.string(),
+	phase: z.int().optional(),
 	people: z.array(
 		z.strictObject({
 			id: z.uuid(),
@@ -380,6 +381,7 @@ function inputsSql() {
 	const evidence = outcomeEvidence(sql`e`, sql`o`);
 	return sql`jsonb_build_object(
  'zone',x.zone,
+ 'phase',(SELECT ph.phase FROM plant ph WHERE ph.id=x.plant),
  'people',${peopleJson(sql`x.plant`)},
  'vision',coalesce((SELECT jsonb_agg(jsonb_build_object('on',v.on_date::text,'attended',v.attended) ORDER BY v.at_ DESC,v.id)
   FROM (SELECT m.id,${heldOn(sql`m`)} AS on_date,coalesce(m.actual_occurrence_at,m.starts_at) AS at_,${attended(sql`m`)} AS attended
