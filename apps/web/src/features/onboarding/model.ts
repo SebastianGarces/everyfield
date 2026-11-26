@@ -48,12 +48,12 @@ export type Drafts = {
 	journey: JourneyDraft | null;
 	launch: LaunchDraft | null;
 	lead: LeadDraft | null;
-	keep: string[];
+	ending: string[];
 };
 const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
 export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership", seniorPastor: false } as const;
 function emptyDrafts(): Drafts {
-	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, keep: [] };
+	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, ending: [] };
 }
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
@@ -294,7 +294,7 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 		case "createPlant":
 		case "convertDiscovery": {
 			const entry = fresh ?? state.entry;
-			const next = { ...done, entry, drafts: { ...done.drafts, basics: EMPTY_BASICS, keep: [] } };
+			const next = { ...done, entry, drafts: { ...done.drafts, basics: EMPTY_BASICS, ending: [] } };
 			const isNew = s.reply.value.status === "created" || s.reply.value.status === "converted";
 			return { ...next, view: clampView(next, isNew ? "church" : null) };
 		}

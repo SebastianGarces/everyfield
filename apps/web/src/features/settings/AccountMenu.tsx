@@ -18,11 +18,13 @@ export function AccountMenu({
 	detail,
 	onAccount,
 	checkIn = false,
+	seats = true,
 }: {
 	name: string;
 	detail: string;
 	onAccount: () => void;
 	checkIn?: boolean;
+	seats?: boolean;
 }) {
 	async function signOut() {
 		const result = await identityApi.signOut();
@@ -44,9 +46,11 @@ export function AccountMenu({
 			<MenuItem icon={MessageEdit01Icon} href="/feedback">
 				Sent feedback
 			</MenuItem>
-			<MenuItem icon={UserMultipleIcon} href="/settings/seats">
-				{SECTION_LABEL.seats}
-			</MenuItem>
+			{seats ? (
+				<MenuItem icon={UserMultipleIcon} href="/settings/seats">
+					{SECTION_LABEL.seats}
+				</MenuItem>
+			) : null}
 			<MenuItem icon={ShieldUserIcon} href="/settings/sharing">
 				{SECTION_LABEL.sharing}
 			</MenuItem>

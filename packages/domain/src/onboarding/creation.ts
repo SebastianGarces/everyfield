@@ -310,9 +310,7 @@ export function creation(effects: OnboardingEffects) {
 				revision(q.expectedRevision, d.revision);
 				const links = held.links;
 				const selected = [];
-				for (const selection of [...q.input.relationships].sort((a, b) =>
-					a.relationshipId.localeCompare(b.relationshipId),
-				)) {
+				const matched = (selection: { relationshipId: string; organization: z.output<typeof organizationOwner> }) => {
 					const old = links.find((link) => link.id === selection.relationshipId);
 					if (
 						!old ||
@@ -321,10 +319,22 @@ export function creation(effects: OnboardingEffects) {
 						old.organization_kind !== selection.organization.organizationKind
 					)
 						deny("unavailable");
+					return old;
+				};
+				for (const selection of [...q.input.relationships].sort((a, b) =>
+					a.relationshipId.localeCompare(b.relationshipId),
+				)) {
+					const old = matched(selection);
 					revision(selection.expectedRelationshipRevision, old.revision);
 					revision(selection.expectedConsentRevision, old.consent_revision);
+					const before = choices(old);
+					if (Object.entries(selection.choices).some(([k, on]) => on && !before[k as keyof typeof before]))
+						deny("unavailable");
 					selected.push({ old, selection });
 				}
+				for (const ending of q.input.ended) revision(ending.expectedRelationshipRevision, matched(ending).revision);
+				const decided = new Set([...q.input.relationships, ...q.input.ended].map((r) => r.relationshipId));
+				if (links.some((link) => link.active && !decided.has(link.id))) deny("conflict");
 				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
 				const relationships: z.infer<typeof c.conversionRelationship>[] = [];
 
@@ -388,6 +398,7 @@ export function creation(effects: OnboardingEffects) {
 							.update(t.affiliation)
 							.set({
 								ended_at: now,
+								share_foundations: false,
 								revision: sql`${t.affiliation.revision}+1`,
 								consent_revision: sql`${t.affiliation.consent_revision}+1`,
 							})

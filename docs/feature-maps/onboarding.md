@@ -32,6 +32,11 @@ flowchart LR
   s2["onboarding.design-preview<br/>/design/onboarding"]
   s2_link0 --> s2
   s2 -.- s2_st0(("new-planter"))
+  s3["onboarding.discovery-home<br/>/my-discovery"]
+  rail -- "Home" --> s3
+  s3 -.- s3_st0(("linked"))
+  s3 -.- s3_st1(("seat"))
+  s3 --- s3_b0["start-church<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -284,3 +289,43 @@ agent-browser find role heading text --name "Start your church" --exact
 agent-browser find role combobox text --name "Preview account" --exact
 ```
 
+### onboarding.discovery-home
+
+The Discovery home for a planter with no seat: the foundations with what is read, the Wiki, private documents, Evry, the sending church or network by name, and Start a church.
+
+- Routes: `/my-discovery`
+- Personas: `discovery` write, `resident` read, `owner` none, `visitor` none
+- Catalog: IDN-016
+
+Reach:
+
+- Rail "Home" for `discovery`, `resident`
+
+States:
+
+- **linked**: heading "Foundations"; link "Open the Wiki"; link "Start a church". As `discovery`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/my-discovery"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Foundations" --exact
+agent-browser find role link text --name "Open the Wiki" --exact
+agent-browser find role link text --name "Start a church" --exact
+```
+
+- **seat**: URL `/overview`. As `owner`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/my-discovery"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/overview"
+```
+
+#### onboarding.discovery-home#start-church
+
+Start a church names each sending church or network, keeps every link unless the planter ends it, and says who can cover the seat.
+
+- Operations: discovery.convertToPlant
+- Catalog: IDN-016
+- Cases: TARGET-IDN-016
+- Test: `tests/integration/onboarding/onboarding.test.mts`: `AC:TARGET-IDN-016 INV-conversion: a link ends only when the request names it, and a kept link turns on no sharing`

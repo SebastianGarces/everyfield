@@ -542,6 +542,9 @@
 					"residencyLinked": {
 						"type": "boolean"
 					},
+					"discovery": {
+						"type": "boolean"
+					},
 					"seed": {
 						"enum": ["qa"]
 					}

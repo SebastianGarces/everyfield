@@ -84,6 +84,7 @@ export type ReviewedWrite<I> = {
 	memberDescription?: string;
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
+	offered?(actor: EvryActor): boolean;
 	sendsMail?: true;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	execute(

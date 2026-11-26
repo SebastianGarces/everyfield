@@ -155,7 +155,7 @@ test("the restricted CLI refuses copy and readiness without their control with t
 				(resolve) =>
 					execFile(
 						process.execPath,
-						[cli, ...args],
+						["--conditions=react-server", cli, ...args],
 						{ env: { PATH: process.env.PATH, EVERYFIELD_BACKUP_KEY: key } },
 						(error, stdout, stderr) => resolve({ code: error ? (error.code as number) : 0, stdout, stderr }),
 					),

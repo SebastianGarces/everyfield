@@ -385,6 +385,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "1"
+        },
+        "share_foundations": {
+          "name": "share_foundations",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "false"
         }
       },
       "indexes": {
@@ -578,6 +585,10 @@
         "affiliation_consent_revision_check": {
           "name": "affiliation_consent_revision_check",
           "value": "(consent_revision >= 1)"
+        },
+        "affiliation_ck_3": {
+          "name": "affiliation_ck_3",
+          "value": "((account_id IS NOT NULL) OR (NOT share_foundations))"
         }
       },
       "isRLSEnabled": false

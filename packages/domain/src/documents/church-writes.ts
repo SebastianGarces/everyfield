@@ -39,7 +39,7 @@ import {
 
 const hashOf = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 
-function stableId(...parts: string[]) {
+export function stableId(...parts: string[]) {
 	const h = createHash("sha256").update(parts.join("\0")).digest();
 	h[6] = (h.readUInt8(6) & 0x0f) | 0x50;
 	h[8] = (h.readUInt8(8) & 0x3f) | 0x80;

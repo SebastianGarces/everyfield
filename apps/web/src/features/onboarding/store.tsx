@@ -51,7 +51,9 @@ const STEP_PARAM = "step";
 function stepHref(state: State): string | null {
 	const url = new URL(window.location.href);
 	const step = addressStep(state);
-	if (url.searchParams.get(STEP_PARAM) === step) return null;
+	const start = state.entry.kind === "discovery" ? url.searchParams.get("start") : null;
+	if (url.searchParams.get(STEP_PARAM) === step && url.searchParams.get("start") === start) return null;
+	if (start === null) url.searchParams.delete("start");
 	if (step) url.searchParams.set(STEP_PARAM, step);
 	else url.searchParams.delete(STEP_PARAM);
 	return url.pathname + url.search + url.hash;

@@ -17,6 +17,7 @@
 				"member": "read",
 				"network": "read",
 				"resident": "read",
+				"discovery": "read",
 				"signup": "read",
 				"visitor": "none"
 			},
@@ -113,6 +114,32 @@
 								"role": "link",
 								"name": "People"
 							}
+						}
+					]
+				},
+				{
+					"id": "discovery",
+					"reach": {
+						"persona": "discovery",
+						"open": "/my-discovery",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "Home"
+						},
+						{
+							"role": "link",
+							"name": "Documents"
+						},
+						{
+							"role": "link",
+							"name": "People"
+						},
+						{
+							"role": "button",
+							"name": "Ask Evry"
 						}
 					]
 				},

@@ -14,6 +14,7 @@ flowchart LR
   s0 -.- s0_st2(("member"))
   s0 -.- s0_st3(("signed-out"))
   s0 -.- s0_st4(("loading (manual)"))
+  s0 -.- s0_st5(("locked"))
   s0 --- s0_b0["out-of-date<br/>tests"]
   s0 --- s0_b1["cold-start-guidance<br/>tests + cases + browser presence"]
   s1["intelligence.trends<br/>/intelligence/trends"]
@@ -44,12 +45,12 @@ flowchart LR
 Plant Intelligence: the church's latest assessment, marked when records changed since, or what to record first while none is prepared.
 
 - Routes: `/intelligence`
-- Personas: `owner` write, `admin` write, `member` none, `visitor` none
+- Personas: `owner` write, `admin` write, `member` none, `visitor` none, `discovery` read, `resident` read
 - Catalog: PI-021, PI-024, PI-025, PI-034, PI-037
 
 Reach:
 
-- Rail "Plant Intelligence" for `owner`, `admin`
+- Rail "Plant Intelligence" for `owner`, `admin`, `discovery`, `resident`
 
 States:
 
@@ -80,6 +81,14 @@ agent-browser wait --url "**/signin?returnTo=%2Fintelligence"
 ```
 
 - **loading** (`loading.tsx`): text "Loading Plant Intelligence". Not scripted: shows only while the server renders the page.
+- **locked**: heading "Plant Intelligence opens when you start your church"; link "Start a church". As `discovery`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/intelligence"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Plant Intelligence opens when you start your church" --exact
+agent-browser find role link text --name "Start a church" --exact
+```
 
 #### intelligence.assessment#out-of-date
 
