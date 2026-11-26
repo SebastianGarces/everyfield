@@ -119,7 +119,7 @@ const legalPage = z.object({
 
 const schema = z.object({
 	shared: z.object({
-		nav: z.array(z.object({ label: text, href: z.enum(LIVE_PAGES) })),
+		nav: z.array(z.object({ label: text, href: z.enum(LIVE_PAGES), tag: text.optional() })),
 		nav_cta: text,
 		footer: z.object({
 			headline: text,
