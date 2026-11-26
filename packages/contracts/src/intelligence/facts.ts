@@ -122,14 +122,12 @@ const attestationFact = z.strictObject({
 	renewal,
 });
 
-export const readinessFact = z.strictObject({
+const readinessFact = z.strictObject({
 	key: readinessKey,
 	state: z.enum(["answered", "retracted"]),
 	asOf: localDate,
 	named: z.string().nullable(),
-	personId: recordId.nullable(),
 });
-export type ReadinessFact = z.infer<typeof readinessFact>;
 
 export const firstService = z.discriminatedUnion("path", [
 	z.strictObject({

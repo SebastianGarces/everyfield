@@ -299,7 +299,6 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 		"key",
 		"kind",
 		"named",
-		"personId",
 	]);
 	assert.deepEqual(Object.keys(factInputs.shape.interviews.shape).sort(), ["count", "latestOn"]);
 	assert.deepEqual(Object.keys(factInputs.shape.fourCs.shape).sort(), ["count", "latestOn"]);
@@ -464,12 +463,11 @@ test("AC:PI-028 readiness attestations add their criteria only when answered, an
 		[undefined, "unknown", undefined],
 	);
 	assert.equal(none.sourceRevision, facts({}).sourceRevision);
-	const person = randomUUID();
 	const answered = facts({
 		readiness: [
-			{ key: "community", kind: "answered", asOf: day(-3), named: "Eastside", personId: null },
-			{ key: "relationship", kind: "corrected", asOf: day(-9), named: "Hill Network", personId: null },
-			{ key: "worship_agreement", kind: "answered", asOf: day(-1), named: "Robin", personId: person },
+			{ key: "community", kind: "answered", asOf: day(-3), named: "Eastside" },
+			{ key: "relationship", kind: "corrected", asOf: day(-9), named: "Hill Network" },
+			{ key: "worship_agreement", kind: "answered", asOf: day(-1), named: "Robin" },
 		],
 	});
 	assert.deepEqual(
@@ -479,8 +477,8 @@ test("AC:PI-028 readiness attestations add their criteria only when answered, an
 	assert.notEqual(answered.sourceRevision, none.sourceRevision);
 	const withdrawn = facts({
 		readiness: [
-			{ key: "community", kind: "retracted", asOf: day(0), named: "Eastside", personId: null },
-			{ key: "worship_agreement", kind: "answered", asOf: day(-1), named: null, personId: person },
+			{ key: "community", kind: "retracted", asOf: day(0), named: "Eastside" },
+			{ key: "worship_agreement", kind: "answered", asOf: day(-1), named: null },
 		],
 	});
 	assert.deepEqual(

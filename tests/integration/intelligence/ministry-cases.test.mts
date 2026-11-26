@@ -477,7 +477,6 @@ test("AC:B01-005 a dated agreement names a worship leader who has no account; an
 			state: "answered",
 			asOf: arg<string>(k, "attestation_date"),
 			named: "Robin Agreed",
-			personId: robin.id,
 		},
 	]);
 	assert.deepEqual(

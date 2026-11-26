@@ -81,7 +81,6 @@ export const factInputs = z.strictObject({
 				kind: z.enum(["answered", "corrected", "retracted"]),
 				asOf: z.string(),
 				named: z.string().nullable(),
-				personId: z.uuid().nullable(),
 			}),
 		)
 		.min(1)
@@ -339,7 +338,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		state: r.kind === "retracted" ? ("retracted" as const) : ("answered" as const),
 		asOf: r.asOf,
 		named: r.named,
-		personId: r.personId,
 	}));
 	const attested = (key: c.ReadinessKey) =>
 		readiness?.some((r) => r.key === key && r.state === "answered" && r.named !== null) ?? false;
@@ -387,7 +385,7 @@ const MANUAL = sql.join(
 	sql`,`,
 );
 const READINESS = sql.join(
-	c.READINESS_ATTESTATIONS.map((k) => sql`${k.key}`),
+	c.readinessKey.options.map((k) => sql`${k}`),
 	sql`,`,
 );
 
@@ -471,7 +469,7 @@ function inputsSql() {
   'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
   FROM launch l WHERE l.plant_id=x.plant)
  )||coalesce((SELECT jsonb_build_object('readiness',jsonb_agg(jsonb_build_object('key',a.key,'kind',r.kind,
-   'asOf',r.as_of::text,'personId',a.person_id,'named',CASE WHEN a.key='worship_agreement'
+   'asOf',r.as_of::text,'named',CASE WHEN a.key='worship_agreement'
     THEN (SELECT p.display_name FROM person p WHERE p.id=a.person_id AND p.tenant_id=a.plant_id AND p.state='live')
     ELSE r.detail END) ORDER BY a.key))
   FROM attestation a JOIN LATERAL (SELECT v.kind,v.as_of,v.detail FROM attestation_revision v WHERE v.attestation_id=a.id

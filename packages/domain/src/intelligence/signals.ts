@@ -178,7 +178,7 @@ const MANUAL = sql.join(
 	sql`,`,
 );
 const READINESS = sql.join(
-	c.READINESS_ATTESTATIONS.map((k) => sql`${k.key}`),
+	c.readinessKey.options.map((k) => sql`${k}`),
 	sql`,`,
 );
 const SIGNALS_AND_CANDIDATES = sql`${MANUAL},${"leadership_candidate"}`;
@@ -332,7 +332,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		key: c.ReadinessKey,
 		asOf: string | undefined,
 		expected: string,
-		named: boolean,
 		correcting: boolean,
 	): z.output<typeof c.readinessWriteResult> {
 		const saved = (row: unknown) =>
@@ -344,7 +343,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		if (!r.ok) deny("access_denied");
 		if (r.written) return saved(r.written);
 		if (asOf && asOf > localToday(r)) deny("invalid_input");
-		if (named && !r.person) deny("not_found");
+		if (!r.person) deny("not_found");
 		if (correcting) {
 			if (!r.cur) deny("not_current");
 			if (r.cur.revision !== expected) deny("revision_conflict");
@@ -717,7 +716,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				const byKey = new Map(r.current.map((x) => [x.key, x]));
 				return c.readinessPage.parse({
 					today: r.today,
-					attestations: c.READINESS_ATTESTATIONS.map(({ key }) => readinessFrom(key, byKey.get(key) ?? null)),
+					attestations: c.readinessKey.options.map((key) => readinessFrom(key, byKey.get(key) ?? null)),
 					history: r.history.map(readinessRevisionOf),
 				});
 			});
@@ -753,7 +752,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
  SELECT ${readinessClosing(s, sql`false`)}`,
 					readinessJson,
 				);
-				return readinessOutcome(r, print, i.key, i.asOf, q.expectedRevision, v.personId !== null, false);
+				return readinessOutcome(r, print, i.key, i.asOf, q.expectedRevision, false);
 			});
 		},
 
@@ -797,7 +796,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
  )}`,
 					readinessJson,
 				);
-				return readinessOutcome(r, print, key, given ?? undefined, q.expectedRevision, v?.personId != null, true);
+				return readinessOutcome(r, print, key, given ?? undefined, q.expectedRevision, true);
 			});
 		},
 	};

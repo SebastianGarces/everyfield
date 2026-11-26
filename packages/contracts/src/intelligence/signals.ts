@@ -150,11 +150,6 @@ export const correctCandidateRequest = z.strictObject({
 	]),
 });
 
-export const READINESS_ATTESTATIONS = [
-	{ key: "relationship", criterion: "coach_assigned" },
-	{ key: "worship_agreement", criterion: "worship_leader" },
-	{ key: "community", criterion: "geographic_area" },
-] as const;
 export const readinessKey = z.enum(["relationship", "worship_agreement", "community"]);
 export type ReadinessKey = z.infer<typeof readinessKey>;
 export const READINESS_QUESTION_VERSION = "readiness-attestations/1";
@@ -207,12 +202,10 @@ export const readinessRevision = z.strictObject({
 export type ReadinessRevision = z.infer<typeof readinessRevision>;
 export const readinessPage = z.strictObject({
 	today: localDate,
-	attestations: z.array(readinessEntry).length(READINESS_ATTESTATIONS.length),
+	attestations: z.array(readinessEntry).length(readinessKey.options.length),
 	history: z.array(readinessRevision),
 });
-export type ReadinessPage = z.infer<typeof readinessPage>;
 export const readinessWriteResult = z.strictObject({ outcome: z.literal("saved"), attestation: readinessEntry });
-export type ReadinessWriteResult = z.infer<typeof readinessWriteResult>;
 
 export const renewal = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("current"), daysLeft: z.int().min(0).max(REAFFIRM_WINDOW_DAYS) }),
