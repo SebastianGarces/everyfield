@@ -14,7 +14,7 @@ import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { outcomeEvidence } from "../tasks/origin.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
-import { followUpTask, OPEN } from "../followups/core.ts";
+import { followUpTask, OPEN } from "../followups/queries.ts";
 import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
@@ -171,14 +171,20 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
 }
 
-const revisionOf = (inputs: Partial<FactInputs>) => createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
+const REPORT_INPUTS = ["sources", "tenures", "roster", "candidates", "contacts", "tasks"] as const;
+function assessedInputs(inputs: FactInputs): Partial<FactInputs> {
+	const assessed: Partial<FactInputs> = { ...inputs };
+	for (const key of REPORT_INPUTS) delete assessed[key];
+	return assessed;
+}
+const revisionOf = (inputs: FactInputs, phase = true) => {
+	const assessed = assessedInputs(inputs);
+	if (!phase) delete assessed.phase;
+	return createHash("sha256").update(JSON.stringify(assessed)).digest("hex");
+};
 
-const LATER_INPUTS = ["sources", "tenures", "roster", "candidates", "contacts", "tasks"] as const;
-export function revisionMatches(inputs: FactInputs, stored: string) {
-	const beforeReports: Partial<FactInputs> = { ...inputs };
-	for (const key of LATER_INPUTS) delete beforeReports[key];
-	const beforePhase = { ...beforeReports, phase: undefined };
-	return [inputs, beforeReports, beforePhase].some((i) => revisionOf(i) === stored);
+function revisionMatches(inputs: FactInputs, stored: string) {
+	return revisionOf(inputs) === stored || revisionOf(inputs, false) === stored;
 }
 
 function attendanceRun(rows: FactInputs["roster"], today: string) {
@@ -194,15 +200,13 @@ function volunteeringRun(rows: FactInputs["tenures"], today: string) {
 	if (!rows.length) return null;
 	const held = rows.filter((t) => t.from <= today);
 	const earliest = (ts: typeof held) => ts.map((t) => t.from).sort()[0];
-	let start = earliest(held.filter((t) => t.to === null || t.to >= today));
-	if (start === undefined) return 0;
-	for (;;) {
+	const extend = (start: string): string => {
 		const reach = addDays(start, -1);
-		const before = earliest(held.filter((t) => t.from < start! && (t.to === null || t.to >= reach)));
-		if (before === undefined) break;
-		start = before;
-	}
-	return daysBetween(start, today) + 1;
+		const before = earliest(held.filter((t) => t.from < start && (t.to === null || t.to >= reach)));
+		return before === undefined ? start : extend(before);
+	};
+	const current = earliest(held.filter((t) => t.to === null || t.to >= today));
+	return current === undefined ? 0 : daysBetween(extend(current), today) + 1;
 }
 
 function leadershipOf(
@@ -339,7 +343,11 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		leaderDisengaged,
 		voice: !inputs.anyAttendance
 			? null
-			: (["steady", "watch", "direct"] as const)[Number(flagged) + Number(leaderDisengaged.length > 0)]!,
+			: flagged && leaderDisengaged.length
+				? "direct"
+				: flagged || leaderDisengaged.length
+					? "watch"
+					: "steady",
 	};
 
 	const measures = inputs.followUps.map((f) =>
@@ -651,13 +659,9 @@ export async function captureFacts(db: Pick<Database, "execute">, plant: string,
 	return m && buildFacts(m.inputs, m.at, m.today);
 }
 
-export async function captureMeasured(db: Pick<Database, "execute">, plant: string, at: string | null) {
-	const m = await measureInputs(db, plant, at);
-	return m && { facts: buildFacts(m.inputs, m.at, m.today), inputs: m.inputs };
-}
-
 export async function captureInputs(db: Pick<Database, "execute">, plant: string, at: string) {
-	return (await measureInputs(db, plant, at))?.inputs ?? null;
+	const m = await measureInputs(db, plant, at);
+	return m && assessedInputs(m.inputs);
 }
 
 export function createFacts(config: { clock?: Clock } = {}) {

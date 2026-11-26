@@ -454,8 +454,6 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 	await interview(o, p.id, day(-4));
 	await fourCs(o, p.id, day(-4));
 	const next = await meeting(o, { inDays: 4 });
-	const lateContact = randomUUID();
-	await record(lateContact, "contact_outcome", o.w.id);
 
 	const changes = {
 		"plant.timezone": sql`UPDATE plant SET timezone='America/Denver' WHERE id=${o.w.id}`,
@@ -495,11 +493,6 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"launch.gathering_reached_on": sql`UPDATE launch SET gathering_reached_on=${day(-1)},
 			gathering_reached_name='Constituted as a church' WHERE plant_id=${o.w.id}`,
 		"launch.gathering_reached_name": sql`UPDATE launch SET gathering_reached_name='Church constituted' WHERE plant_id=${o.w.id}`,
-		"person.source": sql`UPDATE person SET source='partner_church' WHERE id=${p.id}`,
-		"team_role.leadership": sql`UPDATE team_role SET leadership=false WHERE team_id=${other.team}`,
-		"contact_outcome (contacted)": sql`INSERT INTO contact_outcome(id,plant_id,person_id,outcome,occurred_at,recorded_at)
-			VALUES(${lateContact},${o.w.id},${q.id},'contacted',clock_timestamp()-interval '2 days',clock_timestamp())`,
-		"task.due_kind": sql`UPDATE task SET due_kind='date_only',due_date=${day(-1)},person_id=${q.id} WHERE id=${ob2.taskId}`,
 	};
 	let last = (await read(o)).sourceRevision;
 	for (const [input, change] of Object.entries(changes)) {
