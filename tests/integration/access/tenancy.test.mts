@@ -58,6 +58,8 @@ import {
 	readAnswerReview,
 	readAnswerReviews,
 	readMyResidency,
+	readDiscoverySharing,
+	readSharedFoundations,
 	readResidentReading,
 	readPipelineBoard,
 	readPipelineChoices,
@@ -910,6 +912,14 @@ function cases(who: TenancyOwner) {
 			() => plain(() => readResidentReading(f.db, who.actor, { readingId: a.avery })),
 			{ value: { status: "ok", value: { status: "unavailable" } }, control: null },
 		),
+		tenancyCase("organizations:readDiscoverySharing", () => plain(() => readDiscoverySharing(f.db, who.actor)), {
+			value: {},
+			control: null,
+		}),
+		tenancyCase("organizations:readSharedFoundations", () => plain(() => readSharedFoundations(f.db, who.actor)), {
+			value: {},
+			control: null,
+		}),
 		tenancyCase("organizations:readPipelineGoals", () => plain(() => readPipelineGoals(f.db, who.actor)), {
 			value: { status: "refused", refusal: { code: "unavailable" } },
 			control: null,
