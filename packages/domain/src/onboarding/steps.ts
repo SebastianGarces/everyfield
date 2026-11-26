@@ -29,8 +29,8 @@ export const starter =
 function fail(message: string): never {
 	throw Error(message);
 }
-const storedSteps = z.array(z.strictObject({ key: templateKey, catalogVersion, doneAt: instant }));
-export const doneSteps = (raw: unknown) => new Map(storedSteps.parse(raw).map((s) => [s.key, new Date(s.doneAt)]));
+const storedSteps = z.array(z.strictObject({ key: templateKey, catalog_version: catalogVersion, done_at: instant }));
+export const doneSteps = (raw: unknown) => new Map(storedSteps.parse(raw).map((s) => [s.key, new Date(s.done_at)]));
 type Discovery = Pick<typeof t.discovery.$inferSelect, "id" | "steps" | "steps_revision">;
 
 function view(d: Discovery) {
@@ -90,7 +90,7 @@ export const discoveryStepOperations = {
 			const next: Discovery = {
 				id: d.id,
 				steps: q.input.done
-					? [...stored, { key: step.key, catalogVersion: CATALOG.version, doneAt: new Date().toISOString() }]
+					? [...stored, { key: step.key, catalog_version: CATALOG.version, done_at: new Date().toISOString() }]
 					: stored.filter((s) => s.key !== step.key),
 				steps_revision: revisionId.parse(String(BigInt(d.steps_revision) + 1n)),
 			};

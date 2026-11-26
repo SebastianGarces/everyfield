@@ -49,7 +49,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-007 | Organizations and consent relationships | 10 | 21 | 53 | 11 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 6 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
-| WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
+| WP-009 | Onboarding and discovery conversion | 7 | 10 | 23 | 5 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
 | WP-012 | Households tags skills and person fields | 8 | 22 | 11 | 5 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |

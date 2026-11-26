@@ -18655,8 +18655,8 @@
       "jsonb_keys": {
         "steps": [
           "key: a step key of the Phase 0 checklist in the tasks catalog",
-          "catalogVersion: the tasks catalog version the step was checked off under",
-          "doneAt: when the planter checked it off"
+          "catalog_version: the tasks catalog version the step was checked off under",
+          "done_at: when the planter checked it off"
         ]
       },
       "capabilities": [

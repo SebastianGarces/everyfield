@@ -283,7 +283,7 @@ flowchart LR
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 2 | 5 | 4 | 0 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 6 | 10 | 4 | 4 |
 | [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 6 | 0 | 1 |
-| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 4 | 4 | 7 | 3 | 1 |
+| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 4 | 4 | 10 | 4 | 1 |
 | [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 20 | 20 | 11 | 3 |
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
@@ -292,7 +292,7 @@ flowchart LR
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
 | [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 9 | 5 | 2 |
 | [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 4 | 6 | 0 | 0 | 0 |
-| [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
+| [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 9 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 3 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 4 | 6 | 3 | 1 |
 | [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 8 | 11 | 2 | 0 | 0 |

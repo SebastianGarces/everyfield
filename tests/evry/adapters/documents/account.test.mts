@@ -705,8 +705,8 @@ test("AC:TARGET-IDN-016 INV-discovery-steps: a church started through Evry carri
 	const doneAt = "2026-11-20T15:00:00.000Z";
 	await w.admin.execute(
 		sql`UPDATE discovery SET steps=${JSON.stringify([
-			{ key: "vision-summary", catalogVersion: 3, doneAt },
-			{ key: "meet-a-coach", catalogVersion: 3, doneAt },
+			{ key: "vision-summary", catalog_version: 3, done_at: doneAt },
+			{ key: "meet-a-coach", catalog_version: 3, done_at: doneAt },
 		])}::jsonb, steps_revision=3 WHERE account_id=${A.id}`,
 	);
 	const turned = only(

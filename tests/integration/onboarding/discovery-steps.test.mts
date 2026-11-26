@@ -113,7 +113,7 @@ test("AC:TARGET-IDN-016 a step ticks and unticks; a retry, a stale revision and 
 	assert.deepEqual(ok(await steps(p)), ticked, "a fresh read shows the step done");
 	const saved = await stored(p);
 	assert.deepEqual(saved?.steps, [
-		{ key: FIRST, catalogVersion: CATALOG.version, doneAt: ticked.steps[0]?.doneAt ?? assert.fail("no doneAt") },
+		{ key: FIRST, catalog_version: CATALOG.version, done_at: ticked.steps[0]?.doneAt ?? assert.fail("no doneAt") },
 	]);
 
 	const audits = await auditCount(p);
