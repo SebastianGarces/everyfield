@@ -140,16 +140,16 @@ test("people.created and people.updated audit rows hold no name, contact, addres
 			input: { householdId, patch: { name: CANARY.renamedHousehold, street: CANARY.renamed } },
 		}),
 	);
-	await write(async (t, c) =>
+	const members = (
+		await admin.execute<{ personId: string; revision: string }>(sql`SELECT id AS "personId",revision::text AS revision
+			FROM person WHERE household_id=${sql.param(householdId)} ORDER BY id`)
+	).rows;
+	const householdAt = await householdRevision();
+	await write((t, c) =>
 		fields.propagateAddress(t, c, {
 			requestKey: key(),
-			expectedRevision: await householdRevision(),
-			input: {
-				householdId,
-				members: await Promise.all(
-					[guardian, child, person].map(async (m) => ({ personId: m.id, revision: await revisionOf(m.id) })),
-				),
-			},
+			expectedRevision: householdAt,
+			input: { householdId, members },
 		}),
 	);
 	await write(async (t, c) =>
