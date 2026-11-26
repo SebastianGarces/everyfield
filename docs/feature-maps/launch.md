@@ -29,7 +29,7 @@ flowchart LR
 
 ### launch.plan
 
-Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.
+Launch Sunday's date and countdown, its readiness, and the outcome form once a date is set.
 
 - Routes: `/launch`
 - Endpoints: `/launch/read`

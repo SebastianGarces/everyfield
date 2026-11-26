@@ -4757,7 +4757,8 @@
       ],
       "status": "run",
       "run_by": [
-        "tests/integration/target/wp-056/schema-lifecycle-cases.test.mts"
+        "tests/integration/target/wp-056/schema-lifecycle-cases.test.mts",
+        "tests/integration/intelligence/lifecycle.test.mts"
       ],
       "layers": [
         "integration",

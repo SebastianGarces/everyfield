@@ -344,7 +344,7 @@ test("AC:B02-028 while a new result is embargoed the organization keeps the prev
 	);
 });
 
-test("AC:LAUNCH46-023 the Launch evidence carries submission, date and the missing count, and no raw reflection or private care reaches the Plant Intelligence bytes", async () => {
+test("the Launch evidence carries submission, date and the missing count, and no raw reflection or private care reaches the Plant Intelligence bytes", async () => {
 	const c = await shared("Willow Church", {}, { harvest: true });
 	ok(
 		await w.debrief(

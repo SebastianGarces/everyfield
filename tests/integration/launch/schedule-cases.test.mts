@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { type Workspace, ok, refused } from "../../support/fixture.mts";
+import { type Workspace, ok, refused, waitingOnLock } from "../../support/fixture.mts";
 import { frozenClock as pinDatabaseClock } from "../../support/test-database.mts";
 import { frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
 import { countdown, reviewedOf, type Milestone, type Plan } from "../../../packages/contracts/src/launch/index.ts";
@@ -768,21 +768,16 @@ test("AC:CASE-LCH-004 a milestone completion waiting on its lock while a linked 
 	const hold = new Promise<void>((resolve) => (release = resolve));
 	let locked!: () => void;
 	const lockTaken = new Promise<void>((resolve) => (locked = resolve));
-	let xid = "";
+	let pid = 0;
 	const holder = f.admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM launch_milestone WHERE id=${view.id} FOR UPDATE`);
-		xid = String((await tx.execute<{ x: string }>(sql`SELECT pg_current_xact_id()::text AS x`)).rows[0]!.x);
+		pid = (await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`)).rows[0]!.pid;
 		locked();
 		await hold;
 	});
 	await lockTaken;
 	const completion = complete(c.admin, view, key());
-	let waits = 0;
-	while (waits === 0)
-		waits = (
-			await one<{ n: number }>(sql`SELECT count(*)::int n FROM pg_locks WHERE locktype='transactionid'
-				AND transactionid::text=${xid} AND NOT granted`)
-		).n;
+	await waitingOnLock(f.admin, { blockedBy: pid });
 	const reopened = ok(await tick(c.admin, T1, "reopen")).task;
 	release();
 	await holder;

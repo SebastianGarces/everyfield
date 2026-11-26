@@ -874,7 +874,12 @@ test("AC:SEC-07 profile patches parse on the server: no mass assignment, malform
 		};
 		const saved = await profile(admin, P, first);
 		assert.equal(saved.status, "ok");
-		const changed = await profile(admin, P, { ...first, input: { plant: P, patch: { name: "Jamie Two" } } });
+		// The fresh revision, so only the stored request digest can refuse the changed body.
+		const changed = await profile(admin, P, {
+			requestKey: key,
+			expectedRevision: await revisionOf(P),
+			input: { plant: P, patch: { name: "Jamie Two" } },
+		});
 		const code = (changed as { error: { code: string } }).error.code;
 		assert.equal(code === "conflict" ? "idempotency_conflict" : code, result.changed_digest_error);
 		assert.equal((await plantRow()).name, "Jamie");
