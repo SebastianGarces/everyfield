@@ -21,11 +21,9 @@ export {
 	runIntelligenceRefresh,
 	runIntelligenceRefreshBatch,
 	scheduleIntelligenceRefresh,
-	validateOutput,
 	NetworkProviderDeadline,
 	NetworkRetrievalUnavailable,
 	type RefreshConfig,
-	type RefreshClaim,
 } from "./intelligence.ts";
 export { activateNetworkReference, validateNetworkReference, writeNetworkReference } from "./reference.ts";
 export { readLocationHistory } from "./locations.ts";

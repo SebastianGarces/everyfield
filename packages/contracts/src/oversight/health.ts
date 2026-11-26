@@ -53,7 +53,6 @@ export const strength = z.strictObject({
 	lens: lensKey.nullable(),
 	evidence: z.array(evidenceFact),
 });
-export type Strength = z.infer<typeof strength>;
 export const releasedAssessment = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("withheld") }),
 	z.strictObject({ status: z.literal("not_assessed") }),
@@ -303,9 +302,8 @@ export const intelligenceGroup = z.strictObject({
 export type IntelligenceGroup = z.infer<typeof intelligenceGroup>;
 const intelligenceRun = z.strictObject({ runId: tenantId, ranAt: instant });
 export const geographyRelease = z.strictObject({ key: z.string(), credit: z.string() });
-export const INTELLIGENCE_STATUSES = ["ready", "reference_not_ready"] as const;
 export const intelligenceView = z.strictObject({
-	status: z.enum(INTELLIGENCE_STATUSES),
+	status: z.enum(["ready", "reference_not_ready"]),
 	organizationName: z.string(),
 	timeZone: z.string(),
 	level,

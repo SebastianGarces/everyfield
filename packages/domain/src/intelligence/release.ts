@@ -72,4 +72,3 @@ SELECT count(*)::int AS n FROM x`);
 		},
 	};
 }
-export type AssessmentRelease = ReturnType<typeof createRelease>;

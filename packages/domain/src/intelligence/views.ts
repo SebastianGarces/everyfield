@@ -209,7 +209,7 @@ const OBSERVED: Record<c.LensKey, (f: c.PlantFacts) => Observed> = {
 };
 const SEVERITY_RANK = { high: 0, medium: 1 } as const;
 
-export function drilldownOf(facts: unknown, cited: ReadonlySet<c.LensKey>): c.DrilldownItem[] {
+function drilldownOf(facts: unknown, cited: ReadonlySet<c.LensKey>): c.DrilldownItem[] {
 	const { facts: f, entries } = catalogOf(facts);
 	if (!f) return [];
 	return c.LENSES.flatMap((lens, order) => {

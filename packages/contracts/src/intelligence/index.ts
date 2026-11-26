@@ -90,7 +90,6 @@ export const careTrends = carePage.extend({
 		),
 	}),
 });
-export type CareTrends = z.infer<typeof careTrends>;
 export const careCurrent = z.strictObject({ zone: z.string().min(1), revision, week: careWeek });
 export const careWriteResult = z.strictObject({
 	outcome: z.enum(["saved", "unchanged"]),

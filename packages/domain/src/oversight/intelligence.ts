@@ -45,8 +45,6 @@ export type RefreshConfig = {
 	clock?: Clock;
 	leaseMs?: number;
 };
-export type RefreshSettlement =
-	"published" | "refused_stale_claim" | "superseded" | "failed" | "deferred" | "degraded" | "reference_not_ready";
 export type RefreshClaim = { runId: string; organization: string; generation: number; owner: string };
 
 export const VIOLATIONS = ["unsupported_numeric_value", "prohibited_fields", "invalid_reference_citation"] as const;
@@ -75,7 +73,7 @@ const keysOf = (value: unknown): string[] =>
 			? Object.entries(value).flatMap(([k, v]) => [k, ...keysOf(v)])
 			: [];
 
-export function validateOutput(output: NetworkOutput, expected: NetworkFinding[], citations: string[]): Violation[] {
+function validateOutput(output: NetworkOutput, expected: NetworkFinding[], citations: string[]): Violation[] {
 	const found = new Set<Violation>();
 	const byKey = new Map(expected.map((f) => [`${f.level}:${f.key}`, f]));
 	for (const f of output.findings) {
