@@ -5,7 +5,18 @@ import "server-only";
 import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people/people.ts";
-import { command, deny, next, parse, reply, type TeamOwned, type TeamsContext, type Tx, type Writer } from "./core.ts";
+import {
+	churchDate,
+	command,
+	deny,
+	next,
+	parse,
+	reply,
+	type TeamOwned,
+	type TeamsContext,
+	type Tx,
+	type Writer,
+} from "./core.ts";
 import { catalogRole, catalogTeam, offerRemains, TEMPLATE_VERSION, unknownSelection } from "./templates.ts";
 
 const text = z.string().nullable();
@@ -60,8 +71,6 @@ const roleRow = z.object({
 });
 type RoleRow = z.infer<typeof roleRow>;
 
-const churchDate = (plantId: string) =>
-	sql`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id = ${plantId}::uuid))::date`;
 const keep = <T>(nextValue: T | undefined, previous: T) => (nextValue === undefined ? previous : nextValue);
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 const tuples = (rows: SQL[]) => sql.join(rows, sql`, `);

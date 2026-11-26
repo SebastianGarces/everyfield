@@ -410,9 +410,11 @@ test("INV-account-wiki: an account browses and searches only published public ar
 	assert.deepEqual(await reading(), before);
 });
 
-test("INV-account-document: a document an account asks Evry to write is stored only on approval, word for word, as one private document", async () => {
+test("AC:DC-026 INV-account-document: a document an account asks Evry to write is stored only on approval, word for word, as one private document", async () => {
 	const A = await person();
 	const before = await everyDocument();
+	const none = { plant_grants: 0, organization_grants: 0, new_reading_credit: 0 };
+	assert.deepEqual(await grants(A), none, "no church, so Evry holds no church grant");
 	const proposed = await reviewing(() =>
 		w.ask(A, "Write down why I want to plant", [
 			proposes("documents.saveNative", { kind: "new", title: "Why plant", text: "# Why\n\nFor the city.\n\n- Hope" }),
@@ -422,8 +424,9 @@ test("INV-account-document: a document an account asks Evry to write is stored o
 		["title", null, "Why plant"],
 		["text", null, "Why\n\nFor the city.\n\n• Hope"],
 	]);
-	assert.deepEqual(await everyDocument(), before);
-	assert.equal((await w.approve(A, proposed)).review.outcome, "completed");
+	assert.deepEqual(await everyDocument(), before, "the write waits for the exact review");
+	assert.equal((await w.approve(A, proposed)).review.outcome, "completed", "one approval is the only approval");
+	assert.deepEqual(await grants(A), none);
 	const [saved, ...more] = await documentsOf(A);
 	assert.deepEqual([saved!.title, saved!.kind, more], ["Why plant", "native", []]);
 	assert.deepEqual(readNative(saved!.body).body, {
@@ -644,7 +647,7 @@ test("INV-account-privacy: a linked sending church, its network or a church Owne
 	}
 });
 
-test("INV-account-conversion: once an account gains a church, its plant context carries neither the account conversation nor its documents, and an earlier account review can't be approved there", async () => {
+test("INV-account-conversion: once an account gains a church, its plant Evry carries neither the Discovery conversation nor its documents; the conversation stays readable, read-only, and an earlier account review can't be approved there", async () => {
 	const A = await person();
 	const Aa = await w.actorOf(A);
 	const C = await w.converse(Aa);
@@ -666,17 +669,20 @@ test("INV-account-conversion: once an account gains a church, its plant context 
 	const seated = await w.actorOf(A);
 	assert.equal(seated.contextKind, "plant");
 	const before = await documentsOf(A);
+	assert.equal((await readConversation(w.db, seated, C)).conversation.discovery, true);
+	assert.equal((await readReview(w.db, seated, waiting.id)).closed, true);
 	assert.deepEqual(
 		[
-			await refusal(readConversation(w.db, seated, C)),
 			await refusal(submitTurn(w.db, seated, C, { requestKey: randomUUID(), text: "go on" })),
-			await refusal(readReview(w.db, seated, waiting.id)),
 			await refusal(approveProposal(w.db, seated, waiting.id, w.witness(waiting), null)),
 		],
-		["not_found", "not_found", "not_found", "not_found"],
+		["discovery_read_only", "review_closed"],
 	);
 	assert.equal(await w.effect(), null);
-	assert.equal((await listConversations(w.db, seated, {})).total, 0);
+	assert.deepEqual(
+		(await listConversations(w.db, seated, {})).items.map((c) => [c.id, c.discovery]),
+		[[C, true]],
+	);
 	const asked = await w.ask(
 		A,
 		"What documents are there?",

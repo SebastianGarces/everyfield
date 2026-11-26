@@ -300,7 +300,7 @@ test("AC:PI-014 history lists every revision newest first, and the runtime login
 	assert.equal((await counts(w)).revisions, 3);
 });
 
-test("AC:B01-025 AC:B01-026 ages, renewal at 31 days, and funding that never expires", async () => {
+test("AC:B01-026 ages, renewal at 31 days, and funding that never expires", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	now = at(0);
@@ -344,7 +344,7 @@ test("AC:B01-025 AC:B01-026 ages, renewal at 31 days, and funding that never exp
 	);
 });
 
-test("AC:B01-025 ages count the church's calendar days in its own zone", async () => {
+test("AC:B01-026 ages count the church's calendar days in its own zone", async () => {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='Pacific/Auckland' WHERE id=${w.id}`);
 	const a = await seated(w);
@@ -358,7 +358,7 @@ test("AC:B01-025 ages count the church's calendar days in its own zone", async (
 	assert.deepEqual((await entry(a, "prayer_rhythm_established")).renewal, { status: "needs_renewing" });
 });
 
-test("AC:B01-025 AC:B01-026 Still true refreshes only that signal; stale or wrong requests write nothing", async () => {
+test("AC:B01-026 Still true refreshes only that signal; stale or wrong requests write nothing", async () => {
 	const w = await f.workspace();
 	const a = await seated(w);
 	now = at(0);

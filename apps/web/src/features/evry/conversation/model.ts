@@ -11,12 +11,14 @@ export type Conversation = {
 	lastSequence: number;
 	activeTurnId: string | null;
 	updatedAt: string;
+	discovery: boolean;
 };
 
 type ErrorCode =
 	| "not_found"
 	| "access_denied"
 	| "church_changed"
+	| "discovery_read_only"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
@@ -415,10 +417,18 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 		case "access_denied":
 		case "not_found":
 			return "Not sent. You no longer have access to this conversation.";
+		case "discovery_read_only":
+			return `Not sent. ${DISCOVERY_READ_ONLY}`;
 		default:
 			return "Not sent. Send it again.";
 	}
 }
+
+export const DISCOVERY_READ_ONLY = "This chat stays in Discovery, so it is read-only. Start a new chat to ask Evry.";
+export const DISCOVERY_STAYS = {
+	title: "This chat stays in Discovery",
+	text: "It's read-only, and you can still read it in History. Start a new chat to ask Evry about your church.",
+};
 
 export const churchChanged = (send: Send) => send.state === "refused" && send.error?.code === "church_changed";
 
