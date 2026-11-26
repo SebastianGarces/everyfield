@@ -131,7 +131,9 @@ function AccountForm({
 					<SessionActions />
 				</SettingRow>
 				<SettingRow label="Delete your account" description={deletionText(viewer)}>
-					{ownsSeat(viewer) ? null : <AccountDeletionDialog section={account} onRequested={onDeletionRequested} />}
+					{ownsSeat(viewer) ? null : (
+						<AccountDeletionDialog section={account} viewer={viewer} onRequested={onDeletionRequested} />
+					)}
 				</SettingRow>
 			</SectionBody>
 			<SaveFooter

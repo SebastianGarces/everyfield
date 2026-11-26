@@ -13,7 +13,11 @@ export function currentAuthority(actor: EvryActor): SQL {
 		actor.owner.kind === "account"
 			? sql`${actor.owner.id}::uuid=${actor.accountId}::uuid`
 			: sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${actor.accountId}::uuid AND coalesce(s.plant_id,s.organization_id)=${actor.owner.id}::uuid AND s.ended_at IS NULL AND s.role=${actor.role})`;
-	return sql`(${session} AND ${seat} AND ${writeVisibility(actor.accountId, actor.owner)})`;
+	const context =
+		actor.owner.kind === "organization"
+			? sql`EXISTS(SELECT FROM organization o WHERE o.id=${actor.owner.id}::uuid AND o.kind=${actor.contextKind} AND o.kind=${actor.owner.organizationKind})`
+			: sql`${actor.contextKind === actor.owner.kind}::boolean`;
+	return sql`(${session} AND ${seat} AND ${context} AND ${writeVisibility(actor.accountId, actor.owner)})`;
 }
 
 export function liveAuthority(actor: EvryActor): SQL {

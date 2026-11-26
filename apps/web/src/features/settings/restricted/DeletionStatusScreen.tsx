@@ -120,7 +120,12 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 		}
 	};
 
-	const what = subject.kind === "account" ? "Your account" : (subject.churchName ?? "Your church workspace");
+	const what =
+		subject.kind === "account"
+			? "Your account"
+			: subject.churchName
+				? `${subject.churchName}'s account`
+				: "Your church plant account";
 
 	switch (view.step) {
 		case "proof":
@@ -165,7 +170,7 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 					<p>
 						{subject.kind === "account"
 							? "Your login is closed, and every session has ended."
-							: "Every seat has lost access, and every session has ended. Nothing in the workspace is visible."}{" "}
+							: "Every seat has lost access, and every session has ended. Nothing in the account is visible."}{" "}
 						{open
 							? `You can cancel until ${deadline}. After that, the data is deleted. Backup copies expire within 7 days after the deletion finishes.`
 							: `The time to cancel ended on ${deadline}.`}
@@ -175,7 +180,7 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 					{open ? (
 						<div className="flex flex-wrap gap-2.5">
 							<Button variant="primary" onClick={cancel} loading={cancelling}>
-								{subject.kind === "account" ? "Keep my account" : "Keep the workspace"}
+								{subject.kind === "account" ? "Keep my account" : "Keep the church plant account"}
 							</Button>
 						</div>
 					) : null}
@@ -338,14 +343,14 @@ const PROOF_TEXT = {
 	},
 	workspace: {
 		requested: {
-			title: "Your church workspace is scheduled for deletion",
+			title: "Your church plant account is scheduled for deletion",
 			lead: "Every seat has lost access, and you are signed out on every device.",
 		},
 		later: {
-			title: "Church workspace deletion",
-			lead: "To see the deletion request for your church workspace or cancel it, enter the email and password of the Owner who asked for it.",
+			title: "Church plant account deletion",
+			lead: "To see the deletion request for your church plant account or cancel it, enter the email and password of the Owner who asked for it.",
 		},
-		refused: "This email and password do not match an Owner whose church workspace is scheduled for deletion.",
+		refused: "This email and password do not match an Owner whose church plant account is scheduled for deletion.",
 	},
 } as const;
 
