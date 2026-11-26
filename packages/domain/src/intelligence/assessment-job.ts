@@ -20,7 +20,7 @@ import {
 	type Drafter,
 	type DraftProgress,
 } from "./assessment.ts";
-import { captureFacts } from "./facts.ts";
+import { captureFacts, captureMeasured, revisionMatches } from "./facts.ts";
 import { retrieveMethodology, type Retrieved } from "./retrieval.ts";
 
 export const ASSESSMENT_TIMING = {
@@ -122,11 +122,12 @@ ${finish(state, code)} SELECT 1`);
 		return db.transaction(
 			async (tx) => {
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
-				const f = await captureFacts(tx, j.plant, config.clock ? config.clock.now() : null);
-				if (!f) {
+				const measured = await captureMeasured(tx, j.plant, config.clock ? config.clock.now() : null);
+				if (!measured) {
 					await close(tx, j, "cancelled", "plant_removed");
 					return "none" as const;
 				}
+				const f = measured.facts;
 				let retrieved: Retrieved;
 				try {
 					retrieved = await tx.transaction((t) => retrieveMethodology(t, j.plant));
@@ -138,7 +139,8 @@ ${finish(state, code)} SELECT 1`);
 				const activation = retrieved.status === "ok" ? retrieved.activation : null;
 				if (
 					demand === "change" &&
-					j.last?.source_revision === f.sourceRevision &&
+					j.last &&
+					revisionMatches(measured.inputs, j.last.source_revision) &&
 					(j.last.reference_activation ?? null) === (activation?.number ?? null)
 				) {
 					await close(tx, j, "succeeded", "unchanged");

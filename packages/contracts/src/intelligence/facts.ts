@@ -15,6 +15,9 @@ export const VISION_WATCH_DAYS = 21;
 export const VISION_DIRECT_DAYS = 28;
 export const COHESION_SHARE = 0.2;
 export const COHESION_MIN = 3;
+export const CONTACT_RECENT_DAYS = 14;
+export const CANDIDATE_LOOKBACK_DAYS = 180;
+export const LEGACY_PROXY_FORMULA = "legacy-profile-proxy";
 
 export const MINISTRY_RESPONSIBILITIES = [
 	{ key: "worship", label: "Worship" },
@@ -78,6 +81,9 @@ export const cohesion = z.strictObject({
 	reason: z.enum(["no_attendance"]).nullable(),
 	disengaged: z.array(personRef),
 	committed: z.int().min(0),
+	ratio: z.number().min(0).max(1).nullable().optional(),
+	leaderDisengaged: z.array(personRef).optional(),
+	voice: z.enum(["steady", "watch", "direct"]).nullable().optional(),
 });
 export type Cohesion = z.infer<typeof cohesion>;
 
@@ -136,6 +142,50 @@ export const firstService = z.discriminatedUnion("path", [
 	}),
 ]);
 
+export const SOURCE_KEYS = [
+	"personal_referral",
+	"social_media",
+	"vision_meeting",
+	"website",
+	"event",
+	"partner_church",
+	"meeting_guest_list",
+	"other",
+	"unknown",
+] as const;
+export const sourceMix = z.strictObject({
+	cohort: z.literal("live_people"),
+	total: z.int().min(0),
+	counts: z.partialRecord(z.enum(SOURCE_KEYS), z.int().min(1)),
+});
+export type SourceMix = z.infer<typeof sourceMix>;
+export const leadership = z.strictObject({
+	windowDays: z.int().min(1),
+	candidates: z.array(z.strictObject({ person: personRef, basis: z.enum(["records", "attestation"]) })),
+	people: z.array(
+		z.strictObject({
+			person: personRef,
+			attendanceDays: z.int().min(0).nullable(),
+			volunteeringDays: z.int().min(0).nullable(),
+			status: z.enum(["candidate", "not_yet", "unknown"]),
+		}),
+	),
+});
+export type Leadership = z.infer<typeof leadership>;
+export const contactFreshness = z.strictObject({
+	recentDays: z.int().min(1),
+	people: z.array(
+		z.strictObject({ person: personRef, lastContactedAt: instant.nullable(), recent: z.boolean().nullable() }),
+	),
+});
+export type ContactFreshness = z.infer<typeof contactFreshness>;
+export const ownership = z.strictObject({
+	owners: z.int().min(0),
+	owned: z.array(recordId),
+	unowned: z.array(recordId),
+	staleUnownedPeople: z.int().min(0),
+});
+export type Ownership = z.infer<typeof ownership>;
 const recordPresence = z.strictObject({ count: z.int().min(0), latestOn: localDate.nullable() });
 const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
 
@@ -155,6 +205,10 @@ export const plantFacts = z.strictObject({
 	humanRecords,
 	launch: z.strictObject({ targetOn: localDate.nullable(), daysToLaunch: z.int().nullable() }),
 	firstService: firstService.optional(),
+	sources: sourceMix.optional(),
+	leadership: leadership.optional(),
+	contact: contactFreshness.optional(),
+	ownership: ownership.optional(),
 	criteria: z.partialRecord(criterionKey, criterionStatus),
 });
 export type PlantFacts = z.infer<typeof plantFacts>;

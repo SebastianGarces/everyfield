@@ -175,3 +175,59 @@ export function trendOf(cells: z.infer<typeof trendCells>): c.TrendValue[] {
 		return typeof cell.value === "number" ? { state: "measured", value: cell.value } : { state: "unknown" };
 	});
 }
+
+type Observed = "high" | "medium" | null;
+const OBSERVED: Record<c.LensKey, (f: c.PlantFacts) => Observed> = {
+	vision: (f) =>
+		f.vision.status === "direct"
+			? "high"
+			: f.vision.status === "watch" || f.vision.status === "over_target"
+				? "medium"
+				: null,
+	ownership: (f) => (f.followUps.status === "measured" && f.followUps.onTime < f.followUps.measured ? "medium" : null),
+	critical_mass: (f) => (f.growth.status === "stalled" ? "high" : f.growth.status === "slowed" ? "medium" : null),
+	cohesion: (f) => (f.cohesion.status === "flagged" ? "high" : null),
+	prayer: () => null,
+	generosity: () => null,
+	leadership: (f) => (f.coverage.status === "not_met" ? "medium" : null),
+	training: (f) => (f.training.status === "not_met" ? "medium" : null),
+};
+const SEVERITY_RANK = { high: 0, medium: 1 } as const;
+
+export function drilldownOf(facts: unknown, cited: ReadonlySet<c.LensKey>): c.DrilldownItem[] {
+	const { facts: f, entries } = catalogOf(facts);
+	if (!f) return [];
+	return c.LENSES.flatMap((lens, order) => {
+		const severity = OBSERVED[lens.key](f);
+		return severity && !cited.has(lens.key)
+			? [{ item: { lens: lens.key, label: lens.label, severity, evidence: evidenceOf(entries, lens.headline) }, order }]
+			: [];
+	})
+		.sort((a, b) => SEVERITY_RANK[a.item.severity] - SEVERITY_RANK[b.item.severity] || a.order - b.order)
+		.map((x) => x.item);
+}
+
+export function focusOf(runId: string, facts: unknown, draft: c.DraftOutput): c.FocusView {
+	const lensesOfPoint = (p: c.DraftPoint) => [
+		...new Set(p.citations.map(c.lensOfKey).filter((l): l is c.LensKey => l !== null)),
+	];
+	const point = (p: c.DraftPoint) => ({ title: p.title, severity: c.SEVERITY[p.urgency], lenses: lensesOfPoint(p) });
+	const cited = new Set([draft.focus, ...draft.supporting].flatMap(lensesOfPoint));
+	return c.focusView.parse({
+		runId,
+		primary: point(draft.focus),
+		supplements: draft.supporting.map(point),
+		positives: draft.positives.map(point),
+		drilldown: drilldownOf(facts, cited),
+	});
+}
+
+const rate = (n: unknown, d: unknown) => (typeof n === "number" && typeof d === "number" && d > 0 ? n / d : null);
+export const followUpsCell = z.record(z.string(), z.unknown()).nullable();
+export function ratesOf(followUps: z.infer<typeof followUpsCell>): c.AssessmentHistory["runs"][number]["rates"] {
+	if (!followUps || followUps.status === "unknown") return { followUpWithin48Hours: null, actualContact: null };
+	return {
+		followUpWithin48Hours: rate(followUps.onTime, followUps.measured),
+		actualContact: rate(followUps.contacted, followUps.total),
+	};
+}
