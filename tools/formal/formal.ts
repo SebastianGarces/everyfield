@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
+import { ownerLabels } from "../../scripts/containers.ts";
 
 const TLA_TOOLS = {
 	version: "1.7.4",
@@ -72,6 +73,15 @@ function runner(): Runner {
 			return { kind: "docker", env };
 	}
 	throw new FormalError("TLC needs Java 11 or newer, or a running Docker. Neither answered.");
+}
+
+export function dockerRun(name: string, work: string, jar: string, args: readonly string[]): string[] {
+	return [
+		...["run", "--rm", "--name", name, ...ownerLabels(import.meta.dirname)],
+		...["--platform", process.arch === "arm64" ? "linux/arm64" : "linux/amd64"],
+		...["--user", `${process.getuid?.() ?? 0}`, "-v", `${work}:/model`, "-v", `${jar}:/tla2tools.jar:ro`],
+		...["-w", "/model", JAVA_IMAGE, "java", ...args.map((a) => (a === jar ? "/tla2tools.jar" : a))],
+	];
 }
 
 type Simulate = { traces: number; depth: number; seed: number };
@@ -146,32 +156,9 @@ function tlc(dir: string, jar: string, how: Runner, simulate?: Simulate) {
 		if (how.kind === "java") result = spawnSync("java", args, options);
 		else {
 			const name = `evf-formal-${process.pid}-${Date.now()}`;
-			const platform = process.arch === "arm64" ? "linux/arm64" : "linux/amd64";
 			const env = { ...process.env, ...how.env };
-			result = spawnSync(
-				"docker",
-				[
-					"run",
-					"--rm",
-					"--name",
-					name,
-					"--platform",
-					platform,
-					"--user",
-					`${process.getuid?.() ?? 0}`,
-					"-v",
-					`${work}:/model`,
-					"-v",
-					`${jar}:/tla2tools.jar:ro`,
-					"-w",
-					"/model",
-					JAVA_IMAGE,
-					"java",
-					...args.map((a) => (a === jar ? "/tla2tools.jar" : a)),
-				],
-				{ ...options, env },
-			);
-			if (result.error) spawnSync("docker", ["rm", "-f", name], { env, stdio: "ignore" });
+			result = spawnSync("docker", dockerRun(name, work, jar, args), { ...options, env });
+			if (result.error) spawnSync("docker", ["rm", "-f", "-v", name], { env, stdio: "ignore" });
 		}
 		const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
 		if (result.error) throw new FormalError(`TLC on ${dir} did not finish: ${result.error.message}\n${output}`);

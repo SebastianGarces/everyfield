@@ -22,6 +22,11 @@ touches backend or database code (the "backend or database code" rule in `tools/
 own throwaway Postgres, and writes a census.json record next to checks.json. An over-budget write or request, an N+1 or a missing budget fails it;
 slack only tightens `tests/integration/writes/limits.json` in the worktree, so commit that file (T-479).
 
+Never start a database container by hand; use `bin/dev pg` or `bin/app up`, which the sweep cleans. `bin/dev pg up`
+starts a scratch Postgres for this worktree, `bin/dev pg run -- <cmd>` runs a command with its settings, and `bin/dev pg
+down` removes it. `bin/dev containers sweep` removes the containers of ended tasks and gone worktrees: a LaunchAgent
+runs it every 5 minutes (`bin/dev containers install`), and so do `bin/app up` and `bin/dev check` when they start.
+
 Format, lint and typecheck fail fast on your own machine. `pnpm install` points this repo's `core.hooksPath` at
 `tools/git-hooks` (or run `bin/dev hooks install`). Its `pre-push` hook runs `bin/dev fast-check` on each push of a task
 branch (`refs/heads/evf/*`) and refuses the push when it fails. The check covers only the files changed since the merge
