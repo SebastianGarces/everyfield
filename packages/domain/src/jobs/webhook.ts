@@ -112,8 +112,9 @@ async function apply(tx: Transaction, eventId: string) {
 function parseJson(text: string): unknown {
 	try {
 		return JSON.parse(text);
-	} catch {
-		return undefined;
+	} catch (error) {
+		if (error instanceof SyntaxError) return undefined;
+		throw error;
 	}
 }
 export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
