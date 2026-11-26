@@ -423,7 +423,13 @@ const auditedValues = new Map<string, z.ZodType>([
 	["skill", z.object({ id: z.uuid(), category: z.string(), proficiency: z.string().nullable() }).nullable()],
 ]);
 export function peopleValues(before?: Revisioned, after?: Revisioned) {
-	const delta = personChanges(before, after);
+	return allowedPeopleValues(personChanges(before, after));
+}
+type ChangedValues = Record<string, unknown>;
+export function allowedPeopleValues(
+	delta: { before: ChangedValues | null; after: ChangedValues | null },
+	named: readonly string[] = [],
+) {
 	const changed = Object.keys({ ...delta.before, ...delta.after });
 	const kept = (value: Record<string, unknown>) =>
 		Object.fromEntries(
@@ -432,7 +438,7 @@ export function peopleValues(before?: Revisioned, after?: Revisioned) {
 				return schema && Object.hasOwn(value, key) ? [[key, schema.parse(value[key])]] : [];
 			}),
 		);
-	const fields = changed.filter((key) => !auditedValues.has(key)).sort();
+	const fields = [...new Set([...named, ...changed.filter((key) => !auditedValues.has(key))])].sort();
 	return {
 		before: delta.before && kept(delta.before),
 		after: delta.after && { ...kept(delta.after), ...(delta.before && fields.length ? { fields } : {}) },

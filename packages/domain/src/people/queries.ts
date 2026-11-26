@@ -427,9 +427,9 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 }
 const currentNames = (owner: string, v: SQL) =>
 	sql`CASE WHEN jsonb_typeof(${v}->'membership')='object' THEN jsonb_set(${v},'{membership,name}',coalesce((SELECT to_jsonb(n.name)
- FROM household n WHERE n.id=(${v}#>>'{membership,householdId}')::uuid AND n.plant_id=${sql.param(owner)}),${v}#>'{membership,name}','"a deleted household"'))
+ FROM household n WHERE n.id=(${v}#>>'{membership,householdId}')::uuid AND n.plant_id=${sql.param(owner)}),'"a deleted household"'))
  WHEN jsonb_typeof(${v}->'guardian')='object' THEN jsonb_set(${v},'{guardian,displayName}',coalesce((SELECT to_jsonb(n.display_name)
- FROM person n WHERE n.id=(${v}#>>'{guardian,personId}')::uuid AND n.tenant_id=${sql.param(owner)}),${v}#>'{guardian,displayName}','"A removed person"'))
+ FROM person n WHERE n.id=(${v}#>>'{guardian,personId}')::uuid AND n.tenant_id=${sql.param(owner)}),'"A removed person"'))
  ELSE ${v} END`;
 export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeof c.activityRequest>, gate: SQL) {
 	const feed = sql`(SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)})`;
