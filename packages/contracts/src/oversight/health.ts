@@ -5,7 +5,7 @@ import { counted } from "../common/text.ts";
 import { instant, localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
 import { GROWTH_SLOWED_DAYS, GROWTH_STALLED_DAYS } from "../intelligence/facts.ts";
-import { concern, lensKey, LENSES } from "../intelligence/views.ts";
+import { concern, evidenceFact, lensKey, LENSES } from "../intelligence/views.ts";
 
 const count = z.int().min(0);
 
@@ -47,6 +47,13 @@ export function healthOf(sharesFindings: boolean, p: Preparation | null, release
 	return released.concerns ? "watch" : "on_track";
 }
 
+export const strength = z.strictObject({
+	id: z.string().regex(/^[0-9a-f-]{36}:\d+$/),
+	ordinal: z.int().min(0),
+	lens: lensKey.nullable(),
+	evidence: z.array(evidenceFact),
+});
+export type Strength = z.infer<typeof strength>;
 export const releasedAssessment = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("withheld") }),
 	z.strictObject({ status: z.literal("not_assessed") }),
@@ -56,6 +63,7 @@ export const releasedAssessment = z.discriminatedUnion("status", [
 		asOf: instant,
 		phase: z.int().min(0).max(6),
 		concerns: z.array(concern),
+		strengths: z.array(strength),
 		withheld: count,
 	}),
 ]);
@@ -87,7 +95,7 @@ export type Level = z.infer<typeof level>;
 
 export const RULE_IDS = ["NIR-03", "NIR-04", "NIR-05", "NIR-06"] as const;
 export type RuleId = (typeof RULE_IDS)[number];
-export const PATTERN_RULE_IDS = ["NIR-01", ...RULE_IDS] as const;
+export const PATTERN_RULE_IDS = ["NIR-01", "NIR-02", ...RULE_IDS] as const;
 export type PatternRuleId = (typeof PATTERN_RULE_IDS)[number];
 const ruleOf = (id: PatternRuleId) => {
 	const r = rubric.rules.find((x) => x.id === id);
@@ -175,6 +183,13 @@ export const intelligencePattern = z.discriminatedUnion("theme", [
 	}),
 	z.strictObject({
 		...patternBase,
+		rule: z.literal("NIR-02"),
+		citation: citation("NIR-02"),
+		theme: z.literal("shared_strength"),
+		lens: lensKey,
+	}),
+	z.strictObject({
+		...patternBase,
 		rule: z.literal("NIR-03"),
 		citation: citation("NIR-03"),
 		theme: z.literal("near_launch"),
@@ -224,6 +239,13 @@ export function patternText(p: IntelligencePattern): {
 				...base,
 				title: `Shared concern: ${lensLabel(p.lens)}`,
 				lines: [fill({ support_count: p.support, concern_key: lensLabel(p.lens), observed_lens_count: p.observed })],
+				evidence: evidence("released assessment"),
+			};
+		case "shared_strength":
+			return {
+				...base,
+				title: `Shared strength: ${lensLabel(p.lens)}`,
+				lines: [fill({ support_count: p.support, strength_key: lensLabel(p.lens) })],
 				evidence: evidence("released assessment"),
 			};
 		case "near_launch":
@@ -281,7 +303,9 @@ export const intelligenceGroup = z.strictObject({
 export type IntelligenceGroup = z.infer<typeof intelligenceGroup>;
 const intelligenceRun = z.strictObject({ runId: tenantId, ranAt: instant });
 export const geographyRelease = z.strictObject({ key: z.string(), credit: z.string() });
+export const INTELLIGENCE_STATUSES = ["ready", "reference_not_ready"] as const;
 export const intelligenceView = z.strictObject({
+	status: z.enum(INTELLIGENCE_STATUSES),
 	organizationName: z.string(),
 	timeZone: z.string(),
 	level,

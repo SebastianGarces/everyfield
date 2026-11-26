@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 126,
-  "column_count": 1419,
-  "foreign_key_count": 412,
+  "table_count": 128,
+  "column_count": 1440,
+  "foreign_key_count": 415,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -1424,6 +1424,10 @@
       "medium",
       "high"
     ],
+    "assessment_release.cause": [
+      "opened",
+      "elapsed_72_hours"
+    ],
     "assessment_run.rubric_version": [
       "v0",
       "v1"
@@ -1530,6 +1534,7 @@
       "intelligence.assessment_opened",
       "intelligence.feedback_saved",
       "intelligence.refresh_requested",
+      "intelligence.released",
       "invitation.changed",
       "invitation.claimed",
       "invitation.revoked",
@@ -2909,6 +2914,19 @@
     "network_intelligence_feedback.rating": [
       "useful",
       "not_useful"
+    ],
+    "network_intelligence_run.outcome": [
+      "pending",
+      "deferred",
+      "published",
+      "failed",
+      "degraded",
+      "superseded"
+    ],
+    "network_reference.state": [
+      "building",
+      "validated",
+      "failed"
     ],
     "notice.timezone": [
       "Africa/Abidjan",
@@ -10275,6 +10293,194 @@
       "rls": false
     },
     {
+      "name": "assessment_release",
+      "domain": "intelligence",
+      "purpose": "The one persisted release of a published Plant Intelligence assessment to the plant's organizations (REQ-PI-024, REQ-PI-032, REQ-PI-037): written by the first eligible Owner or Admin open, or by the 72-hour release. Oversight getPlant, listPlants, Network Intelligence and the 72-hour rule read only this record.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-044"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-044"
+        ],
+        "rule": "WP-044 writes it from intelligence.markAssessmentSeen and intelligence.releaseAssessmentToOversight."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [],
+      "scope": "intelligence",
+      "invariants": [
+        "Written once per run, by an eligible open or by the 72-hour release, never by rendering or by an organization seat.",
+        "Never changed after it is written."
+      ],
+      "revision": "Immutable; no revision.",
+      "idempotency": "One row per run; a repeated open or release writes nothing and replays the recorded release.",
+      "deletion": "Goes with its run or plant.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The released run.",
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the run was released to oversight.",
+          "name": "released_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "opened (an eligible first open) or elapsed_72_hours (the 72-hour release).",
+          "name": "cause",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The release write's request key; null for a release by an open.",
+          "name": "request_key",
+          "type": "uuid",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "run_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its run."
+          },
+          "columns": [
+            "run_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "cause in ('opened', 'elapsed_72_hours')"
+      ],
+      "indexes": {
+        "assessment_release_plant_idx": {
+          "name": "assessment_release_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "released_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_release_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assessment_release_run",
+          "assessment_release_plant"
+        ],
+        "checks": [
+          "assessment_release_cause"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "assessment_run",
       "domain": "intelligence",
       "purpose": "One Plant Intelligence assessment run of a plant (REQ-PI-016 to REQ-PI-019, REQ-PI-026): the exact captured fact snapshot and model input, the reference and rubric versions it read, each draft with the rules it broke, the usage, and the published assessment with its citations when a draft passed every check.",
@@ -13613,7 +13819,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.enrollment_updated','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','flags.changed','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.enrollment_updated','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','flags.changed','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','intelligence.released','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -29035,6 +29241,18 @@
           "name": "required_training",
           "type": "integer",
           "nullable": true
+        },
+        {
+          "note": "The plant's affiliation revision when captured: its sharing contributor revision.",
+          "name": "affiliation_revision",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "note": "The plant's assessment released to oversight when captured, if any.",
+          "name": "released_run_id",
+          "type": "uuid",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -29075,6 +29293,23 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "scope_exception": "The released result a run captured belongs to the plant; each read rechecks the plant's current link and sharing, so the relation grants no plant access.",
+          "deletion": {
+            "action": "set_null",
+            "policy": "A purged run clears the captured release; the network run stays."
+          },
+          "columns": [
+            "released_run_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
         },
         {
           "scope_exception": "A run's plant rows and ratings belong to the run's organization. Each read joins the run on its organization and rechecks the plant's current link and sharing; the relation grants no plant access.",
@@ -29137,6 +29372,7 @@
         "unique": [],
         "foreign": [
           "network_intelligence_plant_run",
+          "network_intelligence_plant_released",
           "network_intelligence_plant_plant",
           "network_intelligence_plant_region"
         ],
@@ -29151,9 +29387,13 @@
     {
       "name": "network_intelligence_run",
       "domain": "intelligence",
-      "purpose": "One Network Intelligence run of a sending church or network (REQ-PI-043): when an Owner or Admin pressed Refresh and under which rubric. Patterns are recomputed at read time from its plant rows that still share with the organization.",
+      "purpose": "One Network Intelligence run of a sending church or network (REQ-PI-043): a claimed, leased refresh that captures its plant contributions and settles once as published, deferred, degraded, failed or superseded under the active network reference. Patterns are recomputed at read time from its plant rows that still share with the organization; reads show the latest published run.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "violations": [
+          "an array of violation codes: unsupported_numeric_value, prohibited_fields or invalid_reference_citation"
+        ]
+      },
       "capabilities": [
         "CAP-C-024"
       ],
@@ -29181,10 +29421,10 @@
       ],
       "scope": "intelligence",
       "invariants": [
-        "Written once, never changed; earlier runs stay in history.",
+        "Its captured plant rows never change; only its outcome, claim and lease move, and a settled run never changes again.",
         "Holds no person, note, assessment text, street or coordinate."
       ],
-      "revision": "Immutable; no revision.",
+      "revision": "claim_generation fences each claim; outcome settles once.",
       "idempotency": "Each refresh names its run id and its audit row's request key, so a repeated press records one run.",
       "deletion": "Organization-owned derived facts. A plant's rows go with the plant in the church purge; a run goes only with its organization. Account deletion clears who requested a run and removes that account's own ratings.",
       "physical_verified": false,
@@ -29219,6 +29459,50 @@
           "name": "rubric_version",
           "type": "text",
           "nullable": false
+        },
+        {
+          "note": "pending while claimed, then published, deferred, degraded, failed or superseded.",
+          "name": "outcome",
+          "type": "text",
+          "nullable": false,
+          "default": "'published'::text"
+        },
+        {
+          "note": "The live claim; a publication from an older claim is refused.",
+          "name": "claim_generation",
+          "type": "integer",
+          "nullable": false,
+          "default": "1"
+        },
+        {
+          "note": "The worker holding the claim.",
+          "name": "lease_owner",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the claim's lease ends.",
+          "name": "lease_until",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "The network reference activation the run applies.",
+          "name": "reference_activation",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "The publication validator's violation codes for a failed run.",
+          "name": "violations",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "When the run settled.",
+          "name": "settled_at",
+          "type": "timestamptz",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -29260,6 +29544,8 @@
         }
       ],
       "checks": [
+        "((claim_generation >= 1) AND ((lease_owner IS NULL) = (lease_until IS NULL)))",
+        "outcome in ('pending', 'deferred', 'published', 'failed', 'degraded', 'superseded')",
         "(rubric_version = 'everyfield-network/v1'::text)"
       ],
       "indexes": {
@@ -29310,7 +29596,123 @@
           "network_intelligence_run_requester"
         ],
         "checks": [
+          "network_intelligence_run_outcome",
+          "network_intelligence_run_claim",
           "network_intelligence_run_rubric"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "network_reference",
+      "domain": "reference",
+      "purpose": "A written Network Intelligence rubric reference (REQ-PI-043) and its activation. Network Intelligence publishes only under the highest activated, validated reference; a building or failed candidate is never a fallback.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-024"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-041"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-041"
+        ],
+        "rule": "WP-041 writes, validates and activates the network rubric reference."
+      },
+      "feature_ids": [
+        "PI-043"
+      ],
+      "acceptance_ids": [
+        "AC-PI-043--PI-043"
+      ],
+      "future_case_ids": [],
+      "scope": "reference",
+      "invariants": [
+        "Only a validated reference is activated; activation numbers only grow.",
+        "The active reference is the one with the highest activation number."
+      ],
+      "revision": "State moves building to validated or failed once; activation is set once.",
+      "idempotency": "Activation takes the next number; a candidate is activated at most once.",
+      "deletion": "Global reference rows are never deleted.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Reference identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The network rubric the reference holds (everyfield-network/v1).",
+          "name": "rubric_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "SHA-256 of the rubric's canonical JSON.",
+          "name": "content_hash",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "building, validated or failed.",
+          "name": "state",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "When the candidate was written.",
+          "name": "written_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "Its activation number once activated; null for a candidate.",
+          "name": "activation_number",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "When it was activated.",
+          "name": "activated_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "activation_number"
+          ]
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "(((activation_number IS NULL) = (activated_at IS NULL)) AND ((activation_number IS NULL) OR ((activation_number >= 1) AND (state = 'validated'::text))))",
+        "state in ('building', 'validated', 'failed')"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [
+          "network_reference_pkey"
+        ],
+        "unique": [
+          "network_reference_activation"
+        ],
+        "foreign": [],
+        "checks": [
+          "network_reference_state",
+          "network_reference_activated"
         ]
       },
       "policies": {},

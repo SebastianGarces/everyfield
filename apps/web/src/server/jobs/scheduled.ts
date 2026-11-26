@@ -2,7 +2,7 @@ import { instant } from "@everyfield/contracts/common";
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
-import { createAssessmentJob, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
+import { createAssessmentJob, createRelease, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
 import { closeLostJobs, type EffectPorts } from "@everyfield/evry";
 import {
@@ -77,7 +77,9 @@ export function scheduledJobs(config: {
 		const wikiEmbedding = config.wikiEmbedding ?? null;
 		const assessments = config.assessments ?? null;
 		const now = config.now;
-		const assessing = createAssessmentJob(now ? { clock: { now: () => instant.parse(now().toISOString()) } } : {});
+		const clock = now ? { clock: { now: () => instant.parse(now().toISOString()) } } : {};
+		const assessing = createAssessmentJob(clock);
+		const releasing = createRelease(clock);
 		const switches = await readSwitches(db);
 		const held = (name: KillSwitch, run: Run | null) => (run && !switches[name] ? { paused: name } : run);
 		const mailing = (run: Run | null) => held("outbound-mail", run);
@@ -97,6 +99,7 @@ export function scheduledJobs(config: {
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["notification", "notified", notifications && (() => notifications.run(db, asOf, undefined, until))],
+			["assessment-release", null, () => releasing.releaseDueAssessments(db)],
 			["assessment-demand", null, assessments && (() => assessing.scheduleAssessments(db))],
 			[
 				"assessment",

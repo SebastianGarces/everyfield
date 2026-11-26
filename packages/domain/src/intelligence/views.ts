@@ -121,7 +121,7 @@ export function readingOf(criterion: c.AssessedCriterion): string | null {
 	return read((key) => criterion.evidence.find((e) => e.key === key)?.value ?? null);
 }
 
-export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => {
+const pointsSql = <RName extends string>(r: SqlLiteral<RName>, urgencies: SQL) => {
 	const run = sql.raw(r);
 	return sql`(SELECT coalesce(json_agg(json_build_object('ordinal',e.n-1,'urgency',e.p->>'urgency','keys',e.p->'citations',
 	'evidence',(SELECT coalesce(json_agg(json_build_object('key',k.v,'label',f.cite->>'label','value',f.cite->'value')
@@ -130,8 +130,10 @@ export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => {
 	ORDER BY e.n),'[]'::json)
 	FROM jsonb_array_elements(jsonb_build_array(${run}.result->'draft'->'focus')||(${run}.result->'draft'->'supporting')
 		||coalesce(${run}.result->'draft'->'positives','[]'::jsonb)) WITH ORDINALITY e(p,n)
-	WHERE e.p->>'urgency' IN ('watch','urgent'))`;
+	WHERE e.p->>'urgency' IN (${urgencies}))`;
 };
+export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => pointsSql(r, sql`'watch','urgent'`);
+export const strengthsSql = <RName extends string>(r: SqlLiteral<RName>) => pointsSql(r, sql`'positive'`);
 export const storedConcern = z.object({
 	ordinal: z.int(),
 	urgency: z.enum(["watch", "urgent"]),
@@ -148,11 +150,24 @@ export const concernOf = (runId: string, s: StoredConcern): c.Concern =>
 		evidence: s.evidence,
 	}) satisfies z.output<typeof c.concern>;
 
+export const storedStrength = z.object({
+	ordinal: z.int(),
+	urgency: z.literal("positive"),
+	keys: z.array(z.string()),
+	evidence: z.array(c.evidenceFact),
+});
+export type StoredStrength = z.infer<typeof storedStrength>;
+export const strengthOf = (runId: string, s: StoredStrength) => ({
+	id: c.concernId(runId, s.ordinal),
+	ordinal: s.ordinal,
+	lens: s.keys.map(c.lensOfKey).find((l) => l !== null) ?? null,
+	evidence: s.evidence,
+});
+
 export const RELEASE_HOURS = 72;
-export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assessment_run r WHERE r.plant_id=${plant}
-	AND r.outcome='published' AND least(r.available_at+make_interval(hours=>${RELEASE_HOURS}),
-		(SELECT min(s.seen_at) FROM assessment_seen s WHERE s.run_id=r.id))<=${now}
-	ORDER BY r.available_at DESC,r.id DESC LIMIT 1)`;
+export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assessment_run r
+	JOIN assessment_release x ON x.run_id=r.id AND x.plant_id=r.plant_id WHERE r.plant_id=${plant}
+	AND r.outcome='published' AND x.released_at<=${now} ORDER BY r.available_at DESC,r.id DESC LIMIT 1)`;
 
 const UNKNOWN_WITH_STATUS = new Set(["followUps", "training", "cohesion"]);
 export const trendCellsSql = <RName extends string>(r: SqlLiteral<RName>) =>

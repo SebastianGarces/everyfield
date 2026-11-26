@@ -15,7 +15,7 @@ import {
 	createLaunchWriter,
 } from "../../../packages/domain/src/launch/index.ts";
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
-import { createFacts } from "../../../packages/domain/src/intelligence/index.ts";
+import { createFacts, createRelease } from "../../../packages/domain/src/intelligence/index.ts";
 import { releasedRun } from "../../../packages/domain/src/intelligence/views.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { seatedNotificationService } from "../../../packages/domain/src/jobs/seated-notifications.ts";
@@ -339,12 +339,17 @@ test("AC:B02-003 the 28-day launch window counts calendar days across the DST ch
 		VALUES(${run},${c.w.id},${args.assessment_available},1,'r','f','v1','s','m','published','grounded','{}','{}','[]','{}',1,0,0,
 		'manual',${`manual/${run}`},${args.assessment_available},${args.assessment_available},${args.assessment_available},
 		${args.assessment_available})`);
-	const released = async (ms: number) =>
-		(
+	const released = async (ms: number) => {
+		await createRelease({ clock: { now: () => instant.parse(new Date(ms).toISOString()) } }).releaseAssessmentToOversight(
+			f.db,
+			{ plantId: c.w.id, assessmentId: run, releaseCause: "elapsed_72_hours", requestKey: key() },
+		);
+		return (
 			await one<{ found: boolean }>(
 				sql`SELECT EXISTS(SELECT FROM ${releasedRun(sql`${c.w.id}::uuid`, sql`${new Date(ms).toISOString()}::timestamptz`)} rr) AS found`,
 			)
 		).found;
+	};
 	const available = Date.parse(args.assessment_available);
 	const releaseHours =
 		(await released(available + 72 * HOUR)) && !(await released(available + 72 * HOUR - 1)) ? 72 : null;

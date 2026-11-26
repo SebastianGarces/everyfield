@@ -3305,7 +3305,9 @@
 		{
 			"definition": " SELECT f.name,\n    f.value,\n    c.occurred_at AS changed_at\n   FROM (feature_flag f\n     LEFT JOIN LATERAL ( SELECT a.occurred_at\n           FROM audit_event a\n          WHERE ((a.tenant_id = f.tenant_id) AND (a.subject_id = f.id) AND (a.action = 'flags.changed'::text))\n          ORDER BY a.occurred_at DESC, a.id DESC\n         LIMIT 1) c ON (true))\n  WHERE (f.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);",
 			"name": "flag_rollout",
-			"options": ["security_barrier=true"]
+			"options": [
+				"security_barrier=true"
+			]
 		}
 	],
 	"roles": [
@@ -3660,6 +3662,20 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "assessment_insight",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_release",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_release",
 			"privilege_type": "SELECT"
 		},
 		{
@@ -4591,6 +4607,13 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "network_intelligence_run",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "network_reference",
 			"privilege_type": "SELECT"
 		},
 		{
@@ -6011,6 +6034,20 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "assessment_release",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_release",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "assessment_run",
 			"privilege_type": "INSERT"
 		},
@@ -7336,6 +7373,34 @@
 			"kind": "table",
 			"object": "network_intelligence_run",
 			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "network_intelligence_run",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "network_reference",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "network_reference",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "network_reference",
+			"privilege_type": "UPDATE"
 		},
 		{
 			"grantee": "everyfield_runtime",

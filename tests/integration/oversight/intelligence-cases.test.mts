@@ -15,6 +15,7 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createPrivateCare,
+	createRelease,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import {
@@ -53,6 +54,7 @@ let pinned = 0;
 const clock = { now: () => new Date(pinned).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
+const releasing = createRelease({ clock });
 const care = createPrivateCare();
 const api = createOrganizationAdapter(
 	{ async invitation() {}, invalidate: () => sql`UPDATE job SET state=state WHERE false` } as never,
@@ -84,6 +86,7 @@ const forbidden: string[] = [];
 async function at(instant: string) {
 	pinned = Date.parse(instant);
 	await pinSchemaClock(c0.admin, c0.database.schema, new Date(instant));
+	await releasing.releaseDueAssessments(c0.db);
 }
 const as = async (who: { session: string }) =>
 	(await RequestActor.resolve(c0.db, who.session as never)) as RequestActor;
@@ -162,9 +165,19 @@ function shapes(v: IntelligenceView) {
 			"rule results are states, not counts",
 		);
 		if (r.assessment.status === "released") {
-			assert.deepEqual(Object.keys(r.assessment).sort(), ["asOf", "concerns", "phase", "runId", "status", "withheld"]);
+			assert.deepEqual(Object.keys(r.assessment).sort(), [
+				"asOf",
+				"concerns",
+				"phase",
+				"runId",
+				"status",
+				"strengths",
+				"withheld",
+			]);
 			for (const c of r.assessment.concerns)
 				assert.deepEqual(Object.keys(c).sort(), ["evidence", "id", "lens", "ordinal", "severity"]);
+			for (const s of r.assessment.strengths)
+				assert.deepEqual(Object.keys(s).sort(), ["evidence", "id", "lens", "ordinal"]);
 		}
 	}
 	for (const p of patternsOf(v)) for (const x of p.plants) assert.deepEqual(Object.keys(x).sort(), ["name", "plantId"]);
@@ -769,10 +782,15 @@ test("AC:NI-016 the plant's newest unreleased assessment stays out; the earlier 
 		const text = JSON.stringify([await view(o.admin, level), await evryHistory(o.admin, { level })]);
 		assert.ok(!text.includes(r1.runId), `${level}: ${String(expected("NI-016").unreleased_R1)} R1`);
 	}
+	const before = (await view(o.admin)).run!.runId;
 	ok(await assessments.markAssessmentSeen(c0.db, R.actor, { runId: r1.runId }));
+	const kept = rowOf(await view(o.admin, "portfolio", before), "R Embargoed")!;
+	assert.ok(kept.status === "shared" && kept.assessment.status === "released");
+	assert.equal(kept.assessment.runId, r0.runId, "the run keeps the result released when it ran");
+	await refresh(o.admin);
 	const opened = rowOf(await view(o.admin), "R Embargoed")!;
 	assert.ok(opened.status === "shared" && opened.assessment.status === "released");
-	assert.equal(opened.assessment.runId, r1.runId, "opened by its planter: released");
+	assert.equal(opened.assessment.runId, r1.runId, "opened by its planter: released, and the next run reads it");
 });
 
 test("AC:NI-017 AC:NI-034 AC:NI-036 AC:NI-042 only a current seat of the same organization reads it and opens plant links; Owner and Admin refresh; each reader rates for themself; a removed reader is refused", async () => {

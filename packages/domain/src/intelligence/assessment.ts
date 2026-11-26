@@ -319,6 +319,8 @@ r AS (SELECT r.id FROM assessment_run r WHERE r.id=${q.data.runId}::uuid AND r.p
 	AND r.outcome='published' AND (SELECT ok FROM gate)),
 v AS (INSERT INTO assessment_seen(run_id,account_id,plant_id,seen_at) SELECT r.id,${s.me}::uuid,${s.plant}::uuid,${now()}
 	FROM r ON CONFLICT DO NOTHING RETURNING run_id),
+x AS (INSERT INTO assessment_release(run_id,plant_id,released_at,cause) SELECT v.run_id,${s.plant}::uuid,${now()},'opened'
+	FROM v ON CONFLICT DO NOTHING RETURNING run_id),
 a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,metadata)
 	SELECT ${s.plant}::uuid,${s.me}::uuid,'intelligence.assessment_opened','create','plant',${s.plant}::uuid,
 		'assessment-opened:'||v.run_id||':'||${s.me}::text,jsonb_build_object('runId',v.run_id) FROM v RETURNING 1)

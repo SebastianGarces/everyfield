@@ -39,6 +39,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `assessment_feedback(run_id, plant_id)` | `assessment_run(id, plant_id)` | cascade |  |
 | `assessment_insight(plant_id)` | `plant(id)` | cascade |  |
 | `assessment_insight(run_id, plant_id)` | `assessment_run(id, plant_id)` | cascade |  |
+| `assessment_release(plant_id)` | `plant(id)` | cascade |  |
+| `assessment_release(run_id, plant_id)` | `assessment_run(id, plant_id)` | cascade |  |
 | `assessment_run(plant_id)` | `plant(id)` | cascade |  |
 | `assessment_run(requested_by)` | `account(id)` | set_null |  |
 | `assessment_seen(account_id)` | `account(id)` | cascade |  |
@@ -221,6 +223,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `network_intelligence_feedback(run_id)` | `network_intelligence_run(id)` | cascade | A rating belongs to its author's account inside the run's organization. Reads and writes check the author's current seat in that organization; the relation grants no plant access. |
 | `network_intelligence_plant(plant_id)` | `plant(id)` | cascade |  |
 | `network_intelligence_plant(region_item_id)` | `reference_item(id)` | restrict | The Region is a global official reference item (OMB 23-01), not a tenant body; it grants nothing. |
+| `network_intelligence_plant(released_run_id)` | `assessment_run(id)` | set_null | The released result a run captured belongs to the plant; each read rechecks the plant's current link and sharing, so the relation grants no plant access. |
 | `network_intelligence_plant(run_id)` | `network_intelligence_run(id)` | cascade | A run's plant rows and ratings belong to the run's organization. Each read joins the run on its organization and rechecks the plant's current link and sharing; the relation grants no plant access. |
 | `network_intelligence_run(organization_id)` | `organization(id)` | restrict |  |
 | `network_intelligence_run(requested_by)` | `account(id)` | set_null |  |

@@ -25,6 +25,7 @@ import {
 	submitIntelligenceFeedback,
 } from "../../../packages/domain/src/oversight/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { createRelease } from "../../../packages/domain/src/intelligence/index.ts";
 import { church, type Church, type ChurchPlant } from "../intelligence/assessment-church.mts";
 import { caseOf } from "../target/sql/core/support.mts";
 
@@ -286,6 +287,7 @@ async function build(c: Case) {
 		const org = x.org === args.organization ? A : (foreign[x.org] ??= await network(`${c.id} ${x.org}`));
 		await link(p, org, x);
 	}
+	await createRelease().releaseDueAssessments(c0.db);
 	return { A, foreign, plants, args };
 }
 
