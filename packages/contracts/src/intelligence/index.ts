@@ -66,7 +66,7 @@ export const carePage = z.strictObject({
 	weeks: z.array(careWeek),
 });
 export type CarePage = z.infer<typeof carePage>;
-export const SUPPORT_RUN_WEEKS = 3;
+const SUPPORT_RUN_WEEKS = 3;
 const hard = (level: CareLevel | undefined) => level === "strained" || level === "struggling";
 export function supportOf(weeks: readonly CareWeek[]) {
 	const latest = weeks[0]?.ordinal ?? null;

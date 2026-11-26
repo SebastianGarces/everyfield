@@ -175,7 +175,7 @@ export const releaseReceipt = z.strictObject({
 	releasedAt: instant,
 	cause: z.enum(["opened", "elapsed_72_hours"]),
 });
-export type ReleaseReceipt = z.infer<typeof releaseReceipt>;
+type ReleaseReceipt = z.infer<typeof releaseReceipt>;
 export const releaseError = z.discriminatedUnion("code", [
 	defineSafeError("invalid_input", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
@@ -216,7 +216,7 @@ export const readAssessmentHistoryRequest = z.strictObject({});
 
 const focusSeverity = z.enum(["info", "low", "medium", "high", "critical"]);
 const focusPoint = z.strictObject({ title: z.string(), severity: focusSeverity, lenses: z.array(lensKey) });
-export const drilldownItem = z.strictObject({
+const drilldownItem = z.strictObject({
 	lens: lensKey,
 	label: z.string(),
 	severity: z.enum(["medium", "high"]),
