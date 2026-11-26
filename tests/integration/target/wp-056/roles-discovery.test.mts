@@ -189,7 +189,8 @@ async function searchesFindNothing(role: "member" | "director") {
 				assert.equal(shown.includes(word.toLowerCase()), false, `${name} ${word}`);
 			ran.push(name);
 		};
-		for (const [name, search] of Object.entries(SEARCHES)) await same(await search(a, term), await search(a, NONE), name);
+		for (const [name, search] of Object.entries(SEARCHES))
+			await same(await search(a, term), await search(a, NONE), name);
 		for (const adapter of adapters) {
 			const controls = evryInputs(adapter, NONE);
 			for (const [at, input] of evryInputs(adapter, term).entries())
@@ -270,7 +271,8 @@ async function exportsCarryNothing(role: "member" | "director") {
 	for (const [name, run] of exports) {
 		const reply = await run();
 		if (!refusedReply(reply)) answered += 1;
-		if (name in READABLE) assert.ok((await unpacked(reply)).includes(READABLE[name]), `the reader sees ${name}`);
+		const seen = READABLE[name];
+		if (seen) assert.ok((await unpacked(reply)).includes(seen), `the reader sees ${name}`);
 		assert.deepEqual(await carried(reply), [], name);
 	}
 	assert.ok(answered > 0, "some export answers this role");
