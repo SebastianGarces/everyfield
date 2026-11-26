@@ -58,7 +58,6 @@ const DIRECTOR = {
 	initials: "GC",
 } as const;
 
-// The shell's Ask Evry button is held with the page's Evry line until Evry in Discovery passes QA.
 const EVRY_SHOWN = COPY.shared.discovery_page.free.evry.shown;
 const PILL = "bg-surface-raised shadow-nav";
 const ON = "bg-ink text-on-ink shadow-nav-active";

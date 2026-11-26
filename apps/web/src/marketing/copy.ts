@@ -79,7 +79,6 @@ const accessPage = z.object({
 	}),
 });
 const eyebrowHead = z.object({ eyebrow: text, headline: text });
-// A claim held off the page until the T-661 criterion behind it passes QA.
 const held = z.object({ shown: z.boolean(), line: text });
 const discoveryPage = z.object({
 	hero: z.object({ eyebrow: text, headline: text, subhead: text, cta_primary: text, note: text }),
