@@ -156,27 +156,21 @@ test("under reduced motion the line is full and static, nothing advances, and cl
 	reduced = false;
 });
 
-test("a hidden browser tab pauses the line inside the visibility event, flushing style, and resumes on return", async () => {
+test("a hidden browser tab holds the line and flushes its style at once, so the pause lands while hidden", async () => {
 	reduced = false;
 	const t = await tour();
-	let flushedWhile: unknown = "never";
-	const line = Object.assign(t.line(), {
-		getAnimations: () => {
-			flushedWhile = line.style.animationPlayState;
-			return [];
-		},
-	});
+	const flushes: boolean[] = [];
+	Object.assign(t.line(), { getAnimations: () => (flushes.push(t.held()), []) });
 	const turn = (hidden: boolean) =>
 		t.page.run(() => {
 			Object.assign(document, { hidden });
 			for (const changed of visibilityListeners) changed();
 		});
 	await turn(true);
-	assert.equal(line.style.animationPlayState, "paused");
-	assert.equal(flushedWhile, "paused");
+	assert.equal(t.held(), true);
+	assert.deepEqual(flushes, [true]);
 	await turn(false);
-	assert.equal(line.style.animationPlayState, "");
-	assert.equal(flushedWhile, "");
+	assert.equal(t.held(), false);
 	assert.equal(t.label(), "Wiki");
 	await t.page.unmount();
 	assert.equal(visibilityListeners.size, 0);

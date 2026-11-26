@@ -1,6 +1,6 @@
 "use client";
 
-import { cn, useReducedMotion } from "@everyfield/ui/foundations";
+import { cn, useDocumentHidden, useReducedMotion } from "@everyfield/ui/foundations";
 import { useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 
 type Tab = { id: string; label: string; line: string; icon: ReactNode };
@@ -14,21 +14,15 @@ const STEP: Record<string, (i: number, n: number) => number> = {
 	End: (_, n) => n - 1,
 };
 
-const pauseWhileHidden = (line: HTMLSpanElement | null) => {
-	if (!line) return;
-	const changed = () => {
-		line.style.animationPlayState = document.hidden ? "paused" : "";
-		line.getAnimations();
-	};
-	if (document.hidden) changed();
-	document.addEventListener("visibilitychange", changed);
-	return () => document.removeEventListener("visibilitychange", changed);
+const flushStyle = (line: HTMLSpanElement | null) => {
+	line?.getAnimations();
 };
 
 export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Tab[]; panels: readonly ReactNode[] }) {
 	const [turn, setTurn] = useState({ current: 0, picked: false, run: 0 });
 	const [hold, setHold] = useState<"free" | "held" | "due">("free");
 	const still = useReducedMotion();
+	const hidden = useDocumentHidden();
 	const { current } = turn;
 	const next = () => setTurn((t) => ({ current: (t.current + 1) % tabs.length, picked: false, run: t.run + 1 }));
 	const select = (i: number) => {
@@ -62,7 +56,7 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 	return (
 		<div
 			id="tour"
-			data-held={hold !== "free" || undefined}
+			data-held={hold !== "free" || hidden || undefined}
 			className="group/tour mx-auto max-w-[1280px] text-left"
 			onFocus={focusIn}
 			onBlur={focusOut}
@@ -98,7 +92,7 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 							{on && (
 								<span
 									key={turn.run}
-									ref={pauseWhileHidden}
+									ref={hidden ? flushStyle : undefined}
 									aria-hidden="true"
 									onAnimationEnd={advance}
 									className={cn(
