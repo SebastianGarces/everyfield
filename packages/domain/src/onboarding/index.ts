@@ -45,6 +45,6 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 	};
 }
 
-export { readOnboardingEntry } from "./reads.ts";
+export { readDiscoverySteps, readOnboardingEntry } from "./reads.ts";
 
 export { withOnboardingWrite } from "./core.ts";
