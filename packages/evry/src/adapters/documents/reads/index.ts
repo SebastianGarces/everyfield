@@ -101,7 +101,7 @@ export const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 			next: null,
 			completeness: total > rows.length ? "partial" : "complete",
 			exclusions: [
-				"document text (read one with documents.read)",
+				"document text (ask me to open one to read it)",
 				"archived and deleted documents",
 				"files outside Everyfield",
 			],
@@ -196,7 +196,7 @@ export const coreValues: ReadAdapter<Record<string, never>> = {
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: found ? ["document text (read it with documents.read)"] : [],
+			exclusions: found ? ["document text (ask me to open it to read it)"] : [],
 		};
 	},
 };

@@ -30,6 +30,7 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 			canStore={canStoreDocuments()}
 			textTemplates={TEXT_TEMPLATE_IDS}
 			written={writtenScope(authority)}
+			mine={loaded.mine}
 		/>
 	);
 }

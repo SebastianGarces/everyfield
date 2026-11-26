@@ -56,6 +56,7 @@ import {
 	renderKey,
 	type DocumentsQuery,
 	type Format,
+	type OwnedView,
 	type Resolved,
 	type Template,
 } from "./model.ts";
@@ -78,6 +79,7 @@ type Props = {
 	canEdit: boolean;
 	canStore: boolean;
 	written: "church" | "account" | null;
+	mine: DocumentOutcome<OwnedView[]> | null;
 	textTemplates: readonly string[];
 };
 
@@ -178,6 +180,7 @@ export function DocumentsScreen({
 	canEdit,
 	canStore,
 	written,
+	mine,
 	textTemplates,
 }: Props) {
 	const address = useAddress();
@@ -396,6 +399,7 @@ export function DocumentsScreen({
 					</>
 				}
 			/>
+			{mine ? <MyDocuments initial={mine} /> : null}
 			<section
 				aria-labelledby="templates-heading"
 				className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,500px)]"
@@ -568,7 +572,6 @@ export function DocumentsScreen({
 			</section>
 			<SavedHistory enabled={canPreview} />
 			{written ? <NativeDocuments written={written} canEdit={canEdit} /> : null}
-			{written === "church" ? <MyDocuments /> : null}
 		</>
 	);
 }
