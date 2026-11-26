@@ -55,12 +55,9 @@ async function tour() {
 		lineClass: () => line().getAttribute("class") ?? "",
 		timeRunsOut,
 		click: (name: string) => page.run(() => propsOf(tabs().find((t) => t.textContent.startsWith(name))!).onClick?.({})),
-		key: (key: string) =>
-			page.run(() => propsOf(selected()[0]!).onKeyDown?.({ key, preventDefault() {} })),
-		focus: (visible: boolean) =>
-			page.run(() => propsOf(tourRoot()).onFocus?.({ target: { matches: () => visible } })),
-		blurOut: () =>
-			page.run(() => propsOf(tourRoot()).onBlur?.({ currentTarget: tourRoot(), relatedTarget: null })),
+		key: (key: string) => page.run(() => propsOf(selected()[0]!).onKeyDown?.({ key, preventDefault() {} })),
+		focus: (visible: boolean) => page.run(() => propsOf(tourRoot()).onFocus?.({ target: { matches: () => visible } })),
+		blurOut: () => page.run(() => propsOf(tourRoot()).onBlur?.({ currentTarget: tourRoot(), relatedTarget: null })),
 	};
 }
 
@@ -69,12 +66,15 @@ test("with no interaction the tour walks Wiki, Documents, Templates, When you're
 	const t = await tour();
 	const seen = [t.label()];
 	for (let i = 0; i < 8; i++) {
-		assert.match(t.lineClass(), /animate-mk-tab-fill/);
-		assert.doesNotMatch(t.lineClass(), /--mk-tab-time:15s/);
+		assert.match(t.lineClass(), /animate-mk-tab-fill\b(?!-)/);
+		assert.doesNotMatch(t.lineClass(), /animate-mk-tab-fill-picked/);
 		await t.timeRunsOut();
 		seen.push(t.label());
 	}
-	assert.deepEqual(seen, [...TABS, ...TABS, TABS[0]].map((tab) => tab!.label));
+	assert.deepEqual(
+		seen,
+		[...TABS, ...TABS, TABS[0]].map((tab) => tab!.label),
+	);
 	await t.page.unmount();
 });
 
@@ -83,17 +83,17 @@ test("a clicked or keyed tab is shown at once with a 15 s line, then the walk re
 	const t = await tour();
 	await t.click("Templates");
 	assert.equal(t.label(), "Templates");
-	assert.match(t.lineClass(), /--mk-tab-time:15s/);
+	assert.match(t.lineClass(), /animate-mk-tab-fill-picked/);
 	await t.timeRunsOut();
 	assert.equal(t.label(), "When you're ready");
-	assert.doesNotMatch(t.lineClass(), /--mk-tab-time:15s/);
+	assert.doesNotMatch(t.lineClass(), /animate-mk-tab-fill-picked/);
 
 	await t.key("ArrowRight");
 	assert.equal(t.label(), "Wiki");
-	assert.match(t.lineClass(), /--mk-tab-time:15s/);
+	assert.match(t.lineClass(), /animate-mk-tab-fill-picked/);
 	await t.key("End");
 	assert.equal(t.label(), "When you're ready");
-	assert.match(t.lineClass(), /--mk-tab-time:15s/);
+	assert.match(t.lineClass(), /animate-mk-tab-fill-picked/);
 	await t.page.unmount();
 });
 

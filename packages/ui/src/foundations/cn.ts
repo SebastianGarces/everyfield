@@ -39,7 +39,7 @@ const merge = extendTailwindMerge({
 			container: ["content", "content-wide", "mk"],
 			spacing: ["topbar", "page", "section", "section-photo"],
 			ease: ["slide", "mk", "mk-out"],
-			animate: ["mk-caret", "mk-ov-rise", "mk-shimmer", "mk-tab-fill", "mk-tab-in"],
+			animate: ["mk-caret", "mk-ov-rise", "mk-shimmer", "mk-tab-fill", "mk-tab-fill-picked", "mk-tab-in"],
 			font: ["body", "display", "sans", "title"],
 		},
 	},

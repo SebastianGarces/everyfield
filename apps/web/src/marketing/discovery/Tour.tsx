@@ -64,9 +64,7 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 								i > 0 && "shadow-[inset_1px_0_0_var(--color-mk-line)]",
 								i === 2 && "max-mk-cx:shadow-none",
 								i > 1 && "max-mk-cx:border-t max-mk-cx:border-mk-line",
-								on
-									? "bg-ink text-mk-cream-90"
-									: "bg-white text-text-2 hover:bg-mk-canvas",
+								on ? "bg-ink text-mk-cream-90" : "bg-white text-text-2 hover:bg-mk-canvas",
 							)}
 						>
 							<span
@@ -76,8 +74,9 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 								className={cn(
 									"absolute inset-x-0 top-0 h-1 origin-left bg-green",
 									on ? "opacity-100" : "opacity-0",
-									on && !still && "motion-safe:animate-mk-tab-fill",
-									on && turn.picked && "[--mk-tab-time:15s]",
+									on &&
+										!still &&
+										(turn.picked ? "motion-safe:animate-mk-tab-fill-picked" : "motion-safe:animate-mk-tab-fill"),
 									(held || hidden) && "[animation-play-state:paused]",
 								)}
 							/>
