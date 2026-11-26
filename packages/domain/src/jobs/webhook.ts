@@ -109,11 +109,21 @@ async function apply(tx: Transaction, eventId: string) {
 		.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	return "applied" as const;
 }
+function parseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return undefined;
+	}
+}
 export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
-	const body: unknown = JSON.parse(new TextDecoder().decode(raw));
-	const type = z.object({ type: z.string().min(1).max(64) }).parse(body).type;
-	if (!handled.safeParse(type).success) return { stored: false, result: "ignored" as const };
-	const v = wire.parse(body);
+	const body = parseJson(new TextDecoder().decode(raw));
+	const envelope = z.object({ type: z.string().min(1).max(64) }).safeParse(body);
+	if (!envelope.success) return { stored: false, result: "invalid" as const };
+	if (!handled.safeParse(envelope.data.type).success) return { stored: false, result: "ignored" as const };
+	const parsed = wire.safeParse(body);
+	if (!parsed.success) return { stored: false, result: "invalid" as const };
+	const v = parsed.data;
 	const kind = z.enum(kinds).parse(v.type.slice(6));
 	const hash = createHash("sha256").update(raw).digest("hex");
 	const id = await transaction(db, async (tx) => {
