@@ -191,7 +191,7 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 		kind: string;
 		subject_type: string;
 		subject_id: string;
-		after_value: { display_name?: string };
+		after_value: object;
 		metadata: { meetingId: string };
 		request_key: string;
 	}>(sql`SELECT action, kind, subject_type, subject_id, before_value, after_value, metadata,
@@ -210,11 +210,11 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 	assert.deepEqual(
 		audit
 			.filter((a) => a.subject_type === "person")
-			.map((a) => [a.action, a.kind, a.subject_id, a.after_value.display_name, a.metadata.meetingId])
+			.map((a) => [a.action, a.kind, a.subject_id, a.after_value, a.metadata.meetingId])
 			.sort(),
 		[
-			["people.created", "create", mara, "Mara", m],
-			["people.created", "create", noor, "Noor", m],
+			["people.created", "create", mara, { stage: "prospect" }, m],
+			["people.created", "create", noor, { stage: "prospect" }, m],
 		].sort(),
 	);
 	assert.equal(audit.length, 3);

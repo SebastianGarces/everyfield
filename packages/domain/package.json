@@ -61,7 +61,7 @@
 		"test:phases": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/phases/*.test.mts",
 		"test:intelligence": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/intelligence/*.test.mts",
 		"test:writes": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/writes/statements.test.mts",
-		"access:export": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/export-access.ts",
+		"access:export": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local scripts/export-access.ts",
 		"migrate": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts"
 	},
 	"dependencies": {

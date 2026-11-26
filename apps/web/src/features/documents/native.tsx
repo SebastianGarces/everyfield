@@ -18,7 +18,7 @@ import { Tag } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Await, createRead, useRead } from "../../components/read.tsx";
+import { Await, createRead, useLocalRead, useRead } from "../../components/read.tsx";
 import { copyToChurch } from "./actions.ts";
 import type { DocumentOutcome } from "./outcome.ts";
 import { loadCopySources, loadMyDocuments, loadWrittenDocuments } from "./fetch.ts";
@@ -42,10 +42,6 @@ const writtenDocuments = createRead(() => loadWrittenDocuments(), {
 	failed: (): DocumentOutcome<{ documents: OwnedView[]; evidence: string | null }> | ReadFailure => ({
 		status: "lost",
 	}),
-});
-
-const myDocuments = createRead(() => loadMyDocuments(), {
-	failed: (): DocumentOutcome<OwnedView[]> | ReadFailure => ({ status: "lost" }),
 });
 
 const copySources = createRead(() => loadCopySources(), {
@@ -73,12 +69,16 @@ function DocumentRows({ documents }: { documents: OwnedView[] }) {
 	);
 }
 
-export function MyDocuments() {
-	const listed = useRead(myDocuments);
+export function MyDocuments({ initial }: { initial: DocumentOutcome<OwnedView[]> }) {
+	const listed = useLocalRead(loadMyDocuments, {
+		initial,
+		fresh: Infinity,
+		failed: (): DocumentOutcome<OwnedView[]> | ReadFailure => ({ status: "lost" }),
+	});
 	const result = listed.value;
 	if (!result || (result.status === "ok" && result.value.length === 0)) return null;
 	return (
-		<section aria-labelledby="mine-heading" className="mt-8 flex flex-col gap-4">
+		<section aria-labelledby="mine-heading" className="mb-8 flex flex-col gap-4">
 			<div>
 				<h2 id="mine-heading" className="font-title text-title-sm tracking-[-0.02em] text-ink">
 					{SECTION.account}

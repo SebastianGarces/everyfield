@@ -97,7 +97,10 @@ test("INV-dev-database: the development reset refuses a disposable localhost dat
 		const raw = `postgresql://made-up-user:made-up-secret@${host}:1/made_up_database`;
 		const run = spawnSync(
 			process.execPath,
-			[fileURLToPath(new URL("../../../packages/db/scripts/reset-dev.ts", import.meta.url))],
+			[
+				"--conditions=react-server",
+				fileURLToPath(new URL("../../../packages/db/scripts/reset-dev.ts", import.meta.url)),
+			],
 			{ env: { PATH: process.env.PATH, ...DISPOSABLE, DATABASE_URL: raw }, encoding: "utf8", timeout: 60_000 },
 		);
 		const printed = run.stdout + run.stderr;

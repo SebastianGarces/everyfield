@@ -1127,6 +1127,13 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		if (/\b(?:people|everyone|members?)\b/i.test(text))
 			return [toolCall("people_read", { operation: "people.listPeople", input: { limit: pageSize(text) } })];
 	}
+	if (system.includes("open when you start your church"))
+		return [
+			{
+				type: "text",
+				text: "Ask me about your own documents, the Wiki or your Discovery space, for example: what documents do I have? People and other church records open when you start your church.",
+			},
+		];
 	return [{ type: "text", text: "Ask me about the people in this church, for example: find Alex." }];
 }
 

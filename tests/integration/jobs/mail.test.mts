@@ -115,8 +115,11 @@ async function callback(messageId: string, kind: string, eventKey: string = rand
 		created_at: new Date().toISOString(),
 		data: { email_id: messageId, bounce },
 	});
+	return signed(raw, eventKey);
+}
+function signed(raw: string, eventKey: string = randomUUID(), signingSecret = secret) {
 	const stamp = String(Math.floor(Date.now() / 1000));
-	const signature = createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
+	const signature = createHmac("sha256", Buffer.from(signingSecret.slice(6), "base64"))
 		.update(eventKey + "." + stamp + "." + raw)
 		.digest("base64");
 	return new Request("http://example.test/callback", {
@@ -369,6 +372,48 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { endpoint: "disabled", pending: 2, unmatched: 0 });
 	await db.execute(querySql`DROP TRIGGER reject_projection ON mail; DROP FUNCTION reject_projection()`);
 	assert.equal(requests.length, count);
+});
+
+test("a signed callback that is not JSON or not the callback shape answers 400 and changes nothing", async () => {
+	await enqueue();
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
+	const out = await service.dispatch(claim);
+	assert.equal(out.kind, "accepted");
+	const created_at = new Date().toISOString();
+	const state = async () =>
+		(
+			await db.execute(
+				querySql`SELECT (SELECT count(*)::int FROM provider_event) events,(SELECT md5(coalesce(string_agg(m::text,',' ORDER BY m.id),'')) FROM mail m) mail`,
+			)
+		).rows[0];
+	const before = await state();
+	const bodies = [
+		'{"type":"email.delivered","data":',
+		JSON.stringify({ created_at, data: { email_id: out.id } }),
+		JSON.stringify({ type: 7, created_at, data: { email_id: out.id } }),
+		JSON.stringify({ type: "email.delivered", created_at, data: {} }),
+		JSON.stringify({ type: "email.delivered", created_at: "yesterday", data: { email_id: out.id } }),
+	];
+	const lines: unknown[] = [];
+	const { error } = console;
+	console.error = (text) => lines.push(text);
+	try {
+		for (const raw of bodies) {
+			const response = await webhook(signed(raw));
+			assert.equal(response.status, 400, raw);
+			assert.deepEqual(await response.json(), {
+				code: "invalid_input",
+				requestId: response.headers.get("X-Request-Id"),
+			});
+			const forged = await webhook(signed(raw, randomUUID(), "whsec_" + randomBytes(32).toString("base64")));
+			assert.equal(forged.status, 401, raw);
+			assert.deepEqual(await forged.json(), { code: "invalid_signature" });
+		}
+	} finally {
+		console.error = error;
+	}
+	assert.deepEqual(lines, []);
+	assert.deepEqual(await state(), before);
 });
 
 test("INV-mail: a stored callback whose apply fails for a non-transient reason answers 503 and stays pending for replay", async () => {

@@ -20,7 +20,7 @@ import {
 	parse,
 	patchPerson,
 	contactValues,
-	personChanges,
+	peopleValues,
 	person,
 	personQuery,
 	personRow,
@@ -538,8 +538,8 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 					actor_token: hash([ctx.selected.id, actor]),
 					action: "people.updated",
 					kind: "edit",
-					before_value: { body: found.body },
-					after_value: { body },
+					before_value: null,
+					after_value: null,
 					reason: "reason" in input.input ? input.input.reason : null,
 					metadata: { category: "note", noteId, correction: true },
 				});
@@ -575,6 +575,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				action: "people.updated",
 				before,
 				after,
+				metadata: { category: "note", noteId },
 			};
 		},
 	);
@@ -763,7 +764,7 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					writes,
 					input.accountId,
 				);
-			const delta = personChanges(before, linked);
+			const delta = peopleValues(before, linked);
 			writes.push(
 				tx.insert(tables.audit_event).values({
 					tenant_id: selected.id,

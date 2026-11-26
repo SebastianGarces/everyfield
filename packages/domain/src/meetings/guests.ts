@@ -3,21 +3,10 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { personChanges } from "../people/core.ts";
+import { peopleValues } from "../people/core.ts";
 import { appendPeople, appendPerson, newPerson } from "../people/people.ts";
 import type { AuditWrite } from "../operations/writes.ts";
-import {
-	command,
-	delta,
-	deny,
-	next,
-	parse,
-	reply,
-	type Change,
-	type MeetingsContext,
-	type Tx,
-	type Writer,
-} from "./core.ts";
+import { command, deny, next, parse, reply, type Change, type MeetingsContext, type Tx, type Writer } from "./core.ts";
 import { meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
 export const guestColumns = sql`g.id, g.revision::text AS revision, coalesce(g.rsvp, 'pending') AS rsvp, g.rsvp_source,
@@ -315,7 +304,7 @@ export const guestsWriter = {
 						before_revision: null,
 						after_revision: p.revision,
 						before_value: null,
-						after_value: delta(null, personChanges(undefined, p).after).after,
+						after_value: peopleValues(undefined, p).after,
 						metadata: { meetingId: m.id, guestId: guest.id, attended: false },
 					});
 				const byPerson = new Map([...current, ...restored, ...invited].map((g) => [g.person_id, g]));
@@ -670,7 +659,7 @@ function contact(
 					kind: "create",
 					before: null,
 					revision: { before: null, after: person.revision },
-					after: personChanges(undefined, person).after,
+					after: peopleValues(undefined, person).after,
 					metadata: { guestId: id, attended },
 				};
 			});

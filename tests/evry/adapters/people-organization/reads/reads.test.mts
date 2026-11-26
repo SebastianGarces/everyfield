@@ -387,7 +387,7 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE A
 	await admin.execute(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_id,before_value,after_value,occurred_at,recorded_at,after_revision)
 		VALUES(${moveId},${plant},${accounts.owner.id},'people.updated','edit',${people.alexRivera},
 			${JSON.stringify({ membership: null })}::jsonb,
-			${JSON.stringify({ membership: { householdId: home, name: "Rivera Home", role: "head" } })}::jsonb,
+			${JSON.stringify({ membership: { householdId: home, role: "head" } })}::jsonb,
 			${at("2020-01-03")},${at("2020-01-03")},1)`);
 	await admin.execute(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_id,metadata,occurred_at,recorded_at,after_revision)
 		VALUES(${mergeId},${plant},${accounts.owner.id},'people.merged','merge',${source},
@@ -411,7 +411,7 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE A
 		]),
 		[
 			[mergeId, "person_merged", "activity", null, null, null],
-			[moveId, "updated", "activity", null, null, "Rivera Home (head)"],
+			[moveId, "updated", "activity", null, null, "a deleted household (head)"],
 			[stageId, "Stage", "stage_changed", "prospect", "attendee", null],
 			[note, "Note", "note", null, null, null],
 		],

@@ -1,3 +1,4 @@
+import "server-only";
 import { timingSafeEqual } from "node:crypto";
 
 export function cronRoute(secret: string | undefined, run: (request: Request) => Promise<Response>) {

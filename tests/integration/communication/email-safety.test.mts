@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { setImmediate } from "node:timers/promises";

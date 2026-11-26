@@ -1,9 +1,15 @@
 import { closeDatabase, createDatabase } from "@everyfield/db/client";
 import { backfill, migrate } from "@everyfield/db/migrate";
 import { residentDiscoveryBackfill } from "../src/onboarding/backfill.ts";
+import { peopleAuditScrubBackfill } from "../src/people/audit-backfill.ts";
 import { commitmentCacheBackfill, mergeReferencesBackfill } from "../src/people/commitments/backfill.ts";
 
-const backfills = [commitmentCacheBackfill(), mergeReferencesBackfill(), residentDiscoveryBackfill()];
+const backfills = [
+	commitmentCacheBackfill(),
+	mergeReferencesBackfill(),
+	residentDiscoveryBackfill(),
+	peopleAuditScrubBackfill(),
+];
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");

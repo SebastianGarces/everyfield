@@ -179,7 +179,7 @@ test("AC:AUDIT-001 a person rename faulted at its history, receipt, audit or eff
 	const alex = await actorOf(A);
 	const jamie = await create(alex, "Jamie");
 	const faults: Record<string, Parameters<typeof failingWrite>[1]> = {
-		history: { on: "audit_event", event: "INSERT", when: "NEW.after_value ? 'display_name'" },
+		history: { on: "audit_event", event: "INSERT", when: "NEW.after_value->'fields' ? 'display_name'" },
 		receipt: { on: "audit_event", event: "INSERT", when: "NEW.request_key IS NOT NULL AND NEW.result IS NOT NULL" },
 		audit: { on: "record", event: "INSERT", when: "NEW.kind='audit_event'", atCommit: true },
 		effect_intent: {
@@ -232,8 +232,8 @@ test("AC:AUDIT-001 a person rename faulted at its history, receipt, audit or eff
 		actor_id: A.id,
 		tenant_id: P.id,
 		subject_id: jamie.id,
-		before_value: { display_name: "Jamie" },
-		after_value: { display_name: "Jamie Lee" },
+		before_value: {},
+		after_value: { fields: ["display_name"] },
 		request_key: args.request_key,
 		answered: true,
 		bound: 1,
@@ -460,8 +460,8 @@ test("AC:AUDIT-003 a closed people.updated audit keeps a 2048-byte diff, refuses
 		WHERE subject_id=${sam.id} AND action='people.updated' AND NOT metadata ? 'diff'`);
 	assert.equal(changes.length, accepted.length);
 	for (const change of changes) {
-		assert.deepEqual(Object.keys(change.before_value as object).sort(), ["display_name", "street"]);
-		assert.deepEqual(Object.keys(change.after_value as object).sort(), ["display_name", "street"]);
+		assert.deepEqual(change.before_value, {});
+		assert.deepEqual(change.after_value, { fields: ["display_name", "street"] });
 		assert.deepEqual(change.metadata, {});
 	}
 	const dumps = await rows(sql`SELECT id FROM audit_event WHERE action='people.updated' AND

@@ -3005,8 +3005,8 @@ test("AC:TARGET-PPL-008 three entries at one instant page once each, and no othe
 		).rows;
 	const correction = {
 		actor_id: coauthor.id,
-		before_value: { body: "Original note." },
-		after_value: { body: "Changed note." },
+		before_value: null,
+		after_value: null,
 		reason: "Correction",
 	};
 	assert.deepEqual(await audit(), [correction]);

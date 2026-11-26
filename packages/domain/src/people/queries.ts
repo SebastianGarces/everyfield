@@ -425,11 +425,17 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 	const result = await tx.execute(sql`SELECT ${activitiesJson(ctx, sql`${p.id}::uuid`, input, gate)} AS rows`);
 	return activityFeed(ctx, p.id, input, result.rows[0]?.rows);
 }
+const currentNames = (owner: string, v: SQL) =>
+	sql`CASE WHEN jsonb_typeof(${v}->'membership')='object' THEN jsonb_set(${v},'{membership,name}',coalesce((SELECT to_jsonb(n.name)
+ FROM household n WHERE n.id=(${v}#>>'{membership,householdId}')::uuid AND n.plant_id=${sql.param(owner)}),'"a deleted household"'))
+ WHEN jsonb_typeof(${v}->'guardian')='object' THEN jsonb_set(${v},'{guardian,displayName}',coalesce((SELECT to_jsonb(n.display_name)
+ FROM person n WHERE n.id=(${v}#>>'{guardian,personId}')::uuid AND n.tenant_id=${sql.param(owner)}),'"A removed person"'))
+ ELSE ${v} END`;
 export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeof c.activityRequest>, gate: SQL) {
 	const feed = sql`(SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)})`;
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'occurred_at',a.occurred_at,'recorded_at',a.recorded_at,
  'actor_id',a.actor_id,'revision',a.revision::text,'body',a.body,'edited_at',a.edited_at,'removed_at',a.removed_at,'kind',a.kind,
- 'action',a.action,'before_value',a.before_value,'after_value',a.after_value,'obligation_id',a.obligation_id,'outcome',a.outcome,
+ 'action',a.action,'before_value',${currentNames(ctx.selected.id, sql`a.before_value`)},'after_value',${currentNames(ctx.selected.id, sql`a.after_value`)},'obligation_id',a.obligation_id,'outcome',a.outcome,
  'record_id',a.record_id,'with_person',a.with_person,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id),
  'author_name',CASE WHEN a.kind='note' THEN nullif(btrim((SELECT display_name FROM seat_identity(a.actor_id))),'') END) ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM (SELECT * FROM (
       SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id,NULL::jsonb AS with_person FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${personId}
