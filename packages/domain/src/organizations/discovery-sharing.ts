@@ -1,7 +1,7 @@
 import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import { and, eq, sql, type SQLWrapper } from "@everyfield/db/query";
+import { eq, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { z } from "zod";
 import { liveAccess, liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
@@ -40,13 +40,8 @@ export function discoverySharingOperations(
 				const own = sql`${actor.accountId}::uuid`;
 				const [a] = await loadAffiliations(
 					tx,
-					and(
-						eq(tables.affiliation.id, q.input.relationshipId),
-						eq(tables.affiliation.account_id, actor.accountId),
-						ordinaryLink(tables.affiliation.id),
-						discoveryOpen(own),
-						seatless(own),
-					)!,
+					sql`${eq(tables.affiliation.id, q.input.relationshipId)} AND ${eq(tables.affiliation.account_id, actor.accountId)}
+						AND ${ordinaryLink(tables.affiliation.id)} AND ${discoveryOpen(own)} AND ${seatless(own)}`,
 					true,
 				);
 				if (!a || !active(a)) refuse();
