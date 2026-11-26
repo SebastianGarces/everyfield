@@ -5,15 +5,13 @@ import { articlePath } from "@everyfield/contracts/wiki";
 import { PageState } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import foundations from "../../../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { namesFor, ownResidencyLinks, readDiscoverySharing, viewerOf } from "../organizations/mount";
 import { DiscoveryHome } from "./DiscoveryHome";
+import { FOUNDATION_ARTICLES } from "./foundations";
 import { onboardingEntry } from "./mount";
 import { parseEntry } from "./port";
 
 export const discoveryHomeMetadata: Metadata = { title: "Discovery", robots: { index: false, follow: false } };
-
-const ARTICLES = [...foundations.articles].sort((a, b) => a.sort_order - b.sort_order);
 
 export async function DiscoveryHomePage() {
 	const viewer = await getViewer();
@@ -48,7 +46,7 @@ export async function DiscoveryHomePage() {
 		<DiscoveryHome
 			data={{
 				firstName: viewer.displayName?.trim().split(/\s+/)[0] ?? null,
-				foundations: ARTICLES.map((a) => ({
+				foundations: FOUNDATION_ARTICLES.map((a) => ({
 					id: a.id,
 					title: a.title,
 					href: articlePath(a.slug),

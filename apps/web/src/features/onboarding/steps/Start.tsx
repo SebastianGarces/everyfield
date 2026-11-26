@@ -91,11 +91,11 @@ export function ChooseStart({ state, actions }: Props) {
 const kindLabel = (r: Relationship) =>
 	r.organization.organizationKind === "sending_network" ? "Sending network" : "Sending church";
 
-export const SEAT_LINE =
+const SEAT_LINE =
 	"Your sending church or network can cover your church's seat. If you plant on your own, you can pay for your seat yourself.";
 
 export function ConvertDiscovery({ state, actions, names }: Props & { names: Record<string, string> }) {
-	if (state.entry.kind !== "discovery") return <Opening />;
+	if (state.entry.kind !== "discovery") return null;
 	const profile = state.entry.profile;
 	const ending = new Set<string>(state.drafts.ending);
 	const nameOf = (r: Relationship) => names[r.organization.id] ?? kindLabel(r);
@@ -165,14 +165,6 @@ export function ConvertDiscovery({ state, actions, names }: Props & { names: Rec
 				) : null}
 				<p className="text-sm text-text-2 text-pretty">{SEAT_LINE}</p>
 			</BasicsForm>
-		</section>
-	);
-}
-
-function Opening() {
-	return (
-		<section data-onboarding-step="church">
-			<StepHeading title="Opening Discovery">Your free Discovery space is ready.</StepHeading>
 		</section>
 	);
 }

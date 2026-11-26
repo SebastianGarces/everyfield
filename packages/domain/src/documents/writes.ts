@@ -738,7 +738,8 @@ async function createOwnFromTemplate(db: Database | Transaction, authority: Requ
 			if (prior?.template !== template.id) deny("conflict");
 			return readOwned(db, authority, { documentId: docId }, ownScope);
 		};
-		if (facts.prior !== null) return facts.prior === template.id ? again() : deny("conflict");
+		if (facts.prior !== null)
+			return facts.prior === template.id ? readOwned(db, authority, { documentId: docId }, ownScope) : deny("conflict");
 		const body = JSON.stringify(ownTemplateBody(template, facts.name));
 		const hash = hashOf(body);
 		const revId = stableId(scope.tenantId, "own-template-revision", input.requestKey);

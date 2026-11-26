@@ -38,13 +38,7 @@ import {
 	shortcutMark,
 } from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
-import {
-	archiveOwnedDocument,
-	designateMyDocument,
-	designateOwnedDocument,
-	saveMyDocument,
-	saveOwnedDocument,
-} from "../actions.ts";
+import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument } from "../actions.ts";
 import type { DocumentOutcome } from "../outcome.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
@@ -81,9 +75,9 @@ async function importWritten(file: File, params: Record<string, string>): Promis
 const PORTS = {
 	church: { save: saveOwnedDocument, importFile: importWritten, designate: designateOwnedDocument },
 	account: {
-		save: saveMyDocument,
+		save: (raw: unknown) => saveOwnedDocument(raw, true),
 		importFile: (file: File, params: Record<string, string>) => importWritten(file, { ...params, scope: "account" }),
-		designate: designateMyDocument,
+		designate: (id: string, revision: string) => designateOwnedDocument(id, revision, true),
 	},
 };
 

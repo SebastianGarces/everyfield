@@ -12,7 +12,7 @@ import {
 	Mortarboard01Icon,
 } from "@hugeicons/core-free-icons";
 import { Button, Card, CardIcon, PageHeader } from "@everyfield/ui/controls";
-import { cn, EvryBot, Icon } from "@everyfield/ui/foundations";
+import { EvryBot, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEvryOpener } from "../../components/evry-opener.ts";
@@ -148,8 +148,8 @@ export function DiscoveryHome({ data }: { data: DiscoveryHomeData }) {
 								When you’re ready
 							</h2>
 							<p className="mt-1 text-sm text-text-2 text-pretty">
-								Start your church when the time is right. Your documents and your connections come with you, and
-								People, Meetings, Tasks and the rest open.
+								Start your church when the time is right. Your documents and your connections come with you, and People,
+								Meetings, Tasks and the rest open.
 							</p>
 						</div>
 					</div>
@@ -169,16 +169,14 @@ function Tile({
 	title,
 	text,
 	action,
-	className,
 }: {
 	icon: Parameters<typeof CardIcon>[0]["icon"];
 	title: string;
 	text: string;
 	action: ReactNode;
-	className?: string;
 }) {
 	return (
-		<Card as="section" className={cn("flex flex-col gap-3", className)}>
+		<Card as="section" className="flex flex-col gap-3">
 			<div className="flex items-start gap-3">
 				<CardIcon icon={icon} tone="ink" size={36} />
 				<div className="min-w-0 flex-1">

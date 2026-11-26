@@ -33,7 +33,7 @@ export function discoveryTemplates() {
 
 const OWN_NAME_SOURCES = new Set(["church.pastor"]);
 
-export function ownFieldValues(template: DocTemplate, ownName: string | null): Record<string, string> {
+function ownFieldValues(template: DocTemplate, ownName: string | null): Record<string, string> {
 	return Object.fromEntries(
 		template.fields.map((field) => [
 			field.key,

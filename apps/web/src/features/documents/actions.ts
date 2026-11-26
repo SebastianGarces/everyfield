@@ -36,17 +36,10 @@ const ownedDraft = z
 	.object({ title: z.unknown(), body: z.unknown(), documentId: z.unknown(), expectedRevision: z.unknown() })
 	.partial();
 
-type Saved = DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>;
-
-export async function saveOwnedDocument(raw: unknown): Promise<Saved> {
-	return saveWritten(raw, false);
-}
-
-export async function saveMyDocument(raw: unknown): Promise<Saved> {
-	return saveWritten(raw, true);
-}
-
-async function saveWritten(raw: unknown, mine: boolean): Promise<Saved> {
+export async function saveOwnedDocument(
+	raw: unknown,
+	mine = false,
+): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
 	const parsed = ownedDraft.safeParse(raw);
 	const input = parsed.success ? parsed.data : {};
 	return run(async (db, actor) => {
@@ -74,17 +67,11 @@ export async function archiveOwnedDocument(
 	});
 }
 
-type Designated = DocumentOutcome<{ revision: string; kind: WrittenView["kind"] }>;
-
-export async function designateOwnedDocument(documentId: string, expectedRevision: string): Promise<Designated> {
-	return designateWritten(documentId, expectedRevision, false);
-}
-
-export async function designateMyDocument(documentId: string, expectedRevision: string): Promise<Designated> {
-	return designateWritten(documentId, expectedRevision, true);
-}
-
-async function designateWritten(documentId: string, expectedRevision: string, mine: boolean): Promise<Designated> {
+export async function designateOwnedDocument(
+	documentId: string,
+	expectedRevision: string,
+	mine = false,
+): Promise<DocumentOutcome<{ revision: string; kind: WrittenView["kind"] }>> {
 	return run(async (db, actor) => {
 		const designate = mine ? documentsWriter.designateMine : documentsWriter.designateCoreValues;
 		const reply = await designate(db, actor, { documentId, expectedRevision });
@@ -101,7 +88,10 @@ export async function copyToChurch(input: unknown): Promise<DocumentOutcome<{ id
 	});
 }
 
-export async function startFromTemplate(templateId: string, requestKey: string): Promise<DocumentOutcome<{ id: string }>> {
+export async function startFromTemplate(
+	templateId: string,
+	requestKey: string,
+): Promise<DocumentOutcome<{ id: string }>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.createMineFromTemplate(db, actor, { templateId, requestKey });
 		if (reply.status === "refused") return refused(reply.error);
