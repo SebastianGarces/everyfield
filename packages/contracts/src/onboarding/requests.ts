@@ -22,7 +22,7 @@ export const selectedRelationship = z.strictObject({
 	expectedConsentRevision: revision,
 	choices: sharingChoices,
 });
-export const endedRelationship = z.strictObject({
+const endedRelationship = z.strictObject({
 	relationshipId: recordId,
 	organization: organizationOwner,
 	expectedRelationshipRevision: revision,

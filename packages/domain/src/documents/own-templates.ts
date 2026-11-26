@@ -31,15 +31,11 @@ export function discoveryTemplates() {
 	});
 }
 
-const OWN_NAME_SOURCES = new Set(["church.pastor"]);
-
 function ownFieldValues(template: DocTemplate, ownName: string | null): Record<string, string> {
 	return Object.fromEntries(
 		template.fields.map((field) => [
 			field.key,
-			field.source && OWN_NAME_SOURCES.has(field.source) && ownName?.trim()
-				? ownName.trim()
-				: `[${field.label.toLowerCase()}]`,
+			field.source === "church.pastor" && ownName?.trim() ? ownName.trim() : `[${field.label.toLowerCase()}]`,
 		]),
 	);
 }
