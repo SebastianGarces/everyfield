@@ -337,6 +337,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 	assert.deepEqual(
 		{ ...empty, timeZone: undefined },
 		{
+			status: "ready",
 			organizationName: "Hill Country Network",
 			timeZone: undefined,
 			level: "portfolio",

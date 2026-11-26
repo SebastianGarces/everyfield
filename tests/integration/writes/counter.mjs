@@ -43,6 +43,7 @@ const factories = {
 	createFacts: "facts",
 	createAssessments: "assessments",
 	createAssessmentJob: "assessments.job",
+	createRelease: "assessments.release",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
 	createWikiProducer: "wiki",
@@ -73,7 +74,18 @@ const standalone = {
 		"saveCommitmentDocument",
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
-	"/packages/domain/src/oversight/intelligence.ts": ["requestIntelligenceRefresh", "submitIntelligenceFeedback"],
+	"/packages/domain/src/oversight/intelligence.ts": [
+		"requestIntelligenceRefresh",
+		"submitIntelligenceFeedback",
+		"claimIntelligenceRefresh",
+		"runIntelligenceRefresh",
+		"scheduleIntelligenceRefresh",
+	],
+	"/packages/domain/src/oversight/reference.ts": [
+		"writeNetworkReference",
+		"validateNetworkReference",
+		"activateNetworkReference",
+	],
 	"/packages/domain/src/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",

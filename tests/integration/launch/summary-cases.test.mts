@@ -8,6 +8,7 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createPrivateCare,
+	createRelease,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { getPlant } from "../../../packages/domain/src/oversight/index.ts";
@@ -46,8 +47,20 @@ async function shared(name: string, input: object = {}, { harvest = false } = {}
 	else await w.link(c.p, n.org, { findings: true, meetings: true });
 	return { ...c, ...n };
 }
-const released = async (director: Awaited<ReturnType<LaunchWorld["orgSeat"]>>, plant: { id: string }, iso?: string) =>
-	(await getPlant(w.db, director, plant.id, () => {}, iso ? at(iso) : undefined))!.assessment;
+async function releaseDue(plant: { id: string }, iso?: string) {
+	const release = createRelease(iso ? { clock: at(iso) } : {});
+	for (const r of await w.rows(sql`SELECT id FROM assessment_run WHERE plant_id=${plant.id} AND outcome='published'`))
+		await release.releaseAssessmentToOversight(w.db, {
+			plantId: plant.id,
+			assessmentId: String(r.id),
+			releaseCause: "elapsed_72_hours",
+			requestKey: randomUUID(),
+		});
+}
+const released = async (director: Awaited<ReturnType<LaunchWorld["orgSeat"]>>, plant: { id: string }, iso?: string) => {
+	await releaseDue(plant, iso);
+	return (await getPlant(w.db, director, plant.id, () => {}, iso ? at(iso) : undefined))!.assessment;
+};
 const modelBytes = async (plant: { id: string }) =>
 	JSON.stringify(
 		await w.rows(sql`SELECT facts,model_input,drafts,result,delta FROM assessment_run WHERE plant_id=${plant.id}`),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { recordId } from "../common/values.ts";
+import { defineSafeError, recordId, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 import { criterionKey, phaseNumber } from "../phases/index.ts";
 import type { SignalKey } from "./signals.ts";
@@ -163,6 +163,25 @@ export type FeedbackReceipt = z.infer<typeof feedbackReceipt>;
 export const markSeenRequest = z.strictObject({ runId: recordId });
 export const seenReceipt = z.strictObject({ outcome: z.enum(["recorded", "already_seen"]) });
 export type SeenReceipt = z.infer<typeof seenReceipt>;
+
+export const releaseRequest = z.strictObject({
+	plantId: recordId,
+	assessmentId: recordId,
+	releaseCause: z.literal("elapsed_72_hours"),
+	requestKey: recordId,
+});
+export const releaseReceipt = z.strictObject({
+	runId: recordId,
+	releasedAt: instant,
+	cause: z.enum(["opened", "elapsed_72_hours"]),
+});
+export type ReleaseReceipt = z.infer<typeof releaseReceipt>;
+export const releaseError = z.discriminatedUnion("code", [
+	defineSafeError("invalid_input", {}, "never"),
+	defineSafeError("not_found", {}, "never"),
+	defineSafeError("not_due", {}, "refresh"),
+]);
+export type ReleaseReply = Reply<ReleaseReceipt, z.infer<typeof releaseError>>;
 
 export const TREND_FACTS = [
 	{ key: "committedAdults.known", label: "Committed adults known" },

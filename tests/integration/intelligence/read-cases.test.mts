@@ -9,6 +9,7 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createFacts,
+	createRelease,
 	createSignals,
 	runAssessmentBatch,
 	type Drafter,
@@ -261,7 +262,15 @@ test("AC:PI-CASE-019 eight lens tiles: Vision measured with no insight is Not ra
 	assert.ok(org.assessment.status === "released");
 	assert.equal(org.assessment.concerns.find((x) => x.id === leadership.id) ?? null, null);
 	assert.ok(org.assessment.withheld >= 1);
-	assert.deepEqual(Object.keys(org.assessment).sort(), ["asOf", "concerns", "phase", "runId", "status", "withheld"]);
+	assert.deepEqual(Object.keys(org.assessment).sort(), [
+		"asOf",
+		"concerns",
+		"phase",
+		"runId",
+		"status",
+		"strengths",
+		"withheld",
+	]);
 	const reason = (org.assessment as Record<string, unknown>).reason ?? null;
 	assert.equal(reason, k.expected.result.withheld_leadership_reason);
 	assert.doesNotMatch(JSON.stringify(org), /leadership|ministry responsibilities/i);
@@ -351,6 +360,7 @@ test("AC:PI-CASE-023 the network sees the prior released R0 at 71h59m59s after t
 	const earlier = new Date(Date.parse(available) - 7 * DAY).toISOString();
 	await replica(sql`UPDATE assessment_run SET available_at=${earlier}::timestamptz WHERE id=${r0.id}`);
 	await replica(sql`UPDATE assessment_seen SET seen_at=${earlier}::timestamptz WHERE run_id=${r0.id}`);
+	await replica(sql`UPDATE assessment_release SET released_at=${earlier}::timestamptz WHERE run_id=${r0.id}`);
 	await replica(sql`UPDATE assessment_run SET available_at=${available}::timestamptz WHERE id=${r1.id}`);
 	assert.equal(given(k, "eligible_opened"), false);
 	assert.equal(
@@ -364,6 +374,7 @@ test("AC:PI-CASE-023 the network sees the prior released R0 at 71h59m59s after t
 	assert.equal(Date.parse(atBoundary!) - Date.parse(available), 72 * HOUR, "72h");
 	const released = async (at: string) => {
 		clockMs = Date.parse(at);
+		await createRelease({ clock }).releaseDueAssessments(c0.db);
 		return (await getPlant(c0.db, director, p.id, () => {}, clock))!.assessment;
 	};
 	const label = { [r0.id]: given<string>(k, "prior_released"), [r1.id]: "eligible_new_result" };

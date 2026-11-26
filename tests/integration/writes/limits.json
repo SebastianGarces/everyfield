@@ -2346,9 +2346,35 @@
 		"retry": 4
 	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
-		"limit": 5,
+		"limit": 11,
 		"retry": 5,
-		"reason": "The retry is a refused refresh: a run id another organization holds reads the shared people, tries the insert and rolls back as a conflict, so it sends the full five statements."
+		"reason": "A refresh is the request's own claimed run, captured and published in its write transaction: BEGIN, the locked write gate, the run insert under its lease, the shared people read, the contribution capture, the audit row, the active network reference read, the captured contributions read for the deterministic findings, the locked publication fence, the settle and COMMIT. The retry is a refused refresh: a run id another organization holds, or no active network reference, rolls back after the insert attempt."
+	},
+	"oversight/intelligence.claimIntelligenceRefresh": {
+		"limit": 5,
+		"reason": "A worker's claim in its own transaction: BEGIN, the fenced claim update, the shared people read, the contribution capture when the run has none yet, COMMIT."
+	},
+	"oversight/intelligence.runIntelligenceRefresh": {
+		"limit": 7,
+		"reason": "A claimed run settles outside the provider call: the active network reference read, the captured contributions read, then BEGIN, the locked publication fence, the settle and COMMIT; a deferred or degraded run settles in its own short transaction."
+	},
+	"oversight/intelligence.scheduleIntelligenceRefresh": {
+		"limit": 1
+	},
+	"oversight/reference.writeNetworkReference": {
+		"limit": 1
+	},
+	"oversight/reference.validateNetworkReference": {
+		"limit": 1
+	},
+	"oversight/reference.activateNetworkReference": {
+		"limit": 1
+	},
+	"assessments.release.releaseAssessmentToOversight": {
+		"limit": 1
+	},
+	"assessments.release.releaseDueAssessments": {
+		"limit": 1
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {
 		"limit": 5,
