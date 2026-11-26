@@ -198,5 +198,8 @@ test("INV-readiness: a refused or lost write rolls the section back to what it w
 	const thrown = await settleWrite(relationship, "retracted", relationship, () => Promise.reject(Error("x")), h.apply);
 	assert.equal(thrown?.stale, false);
 	assert.deepEqual(h.current, start);
-	assert.equal(readinessRefusal(error("no_change")), "That is what it already says. Change a value or the date to correct it.");
+	assert.equal(
+		readinessRefusal(error("no_change")),
+		"That is what it already says. Change a value or the date to correct it.",
+	);
 });

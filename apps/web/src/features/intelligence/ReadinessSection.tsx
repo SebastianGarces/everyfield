@@ -227,10 +227,7 @@ function ReadinessRow({
 						<p className="font-medium break-words text-ink">{entry.named ?? "A person no longer listed"}</p>
 						{note ? <p className="break-words">{note}</p> : null}
 						<p className="text-text-3">
-							{[
-								entry.asOf ? `True as of ${dayText(entry.asOf)}` : null,
-								entry.authorName ?? "A church admin",
-							]
+							{[entry.asOf ? `True as of ${dayText(entry.asOf)}` : null, entry.authorName ?? "A church admin"]
 								.filter(Boolean)
 								.join(" · ")}
 						</p>
