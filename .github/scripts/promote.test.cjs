@@ -25,7 +25,6 @@ const value = v => (typeof v === 'function' ? v() : v);
 // `ancestors` lists the commits each commit contains; `compare` answers by those, so `contains` follows history.
 function harness({ deployments = [], runs = [], production = PROD, ancestors = {}, env = ON, defaults = false } = {}) {
   const calls = { vercel: [], exec: [], compare: [], runs: [], getRun: [], lists: 0 };
-  let listed = [];
   const summary = [];
   const failed = [];
   const history = { ...ancestors };
@@ -59,13 +58,11 @@ function harness({ deployments = [], runs = [], production = PROD, ancestors = {
       assert.equal(url.searchParams.get('projectId'), PROJECT);
       assert.equal(url.searchParams.get('target'), 'production');
       calls.lists++;
-      listed = value(deployments);
-      return { ok: true, json: async () => ({ deployments: listed, pagination: { next: null } }) };
+      return { ok: true, json: async () => ({ deployments: value(deployments), pagination: { next: null } }) };
     }
     const key = decodeURIComponent(url.pathname.split('/').pop());
     if (key === env.VERCEL_PRODUCTION_DOMAIN) return { ok: true, json: async () => ({ id: 'dpl_current', meta: { githubCommitSha: production } }) };
-    const d = listed.find(x => x.uid === key);
-    return d ? { ok: true, json: async () => ({ id: d.uid, url: d.url, meta: d.meta, target: d.target, readyState: d.readyState }) } : { ok: false, status: 404 };
+    return { ok: false, status: 404 };
   };
   const core = {
     info() {},
@@ -154,7 +151,7 @@ test('INV-promote: promotes the CLI production deployment stamped with the exact
   assert.ok(!h.calls.exec[0].args.includes('token-value'), 'the token is never a command argument');
   assert.deepEqual(h.calls.compare, [`${GREEN}...${PROD}`]);
   const urls = h.calls.vercel.map(c => new URL(c.url));
-  assert.deepEqual(urls.map(u => u.pathname), ['/v13/deployments/everyfield.app', '/v7/deployments', '/v13/deployments/dpl_green']);
+  assert.deepEqual(urls.map(u => u.pathname), ['/v13/deployments/everyfield.app', '/v7/deployments']);
   assert.ok(urls.every(u => u.searchParams.get('slug') === 'everyfield-team'));
   assert.equal(Number(urls[1].searchParams.get('since')), Date.parse(PUSHED) - 5 * 60 * 1000);
   assert.ok(h.calls.vercel.every(c => c.auth === 'Bearer token-value'));

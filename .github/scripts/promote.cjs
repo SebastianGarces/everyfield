@@ -165,21 +165,17 @@ module.exports = async function promote({ github, context, core, exec }, options
   const result = await waitForBuild({ github, repo, vercel, projectId, sha: built, run: deployRun, sleep, now, waitMs, pollMs });
   if (!result.ready) return fail(core, `Promote failed for ${sha}: ${result.why}. Nothing was promoted.`);
 
-  const target = await vercel(`/v13/deployments/${encodeURIComponent(result.ready.uid)}`);
-  if (target.meta?.githubCommitSha !== built || target.target !== 'production' || target.readyState !== 'READY' || !target.id) {
-    return fail(core, `Vercel reports ${result.ready.uid} is not a ready production build of ${built}. Nothing was promoted.`);
-  }
-  const host = target.url || result.ready.url || target.id;
+  const { uid: id, url: host } = result.ready;
 
   // The CLI refuses VERCEL_PROJECT_ID without VERCEL_ORG_ID; `promote <id>` needs neither.
   const { VERCEL_PROJECT_ID: _project, ...execEnv } = env;
-  const [command, args] = promoteCommand(target.id, scope);
+  const [command, args] = promoteCommand(id, scope);
   try {
     await exec.exec(command, args, { env: execEnv });
   } catch (error) {
-    return fail(core, `vercel promote failed for deployment ${target.id} (${host}) of ${of}: ${error.message}`);
+    return fail(core, `vercel promote failed for deployment ${id} (${host}) of ${of}: ${error.message}`);
   }
-  await say(core, `Promoted deployment ${target.id} (${host}) of ${of} to production. It replaced ${current}.`);
-  return { outcome: 'promoted', sha, built, deployment: target.id, previous: current };
+  await say(core, `Promoted deployment ${id} (${host}) of ${of} to production. It replaced ${current}.`);
+  return { outcome: 'promoted', sha, built, deployment: id, previous: current };
 };
 module.exports.promoteCommand = promoteCommand;
