@@ -13,7 +13,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
+import { actorToken } from "../operations/canonical.ts";
 import { recommendForPhase } from "../wiki/reads.ts";
 import { CATALOG, type Catalog, type Checklist } from "./catalog.ts";
 import {
@@ -246,7 +246,7 @@ function commandRow(
 		id: cmd.id,
 		tenant_id: cmd.actor.plantId,
 		actor_id: cmd.actor.accountId,
-		actor_token: hash([cmd.actor.plantId, cmd.actor.accountId]),
+		actor_token: actorToken(cmd.actor.plantId, cmd.actor.accountId),
 		action: "tasks.changed",
 		kind: entry.kind,
 		subject_type: entry.subjectType,

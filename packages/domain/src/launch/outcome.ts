@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
+import { actorToken } from "../operations/canonical.ts";
 import { auditTransaction } from "../operations/writes.ts";
 import { peopleValues } from "../people/core.ts";
 import { columnsChanged, newPerson } from "../people/people.ts";
@@ -108,11 +108,10 @@ export function auditCte<From extends string>(
 		value && "getSQL" in value ? (value as SQL) : sql`${value ? JSON.stringify(value) : null}::jsonb`;
 	return sql`aud AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,
 	before_value,after_value,reason,request_key,request_identity,result,command_id,metadata)
-	SELECT ${op}::uuid,${scope.plantId}::uuid,${scope.accountId}::uuid,${actorToken(scope)},${row.action},${row.kind},${row.subjectType},
+	SELECT ${op}::uuid,${scope.plantId}::uuid,${scope.accountId}::uuid,${actorToken(scope.plantId, scope.accountId)},${row.action},${row.kind},${row.subjectType},
 	${row.subjectId},${json(row.before ?? null)},${json(row.after)},${row.reason ?? null},
 	${keyed(identity, { outcome: "changed" })},${op}::uuid,${JSON.stringify(row.metadata)}::jsonb FROM ${sql.raw(row.from)})`;
 }
-const actorToken = (scope: Scope) => hash([scope.plantId, scope.accountId]);
 const evidenceMoved = (scope: Scope) =>
 	sql`mat AS (UPDATE plant SET material_revision=material_revision+1 WHERE id=${scope.plantId}::uuid)`;
 
@@ -382,7 +381,7 @@ export function outcomeCommands(clock: Clock) {
  ${evidenceMoved(scope)},
  pa AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,after_value,
 	after_revision,command_id,metadata) SELECT ${personOp}::uuid,${p},${scope.accountId}::uuid,
-	${actorToken(scope)},'people.created','create','person',np.id,${JSON.stringify(created)}::jsonb,1,
+	${actorToken(scope.plantId, scope.accountId)},'people.created','create','person',np.id,${JSON.stringify(created)}::jsonb,1,
 	${op}::uuid,'{"source":"launch_guest"}'::jsonb FROM np),`,
 						),
 					);
