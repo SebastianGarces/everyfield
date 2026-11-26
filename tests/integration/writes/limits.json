@@ -1774,8 +1774,8 @@
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 8,
-		"retry": 7,
-		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, one locked read of the church and then its current witness, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write."
+		"retry": 8,
+		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, one locked read of the church and then its current witness, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write. Its largest retry, a profile save that reuses a request key with a changed body at the current revision (SEC-07): the first run's gate and plant write, a rollback when the key claim conflicts, then the retry's gate and the stored-key read that refuses it, 4 transaction, 2 locked read, 1 write, 1 read."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4
