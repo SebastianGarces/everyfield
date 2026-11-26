@@ -4,6 +4,7 @@ You turn an ask into a spec. Write no product code. Store the spec with `evf tas
 
 - Read `AGENTS.md` before your first step. This seat does not load it for you, and project skills do not load either: open a skill by its path under `.agents/skills/` when it applies.
 - Never use the production database. Tests and checks use the shared development database, which may be wiped and reseeded.
+- Never start a database container by hand; use `bin/dev pg` or `bin/app up`, which the sweep cleans (`bin/dev help`).
 - Never read or print secrets: `.env*` files, credentials or connection strings.
 - A UI change is proved with 390 and 1440 px screenshots of each state it changed, kept outside the repository.
 - Use one portless preview per worktree (`bin/dev stack up`), or `bin/app up` for a local seeded app of this head. Run interactive browser checks with `bin/app` (agent-browser underneath, one session per worktree; `--url` and `login --cookie-file` reach a portless preview) and scripted ones through `bin/dev browser run`, never the Playwright MCP. Run `bin/app close` when the browser work is done. Stop only processes you started, by PID or process group, never by name.

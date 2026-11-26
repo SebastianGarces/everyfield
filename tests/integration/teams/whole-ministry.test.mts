@@ -281,8 +281,8 @@ test("AC:TARGET-TEAM-001 a renamed template ministry keeps its key and stays apa
 		member: await c.edit(predefined.id, { name: "Taken" }, c.M),
 		memberCreate: await c.create({ name: "Taken" }, c.M),
 	}));
-	for (const at of ["edit", "forged", "read", "guessed"] as const) refused(foreign[at], "unavailable");
-	for (const at of ["get", "member", "memberCreate"] as const) refused(foreign[at], "access_denied");
+	for (const at of ["edit", "forged", "read", "guessed", "get"] as const) refused(foreign[at], "unavailable");
+	for (const at of ["member", "memberCreate"] as const) refused(foreign[at], "access_denied");
 	assert.deepEqual((await c.list({}, c.B)).ordinaryIds, [theirs.id]);
 	assert.deepEqual((await c.list({}, c.M)).ordinaryIds, page.ordinaryIds);
 });
@@ -723,7 +723,7 @@ test("AC:TARGET-TEAM-005 retiring an occupied role closes its slot, keeps who he
 	]);
 	for (const reply of foreign) refused(reply, "unavailable");
 	refused(await nothingChanges(() => c.retire(R.id, {}, c.M)), "access_denied");
-	refused(await teamsReader.listRoles(db, await c.viewer(c.B), { teamId: T.id }), "access_denied");
+	refused(await teamsReader.listRoles(db, await c.viewer(c.B), { teamId: T.id }), "unavailable");
 
 	const retire = { requestKey: key(), expectedRevision: await c.revision("team_role", R.id), input: { roleId: R.id } };
 	const done = await recorded(admin, () => c.run(teamsWriter.retireRole, retire));
@@ -937,7 +937,7 @@ test("AC:TARGET-TEAM-012 the chart and both exports show this church's current m
 		[foreign.id],
 	);
 	refused(await teamsReader.readOrgChart(db, await c.viewer(), { teamId: foreign.id }), "invalid_input");
-	refused(await teamsReader.get(db, await c.viewer(), { teamId: foreign.id }), "access_denied");
+	refused(await teamsReader.get(db, await c.viewer(), { teamId: foreign.id }), "unavailable");
 	const single = ok(await teamsReader.get(db, await c.viewer(), { teamId: wide.id }));
 	assert.deepEqual(
 		[single.team.name, single.team.leaderName, single.roles.map((r) => [r.id, r.name, r.occupantName])],
@@ -1181,7 +1181,7 @@ test("AC:GAP-TEAM-014 another church's member and an unavailable source learn no
 	assert.deepEqual(denied.list, { items: [], ordinaryIds: [], archivedIds: [] });
 	refused(denied.plant, "invalid_input");
 	refused(denied.forged, "unavailable");
-	refused(denied.get, "access_denied");
+	refused(denied.get, "unavailable");
 	refused(denied.guessed, "unavailable");
 	assert.equal(JSON.stringify(denied).includes("Hospitality"), false);
 

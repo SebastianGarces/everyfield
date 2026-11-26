@@ -52,8 +52,10 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 		open_successor: null,
 		plant_zone: zone,
 	};
-	const children = row.checklist.map((k) =>
+	const ids = row.checklist.map(() => randomUUID()).sort();
+	const children = row.checklist.map((k, i) =>
 		newTask(zone, {
+			id: ids[i],
 			title: k.title,
 			category: row.category,
 			priority: row.priority,

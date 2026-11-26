@@ -578,6 +578,7 @@ async function seed(database: Awaited<ReturnType<typeof fixture>>) {
 			values,
 			articles,
 		},
+		logins: database.logins,
 		close: database.close,
 	};
 }
