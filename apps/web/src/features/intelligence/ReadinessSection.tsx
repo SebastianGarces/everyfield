@@ -43,7 +43,6 @@ import {
 	retracted,
 	settleWrite,
 	STATE_LABEL,
-	withReadiness,
 	type DraftProblems,
 	type Failure,
 	type ReadinessDraft,
@@ -373,7 +372,15 @@ function ReadinessDialog({
 								tone="warning"
 								actions={
 									failure.stale ? (
-										<Button type="button" variant="ghost" size="sm" onClick={onReload}>
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setFailure(null);
+												onReload();
+											}}
+										>
 											Load the latest
 										</Button>
 									) : undefined
