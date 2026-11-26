@@ -16,14 +16,23 @@ const STEP: Record<string, (i: number, n: number) => number> = {
 
 export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Tab[]; panels: readonly ReactNode[] }) {
 	const [turn, setTurn] = useState({ current: 0, picked: false, run: 0 });
-	const [held, setHeld] = useState(false);
+	const [hold, setHold] = useState<"free" | "held" | "due">("free");
 	const still = useReducedMotion();
 	const hidden = useDocumentHidden();
 	const { current } = turn;
-	const select = (i: number) => setTurn((t) => ({ current: i, picked: true, run: t.run + 1 }));
+	const next = () => setTurn((t) => ({ current: (t.current + 1) % tabs.length, picked: false, run: t.run + 1 }));
+	const select = (i: number) => {
+		setTurn((t) => ({ current: i, picked: true, run: t.run + 1 }));
+		if (hold === "due") setHold("held");
+	};
 	const advance = () => {
-		if (held || still) return;
-		setTurn((t) => ({ current: (t.current + 1) % tabs.length, picked: false, run: t.run + 1 }));
+		if (still) return;
+		if (hold === "free") next();
+		else setHold("due");
+	};
+	const release = () => {
+		if (hold === "due") next();
+		setHold("free");
 	};
 	const keyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
 		const step = STEP[e.key];
@@ -33,12 +42,21 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 		select(next);
 		document.getElementById(`tour-tab-${tabs[next]?.id}`)?.focus();
 	};
-	const focusIn = (e: FocusEvent<HTMLDivElement>) => setHeld(e.target.matches(":focus-visible"));
+	const focusIn = (e: FocusEvent<HTMLDivElement>) => {
+		if (!e.target.matches(":focus-visible")) release();
+		else if (hold === "free") setHold("held");
+	};
 	const focusOut = (e: FocusEvent<HTMLDivElement>) => {
-		if (!e.currentTarget.contains(e.relatedTarget)) setHeld(false);
+		if (!e.currentTarget.contains(e.relatedTarget)) release();
 	};
 	return (
-		<div id="tour" className="mx-auto max-w-[1280px] text-left" onFocus={focusIn} onBlur={focusOut}>
+		<div
+			id="tour"
+			data-held={hold !== "free" || hidden || undefined}
+			className="group/tour mx-auto max-w-[1280px] text-left"
+			onFocus={focusIn}
+			onBlur={focusOut}
+		>
 			<div
 				role="tablist"
 				aria-label={label}
@@ -77,7 +95,7 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 									on &&
 										!still &&
 										(turn.picked ? "motion-safe:animate-mk-tab-fill-picked" : "motion-safe:animate-mk-tab-fill"),
-									(held || hidden) && "[animation-play-state:paused]",
+									"group-data-held/tour:[animation-play-state:paused]",
 								)}
 							/>
 							<span className="mt-0.5">{t.icon}</span>

@@ -53,6 +53,7 @@ async function tour() {
 		page,
 		label: shown,
 		lineClass: () => line().getAttribute("class") ?? "",
+		held: () => tourRoot().getAttribute("data-held") === "true",
 		timeRunsOut,
 		click: (name: string) => page.run(() => propsOf(tabs().find((t) => t.textContent.startsWith(name))!).onClick?.({})),
 		key: (key: string) => page.run(() => propsOf(selected()[0]!).onKeyDown?.({ key, preventDefault() {} })),
@@ -97,22 +98,29 @@ test("a clicked or keyed tab is shown at once with a 15 s line, then the walk re
 	await t.page.unmount();
 });
 
-test("keyboard focus inside the tour holds the line and the walk until focus leaves; mouse focus does not", async () => {
+test("keyboard focus inside the tour holds the walk until focus leaves; mouse focus does not", async () => {
 	reduced = false;
 	const t = await tour();
 	await t.focus(true);
-	assert.match(t.lineClass(), /animation-play-state:paused/);
-	await t.timeRunsOut();
+	assert.equal(t.held(), true);
+	await t.blurOut();
+	assert.equal(t.held(), false);
 	assert.equal(t.label(), "Wiki");
 
-	await t.blurOut();
-	assert.doesNotMatch(t.lineClass(), /animation-play-state:paused/);
+	await t.focus(true);
 	await t.timeRunsOut();
+	assert.equal(t.label(), "Wiki");
+	assert.equal(t.held(), true);
+	await t.blurOut();
 	assert.equal(t.label(), "Documents");
-
-	await t.focus(false);
+	assert.equal(t.held(), false);
 	await t.timeRunsOut();
 	assert.equal(t.label(), "Templates");
+
+	await t.focus(false);
+	assert.equal(t.held(), false);
+	await t.timeRunsOut();
+	assert.equal(t.label(), "When you're ready");
 	await t.page.unmount();
 });
 
