@@ -38,17 +38,21 @@ export function DiscoveryHome({ data }: { data: DiscoveryHomeData }) {
 				subtitle="Discovery is free for as long as you need. Read, write and test the call before you start a church."
 			/>
 			{data.residency ? (
-				<Card className="flex flex-wrap items-center gap-x-4 gap-y-3">
-					<CardIcon icon={Mortarboard01Icon} tone="teal" size={36} />
-					<div className="min-w-[200px] flex-1">
-						<h2 className="font-sans text-md font-semibold tracking-normal text-ink">
-							Your residency with {data.residency.organizationName}
-						</h2>
-						<p className="text-sm text-text-2">Your program, next meeting, milestones and reading.</p>
+				<Card as="section" className="flex flex-col gap-3">
+					<div className="flex items-start gap-3">
+						<CardIcon icon={Mortarboard01Icon} tone="teal" size={36} />
+						<div className="min-w-0 flex-1">
+							<h2 className="font-sans text-md font-semibold tracking-normal text-ink">
+								Your residency with {data.residency.organizationName}
+							</h2>
+							<p className="text-sm text-text-2">Your program, next meeting, milestones and reading.</p>
+						</div>
 					</div>
-					<Button asChild variant="secondary">
-						<Link href="/my-residency">Open My residency</Link>
-					</Button>
+					<div>
+						<Button asChild variant="secondary" size="sm">
+							<Link href="/my-residency">Open My residency</Link>
+						</Button>
+					</div>
 				</Card>
 			) : null}
 			<div className="grid gap-5 app-lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
