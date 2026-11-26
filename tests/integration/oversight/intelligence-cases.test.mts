@@ -1060,7 +1060,7 @@ test("AC:NI-032 a sending church and two networks that each approved the plant r
 	assert.equal(expected("NI-032").pooled_run, null);
 });
 
-test("a run captured with health on publishes nothing of P once findings are off (Not shared) or its link ends (no row), and the stored run is kept", async () => {
+test("AC:NI-018 a run captured with health on publishes nothing of P once findings are off (Not shared) or its link ends (no row), and the stored run is kept", async () => {
 	for (const variant of ["off", "ended"] as const) {
 		const { o, p, run } = await linkedPair(`Capture ${variant} Network`);
 		const kept = await stored(run);

@@ -22153,13 +22153,11 @@
             "filledResponsibilityCount": 0
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -29341,13 +29339,11 @@
             "documentedValuesEvidence": "recorded_native_document"
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -29981,13 +29977,11 @@
             "DiscoveryCompletion": true
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -31328,13 +31322,11 @@
             "missingGuestNamesAnswer": "yes"
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -31992,13 +31984,11 @@
             "publishedSummary": null
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
-          },
+          "assessment_input_state": "fixture-state-11",
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -35221,13 +35211,13 @@
             "chosenAreaAttested": false
           },
           "current_assessment": "R0",
-          "assessment_input_state": {
-            "different_from": "fixture-state-11"
+          "assessment_input_state": "fixture-state-11",
+          "organization_A_state": {
+            "different_from": "fixture-state-21"
           },
-          "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": true,
+          "sweep_discovers_change": false,
           "replay_new_effects": 0
         },
         "event": {
@@ -44725,7 +44715,10 @@
         "WP-043",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/intelligence-cases.test.mts"
+      ],
       "description": "ni-018-current-target",
       "given": {
         "P": {
