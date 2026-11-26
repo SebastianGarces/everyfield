@@ -3,6 +3,7 @@ import { instant, localDate } from "../common/time.ts";
 import { defineSafeError, eventId, personId, recordId, revision, safeError, sameOwner } from "../common/values.ts";
 import { organizationOwner, plantOwner, sharingCategory, sharingChoices } from "../organizations/subjects.ts";
 import { phaseNumber as phase } from "../phases/index.ts";
+import { catalogVersion, templateKey } from "../tasks/index.ts";
 import { foundationReading, ownDiscoveryReading } from "./reading.ts";
 import { documentCarryForwardProposal, journeyAnswer, launchAnswer } from "./requests.ts";
 
@@ -128,6 +129,21 @@ export const discoveryProfileResult = z.union([
 	z.strictObject({ status: z.literal("active"), profile: discoveryProfile }),
 	z.strictObject({ status: z.literal("converted"), discoveryId: recordId, plant: plantOwner, convertedAt: instant }),
 ]);
+export const discoverySteps = z.strictObject({
+	discoveryId: recordId,
+	revision,
+	catalogVersion,
+	steps: z
+		.array(
+			z.strictObject({
+				key: templateKey,
+				title: z.string().min(1),
+				description: z.string(),
+				doneAt: instant.nullable(),
+			}),
+		)
+		.max(20),
+});
 export const createDiscoveryResult = z.strictObject({ status: z.literal("active"), profile: discoveryProfile });
 export const onboardingError = z.discriminatedUnion("code", [
 	...safeError.options,

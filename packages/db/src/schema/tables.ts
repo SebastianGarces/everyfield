@@ -1303,6 +1303,12 @@ export const discovery = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		steps: jsonb("steps")
+			.notNull()
+			.default(sql`'[]'::jsonb`),
+		steps_revision: int64("steps_revision")
+			.notNull()
+			.default(sql`1`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "discovery_fk_0", columns: [table.account_id], foreignColumns: [account.id] })
@@ -1332,6 +1338,8 @@ export const discovery = pgTable(
 			sql`(journey_answer = ANY (ARRAY['existing'::text, 'unsure'::text, 'discerning'::text, 'skip'::text]))`,
 		),
 		check("discovery_ck_4", sql`(launch_answer = ANY (ARRAY['planned'::text, 'no_date'::text, 'skip'::text]))`),
+		check("discovery_ck_5", sql`(jsonb_typeof(steps) = 'array'::text)`),
+		check("discovery_ck_6", sql`(steps_revision >= 1)`),
 		index("discovery_ref_1").using("btree", table.converted_plant_id.asc().nullsLast()),
 		index("discovery_ref_2").using("btree", table.conversion_operation_id.asc().nullsLast()),
 	],

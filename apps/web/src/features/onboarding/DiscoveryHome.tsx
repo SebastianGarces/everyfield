@@ -6,6 +6,7 @@ import {
 	BookOpen01Icon,
 	ChurchIcon,
 	CheckmarkCircle02Icon,
+	Task01Icon,
 	File02Icon,
 	HierarchyIcon,
 	Link01Icon,
@@ -22,6 +23,7 @@ type DiscoveryHomeData = {
 	foundations: { id: string; title: string; href: string; read: boolean }[];
 	links: { id: string; name: string; kind: string; sharesFoundations: boolean }[];
 	residency: { organizationName: string } | null;
+	steps: { done: number; total: number };
 };
 
 const ROW =
@@ -86,6 +88,16 @@ export function DiscoveryHome({ data }: { data: DiscoveryHomeData }) {
 					</ol>
 				</Card>
 				<div className="flex flex-col gap-5">
+					<Tile
+						icon={Task01Icon}
+						title="Starter steps"
+						text={`${data.steps.done} of ${data.steps.total} done. Check them off in Tasks. They come with you when you start a church.`}
+						action={
+							<Button asChild variant="secondary" size="sm">
+								<Link href="/tasks">Open Tasks</Link>
+							</Button>
+						}
+					/>
 					<Tile
 						icon={BookOpen01Icon}
 						title="The Wiki"
