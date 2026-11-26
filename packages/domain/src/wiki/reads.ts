@@ -726,11 +726,33 @@ export function recommendForPhase(db: Database | Transaction, authority: Request
 			.parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
 		const articles = (row.articles ?? []).map(present);
+		const discovery = input.phase == null && (await discoveryPlanter(db, access));
 		return {
 			phase: input.phase ?? row.plant_phase,
-			articles,
+			articles: discovery ? discoverySuggestions(articles) : articles,
 		} satisfies z.output<typeof recommendResult>;
 	});
+}
+async function discoveryPlanter(db: Database | Transaction, access: CorpusAccess) {
+	if (access.owner.kind !== "account") return false;
+	const account = access.authority.actor.accountId;
+	const result = await db.execute(sql`SELECT
+		EXISTS (SELECT FROM discovery d WHERE d.account_id = ${account}::uuid AND d.converted_at IS NULL)
+		AND NOT EXISTS (
+			SELECT FROM seat s
+			WHERE s.account_id = ${account}::uuid AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
+		) AS discovery`);
+	return z.object({ discovery: z.boolean() }).parse(result.rows[0]).discovery;
+}
+function finished(article: WikiArticle) {
+	return article.completed && Number(article.observedFraction) > 0.8;
+}
+function discoverySuggestions(articles: readonly WikiArticle[]) {
+	const open = articles.filter((article) => !article.hidden && !finished(article));
+	const foundations = foundationArticles.flatMap((id) => open.filter((article) => article.articleId === id));
+	if (foundations.length > 0) return foundations;
+	const next = open.filter((article) => article.phase === 1);
+	return next.length > 0 ? next : open;
 }
 const CRAWLER = /facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|Googlebot|bingbot/i;
 function isCrawler(userAgent: string | undefined): boolean {
