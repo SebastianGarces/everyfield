@@ -434,7 +434,7 @@ export function TasksScreen() {
 	return (
 		<Shell
 			rail="tasks"
-			label={`Tasks in Discovery: your starter steps for the discovery season, ${STEPS_DONE} of ${STARTER_STEPS.length} done, from writing a one-page vision summary to drafting a budget for the first year.`}
+			label={`Tasks in Discovery: your six starter steps for the discovery season, ${STEPS_DONE} of ${STARTER_STEPS.length} done, from writing a one-page vision summary to drafting a budget for the first year.`}
 		>
 			<PageHead
 				title="Tasks"
