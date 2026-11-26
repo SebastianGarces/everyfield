@@ -632,8 +632,8 @@
 	},
 	"identity.handle:register": {
 		"limit": 20,
-		"retry": 13,
-		"reason": "An invitation registration describes its invitation once; the eligibility check reuses that answer, so the budget fell from 33 to 24 (peo-39), and to 20 when the description's reads became one statement (T-504). Better Auth owns the user and its password account, so the registration is three committed steps: the attempt budget reserve; an eligibility transaction (timeouts; one statement that finds the invitation by its proof, locks a residency invitation's organization and Person, the invitation and its workspace root, and reads the workspace and the clock; the workspace's lifecycle witness locked); the invitation re-read by its token and address; the attempt's identifier write; Better Auth's own transaction (user lookup, user insert, password account insert); the user read back; the account transaction (timeouts, account insert, account read); and the attempt's final state. Each step commits before the next so an auth failure leaves no half account. Its largest first run: 6 transaction, 2 locked read, 6 read, 6 write.",
+		"retry": 19,
+		"reason": "An invitation registration whose account insert fails after Better Auth committed the user (AUTH-001) rolls back only that last transaction, so its retry sample sends the first run's statements less the attempt's final state: 19. An invitation registration describes its invitation once; the eligibility check reuses that answer, so the budget fell from 33 to 24 (peo-39), and to 20 when the description's reads became one statement (T-504). Better Auth owns the user and its password account, so the registration is three committed steps: the attempt budget reserve; an eligibility transaction (timeouts; one statement that finds the invitation by its proof, locks a residency invitation's organization and Person, the invitation and its workspace root, and reads the workspace and the clock; the workspace's lifecycle witness locked); the invitation re-read by its token and address; the attempt's identifier write; Better Auth's own transaction (user lookup, user insert, password account insert); the user read back; the account transaction (timeouts, account insert, account read); and the attempt's final state. Each step commits before the next so an auth failure leaves no half account. Its largest first run: 6 transaction, 2 locked read, 6 read, 6 write.",
 		"reads": "The invitation, a residency invitation's organization and Person, and the workspace root are locked in one statement. The workspace's lifecycle witness is read in the next one because workspace deletion locks the root before it writes the witness, and a statement's snapshot predates its locks (C88): read in the same statement, a witness written while this one waited on the root would be missed."
 	},
 	"identity.handle:request-password-reset": {
@@ -647,8 +647,8 @@
 	},
 	"identity.handle:resume-registration": {
 		"limit": 13,
-		"retry": 13,
-		"reason": "RT-6a: the session read (3: Better Auth's adapter reads of the session and its user, then readIdentitySession's account read with its lifecycle check in one statement) and invitations.resume (10, see that entry). A required write that fails in the last statement rolls back the whole run, so a retry can send as many as a first run. Its largest first run: 2 transaction, 5 locked read, 4 read, 2 write.",
+		"retry": 14,
+		"reason": "A required write that fails only at COMMIT (a deferred constraint, AUTH-001) sends the whole first run and then the failing COMMIT: 14 on retry. RT-6a: the session read (3: Better Auth's adapter reads of the session and its user, then readIdentitySession's account read with its lifecycle check in one statement) and invitations.resume (10, see that entry). A required write that fails in the last statement rolls back the whole run, so a retry can send as many as a first run. Its largest first run: 2 transaction, 5 locked read, 4 read, 2 write.",
 		"reads": "The workspace's seat advisory lock is taken with the invitation read, before any row lock; then one statement locks the workspace, the invitation and the account. A locking SELECT reads every other table as of its start, so only a statement that starts after the advisory lock sees what its last holder committed."
 	},
 	"identity.handle:revoke-other-sessions": {
@@ -659,8 +659,8 @@
 		"limit": 3
 	},
 	"identity.handle:sign-in/email": {
-		"limit": 8,
-		"reason": "The attempt-budget reserve and its finish, Better Auth's user and password account reads and its session insert, then Everyfield's account lookup (the account and its lifecycle check in one statement) and, for a user with no account yet, the user's email and creation time and the attempt's saved registration intent. Its largest first run: 5 read, 3 write."
+		"limit": 13,
+		"reason": "The attempt-budget reserve and its finish, Better Auth's user and password account reads and its session insert, then Everyfield's account lookup (the account and its lifecycle check in one statement) and, for a user with no account yet, the user's email and creation time and the attempt's saved registration intent. When that intent exists, because the registration's account insert failed after Better Auth committed the user (AUTH-001), the sign-in makes the pending account in its own transaction (timeouts, the insert and the row read back). Its largest first run: 2 transaction, 7 read, 4 write."
 	},
 	"identity.handle:sign-out": {
 		"limit": 5
@@ -1774,8 +1774,8 @@
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 8,
-		"retry": 7,
-		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, one locked read of the church and then its current witness, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write."
+		"retry": 8,
+		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, one locked read of the church and then its current witness, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write. Its largest retry, a profile save that reuses a request key with a changed body at the current revision (SEC-07): the first run's gate and plant write, a rollback when the key claim conflicts, then the retry's gate and the stored-key read that refuses it, 4 transaction, 2 locked read, 1 write, 1 read."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4
@@ -2104,8 +2104,9 @@
 		"retry": 3
 	},
 	"launch.reopenMilestone": {
-		"limit": 4,
-		"retry": 3
+		"limit": 5,
+		"retry": 4,
+		"reads": "The milestone and its linked tasks are locked first, alone, so the milestone read after it takes a fresh snapshot: in one statement a task reopened while the completion waited on the milestone lock would be read as it was before (CASE-LCH-004)."
 	},
 	"launch.readJournal": {
 		"limit": 1
@@ -2168,9 +2169,10 @@
 		"retry": 3
 	},
 	"launch.completeMilestone": {
-		"limit": 10,
-		"retry": 3,
-		"reason": "A completion with other current Owners or Admins queues their Launch notifications in the completion's transaction through the notification service (NTF-009): BEGIN, the locked milestone read, the completion with its audit row, the recipients' seat addresses, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. A completion with no one to tell, a no-op and a replay send at most four. Its largest first run: 2 transaction, 5 locked read, 3 write."
+		"limit": 11,
+		"retry": 4,
+		"reason": "A completion with other current Owners or Admins queues their Launch notifications in the completion's transaction through the notification service (NTF-009): BEGIN, the lock on the milestone and its linked tasks (so a task reopened while the completion waits is read as a stale view, CASE-LCH-004), the locked milestone read, the completion with its audit row, the recipients' seat addresses, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. A completion with no one to tell, a no-op and a replay send at most five. Its largest first run: 2 transaction, 6 locked read, 3 write.",
+		"reads": "The milestone and its linked tasks are locked first, alone, so the milestone read after it takes a fresh snapshot: in one statement a task reopened while the completion waited on the milestone lock would be read as it was before (CASE-LCH-004)."
 	},
 	"privateCare.correct": {
 		"limit": 1
