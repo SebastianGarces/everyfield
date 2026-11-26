@@ -214,9 +214,16 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(first.creation.recordedAt, present(entries[0], "entries").recorded_at.toISOString());
 	const owner = present((await admin.select().from(t.seat).where(eq(t.seat.plant_id, plant.id)))[0], "owner");
 	assert.equal(first.ownerSeat.seatId, owner.id);
+	assert.equal(
+		(await admin.selectDistinct({ plant: t.seat.plant_id }).from(t.seat).where(eq(t.seat.account_id, a.id))).length,
+		1,
+		"two requests make one plant",
+	);
 	const f = { a, p: first.plant };
 	const r = await resume(f);
 	assert.equal(r.reading.status, "incomplete");
+	assert.equal(await admin.$count(t.reading, eq(t.reading.account_id, a.id)), 0, "creation reads no article");
+	assert.deepEqual(r.journey, { status: "pending" }, "the declaration slot stays unused");
 	assert.equal(r.values, "missing");
 	assert.deepEqual(r.completion, { status: "unfinished" });
 	assert.deepEqual(r.lead, { answer: "pending" });
@@ -376,7 +383,7 @@ test("AC:ADR1-006 a resident creates their own ordinary Phase 1 plant with one s
 	assert.equal((await seats()).length, 1);
 });
 
-test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and phase commit together", async () => {
+test("AC:DC-022 AC:DC-032 explicit journey allows 0..6 once with fixed reason; launch and phase commit together", async () => {
 	for (const phase of [0, 4, 6]) {
 		const f = await makePlant(),
 			r = await resume(f),
@@ -387,6 +394,15 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 				},
 				r.revision,
 			);
+		for (const journey of [
+			{ answer: "existing", phase, reason: "Caller supplied reason" },
+			{ answer: "existing", phase, kind: "initial_declaration" },
+		]) {
+			const refusal = await untouched(admin, async () =>
+				call("declareJourney", f.a, command({ ...q.input, journey }, r.revision), f.p),
+			);
+			denied(refusal, "invalid_input");
+		}
 		const saved = ok(await call("declareJourney", f.a, q, f.p));
 		assert.equal(saved.currentPhase, phase);
 		assert.equal(saved.scheduledLaunchDate, "2026-11-10");
@@ -402,6 +418,22 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 		);
 		assert.equal(present(entries[0], "entries").from_phase, 1);
 		assert.equal(present(entries[0], "entries").to_phase, phase);
+		const creation = await admin
+			.select()
+			.from(t.phase_transition)
+			.where(and(eq(t.phase_transition.plant_id, f.p.id), eq(t.phase_transition.kind, "creation")));
+		assert.deepEqual(
+			creation.map((e) => [e.from_phase, e.to_phase]),
+			[[null, 1]],
+			"creation stays a separate Phase 1 entry",
+		);
+		const retried = ok(await call("createPlant", f.a, f.q));
+		assert.deepEqual([retried.status, retried.currentPhase], ["existing", phase], "a creation retry keeps the phase");
+		const back = await resume(f);
+		assert.deepEqual(
+			[back.currentPhase, back.completion.status, back.reading.status, back.lead, back.peopleStep],
+			[phase, "unfinished", "incomplete", { answer: "pending" }, "pending"],
+		);
 		denied(await call("declareJourney", f.a, command(q.input, saved.revision), f.p), "already_declared");
 		for (const input of [
 			{ ...q.input, journey: { answer: "existing", phase: 7 } },
@@ -526,7 +558,7 @@ test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary
 	}
 });
 
-test("AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps", async () => {
+test("AC:TARGET-IDN-015 AC:DC-030 unsure, discerning and skip preserve phase and launch; finish preserves real gaps", async () => {
 	for (const answer of ["unsure", "discerning", "skip"]) {
 		const f = await makePlant();
 		await admin.insert(t.launch).values({ plant_id: f.p.id, target_date: "2026-11-10", status: "scheduled" });
@@ -1217,12 +1249,15 @@ async function reader(f: Pick<Made, "p">, role: (typeof t.seat.$inferInsert)["ro
 
 test("AC:DC-028 AC:DC-001 preplant reading belongs to actual account with no plant and survives creation", async () => {
 	const d = await discovery(),
-		before = await counts();
+		before = await counts(),
+		transitions = await admin.$count(t.phase_transition);
 	await reading(d.a);
 	const own = ok(await call("getDiscoveryProfile", d.a, {}));
 	assert.equal(activeProfile(own).reading.articles.length, 6);
 	assert.equal(activeProfile(own).reading.readerAccountId, d.a.id);
 	assert.equal((await counts()).plants, before.plants);
+	assert.equal(await admin.$count(t.phase_transition), transitions, "no phase row before a plant exists");
+	assert.equal(await admin.$count(t.seat, eq(t.seat.account_id, d.a.id)), 0);
 	const converted = ok(
 		await call(
 			"convertDiscovery",
@@ -2212,7 +2247,7 @@ test("AC:ROLE43-005 a no or a skip leaves the Owner's person, seat and full auth
 	}
 });
 
-test("AC:ROLE43-013 only one account's own six articles strictly past 80 percent complete the reading: an Admin lead's do, two halves and a borrowed title never do", async () => {
+test("AC:ROLE43-013 AC:DC-017 only one account's own six articles strictly past 80 percent complete the reading: an Admin lead's do, two halves and a borrowed title never do", async () => {
 	const f = await makePlant();
 	assert.equal((await resume(f)).currentPhase, 1, "creation asks for no reading");
 	for (const [fraction, status] of [
@@ -2286,6 +2321,23 @@ test("AC:ROLE43-013 only one account's own six articles strictly past 80 percent
 	assert.equal((await resume(f)).reading.status, "incomplete");
 	assert.deepEqual(await credit(), stored, "no title or link edit moves a reading record");
 	assert.equal(await admin.$count(t.reading, eq(t.reading.account_id, f.a.id)), 0, "the Owner still has 0 of 6");
+
+	const pooled = await makePlant(),
+		other = await reader(pooled);
+	const own = ok(
+		await call("answerLead", pooled.a, command(leadYes(undefined), (await resume(pooled)).revision), pooled.p),
+	);
+	await admin
+		.update(t.team_tenure)
+		.set({ person_id: other.person.id })
+		.where(eq(t.team_tenure.role_id, yes(own.lead).assignment.roleId));
+	await reading(pooled.a, [0, 1, 2], "0.9");
+	await reading(other, [3, 4, 5], "0.9");
+	assert.equal((await resume(pooled)).reading.status, "incomplete", "the Owner's half and the lead's half never pool");
+	await reading(other, [0, 1, 2], "0.9");
+	const theirs = (await resume(pooled)).reading;
+	assert.ok(theirs.status === "complete");
+	assert.equal(theirs.readerAccountId, other.id);
 });
 
 async function stored() {

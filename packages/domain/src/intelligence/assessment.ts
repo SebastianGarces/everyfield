@@ -202,7 +202,7 @@ export function createAssessments(config: { clock?: Clock } = {}) {
 	const publishedJson = () => sql`json_build_object('runId',cur.id,'asOf',${iso("cur.as_of")},'phase',cur.phase,
 		'rubricVersion',cur.rubric_version,'release',cur.reference_release,'activation',cur.reference_activation,
 		'result',cur.result,'delta',cur.delta,
-		'measuredOn',cur.facts->>'today','daysToLaunch',cur.facts->'launch'->'daysToLaunch',
+		'measuredOn',coalesce(cur.facts->>'today',(cur.as_of AT TIME ZONE x.timezone)::date::text),'daysToLaunch',cur.facts->'launch'->'daysToLaunch',
 		'ageDays',((${now()} AT TIME ZONE x.timezone)::date-(cur.as_of AT TIME ZONE x.timezone)::date),
 		'insights',(SELECT coalesce(json_agg(json_build_object('role',i.role,'title',i.title,'severity',i.severity)
 			ORDER BY array_position(ARRAY['high','medium','low','info'],i.severity),i.ordinal),'[]'::json)

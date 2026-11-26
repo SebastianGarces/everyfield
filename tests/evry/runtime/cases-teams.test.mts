@@ -11,6 +11,7 @@ import {
 } from "../../../packages/domain/src/teams/index.ts";
 import { approveProposal } from "../../../packages/evry/src/index.ts";
 import { ok } from "../../support/fixture.mts";
+import { caseOf } from "../../integration/target/sql/core/support.mts";
 import {
 	caseWorld,
 	proposes,
@@ -383,6 +384,42 @@ test("AC:INH-ROLES-05 the chosen Casey is placed in the one open greeter role by
 		secrets: ["Casey Stone", "greeter".concat('"')],
 	});
 	await c.outage(said, choose, "team_role");
+});
+
+test("AC:B01-035 the same selected import from the app and from Evry records one outcome, and only a person's approval applies the proposal", async () => {
+	const k = caseOf("intelligence", "B01-035");
+	const c = await w.church();
+	const selections = [{ teamKey: "worship", roleKeys: ["worship_lead"] }];
+	const footprint = () =>
+		w.one<{
+			teams: number;
+			roles: number;
+		}>(sql`SELECT (SELECT count(*) FROM team WHERE plant_id=${c.P.id})::int AS teams,
+			(SELECT count(*) FROM team_role WHERE plant_id=${c.P.id})::int AS roles`);
+	const outcomes = () =>
+		w.count(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${c.P.id}
+			AND request_identity->>'operation'='teams.initialize' AND kind<>'noop'`);
+	const app = await created(c, teamsWriter.initialize, { expectedVersion: "2", mode: "import", selections });
+	assert.deepEqual([app.outcome, app.newTenantRows], ["changed", 2]);
+	const made = await footprint();
+	const asked = await w.ask(c.A, "Import the worship ministry with its lead role", [
+		proposes("teams.initialize", { selections }),
+	]);
+	const [card] = asked.proposals;
+	assert.equal(card!.review.refusal ?? null, null);
+	assert.equal(k.action.arguments.human_review, true);
+	assert.ok(asked.offered.length > 0);
+	assert.deepEqual(
+		asked.offered.filter((tool) => /approve|confirm/i.test(tool)),
+		[],
+		"the model is offered no way to approve",
+	);
+	assert.equal(k.expected.result.model_approval_allowed, false);
+	assert.deepEqual(await footprint(), made, "a proposal applies nothing");
+	assert.equal((await w.approve(c.A, card!)).review.outcome, "completed");
+	assert.equal((await approveProposal(w.db, await w.actorOf(c.A), card!.id, w.witness(card!), null)).replayed, true);
+	assert.deepEqual(await footprint(), made, "the same import from Evry adds nothing");
+	assert.equal(await outcomes(), k.expected.result.recorded_outcome_count);
 });
 
 test("AC:INH-TEAMS-06 adding Alex to Hospitality adds one role, keeps Worship as it was and meets no capacity gate", async () => {
