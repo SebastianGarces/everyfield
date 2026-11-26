@@ -14,7 +14,13 @@ Object.assign(globalThis, {
 		removeEventListener: (_: string, listener: () => void) => motionListeners.delete(listener),
 	}),
 });
-Object.assign(document, { hidden: false, getElementById: () => null });
+const visibilityListeners = new Set<() => void>();
+Object.assign(document, {
+	hidden: false,
+	getElementById: () => null,
+	addEventListener: (type: string, listener: () => void) => type === "visibilitychange" && visibilityListeners.add(listener),
+	removeEventListener: (_: string, listener: () => void) => visibilityListeners.delete(listener),
+});
 
 const { Tour } = await import("../../../apps/web/src/marketing/discovery/Tour.tsx");
 
@@ -52,6 +58,7 @@ async function tour() {
 	return {
 		page,
 		label: shown,
+		line,
 		lineClass: () => line().getAttribute("class") ?? "",
 		held: () => tourRoot().getAttribute("data-held") === "true",
 		timeRunsOut,
@@ -147,4 +154,30 @@ test("under reduced motion the line is full and static, nothing advances, and cl
 	assert.equal(live.label(), "Wiki");
 	await live.page.unmount();
 	reduced = false;
+});
+
+test("a hidden browser tab pauses the line inside the visibility event, flushing style, and resumes on return", async () => {
+	reduced = false;
+	const t = await tour();
+	let flushedWhile: unknown = "never";
+	const line = Object.assign(t.line(), {
+		getAnimations: () => {
+			flushedWhile = line.style.animationPlayState;
+			return [];
+		},
+	});
+	const turn = (hidden: boolean) =>
+		t.page.run(() => {
+			Object.assign(document, { hidden });
+			for (const changed of visibilityListeners) changed();
+		});
+	await turn(true);
+	assert.equal(line.style.animationPlayState, "paused");
+	assert.equal(flushedWhile, "paused");
+	await turn(false);
+	assert.equal(line.style.animationPlayState, "");
+	assert.equal(flushedWhile, "");
+	assert.equal(t.label(), "Wiki");
+	await t.page.unmount();
+	assert.equal(visibilityListeners.size, 0);
 });
