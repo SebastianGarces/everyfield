@@ -53,9 +53,8 @@ function LeadChooser({ read, plant, onSaved }: { read: Ready; plant: PlantOwner;
 	const { pending, refusal, run } = useWrite("lead-planter");
 	const changed = chosen !== null && chosen !== holder?.personId;
 	const save = async () => {
-		const person = read.people.find((p) => p.personId === chosen);
-		if (!person) return;
-		const input = { plant, personId: person.personId };
+		if (!chosen) return;
+		const input = { plant, personId: chosen };
 		const result = await run(input, (requestKey) =>
 			port.lead.save({ requestKey, expectedRevision: read.revision, input }),
 		);
