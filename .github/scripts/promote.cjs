@@ -2,12 +2,10 @@ const REPOSITORY = 'SebastianGarces/everyfield';
 const DEPLOY_WORKFLOW = 'deploy-production.yml';
 const VERCEL_CLI = 'vercel@65.11.0';
 const SHA = /^[0-9a-f]{40}$/;
-// deploy-production's job has a 30-minute timeout and starts at push time, before CI ends, so 40 minutes from
-// here always outlasts it.
-const WAIT_MS = 40 * 60 * 1000;
+const DEPLOY_JOB_TIMEOUT_MS = 30 * 60 * 1000;
+const WAIT_MS = DEPLOY_JOB_TIMEOUT_MS + 10 * 60 * 1000;
 const POLL_MS = 30 * 1000;
-// Vercel may stamp a deployment a little before GitHub records the run that made it.
-const CLOCK_SKEW_MS = 5 * 60 * 1000;
+const VERCEL_GITHUB_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const BUILDING = new Set(['QUEUED', 'INITIALIZING', 'BUILDING']);
 const ANCESTOR_RUNS = 100;
 
@@ -37,8 +35,7 @@ function vercelClient(token, scope, fetchImpl) {
   };
 }
 
-// True when `newer` contains `older` (the same commit or a descendant of it).
-async function contains(github, repo, newer, older) {
+async function newerContainsOlder(github, repo, newer, older) {
   const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${older}...${newer}` });
   return ['ahead', 'identical'].includes(comparison.data.status);
 }
@@ -52,16 +49,14 @@ async function pushRuns(github, repo, query) {
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 }
 
-// The newest deploy-production push run of a commit that `sha` contains, other than `sha` itself.
-async function deployingAncestor(github, repo, sha) {
+async function newestEarlierDeployRunIn(github, repo, sha) {
   for (const run of await pushRuns(github, repo, { per_page: ANCESTOR_RUNS })) {
-    if (run.head_sha !== sha && await contains(github, repo, sha, run.head_sha)) return run;
+    if (run.head_sha !== sha && await newerContainsOlder(github, repo, sha, run.head_sha)) return run;
   }
   return undefined;
 }
 
-// Production deployments of the project that the Vercel CLI stamped with this commit, newest first.
-async function deploymentsOf(vercel, projectId, sha, since) {
+async function productionDeploymentsStampedWith(vercel, projectId, sha, since) {
   const found = [];
   let until;
   for (let page = 0; page < 10; page++) {
@@ -79,9 +74,9 @@ async function deploymentsOf(vercel, projectId, sha, since) {
 
 async function waitForBuild({ github, repo, vercel, projectId, sha, run, sleep, now, waitMs, pollMs }) {
   const deadline = now() + waitMs;
-  const since = Date.parse(run.created_at) - CLOCK_SKEW_MS;
+  const since = Date.parse(run.created_at) - VERCEL_GITHUB_CLOCK_SKEW_MS;
   for (;;) {
-    const deployments = await deploymentsOf(vercel, projectId, sha, since);
+    const deployments = await productionDeploymentsStampedWith(vercel, projectId, sha, since);
     const ready = deployments.find(d => d.readyState === 'READY');
     if (ready) return { ready };
     const latest = (await github.rest.actions.getWorkflowRun({ ...repo, run_id: run.id })).data;
@@ -139,23 +134,21 @@ module.exports = async function promote({ github, context, core, exec }, options
 
   const current = (await vercel(`/v13/deployments/${encodeURIComponent(domain)}`)).meta?.githubCommitSha;
   if (!SHA.test(current || '')) return fail(core, `Production at ${domain} names no Git commit, so it cannot be compared with ${sha}. Nothing was promoted.`);
-  if (await contains(github, repo, current, sha)) {
+  if (await newerContainsOlder(github, repo, current, sha)) {
     await say(core, `Production already runs ${current}, which contains ${sha}. Nothing was promoted.`);
     return { outcome: 'current', sha, current };
   }
 
-  // The commit whose build goes live: the green sha when deploy-production built it, else (a path-filtered
-  // commit, such as docs only) the latest earlier commit in it that did.
   let built = sha;
   let deployRun = (await pushRuns(github, repo, { head_sha: sha, per_page: 10 })).find(r => r.head_sha === sha);
   if (!deployRun) {
-    deployRun = await deployingAncestor(github, repo, sha);
+    deployRun = await newestEarlierDeployRunIn(github, repo, sha);
     if (!deployRun) {
       await say(core, `No deploy-production push run built ${sha} or a commit before it. Nothing deployable changed, so production stays on ${current}. Nothing was promoted.`);
       return { outcome: 'unchanged', sha, current };
     }
     built = deployRun.head_sha;
-    if (await contains(github, repo, current, built)) {
+    if (await newerContainsOlder(github, repo, current, built)) {
       await say(core, `No deploy-production push run built ${sha}; its latest deploying commit ${built} is already in production ${current}. Nothing deployable changed, so production stays. Nothing was promoted.`);
       return { outcome: 'unchanged', sha, built, current };
     }
@@ -167,8 +160,7 @@ module.exports = async function promote({ github, context, core, exec }, options
 
   const { uid: id, url: host } = result.ready;
 
-  // The CLI refuses VERCEL_PROJECT_ID without VERCEL_ORG_ID; `promote <id>` needs neither.
-  const { VERCEL_PROJECT_ID: _project, ...execEnv } = env;
+  const { VERCEL_PROJECT_ID: _refusedByCliWithoutOrgId, ...execEnv } = env;
   const [command, args] = promoteCommand(id, scope);
   try {
     await exec.exec(command, args, { env: execEnv });

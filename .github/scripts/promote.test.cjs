@@ -12,17 +12,14 @@ const ON = {
 };
 const PUSHED = '2026-11-25T10:00:00Z';
 
-// A production deployment as `vercel deploy --prebuilt --prod --meta githubCommitSha=<sha>` leaves it in the list API.
-function cli(uid, sha, readyState = 'READY', overrides = {}) {
+function cliProductionDeployment(uid, sha, readyState = 'READY', overrides = {}) {
   return { uid, url: `${uid}.vercel.app`, projectId: PROJECT, target: 'production', readyState, created: Date.parse(PUSHED) + 60000, meta: { githubCommitSha: sha }, ...overrides };
 }
-// A deploy-production push run on main.
 function deployRun(id, sha, status = 'completed', conclusion = 'success', created_at = PUSHED) {
   return { id, head_sha: sha, event: 'push', head_branch: 'main', status, conclusion: status === 'completed' ? conclusion : null, created_at };
 }
 const value = v => (typeof v === 'function' ? v() : v);
 
-// `ancestors` lists the commits each commit contains; `compare` answers by those, so `contains` follows history.
 function harness({ deployments = [], runs = [], production = PROD, ancestors = {}, env = ON, defaults = false } = {}) {
   const calls = { vercel: [], exec: [], compare: [], runs: [], getRun: [], lists: 0 };
   const summary = [];
@@ -91,7 +88,7 @@ test('INV-promote: missing TRUNK_PROMOTE or VERCEL_TOKEN promotes nothing, calls
     [{ ...ON, VERCEL_TOKEN: '' }, /VERCEL_TOKEN secret is not set/],
   ];
   for (const [env, reason] of cases) {
-    const h = harness({ env, runs: [deployRun(1, GREEN)], deployments: [cli('dpl_green', GREEN)] });
+    const h = harness({ env, runs: [deployRun(1, GREEN)], deployments: [cliProductionDeployment('dpl_green', GREEN)] });
     const result = await h.go(ci());
     assert.equal(result.outcome, 'off', JSON.stringify(env));
     assert.deepEqual(h.calls.vercel, []);
@@ -129,13 +126,13 @@ test('INV-promote: only a successful push CI run on main of this repository prom
 
 test('INV-promote: promotes the CLI production deployment stamped with the exact green sha and no other', async () => {
   const deployments = [
-    cli('dpl_other', 'b'.repeat(40)),
-    cli('dpl_near', GREEN.slice(0, 39) + 'b'),
-    cli('dpl_short', GREEN.slice(0, 7)),
-    cli('dpl_preview', GREEN, 'READY', { target: null }),
-    cli('dpl_foreign', GREEN, 'READY', { projectId: 'prj_other' }),
-    cli('dpl_failed', GREEN, 'ERROR', { created: Date.parse(PUSHED) + 90000 }),
-    cli('dpl_green', GREEN),
+    cliProductionDeployment('dpl_other', 'b'.repeat(40)),
+    cliProductionDeployment('dpl_near', GREEN.slice(0, 39) + 'b'),
+    cliProductionDeployment('dpl_short', GREEN.slice(0, 7)),
+    cliProductionDeployment('dpl_preview', GREEN, 'READY', { target: null }),
+    cliProductionDeployment('dpl_foreign', GREEN, 'READY', { projectId: 'prj_other' }),
+    cliProductionDeployment('dpl_failed', GREEN, 'ERROR', { created: Date.parse(PUSHED) + 90000 }),
+    cliProductionDeployment('dpl_green', GREEN),
   ];
   const h = harness({ runs: [deployRun(7, GREEN)], deployments });
   const result = await h.go(ci());
@@ -171,7 +168,7 @@ test('INV-promote: a build still queued or building is waited for and promoted o
     deployments: () => {
       polls++;
       if (polls < 2) return [];
-      return [cli('dpl_green', GREEN, polls < 3 ? 'QUEUED' : polls < 4 ? 'BUILDING' : 'READY')];
+      return [cliProductionDeployment('dpl_green', GREEN, polls < 3 ? 'QUEUED' : polls < 4 ? 'BUILDING' : 'READY')];
     },
   });
   const result = await h.go(ci());
@@ -183,7 +180,7 @@ test('INV-promote: a build still queued or building is waited for and promoted o
 
 test('INV-promote: a failed, cancelled or never-ready build fails naming the sha and promotes nothing', async () => {
   for (const state of ['ERROR', 'CANCELED']) {
-    const h = harness({ runs: [deployRun(7, GREEN, 'completed', 'failure')], deployments: [cli('dpl_green', GREEN, state)] });
+    const h = harness({ runs: [deployRun(7, GREEN, 'completed', 'failure')], deployments: [cliProductionDeployment('dpl_green', GREEN, state)] });
     assert.equal((await h.go(ci())).outcome, 'failed', state);
     assert.deepEqual(h.calls.exec, []);
     assert.equal(h.failed.length, 1);
@@ -196,7 +193,7 @@ test('INV-promote: a failed, cancelled or never-ready build fails naming the sha
   assert.match(cancelledRun.failed[0], new RegExp(`deploy-production run 7 for ${GREEN} concluded cancelled without a Vercel production deployment`));
   assert.deepEqual(cancelledRun.calls.exec, []);
 
-  const stuck = harness({ runs: [deployRun(7, GREEN, 'in_progress')], deployments: [cli('dpl_green', GREEN, 'BUILDING')] });
+  const stuck = harness({ runs: [deployRun(7, GREEN, 'in_progress')], deployments: [cliProductionDeployment('dpl_green', GREEN, 'BUILDING')] });
   assert.equal((await stuck.go(ci())).outcome, 'failed');
   assert.match(stuck.failed[0], new RegExp(`Promote failed for ${GREEN}: no READY Vercel production deployment exists for ${GREEN} after waiting 2 minutes\\. Nothing was promoted\\.`));
   assert.equal(stuck.calls.getRun.length, 5, 'polls until the bounded wait ends');
@@ -221,7 +218,7 @@ test('INV-promote: a path-filtered green sha promotes the latest earlier deployi
     deployRun(5, OLDER, 'completed', 'success', '2026-11-25T09:00:00Z'),
   ];
   const ancestors = { [GREEN]: [EARLIER, OLDER, PROD], [EARLIER]: [OLDER, PROD], [LATER]: [GREEN, EARLIER, OLDER, PROD] };
-  const h = harness({ runs, ancestors, production: PROD, deployments: [cli('dpl_earlier', EARLIER), cli('dpl_older', OLDER)] });
+  const h = harness({ runs, ancestors, production: PROD, deployments: [cliProductionDeployment('dpl_earlier', EARLIER), cliProductionDeployment('dpl_older', OLDER)] });
   const result = await h.go(ci());
   assert.equal(result.outcome, 'promoted');
   assert.equal(result.built, EARLIER);
@@ -233,7 +230,7 @@ test('INV-promote: a path-filtered green sha promotes the latest earlier deployi
 
 test('INV-promote: a path-filtered green sha whose deploying commit is already live ends green and promotes nothing', async () => {
   const runs = [deployRun(8, EARLIER)];
-  const live = harness({ runs, production: PROD, ancestors: { [GREEN]: [EARLIER, PROD], [PROD]: [EARLIER] }, deployments: [cli('dpl_earlier', EARLIER)] });
+  const live = harness({ runs, production: PROD, ancestors: { [GREEN]: [EARLIER, PROD], [PROD]: [EARLIER] }, deployments: [cliProductionDeployment('dpl_earlier', EARLIER)] });
   const result = await live.go(ci());
   assert.equal(result.outcome, 'unchanged');
   assert.deepEqual(live.calls.exec, []);
@@ -251,7 +248,7 @@ test('INV-promote: a green run that finishes after a newer one never moves produ
   const older = GREEN;
   const newer = 'c'.repeat(40);
   const runs = [deployRun(1, older), deployRun(2, newer)];
-  const deployments = [cli('dpl_old', older), cli('dpl_new', newer)];
+  const deployments = [cliProductionDeployment('dpl_old', older), cliProductionDeployment('dpl_new', newer)];
   for (const ancestors of [{ [newer]: [older] }, {}]) {
     const production = ancestors[newer] ? newer : older;
     const h = harness({ runs, deployments, production, ancestors });
