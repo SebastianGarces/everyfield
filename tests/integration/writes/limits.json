@@ -1293,8 +1293,7 @@
 	},
 	"onboarding.setDiscoveryStep": {
 		"limit": 6,
-		"retry": 5,
-		"reason": "The producer's savepoint and its release; the write gate with the account lock; the planter's open, seatless Discovery profile locked; the request-key read; one final statement with the step change and its audit. A retry or refusal answers before the final statement."
+		"retry": 5
 	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 7,
