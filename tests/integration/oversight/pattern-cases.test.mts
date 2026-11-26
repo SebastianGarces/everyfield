@@ -32,7 +32,6 @@ import {
 	writeNetworkReference,
 	type RefreshConfig,
 } from "../../../packages/domain/src/oversight/index.ts";
-import { NETWORK_LEASE_MS } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { NETWORK_RUBRIC_HASH } from "../../../packages/domain/src/oversight/reference.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { createRelease } from "../../../packages/domain/src/intelligence/index.ts";
@@ -762,7 +761,7 @@ test("AC:NEX-026 a worker whose claim went stale has its valid result refused as
 	);
 	const later = { now: () => new Date(Date.parse(lease_until) + 1000).toISOString() as never };
 	const own = c0.database.connect("runtime", { max: 1 });
-	const second = (await claimIntelligenceRefresh(own, { clock: later, leaseMs: NETWORK_LEASE_MS }, pending))!;
+	const second = (await claimIntelligenceRefresh(own, { clock: later }, pending))!;
 	assert.ok(second, "the second worker takes over the lapsed claim on its own connection");
 	assert.equal(
 		second.generation - first.generation,

@@ -156,8 +156,7 @@ export const storedStrength = z.object({
 	keys: z.array(z.string()),
 	evidence: z.array(c.evidenceFact),
 });
-export type StoredStrength = z.infer<typeof storedStrength>;
-export const strengthOf = (runId: string, s: StoredStrength) => ({
+export const strengthOf = (runId: string, s: z.infer<typeof storedStrength>) => ({
 	id: c.concernId(runId, s.ordinal),
 	ordinal: s.ordinal,
 	lens: s.keys.map(c.lensOfKey).find((l) => l !== null) ?? null,
