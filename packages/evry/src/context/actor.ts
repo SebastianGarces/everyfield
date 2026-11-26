@@ -12,7 +12,6 @@ export type EvryActor = {
 	readonly role: "owner" | "admin" | "member" | null;
 	readonly seatId: string | null;
 	readonly selfPersonId: string | null;
-	/** An open Discovery profile without a seat: start a church by converting it, never a second space. */
 	readonly discovery?: boolean;
 };
 

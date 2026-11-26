@@ -84,7 +84,6 @@ export type ReviewedWrite<I> = {
 	memberDescription?: string;
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
-	/** Whether Evry offers it to this actor, when narrower than allowed; a card already prepared stays readable. */
 	offered?(actor: EvryActor): boolean;
 	sendsMail?: true;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;

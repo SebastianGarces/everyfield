@@ -151,7 +151,6 @@ function plantBasics(value: Basics) {
 const NEXT_STEPS =
 	"Setup then goes on with: where you are, your launch date and your team. Ask me where you are in setup, or open setup.";
 
-/** A Discovery planter starts a church by converting the space, and is never offered a second start. */
 const notForDiscovery = <I>(write: ReviewedWrite<I>): ReviewedWrite<I> => ({
 	...write,
 	offered: (actor) => !actor.discovery,
