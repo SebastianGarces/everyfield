@@ -408,8 +408,9 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 			return row && [row.label, row.fields.status, row.fields.reading ?? null];
 		});
 	};
-	const unknown = ["Foundational modules complete", "no data yet", null];
-	assert.deepEqual(await criterion(), [unknown, unknown], "a measure with no record is unknown, never zero");
+	const notMet = ["Foundational modules complete", "not met", null];
+	const met = ["Foundational modules complete", "met", null];
+	assert.deepEqual(await criterion(), [notMet, notMet], "the reading record says no lead has read the six yet");
 	assert.deepEqual(await metric(C), [0, 6, false, 1, false]);
 	await readAs(A, articles.slice(0, 4), "0.9");
 	await readAs(B, articles.slice(4), "0.9");
@@ -419,6 +420,7 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 	assert.deepEqual(await metric(B), [2, 6, false, 1, false], "two readers' six articles do not add up");
 	assert.deepEqual(await metric(third), [0, 6, false, 1, false], "exactly 80 percent is not read");
 	assert.deepEqual(await metric(C), [5, 6, false, 1, false]);
+	assert.deepEqual(await criterion(), [notMet, notMet], "readers' parts never pool into the criterion");
 	const held = () =>
 		w.rows(
 			sql`SELECT account_id,article_id,observed_fraction::text AS f,completed_at IS NOT NULL AS done FROM reading ORDER BY 1,2`,
@@ -438,7 +440,7 @@ test("AC:EVRY-FOUNDATIONS-ONE-READER one eligible reader must read all six past 
 	await readAs(C, articles.slice(5), "0.81");
 	assert.deepEqual(await metric(C), [6, 6, true, 1, true]);
 	assert.deepEqual(await metric(A), [4, 6, false, 1, false]);
-	assert.deepEqual(await criterion(), [unknown, unknown], "reading does not stand in for the record");
+	assert.deepEqual(await criterion(), [met, met], "one lead's own six readings meet the criterion");
 	assert.equal((await w.one(sql`SELECT phase FROM plant WHERE id=${P.id}`)).phase, 1);
 	await c.foreign(said, [reads("wiki.reading.stats", {}), reads("phases.readReadiness", {})], {
 		secrets: ["Cedar Plant"],

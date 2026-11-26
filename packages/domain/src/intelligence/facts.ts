@@ -14,6 +14,7 @@ import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { outcomeEvidence } from "../tasks/origin.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
+import { foundationArticles } from "../onboarding/reading.ts";
 import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
@@ -160,7 +161,12 @@ function revisionMatches(inputs: FactInputs, stored: string) {
 	return revisionOf(inputs) === stored || revisionOf(storedBeforePhase) === stored;
 }
 
-export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.PlantFacts {
+export function buildFacts(
+	inputs: FactInputs,
+	asOf: Instant,
+	today: string,
+	foundations: CriterionStatus = "unknown",
+): c.PlantFacts {
 	const windowStart = addDays(today, -(c.WINDOW_DAYS - 1));
 	const priorStart = addDays(today, -(2 * c.WINDOW_DAYS - 1));
 	const priorEnd = addDays(today, -c.WINDOW_DAYS);
@@ -334,6 +340,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		systems_tested: answer("systems_tested"),
 		...c.launchCriteria(launch),
 		first_service_complete: firstService.status,
+		foundations_complete: foundations,
 	};
 
 	return c.plantFacts.parse({
@@ -448,8 +455,13 @@ const moment = (at: SQL, until: SQL) => sql`pl.id AS plant,pl.timezone AS zone,$
   (${at} AT TIME ZONE pl.timezone)::date AS today,(${until} AT TIME ZONE pl.timezone)::date AS until_day`;
 const gated = (plant: string, ok: SQL, at: SQL) => sql`WITH gate AS (SELECT ${ok} AS ok),
  x AS (SELECT ${moment(at, at)} FROM plant pl WHERE pl.id=${plant}::uuid AND (SELECT ok FROM gate))`;
+const foundationsSql = sql`(SELECT EXISTS(SELECT FROM seat s WHERE s.plant_id=x.plant AND s.role<>'member'
+ AND s.ended_at IS NULL AND s.accepted_at<=x.at AND (SELECT count(DISTINCT rd.article_id) FROM reading rd
+  WHERE rd.account_id=s.account_id AND rd.article_id=ANY(${sql.param(foundationArticles)}::uuid[])
+  AND rd.completed_at IS NOT NULL AND rd.completed_at<=x.at AND rd.observed_fraction>0.80)=${foundationArticles.length}))`;
 const measured = () =>
-	sql`(SELECT ok FROM gate) AS ok,x.today::text AS today,${iso(sql`x.at`)} AS at,${inputsSql()} AS inputs`;
+	sql`(SELECT ok FROM gate) AS ok,x.today::text AS today,${iso(sql`x.at`)} AS at,${inputsSql()} AS inputs,
+ ${foundationsSql} AS foundations`;
 
 const statement = (plant: string, ok: SQL, at: SQL) =>
 	sql`${gated(plant, ok, at)} SELECT ${measured()} FROM gate LEFT JOIN x ON true`;
@@ -470,7 +482,9 @@ const factsRow = z.object({
 	today: z.string().nullable(),
 	at: instant.nullable(),
 	inputs: z.unknown(),
+	foundations: z.boolean().nullable(),
 });
+const foundationsOf = (read: boolean | null): CriterionStatus => (read ? "met" : "not_met");
 const sinceRunRow = factsRow.extend({
 	run: z.object({ id: z.uuid(), revision: z.string(), inputs: z.unknown() }).nullable(),
 });
@@ -483,12 +497,12 @@ async function measureInputs(db: Pick<Database, "execute">, plant: string, at: s
 	const { rows } = await db.execute(statement(plant, sql`true`, when));
 	const r = factsRow.parse(rows[0]);
 	if (!r.ok || !r.today || !r.at) return null;
-	return { inputs: factInputs.parse(r.inputs), at: r.at, today: r.today };
+	return { inputs: factInputs.parse(r.inputs), at: r.at, today: r.today, foundations: foundationsOf(r.foundations) };
 }
 
 export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
 	const m = await measureInputs(db, plant, at);
-	return m && buildFacts(m.inputs, m.at, m.today);
+	return m && buildFacts(m.inputs, m.at, m.today, m.foundations);
 }
 
 export async function captureInputs(db: Pick<Database, "execute">, plant: string, at: string) {
@@ -506,7 +520,7 @@ export function createFacts(config: { clock?: Clock } = {}) {
 	}
 	function factsOf(r: z.infer<typeof factsRow>) {
 		if (!r.ok || !r.today || !r.at) deny("access_denied");
-		return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+		return buildFacts(factInputs.parse(r.inputs), r.at, r.today, foundationsOf(r.foundations));
 	}
 	return {
 		async readFacts(
