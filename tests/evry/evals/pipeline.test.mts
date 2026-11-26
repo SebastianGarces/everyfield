@@ -83,7 +83,7 @@ let stages: Awaited<ReturnType<typeof seedPipeline>>;
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: PipelineName) => (await freshActor(sessionOf(who)))!;
 const authority = (who: PipelineName) => RequestActor.resolve(db, sessionOf(who) as never) as Promise<RequestActor>;

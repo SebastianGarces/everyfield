@@ -118,7 +118,7 @@ const shift = TODAY.getTime() - Date.now();
 const now = () => new Date(Date.now() + shift);
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: keyof typeof ACTORS) => (await freshActor(SETUP_SPECS[ACTORS[who]].session))!;
 const rows = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows as Record<string, unknown>[];

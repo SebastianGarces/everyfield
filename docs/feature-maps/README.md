@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 155 of 155. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 156 of 156. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -83,6 +83,7 @@ flowchart LR
     f13s0["onboarding.setup"]
     f13s1["onboarding.steps"]
     f13s2["onboarding.design-preview"]
+    f13s3["onboarding.discovery-home"]
   end
   subgraph f14["organizations"]
     f14s0["organizations.pipeline"]
@@ -207,6 +208,7 @@ flowchart LR
   links -.-> f13s0
   f13s0 --> f13s1
   links -.-> f13s2
+  rail -- "Home" --> f13s3
   rail -- "Pipeline" --> f14s0
   f14s0 --> f14s1
   f14s0 --> f14s2
@@ -277,7 +279,7 @@ flowchart LR
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 2 | 5 | 4 | 0 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 6 | 10 | 4 | 4 |
 | [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 6 | 0 | 1 |
-| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 3 | 3 | 6 | 3 | 1 |
+| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 4 | 4 | 7 | 3 | 1 |
 | [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 20 | 20 | 11 | 3 |
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
@@ -314,7 +316,8 @@ defect shows a bug that is not fixed yet: it passes while the bug is there, and 
 | `graceOwner` | organization | Dana Brooks, Owner of Grace Austin (QA), a sending church with a pipeline and a residency | `QA_LOGINS.graceOwner` and `QA_PASSWORD` |
 | `graceDirector` | organization | Ana Ruiz, the residency director at Grace Austin (QA), a Member seat | `QA_LOGINS.graceDirector` and `QA_PASSWORD` |
 | `hillOwner` | organization | Ruth Calder, Owner of Hill Country Network (QA), which Grace Austin (QA) is linked to | `QA_LOGINS.hillOwner` and `QA_PASSWORD` |
-| `resident` | account, residency linked | Casey Lee, a seatless account linked to a sending church's residency | `QA_LOGINS.resident` and `QA_PASSWORD` |
+| `resident` | account, residency linked, in Discovery | Casey Lee, a seatless account linked to a sending church's residency | `QA_LOGINS.resident` and `QA_PASSWORD` |
+| `discovery` | account, in Discovery | Jo Rivera, a Discovery planter with two foundations read, two private documents and an ordinary link to Grace Church (QA) | `QA_LOGINS.discovery` and `QA_PASSWORD` |
 | `signup` | pending | Hannah Cole, a verified sign-up with no church yet | `QA_LOGINS.signup` and `QA_PASSWORD` |
 | `triage` | account | Tess Morgan, a seatless account that triages feedback | `QA_LOGINS.triage` and `QA_PASSWORD` |
 | `visitor` | signed-out | Nobody signed in | none |

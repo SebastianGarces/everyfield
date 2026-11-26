@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 126,
-  "column_count": 1418,
+  "column_count": 1419,
   "foreign_key_count": 412,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -8317,6 +8317,13 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "A Discovery planter's one sharing choice on an ordinary link: the director sees which foundations they completed. Off by default; it never applies to a plant or sending-church link.",
+          "name": "share_foundations",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false"
         }
       ],
       "primary_key": [
@@ -8463,6 +8470,7 @@
         "(revision >= 1)",
         "(num_nonnulls(plant_id, account_id, sending_church_id) = 1)",
         "((plant_id IS NOT NULL) OR (NOT (share_people OR share_meetings OR share_tasks OR share_ministry_teams OR share_wiki OR share_activity OR shared_findings)))",
+        "((account_id IS NOT NULL) OR (NOT share_foundations))",
         "(consent_revision >= 1)"
       ],
       "indexes": {
@@ -8534,7 +8542,8 @@
           "affiliation_ck_0",
           "affiliation_ck_1",
           "affiliation_ck_2",
-          "affiliation_consent_revision_check"
+          "affiliation_consent_revision_check",
+          "affiliation_ck_3"
         ]
       },
       "policies": {},

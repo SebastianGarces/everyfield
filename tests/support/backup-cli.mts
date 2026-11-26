@@ -66,7 +66,7 @@ export const runBackupCli = (
 	new Promise((resolve) =>
 		execFile(
 			process.execPath,
-			[...nodeArgs, CLI, ...args],
+			["--conditions=react-server", ...nodeArgs, CLI, ...args],
 			{ env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env } },
 			(error, stdout, stderr) => resolve({ code: error ? Number(error.code) : 0, stdout, stderr }),
 		),

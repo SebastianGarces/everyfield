@@ -21,6 +21,7 @@ export interface OrganizationOperations {
 	"residency.readSharing": Boundary<typeof Q.residencySharingRequest, typeof R.residencySharingResult>;
 	"residency.setSharing": Boundary<typeof Q.setResidencySharingRequest, typeof R.mutationResult>;
 	"residency.leave": Boundary<typeof Q.leaveResidencyRequest, typeof R.mutationResult>;
+	"discovery.setSharing": Boundary<typeof Q.setDiscoverySharingRequest, typeof R.mutationResult>;
 	"pipelineSharing.readConsent": Boundary<typeof Q.pipelineConsentRequest, typeof R.pipelineConsentResult>;
 	"pipelineSharing.setConsent": Boundary<typeof Q.setPipelineConsentRequest, typeof R.mutationResult>;
 	"pipelineSharing.checkAggregateAccess": Boundary<

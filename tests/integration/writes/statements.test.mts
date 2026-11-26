@@ -1,13 +1,13 @@
 import { appendFileSync, globSync } from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { behaviorFailure } from "./failures.mjs";
+import { censusPhases, withinLimit } from "./limit.mjs";
 import { checkBudgets, checkSamples, readRuns, tighten } from "./budgets.mjs";
 import { repeatedShapes, statementShape, statementStep } from "./kinds.cjs";
 import { newestAttempts, partSuites, readRun, weigh, weighPart } from "./weights.mjs";
@@ -43,6 +43,7 @@ function censusMode(
 }
 const census = censusMode();
 const CONCURRENCY = 3;
+const LIMIT = 30 * 60 * 1000;
 
 const parseRows = (text: string): Row[] =>
 	text
@@ -723,7 +724,7 @@ test("INV-census: after a rerun the union reads each part's newest attempt up to
 	);
 });
 
-test("INV-census: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
+test("INV-census: every request and write stays within its statement budget", async (t) => {
 	const limits = JSON.parse(await readFile(new URL("./limits.json", import.meta.url), "utf8"));
 	const units = await censusUnits();
 	if (census.kind === "union") return finishWhole(await unionRows(census.folder, units, census.attempt), limits, units);
@@ -751,46 +752,39 @@ test("INV-census: every request and write stays within its statement budget", { 
 		"--import=" + pathToFileURL(join(root, "packages/domain/node_modules/tsx/dist/esm/index.mjs")).href,
 	];
 	const counted = [...typescript, "--import=" + pathToFileURL(join(root, "tests/integration/writes/counter.mjs")).href];
-	const environment = { ...process.env };
+	const environment: NodeJS.ProcessEnv = { ...process.env, EVF_WRITE_COUNTS: output };
 	delete environment.NODE_TEST_CONTEXT;
-	async function run(label: string, args: string[], nodeOptions: string[]) {
-		const child = spawn(process.execPath, ["--env-file-if-exists=" + join(root, "apps/web/.env.local"), ...args], {
-			cwd: join(root, "packages/domain"),
-			env: {
-				...environment,
-				EVF_WRITE_COUNTS: output,
-				NODE_OPTIONS: nodeOptions.join(" "),
-			},
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-		let log = "";
-		for (const stream of [child.stdout, child.stderr])
-			stream.on("data", (chunk) => {
-				log += chunk;
-				appendFileSync(join(directory, label + ".log"), chunk);
-			});
-		const exit = await new Promise<number | null>((resolve, reject) => {
-			child.once("error", reject);
-			child.once("exit", resolve);
-		});
-		return { exit, log, evidence: join(directory, label + ".log") };
-	}
-	if (part.index === 1) {
-		const requests = await run("requests", [requestsScript], typescript);
-		assert.equal(
-			requests.exit,
-			0,
-			"HTTP request proof failed: " + requests.evidence + "\n" + requests.log.slice(-2000),
-		);
-		const native = await run("native", [nativeScript], counted);
-		assert.equal(native.exit, 0, "Native boundary proof failed: " + native.evidence + "\n" + native.log.slice(-1000));
-		ran.push(requestsScript, nativeScript);
-	}
-	if (files.length) {
-		const behaviors = await run("behaviors", ["--test", "--test-concurrency=" + CONCURRENCY, ...files], counted);
-		if (behaviors.exit !== 0) assert.equal(behaviors.exit, 0, behaviorFailure(behaviors.evidence, behaviors.log));
-		ran.push(...files);
-	}
+	const phases = censusPhases({
+		directory,
+		cwd: join(root, "packages/domain"),
+		env: environment,
+		files,
+	});
+	const envFile = "--env-file-if-exists=" + join(root, "apps/web/.env.local");
+	const run = (label: string, args: string[], nodeOptions: string[]) =>
+		phases.run(label, [envFile, ...args], nodeOptions);
+	await withinLimit(t, LIMIT, phases, async () => {
+		if (part.index === 1) {
+			const requests = await run("requests", [requestsScript], typescript);
+			assert.equal(
+				requests.exit,
+				0,
+				"HTTP request proof failed: " + requests.evidence + "\n" + requests.log.slice(-2000),
+			);
+			const native = await run("native", [nativeScript], counted);
+			assert.equal(native.exit, 0, "Native boundary proof failed: " + native.evidence + "\n" + native.log.slice(-1000));
+			ran.push(requestsScript, nativeScript);
+		}
+		if (files.length) {
+			const behaviors = await run(
+				"behaviors",
+				["--test", "--test-concurrency=" + CONCURRENCY, ...phases.reporters, ...files],
+				counted,
+			);
+			if (behaviors.exit !== 0) assert.equal(behaviors.exit, 0, behaviorFailure(behaviors.evidence, behaviors.log));
+			ran.push(...files);
+		}
+	});
 	console.log("Statement census:", output);
 
 	const rows = parseRows(await readFile(output, "utf8"));

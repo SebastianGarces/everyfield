@@ -73,6 +73,7 @@ If a step fails, the command removes what it made and prints the error with ever
 | Ended resident          | `delivered+qa-resident-ended@resend.dev`    | `Everyfield-QA-preview-1` |
 | Hill Country Owner      | `delivered+qa-hill-owner@resend.dev`        | `Everyfield-QA-preview-1` |
 | Discovery sender        | `delivered+qa-discovery-sender@resend.dev`  | `Everyfield-QA-preview-1` |
+| Discovery planter       | `delivered+qa-discovery@resend.dev`         | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
 Member land on the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings,
@@ -82,6 +83,9 @@ The Feedback triager has no church seat. It holds the `feedback_triage` platform
 
 The eight logins from Grace Austin Owner to Hill Country Owner belong to the multiplication example (T-312, below).
 The Discovery sender has the expired connection request (T-543, below).
+The Discovery planter, Jo Rivera, has no seat. Signing in lands on the Discovery home at `/my-discovery`. Jo has read
+two of the six foundations, has two private documents and an accepted ordinary link to "Grace Church (QA)" with
+foundations sharing off. The sending-church director login sees Jo by name in its connections (T-661).
 
 The church is connected to three organizations. Two of them are sending churches with similar names. They are two
 different churches on purpose:

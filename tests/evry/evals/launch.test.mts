@@ -144,7 +144,7 @@ const model = scriptedQualifiedModel();
 const noReminders: TaskReminders = async () => undefined;
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: LaunchName) => (await freshActor(sessionOf(who)))!;
 

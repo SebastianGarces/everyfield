@@ -86,6 +86,7 @@ export const affiliationSchema = z.object({
 	share_wiki: z.boolean(),
 	share_activity: z.boolean(),
 	shared_findings: z.boolean(),
+	share_foundations: z.boolean(),
 	live: z.boolean(),
 	active: z.boolean(),
 });
@@ -127,7 +128,7 @@ export const lockingAffiliations = (predicate: SQL) =>
 	sql`SELECT l.id, l.plant_id, l.account_id, l.sending_church_id, l.organization_id, ro.name AS organization_name,
  ro.kind AS organization_kind, so.kind AS subject_kind, l.accepted_at, l.ended_at, l.invitation_id,
  l.revision::text AS revision, l.consent_revision::text AS consent_revision, l.share_people, l.share_meetings,
- l.share_tasks, l.share_ministry_teams, l.share_wiki, l.share_activity, l.shared_findings,
+ l.share_tasks, l.share_ministry_teams, l.share_wiki, l.share_activity, l.shared_findings, l.share_foundations,
  ${linkLive("l")} AS live, ${linkActive("l")} AS active
  FROM affiliation l JOIN organization ro ON ro.id=l.organization_id LEFT JOIN organization so ON so.id=l.sending_church_id
  WHERE ${predicate} AND EXISTS(SELECT FROM organization o WHERE o.id=l.organization_id FOR NO KEY UPDATE)

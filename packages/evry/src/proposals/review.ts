@@ -68,13 +68,15 @@ export const REASON_WRITES = (Object.values(REVIEWED_WRITES) as ReviewedWrite<un
 
 export function allowedWrites(actor: EvryActor, offered: Offered = everyOperation) {
 	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[])
-		.filter((w) => offered(w.operation) && w.allowed(actor))
+		.filter((w) => offered(w.operation) && w.allowed(actor) && (w.offered?.(actor) ?? true))
 		.map((w) => worded(actor, w));
 }
+const visibleWrites = (actor: EvryActor) =>
+	(Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.allowed(actor)).map((w) => w.operation);
 
 export const mine = (actor: EvryActor) =>
 	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.owner.id}::uuid
-		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
+		AND p.operation=ANY(${sql.param(visibleWrites(actor))}::text[])`;
 export const readable = (actor: EvryActor) =>
 	sql`((${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })})
 		OR (${ownSeating(actor)}))`;

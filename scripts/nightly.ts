@@ -333,7 +333,18 @@ function realDeps(): NightlyDeps {
 			const files = uiTestFiles(worktree);
 			const r = run(
 				join(worktree, "bin/dev"),
-				["browser", "run", "--timeout", "7200", "--", process.execPath, "--test", "--test-concurrency=1", ...files],
+				[
+					"browser",
+					"run",
+					"--timeout",
+					"7200",
+					"--",
+					process.execPath,
+					"--conditions=react-server",
+					"--test",
+					"--test-concurrency=1",
+					...files,
+				],
 				{
 					cwd: worktree,
 					env: { ...process.env, ...fixtureEnv(worktree), UI_BASE_URL: url, UI_ENGINE: engine },

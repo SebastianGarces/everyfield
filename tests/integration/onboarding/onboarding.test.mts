@@ -833,12 +833,17 @@ async function relationship(
 			meetings: false,
 			tasks: false,
 			ministry_teams: false,
-			wiki: true,
+			wiki: false,
 			activity: false,
 			shared_findings: false,
 		},
 	};
 }
+const ending = (link: Awaited<ReturnType<typeof relationship>>) => ({
+	relationshipId: link.relationshipId,
+	organization: link.organization,
+	expectedRelationshipRevision: link.expectedRelationshipRevision,
+});
 test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; conversion transfers only selected current pairs", async () => {
 	const former = await actor("discovery");
 	assert.deepEqual(ok(await call("getDiscoveryProfile", former, {})), { status: "unavailable" });
@@ -850,7 +855,13 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 	assert.equal(activeProfile(p).relationships.length, 2);
 	assert.equal((await counts()).plants, beforePlants);
 	const q = command(
-		{ discoveryId: d.result.profile.discoveryId, name: "New plant", confirmed: true, relationships: [first] },
+		{
+			discoveryId: d.result.profile.discoveryId,
+			name: "New plant",
+			confirmed: true,
+			relationships: [first],
+			ended: [ending(second)],
+		},
 		activeProfile(p).revision,
 	);
 	const converted = ok(await call("convertDiscovery", d.a, q));
@@ -951,7 +962,13 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 			"convertDiscovery",
 			d.a,
 			command(
-				{ discoveryId: d.result.profile.discoveryId, name: "Refused second plant", confirmed: true, relationships: [] },
+				{
+					discoveryId: d.result.profile.discoveryId,
+					name: "Refused second plant",
+					confirmed: true,
+					relationships: [],
+					ended: [],
+				},
 				d.result.profile.revision,
 			),
 		),
@@ -971,6 +988,56 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 	assert.equal(present(seats[0], "seats").plant_id, sender.p.id);
 });
 
+test("AC:TARGET-IDN-016 INV-conversion: a link ends only when the request names it, and a kept link turns on no sharing", async () => {
+	const d = await discovery(),
+		church = await relationship(d.a),
+		network = await relationship(d.a, "sending_network");
+	const revision = activeProfile(ok(await call("getDiscoveryProfile", d.a, {}))).revision;
+	const input = { discoveryId: d.result.profile.discoveryId, name: "Kept links", confirmed: true };
+	const before = await counts();
+	denied(
+		await call("convertDiscovery", d.a, command({ ...input, relationships: [church], ended: [] }, revision)),
+		"conflict",
+	);
+	denied(
+		await call(
+			"convertDiscovery",
+			d.a,
+			command(
+				{
+					...input,
+					relationships: [{ ...church, choices: { ...church.choices, people: true } }],
+					ended: [ending(network)],
+				},
+				revision,
+			),
+		),
+	);
+	denied(
+		await call(
+			"convertDiscovery",
+			d.a,
+			command(
+				{ ...input, relationships: [church], ended: [{ ...ending(network), expectedRelationshipRevision: "99" }] },
+				revision,
+			),
+		),
+		"conflict",
+	);
+	assert.deepEqual(await counts(), before);
+	const converted = ok(
+		await call("convertDiscovery", d.a, command({ ...input, relationships: [church, network], ended: [] }, revision)),
+	);
+	const kept = await admin.select().from(t.affiliation).where(eq(t.affiliation.plant_id, converted.plant.id));
+	assert.deepEqual(
+		kept.map((a) => [a.organization_id, a.ended_at, a.share_people, a.share_wiki]).sort(),
+		[
+			[church.organization.id, null, false, false],
+			[network.organization.id, null, false, false],
+		].sort(),
+	);
+});
+
 test("AC:TARGET-IDN-016 conversion refuses stale, foreign, ended and revoked links and rolls back selected effects", async () => {
 	const d = await discovery(),
 		link = await relationship(d.a),
@@ -980,6 +1047,7 @@ test("AC:TARGET-IDN-016 conversion refuses stale, foreign, ended and revoked lin
 		name: "New plant",
 		confirmed: true,
 		relationships: [link],
+		ended: [],
 	});
 	const before = await counts();
 	denied(await call("convertDiscovery", other.a, q));
@@ -1127,6 +1195,7 @@ test("AC:DC-028 AC:DC-001 preplant reading belongs to actual account with no pla
 				name: "Read before creation",
 				confirmed: true,
 				relationships: [],
+				ended: [],
 			}),
 		),
 	);
@@ -1367,6 +1436,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 				name: "Race winner",
 				confirmed: true,
 				relationships: [link],
+				ended: [],
 			}),
 		);
 		ready();
@@ -1443,7 +1513,13 @@ test("AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume
 		await call(
 			"convertDiscovery",
 			d.a,
-			command({ discoveryId: d.result.profile.discoveryId, name: "Values scope", confirmed: true, relationships: [] }),
+			command({
+				discoveryId: d.result.profile.discoveryId,
+				name: "Values scope",
+				confirmed: true,
+				relationships: [],
+				ended: [],
+			}),
 		),
 	);
 	const f = { a: d.a, p: value.plant };
@@ -1529,6 +1605,7 @@ test("AC:TARGET-IDN-013 AC:TARGET-IDN-016 active seatless accounts explicitly ch
 				name: "Explicit conversion",
 				confirmed: true,
 				relationships: [],
+				ended: [],
 			}),
 		),
 	);
@@ -2294,7 +2371,13 @@ test("AC:TARGET-IDN-013 AC:TARGET-IDN-016 accepting a seat and creating or conve
 							"convertDiscovery",
 							a,
 							command(
-								{ discoveryId: d.result.profile.discoveryId, name: "Raced plant", confirmed: true, relationships: [] },
+								{
+									discoveryId: d.result.profile.discoveryId,
+									name: "Raced plant",
+									confirmed: true,
+									relationships: [],
+									ended: [],
+								},
 								d.result.profile.revision,
 							),
 						)
@@ -2478,6 +2561,7 @@ test("AC:AF-012 AC:TARGET-IDN-016 converting twice makes one church, one Owner s
 			name: "Harvest Point",
 			confirmed: true,
 			relationships: [links.S1],
+			ended: [links.S2, links.N1, links.N2].map(ending),
 		},
 		revision,
 	);
@@ -2526,7 +2610,7 @@ test("AC:AF-012 AC:TARGET-IDN-016 converting twice makes one church, one Owner s
 		.where(and(eq(t.affiliation.plant_id, P.id), sql`${t.affiliation.ended_at} IS NULL`));
 	assert.deepEqual(
 		active.map((x) => [x.organization_id, x.share_wiki, x.share_people, x.shared_findings]),
-		[[links.S1.organization.id, true, false, false]],
+		[[links.S1.organization.id, false, false, false]],
 	);
 	const approvals = (
 		await admin.execute(sql`SELECT * FROM audit_event WHERE action='affiliation.approved' AND actor_id=${d.a.id}`)

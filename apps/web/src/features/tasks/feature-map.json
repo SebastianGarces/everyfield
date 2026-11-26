@@ -26,7 +26,7 @@
 			"reach": [
 				{
 					"rail": "Tasks",
-					"personas": ["owner", "admin", "member"]
+					"personas": ["owner", "admin", "member", "discovery", "resident"]
 				}
 			],
 			"personas": {
@@ -34,7 +34,9 @@
 				"admin": "write",
 				"member": "write",
 				"signup": "none",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{
@@ -127,6 +129,24 @@
 						{
 							"role": "heading",
 							"name": "We could not load your tasks"
+						}
+					]
+				},
+				{
+					"id": "locked",
+					"reach": {
+						"persona": "discovery",
+						"open": "/tasks",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Tasks opens when you start your church"
+						},
+						{
+							"role": "link",
+							"name": "Start a church"
 						}
 					]
 				}

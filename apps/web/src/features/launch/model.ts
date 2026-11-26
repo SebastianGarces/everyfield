@@ -205,7 +205,7 @@ function historyValue(field: OutcomeField, v: string | number | null, today: str
 export const actorText = (e: Pick<HistoryEntry, "actor">) => e.actor?.displayName || "A former account";
 
 const NOT_READY_MESSAGE: Record<Extract<LaunchError, { code: "not_ready" }>["details"]["needs"], string> = {
-	launch_sunday: "Record the outcome after Launch Sunday.",
+	launch_sunday: "Schedule Launch Sunday before recording its outcome.",
 	outcome: "Record Launch Sunday first. Reload the page to see it now.",
 	debrief: "Submit the debrief first. Reload the page to see it now.",
 };

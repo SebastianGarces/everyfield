@@ -47,7 +47,7 @@ test("KILL-01 with Evry's model calls off, a natural question gets the paused an
 			: { status: "paused" };
 	const freshActor = async (session: string) => {
 		const viewer = await readViewer(church.db, session as never);
-		return viewer?.authority ? evryActor(viewer.authority) : null;
+		return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 	};
 	const queued = await createConversation(church.db, owner, { requestKey: randomUUID() });
 	await submitTurn(church.db, owner, queued.id, { requestKey: randomUUID(), text: c.question });

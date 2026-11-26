@@ -13,6 +13,7 @@ import {
 	captureFacts,
 	createAssessmentJob,
 	createAssessments,
+	createPrivateCare,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { sharingOperations } from "../../../packages/domain/src/organizations/sharing.ts";
@@ -30,6 +31,7 @@ import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { ok, refused } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { caseOf } from "../target/sql/core/support.mts";
 
 let c0: Church;
 let clockMs = Date.now();
@@ -199,6 +201,50 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 			.sort(),
 		[p.id, q.id].sort(),
 	);
+	const given = caseOf("schema", "TEN-007").given["private-A"] as { note: string; answer: string };
+	const care = createPrivateCare();
+	const week = ok(await care.readCurrent(c0.db, a.actor, {}));
+	const level = given.answer.toLowerCase();
+	ok(
+		await care.correct(c0.db, a.actor, {
+			requestKey: randomUUID(),
+			expectedRevision: week.revision,
+			input: {
+				weekId: week.week.id,
+				answers: { spiritual: level, family: level, financial: level, pace: level },
+				note: given.note,
+			},
+		}),
+	);
+	const privateDoc = randomUUID();
+	await c0.admin.execute(
+		sql`INSERT INTO document(id,tenant_id,kind,title) VALUES(${privateDoc},${a.id},'native',${given.note})`,
+	);
+	await c0.admin
+		.execute(sql`INSERT INTO document_revision(tenant_id,document_id,version_number,body,content_hash,recorded_at)
+		VALUES(${a.id},${privateDoc},1,${given.note + " draft"},${"c".repeat(64)},clock_timestamp())`);
+	await c0.admin.execute(sql`INSERT INTO conversation(tenant_id,account_id,context_kind,title)
+		VALUES(${p.id},${a.id},'plant',${given.note + " chat"})`);
+	const canaryTables = async () => {
+		const tables = await c0.rows<{ table_name: string }>(sql`SELECT table_name FROM information_schema.tables
+			WHERE table_schema=${c0.database.schema} AND table_type='BASE TABLE' ORDER BY table_name`);
+		const found: string[] = [];
+		for (const { table_name } of tables)
+			if (
+				await count(
+					sql`SELECT count(*) AS n FROM ${sql.identifier(table_name)} x WHERE x::text LIKE ${"%" + given.note + "%"}`,
+				)
+			)
+				found.push(table_name);
+		return found;
+	};
+	assert.deepEqual(await canaryTables(), [
+		"conversation",
+		"document",
+		"document_revision",
+		"private_week",
+		"private_week_revision",
+	]);
 	const { revision } = await c0.one<{ revision: string }>(
 		sql`SELECT revision::text AS revision FROM account WHERE id=${a.id}`,
 	);
@@ -238,6 +284,9 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 	assert.equal(await count(sql`SELECT count(*) AS n FROM private_calendar WHERE author_id=${p.owner.id}`), 1);
 	const words = await c0.rows(sql`SELECT 1 FROM private_week_revision WHERE note LIKE ${"%" + CANARY + "-alex%"}`);
 	assert.equal(words.length, 0);
+	assert.deepEqual(await canaryTables(), [], "A's check-in, private document and conversation are gone everywhere");
+	assert.equal(await count(sql`SELECT count(*) AS n FROM document WHERE tenant_id=${a.id}`), 0);
+	assert.equal(await count(sql`SELECT count(*) AS n FROM conversation WHERE account_id=${a.id}`), 0);
 
 	assert.deepEqual(await current(p), before.p);
 	assert.deepEqual(await network(s), before.network);
@@ -248,6 +297,26 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 		0,
 	);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM organization WHERE id=${s.s1.id}`), 1);
+	const shared = await c0.one<{
+		n: number;
+	}>(sql`SELECT ((SELECT count(*) FROM person WHERE id=${r.contact} AND state='live')
+		+(SELECT count(*) FROM training_credit WHERE id=${r.credit})+(SELECT count(*) FROM launch_milestone WHERE id=${r.milestone})
+		+(SELECT count(*) FROM meeting WHERE id=${r.meeting}))::int AS n`);
+	const left = await canaryTables();
+	const c = caseOf("schema", "TEN-007");
+	assert.deepEqual(
+		{
+			P_shared_history_retained: shared.n === 4,
+			A_private_body: left.length ? given.note : null,
+			S1_retained:
+				(await count(sql`SELECT count(*) AS n FROM organization WHERE id=${s.s1.id}`)) === 1 &&
+				JSON.stringify(await network(s)) === JSON.stringify(before.network),
+			organization_delete_registered:
+				(await count(sql`SELECT count(*) AS n FROM lifecycle_witness WHERE kind='organization'`)) > 0,
+		},
+		c.expected.result,
+	);
+	assert.equal((c.expected as { event?: unknown }).event, null);
 });
 
 test("AC:SCHEMA-011 a workspace deletion request denies P at once, hides it from S1's current, history and location results and fences its pending job; a cancel with sharing current shows only what the live grant allows", async () => {

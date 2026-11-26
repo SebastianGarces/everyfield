@@ -12,6 +12,8 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 };
 export const CATEGORIES = Object.keys(CATEGORY_TEXT) as Category[];
 
+export const UNKNOWN_ACCOUNT = "another account";
+
 export const NEVER_SHARED = "Names, personal details, private check-ins and notes about care are never shared.";
 
 export function kindLabel(organization: Organization): string {

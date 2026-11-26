@@ -13,7 +13,7 @@
 			"reach": [
 				{
 					"rail": "Documents",
-					"personas": ["owner", "admin", "member", "resident", "triage"]
+					"personas": ["owner", "admin", "member", "resident", "triage", "discovery"]
 				}
 			],
 			"personas": {
@@ -23,7 +23,8 @@
 				"resident": "write",
 				"signup": "none",
 				"triage": "write",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "write"
 			},
 			"states": [
 				{

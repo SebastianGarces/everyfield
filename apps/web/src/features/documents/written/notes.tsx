@@ -1,3 +1,5 @@
+export const ONLY_YOU = "Only you can see these documents.";
+
 export const SECTION = { church: "Written for your church", account: "Your documents" } as const;
 
 export function CopiedNote() {

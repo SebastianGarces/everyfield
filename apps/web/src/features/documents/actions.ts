@@ -38,11 +38,12 @@ const ownedDraft = z
 
 export async function saveOwnedDocument(
 	raw: unknown,
+	mine = false,
 ): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
 	const parsed = ownedDraft.safeParse(raw);
 	const input = parsed.success ? parsed.data : {};
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.saveNative(db, actor, {
+		const reply = await (mine ? documentsWriter.saveMine : documentsWriter.saveNative)(db, actor, {
 			title: input.title,
 			body: input.body,
 			expectedRevision: input.expectedRevision,
@@ -56,9 +57,11 @@ export async function saveOwnedDocument(
 export async function archiveOwnedDocument(
 	documentId: string,
 	expectedRevision: string,
+	mine = false,
 ): Promise<DocumentOutcome<OwnedView>> {
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.archive(db, actor, { documentId, expectedRevision });
+		const archive = mine ? documentsWriter.archiveMine : documentsWriter.archive;
+		const reply = await archive(db, actor, { documentId, expectedRevision });
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: presentOwned(reply.value) };
 	});
@@ -67,9 +70,11 @@ export async function archiveOwnedDocument(
 export async function designateOwnedDocument(
 	documentId: string,
 	expectedRevision: string,
+	mine = false,
 ): Promise<DocumentOutcome<{ revision: string; kind: WrittenView["kind"] }>> {
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.designateCoreValues(db, actor, { documentId, expectedRevision });
+		const designate = mine ? documentsWriter.designateMine : documentsWriter.designateCoreValues;
+		const reply = await designate(db, actor, { documentId, expectedRevision });
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: { revision: reply.value.revision, kind: reply.value.kind } };
 	});
@@ -78,6 +83,17 @@ export async function designateOwnedDocument(
 export async function copyToChurch(input: unknown): Promise<DocumentOutcome<{ id: string }>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.useForChurch(db, actor, input);
+		if (reply.status === "refused") return refused(reply.error);
+		return { status: "ok", value: { id: reply.value.id } };
+	});
+}
+
+export async function startFromTemplate(
+	templateId: string,
+	requestKey: string,
+): Promise<DocumentOutcome<{ id: string }>> {
+	return run(async (db, actor) => {
+		const reply = await documentsWriter.createMineFromTemplate(db, actor, { templateId, requestKey });
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: { id: reply.value.id } };
 	});

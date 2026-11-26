@@ -1,5 +1,5 @@
 import { parseKeyRing } from "../../../packages/domain/src/notifications/opt-out.ts";
-import { mailKeys } from "../../../apps/web/src/server/config.ts";
+import { mailKeys } from "../../../apps/web/src/server/mail-keys.ts";
 import { generateKeys } from "../../prod-identity/setup.ts";
 
 const keys = generateKeys();
