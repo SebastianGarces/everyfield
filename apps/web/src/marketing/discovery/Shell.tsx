@@ -92,7 +92,7 @@ export function Shell({
 		{ key: "settings", icon: Settings02Icon },
 	];
 	return (
-		<div className={"@container h-full ef-ui type-lg shadow-mk-app"}>
+		<div className="@container h-full ef-ui type-lg shadow-mk-app">
 			<div
 				role="img"
 				aria-label={label}
@@ -114,10 +114,10 @@ export function Shell({
 							PILL,
 						)}
 					>
-						<svg viewBox="0 0 1308 241" className={cn("h-[26px] w-[141px] @max-[1000px]:hidden")}>
+						<svg viewBox="0 0 1308 241" className="h-[26px] w-[141px] @max-[1000px]:hidden">
 							<use href="#ef-lockup" />
 						</svg>
-						<Mark className={cn("mx-2 hidden size-6 @max-[1000px]:block")} />
+						<Mark className="mx-2 hidden size-6 @max-[1000px]:block" />
 					</span>
 					<span className={cn("flex h-[60px] items-center gap-0.5 px-2 @max-[1000px]:hidden", PILL)}>
 						{s.main.map((n) => (
@@ -159,13 +159,12 @@ export function Shell({
 						</span>
 					</span>
 				</div>
-				<div aria-hidden="true" className={cn("flex flex-col gap-3.5 pt-[18px] pb-5 pl-[22px] @max-[1000px]:hidden")}>
+				<div aria-hidden="true" className="flex flex-col gap-3.5 pt-[18px] pb-5 pl-[22px] @max-[1000px]:hidden">
 					<Rail
 						items={[
 							{ key: "sun", icon: Sun01Icon },
 							{ key: "moon", icon: Moon02Icon },
 						]}
-						current=""
 						className="[&>span:first-child]:bg-surface-2 [&>span:first-child]:text-ink"
 					/>
 					<i className="flex-[.6]" />
@@ -173,11 +172,7 @@ export function Shell({
 					<i className="flex-1" />
 					<Rail items={bottom} />
 				</div>
-				<div
-					className={cn(
-						"flex min-w-0 flex-col pt-[18px] pr-[26px] pb-8 pl-2.5 @max-[1000px]:px-4 @max-[1000px]:pt-2 @max-[1000px]:pb-5",
-					)}
-				>
+				<div className="flex min-w-0 flex-col pt-[18px] pr-[26px] pb-8 pl-2.5 @max-[1000px]:px-4 @max-[1000px]:pt-2 @max-[1000px]:pb-5">
 					{children}
 				</div>
 			</div>
