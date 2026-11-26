@@ -22,9 +22,15 @@ import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { seatInvitationAcceptedResult } from "../../../packages/contracts/src/identity/invitations.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
+import { sectionOperations, withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
+import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
+import operationCatalog from "../../../docs/catalog/operations.json" with { type: "json" };
+import { evryActor } from "../../../packages/evry/src/index.ts";
+import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { recorded, untouched } from "../../support/recorded.mts";
 import type { OnboardingContext, OnboardingProducer } from "../../../packages/contracts/src/onboarding/server.ts";
 import type { Tx } from "../../../packages/domain/src/onboarding/core.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -291,6 +297,83 @@ test("AC:ADR1-006 self confirmation, exact identity, live account, no seat trans
 	denied(await call("createPlant", other, q), "active_seat_conflict");
 	denied(await call("createPlant", f.a, q, f.p));
 	denied(await call("complete", other, command({}, "1"), f.p));
+});
+
+test("AC:ADR1-006 a resident creates their own ordinary Phase 1 plant with one seat, and no organization role, operation or Evry tool can create or commission one", async () => {
+	const organization = randomUUID();
+	await admin.execute(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
+		VALUES(${organization},'sending_church','Grace Austin','America/Chicago',1)`);
+	const selected = {
+		kind: "organization",
+		id: tenantId.parse(organization),
+		organizationKind: "sending_church",
+	} as const;
+	const resident = await actor();
+	const q = command({ name: "Harvest Point", confirmed: true });
+	for (const role of ["owner", "admin", "member"] as const) {
+		const staff = await actor("sending_church");
+		await admin
+			.insert(t.seat)
+			.values({ account_id: staff.id, organization_id: organization, role, accepted_at: new Date() });
+		await untouched(admin, async () => {
+			denied(await call("createPlant", staff, q), "active_seat_conflict");
+			denied(await call("createPlant", staff, q, selected as never));
+			denied(await call("createPlant", staff, q, { kind: "account", id: resident.id }));
+		});
+		const viewer = present(await readViewer(db, staff.session), "viewer");
+		const tools = readCatalog(evryActor(viewer.authority!)!);
+		const offered = [...tools.domains.flatMap((d) => d.operations), ...tools.reviewedWrites].map((o) => o.operation);
+		assert.ok(offered.length > 0);
+		assert.equal(
+			offered.some((name) => /commission|onboarding\.|createPlant/i.test(name)),
+			false,
+			`${role}: ${offered.join(" ")}`,
+		);
+	}
+	const { operations } = operationCatalog;
+	assert.deepEqual(
+		operations.filter((o) => o.id === "onboarding.createPlant").map((o) => o.authority.flatMap((a) => a.actors)),
+		[["authenticated_own_preplant_or_discovery_account"]],
+		"only the account itself creates a plant",
+	);
+	assert.equal(
+		operations.some((o) => /commission/i.test(o.id)),
+		false,
+		"commissioning is deferred: no operation delivers it",
+	);
+	for (const extra of [
+		{ organization: selected },
+		{ organizationId: organization },
+		{ seatId: randomUUID() },
+		{ seatTransfer: true },
+		{ commissioning: true },
+		{ lineage: organization },
+		{ geographicAttestation: true },
+		{ phase: 4 },
+	])
+		await untouched(admin, async () =>
+			denied(await call("createPlant", resident, { ...q, input: { ...q.input, ...extra } }), "invalid_input"),
+		);
+	const created = ok(await call("createPlant", resident, q));
+	const plant = present((await admin.select().from(t.plant).where(eq(t.plant.id, created.plant.id)))[0], "plant");
+	assert.equal(plant.phase, 1);
+	const seats = () => admin.select().from(t.seat).where(eq(t.seat.account_id, resident.id));
+	assert.deepEqual(
+		(await seats()).map((s) => [s.plant_id, s.organization_id, s.role, s.ended_at]),
+		[[plant.id, null, "owner", null]],
+	);
+	const [entry, ...more] = await admin
+		.select()
+		.from(t.phase_transition)
+		.where(eq(t.phase_transition.plant_id, plant.id));
+	assert.deepEqual(more, []);
+	assert.deepEqual([entry!.kind, entry!.from_phase, entry!.to_phase], ["creation", null, 1]);
+	const [event] = await admin.select().from(t.audit_event).where(eq(t.audit_event.id, entry!.operation_id));
+	assert.equal(event!.actor_id, resident.id, "the creation is attributed to the resident's own account");
+	await untouched(admin, async () =>
+		denied(await call("createPlant", resident, command(q.input, "2")), "active_seat_conflict"),
+	);
+	assert.equal((await seats()).length, 1);
 });
 
 test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and phase commit together", async () => {
@@ -1785,4 +1868,686 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 		api.getResume(tx, ctx(f.a, f.p), {}),
 	);
 	assert.deepEqual(ok(inside), await resume(f));
+});
+
+const leadOf = (plantId: string) =>
+	admin.execute<{
+		n: number;
+	}>(sql`SELECT ((SELECT count(*) FROM team_tenure WHERE plant_id=${plantId} AND ended_on IS NULL)
+		+(SELECT count(*) FROM team WHERE plant_id=${plantId} AND leader_person_id IS NOT NULL))::int AS n`);
+const seatsOf = async (plantId: string) =>
+	(
+		await admin.execute(
+			sql`SELECT account_id,role,revision::text FROM seat WHERE plant_id=${plantId} AND ended_at IS NULL ORDER BY account_id`,
+		)
+	).rows;
+
+test("AC:ROLE43-003 AC:ROLE43-014 the Owner is linked to one person and one seat however often creation or the link is asked, and no reading or lead title gates it", async () => {
+	const reader = await actor();
+	await reading(reader);
+	const a = await actor("planter", "pending_domain");
+	const q = command({ name: "Harvest Point", confirmed: true });
+	const made = (await Promise.all([call("createPlant", a, q), call("createPlant", a, q)])).map((r) => ok(r));
+	const [first] = made;
+	assert.ok(first);
+	assert.deepEqual(made.map((m) => m.status).sort(), ["created", "existing"]);
+	const p = first.plant;
+	const held = async () => ({
+		people: (
+			await admin.execute(
+				sql`SELECT id,linked_account_id FROM person WHERE plant_id=${p.id} AND state='live' AND linked_account_id=${a.id}`,
+			)
+		).rows,
+		persons: await admin.$count(t.person, eq(t.person.plant_id, p.id)),
+		seats: await seatsOf(p.id),
+		transitions: await admin.$count(
+			t.phase_transition,
+			and(eq(t.phase_transition.plant_id, p.id), eq(t.phase_transition.kind, "creation")),
+		),
+		leads: (await leadOf(p.id)).rows[0]!.n,
+	});
+	const start = await held();
+	assert.deepEqual(start, {
+		people: [{ id: first.ownerSeat.personId, linked_account_id: a.id }],
+		persons: 1,
+		seats: [{ account_id: a.id, role: "owner", revision: "1" }],
+		transitions: 1,
+		leads: 0,
+	});
+	assert.equal(await admin.$count(t.reading, eq(t.reading.account_id, a.id)), 0);
+	const r = await resume({ a, p });
+	assert.deepEqual([r.currentPhase, r.reading, r.lead], [1, { status: "incomplete" }, { answer: "pending" }]);
+
+	const input = { accountId: a.id, owner: p, selection: { kind: "resolve" as const } };
+	await assert.rejects(
+		gatedTransaction(db, (tx) =>
+			accountPersonProducer.ensureAccountPerson(tx, { ...input, selection: { kind: "first", displayName: "Alex" } }),
+		),
+		/Failed query/,
+	);
+	const before = await counts();
+	for (let n = 0; n < 2; n++) {
+		const linked = await Promise.all(
+			[0, 1].map(() => gatedTransaction(db, (tx) => accountPersonProducer.ensureAccountPerson(tx, input))),
+		);
+		for (const l of linked) {
+			const value = ok(l);
+			assert.equal(value.status, "linked");
+			assert.equal("personId" in value && value.personId, first.ownerSeat.personId);
+		}
+	}
+	assert.deepEqual(await held(), start);
+	assert.deepEqual(await counts(), before, "linking again records nothing");
+
+	ok(
+		await call(
+			"declareJourney",
+			a,
+			command({ journey: { answer: "existing", phase: 4 }, launch: { answer: "skip" } }, r.revision),
+			p,
+		),
+	);
+	const later = await counts();
+	const replay = ok(await call("createPlant", a, q));
+	assert.deepEqual([replay.plant, replay.ownerSeat, replay.creation], [p, first.ownerSeat, first.creation]);
+	assert.equal(replay.currentPhase, 4);
+	assert.deepEqual(await counts(), later);
+	assert.deepEqual(await held(), start);
+});
+
+test("AC:ROLE43-004 a yes to the lead question adds or reuses the one shown ordinary role, imports no template, leaves an occupied Senior pastor and changes no account authority", async () => {
+	for (const container of ["absent", "present"] as const) {
+		const f = await makePlant();
+		const l = await leadership(f.p.id);
+		const pastor = await otherPerson(f.p.id, "Pastor Kim");
+		await admin
+			.insert(t.team_tenure)
+			.values({ plant_id: f.p.id, role_id: l.pastor, person_id: pastor, started_on: "2026-01-01" });
+		const [team, role] = [randomUUID(), randomUUID()];
+		if (container === "present") {
+			await admin
+				.insert(t.team)
+				.values({ id: team, plant_id: f.p.id, name: "Plant leadership", state: "active", sort_order: 5 });
+			await admin.insert(t.team_role).values({
+				id: role,
+				plant_id: f.p.id,
+				team_id: team,
+				name: "Lead planter",
+				leadership: true,
+				sort_order: 1,
+			});
+		}
+		const seats = await seatsOf(f.p.id);
+		const other = await reader(f);
+		await admin.delete(t.seat).where(eq(t.seat.account_id, other.id));
+		denied(await call("answerLead", other, command(leadYes(true), (await resume(f)).revision), f.p));
+		const q = command(
+			container === "absent"
+				? leadYes(true)
+				: {
+						answer: "yes",
+						assignment: {
+							kind: "existing_role",
+							teamId: team,
+							roleId: role,
+							expectedTeamRevision: "1",
+							expectedRoleRevision: "1",
+						},
+					},
+			(await resume(f)).revision,
+		);
+		const { value, added } = await recorded(admin, () => call("answerLead", f.a, q, f.p));
+		const result = ok(value);
+		assert.deepEqual(added, { audits: ["attestation.recorded", "roles.changed"], jobs: [], notices: 0, mail: 0 });
+		const { assignment, seniorPastor } = yes(result.lead);
+		assert.equal(assignment.personId, f.result.ownerSeat.personId);
+		assert.equal(seniorPastor, container === "absent" ? "occupied" : undefined);
+		if (container === "present") assert.deepEqual([assignment.teamId, assignment.roleId], [team, role]);
+		const facts = {
+			teams: [
+				["Leadership", "leadership"],
+				["Plant leadership", null],
+			],
+			roles: [
+				["Launch coordinator", "launch_coordinator"],
+				["Lead planter", null],
+				["Senior pastor", "senior_pastor"],
+			],
+			held: [
+				["Synthetic", "Lead planter"],
+				["Pastor Kim", "Senior pastor"],
+			],
+		};
+		assert.deepEqual(await ministryFacts(f.p.id), facts, container);
+		const assignments = await admin.execute(
+			sql`SELECT role_id FROM team_tenure WHERE plant_id=${f.p.id} AND person_id=${assignment.personId} AND ended_on IS NULL`,
+		);
+		assert.deepEqual(assignments.rows, [{ role_id: assignment.roleId }]);
+		assert.deepEqual(await seatsOf(f.p.id), seats, "the answer changes no seat");
+		const before = await counts();
+		assert.deepEqual(ok(await call("answerLead", f.a, q, f.p)), result);
+		assert.deepEqual(await counts(), before);
+		assert.deepEqual(await ministryFacts(f.p.id), facts);
+	}
+});
+
+test("AC:ROLE43-005 a no or a skip leaves the Owner's person, seat and full authority, and ordinary ministry editing sets a lead later", async () => {
+	for (const answer of ["no", "skip"]) {
+		const f = await makePlant();
+		const seats = await seatsOf(f.p.id);
+		const person = async () =>
+			(
+				await admin.execute(
+					sql`SELECT id,display_name,linked_account_id,stage,state FROM person WHERE plant_id=${f.p.id}`,
+				)
+			).rows;
+		const people = await person();
+		const q = command({ answer }, (await resume(f)).revision);
+		const { value, added } = await recorded(admin, () => call("answerLead", f.a, q, f.p));
+		const result = ok(value);
+		assert.deepEqual(added, { audits: ["attestation.recorded"], jobs: [], notices: 0, mail: 0 });
+		assert.deepEqual(ok(await call("answerLead", f.a, q, f.p)), result);
+		assert.equal(result.lead.answer, answer);
+		assert.equal((await leadOf(f.p.id)).rows[0]!.n, 0);
+		assert.deepEqual(await ministryFacts(f.p.id), { teams: [], roles: [], held: [] });
+		assert.deepEqual(await seatsOf(f.p.id), seats);
+		assert.deepEqual(
+			seats.map((x) => x.role),
+			["owner"],
+		);
+		assert.deepEqual(await person(), people);
+
+		const owner = await RequestActor.resolve(db, f.a.session);
+		assert.ok(owner instanceof RequestActor);
+		const { r } = (await admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM plant WHERE id=${f.p.id}`))
+			.rows[0]!;
+		const ownerCtx = { session: f.a.session, selected: f.p };
+		const profile = sectionOperations({
+			effects: { replan: async () => assert.fail("a city replans nothing") },
+		} as never);
+		const saved = await withSettingsWrite(db, owner, ownerCtx, (tx) =>
+			profile.updatePlantProfile(tx, ownerCtx, {
+				requestKey: randomUUID(),
+				expectedRevision: r,
+				input: { plant: f.p, patch: { city: "Waco" } },
+			}),
+		);
+		ok(saved);
+		assert.deepEqual((await admin.execute(sql`SELECT city FROM plant WHERE id=${f.p.id}`)).rows, [{ city: "Waco" }]);
+		const team = ok(
+			await withTeamsWrite(db, owner, (tx, c) =>
+				teamsWriter.create(tx, c, {
+					requestKey: randomUUID(),
+					input: { name: "Plant leadership", description: null },
+				}),
+			),
+		).team;
+		const { revision } = ok(await teamsReader.readRevision(db, owner, { teamId: team.id }));
+		ok(
+			await withTeamsWrite(db, owner, (tx, c) =>
+				teamsWriter.appointLeader(tx, c, {
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { teamId: team.id, personId: f.result.ownerSeat.personId },
+				}),
+			),
+		);
+		const [led] = await admin.select().from(t.team).where(eq(t.team.id, team.id));
+		assert.equal(led!.leader_person_id, f.result.ownerSeat.personId);
+		assert.deepEqual(await seatsOf(f.p.id), seats, "a later lead title leaves the seat alone");
+	}
+});
+
+test("AC:ROLE43-013 only one account's own six articles strictly past 80 percent complete the reading: an Admin lead's do, two halves and a borrowed title never do", async () => {
+	const f = await makePlant();
+	assert.equal((await resume(f)).currentPhase, 1, "creation asks for no reading");
+	for (const [fraction, status] of [
+		["0.80", "incomplete"],
+		["0.8001", "complete"],
+	] as const) {
+		const alone = await makePlant();
+		await reading(alone.a, [0, 1, 2, 3, 4, 5], fraction);
+		const value = (await resume(alone)).reading;
+		assert.equal(value.status, status, fraction);
+		if (value.status === "complete") {
+			assert.equal(value.readerAccountId, alone.a.id);
+			assert.deepEqual(
+				value.articles.map((x) => x.scrollRatio),
+				[0.8001, 0.8001, 0.8001, 0.8001, 0.8001, 0.8001],
+			);
+		}
+	}
+	const five = await makePlant();
+	await reading(five.a, [0, 1, 2, 3, 4], "0.9");
+	await reading(five.a, [5], "0.80");
+	assert.equal((await resume(five)).reading.status, "incomplete", "one article at 0.80 is not read");
+
+	const [b, c, d] = [await reader(f), await reader(f), await reader(f)];
+	const lead = ok(await call("answerLead", f.a, command(leadYes(undefined), (await resume(f)).revision), f.p));
+	const { teamId, roleId } = yes(lead.lead).assignment;
+	const credit = async () =>
+		(
+			await admin.execute(
+				sql`SELECT account_id,article_id,completed_fraction::text FROM reading WHERE account_id IN (${f.a.id},${b.id},${c.id},${d.id}) ORDER BY 1,2`,
+			)
+		).rows;
+	const title = async (who: { person: { id: string } }) => {
+		await admin.update(t.team_tenure).set({ person_id: who.person.id }).where(eq(t.team_tenure.role_id, roleId));
+		await admin.update(t.team).set({ leader_person_id: who.person.id }).where(eq(t.team.id, teamId));
+	};
+	await reading(c, [0, 1, 2], "0.9");
+	await reading(d, [3, 4, 5], "0.9");
+	await title(c);
+	assert.equal((await resume(f)).reading.status, "incomplete");
+	const role = randomUUID();
+	await admin.insert(t.team_role).values({
+		id: role,
+		plant_id: f.p.id,
+		team_id: teamId,
+		name: "Lead planter",
+		leadership: true,
+		sort_order: 9,
+	});
+	await admin.insert(t.team_tenure).values({
+		plant_id: f.p.id,
+		role_id: role,
+		person_id: d.person.id,
+		started_on: "2026-01-01",
+	});
+	assert.equal((await resume(f)).reading.status, "incomplete", "two disjoint halves never add up");
+	await reading(b, [0, 1, 2, 3, 4, 5], "0.8001");
+	const stored = await credit();
+	assert.equal((await resume(f)).reading.status, "incomplete", "B is an Admin without the lead title");
+	await title(b);
+	const complete = (await resume(f)).reading;
+	assert.ok(complete.status === "complete");
+	assert.deepEqual(
+		[complete.readerAccountId, complete.eligibility],
+		[b.id, { kind: "current_admin_lead", personId: b.person.id }],
+	);
+	assert.ok(complete.articles.every((x) => x.scrollRatio === 0.8001));
+	await admin.update(t.person).set({ linked_account_id: null }).where(eq(t.person.id, b.person.id));
+	assert.equal((await resume(f)).reading.status, "incomplete", "the title alone carries no reading");
+	await title(c);
+	assert.equal((await resume(f)).reading.status, "incomplete");
+	assert.deepEqual(await credit(), stored, "no title or link edit moves a reading record");
+	assert.equal(await admin.$count(t.reading, eq(t.reading.account_id, f.a.id)), 0, "the Owner still has 0 of 6");
+});
+
+async function stored() {
+	const r = await admin.execute(
+		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM seat) seats,
+			(SELECT count(*)::int FROM phase_transition) transitions,(SELECT count(*)::int FROM discovery WHERE converted_at IS NOT NULL) converted,
+			(SELECT count(*)::int FROM affiliation WHERE ended_at IS NULL) affiliations,(SELECT count(*)::int FROM team) teams,(SELECT count(*)::int FROM team_role) roles,
+			(SELECT count(*)::int FROM team_tenure) tenures,(SELECT count(*)::int FROM invitation) invitations,
+			(SELECT count(*)::int FROM audit_event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
+	);
+	return present(r.rows[0], "row") as Record<string, number>;
+}
+const gained = (before: Record<string, number>, after: Record<string, number>) =>
+	Object.fromEntries(Object.entries(after).map(([k, n]) => [k, n - before[k]!]));
+async function failingRow(table: string, when: "INSERT" | "UPDATE", body: () => Promise<unknown>) {
+	await admin.execute(
+		sql.raw(
+			`CREATE FUNCTION fail_row() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_required_failure'; END $$;
+			 CREATE TRIGGER fail_row BEFORE ${when} ON ${table} FOR EACH ROW EXECUTE FUNCTION fail_row()`,
+		),
+	);
+	try {
+		await assert.rejects(body());
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER fail_row ON ${table};DROP FUNCTION fail_row()`));
+	}
+}
+function invitationsWith(seen: (proof: string) => void) {
+	return createInvitationService({
+		db,
+		origin: "http://onboarding.example.test",
+		budgetSecret: randomBytes(32).toString("hex"),
+		people: accountPersonProducer,
+		addressBlocked: () => sql`false`,
+		async enqueueMail(tx, input, command) {
+			const token = input.text.match(/#proof=([^\s]+)/);
+			if (token?.[1]) seen(decodeURIComponent(token[1]));
+			return mail.append(
+				tx,
+				{
+					owner: input.owner,
+					purpose: input.purpose,
+					logicalKey: input.logicalKey,
+					recipient: input.recipientAccountId,
+					address: input.recipientEmail,
+					content: { subject: input.subject, text: input.text },
+					operation: input.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
+		},
+	});
+}
+async function seatOffer(a: Account) {
+	const sender = await makePlant();
+	let proof = "";
+	const invitations = invitationsWith((value) => (proof = value));
+	const { invitation } = await invitations.invite(
+		await verifiedWriteActor(sender.a.session),
+		command({ workspace: sender.p, role: "member", recipientEmail: a.user + "@example.test" }, sender.result.revision),
+	);
+	assert.notEqual(proof, "");
+	return () => invitations.accept(a.session, command({ invitationId: invitation.invitationId, proof }));
+}
+
+test("AC:TARGET-IDN-013 a church creation that fails at any required write leaves nothing behind, and its retry makes one church at Phase 1 with no reading or journey claimed", async () => {
+	const a = await actor("planter", "pending_domain");
+	const q = command({ name: "  Harvest Point ", locality: { city: "Waco" }, confirmed: true });
+	const before = await stored();
+	for (const [table, when] of [
+		["plant", "INSERT"],
+		["seat", "INSERT"],
+		["person", "INSERT"],
+		["phase_transition", "INSERT"],
+		["audit_event", "INSERT"],
+		["mail", "INSERT"],
+		["account", "UPDATE"],
+	] as const) {
+		await failingRow(table, when, () => call("createPlant", a, q));
+		assert.deepEqual(await stored(), before, table);
+		assert.equal(
+			present((await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0], "account").registration_state,
+			"pending_domain",
+			table,
+		);
+	}
+	const made = await Promise.all([call("createPlant", a, q), call("createPlant", a, q)]);
+	const [first, second] = made.map((r) => ok(r));
+	assert.deepEqual([first!.plant.id, first!.currentPhase, second!.currentPhase], [second!.plant.id, 1, 1]);
+	const after = await stored();
+	const { plants, people, seats, transitions, affiliations } = gained(before, after);
+	assert.deepEqual(
+		{ plants, people, seats, transitions, affiliations },
+		{ plants: 1, people: 1, seats: 1, transitions: 1, affiliations: 0 },
+	);
+	const replay = ok(await call("createPlant", a, q));
+	assert.deepEqual([replay.status, replay.plant.id, replay.currentPhase], ["existing", first!.plant.id, 1]);
+	assert.deepEqual(gained(after, await stored()), Object.fromEntries(Object.keys(after).map((k) => [k, 0])));
+	const [plant] = await admin.select().from(t.plant).where(eq(t.plant.id, first!.plant.id));
+	assert.deepEqual(
+		[plant!.name, plant!.city, plant!.state_province, plant!.country],
+		["Harvest Point", "Waco", null, null],
+	);
+	const r = await resume({ a, p: first!.plant });
+	assert.deepEqual([r.reading, r.currentPhase, r.completion], [{ status: "incomplete" }, 1, { status: "unfinished" }]);
+});
+
+test("AC:TARGET-IDN-013 AC:TARGET-IDN-016 accepting a seat and creating or converting to a church at the same time leave one active seat and no stray church or person", async () => {
+	for (const kind of ["plant", "discovery"] as const)
+		for (let n = 0; n < 2; n++) {
+			const d = kind === "discovery" ? await discovery() : null;
+			const a = d?.a ?? (await actor());
+			const accept = await seatOffer(a);
+			const before = await stored();
+			const create = () =>
+				d
+					? call(
+							"convertDiscovery",
+							a,
+							command(
+								{ discoveryId: d.result.profile.discoveryId, name: "Raced plant", confirmed: true, relationships: [] },
+								d.result.profile.revision,
+							),
+						)
+					: call("createPlant", a, command({ name: "Raced plant", confirmed: true }));
+			const [accepted, created] = n
+				? await Promise.allSettled([accept(), create()])
+				: ((await Promise.allSettled([create(), accept()])).reverse() as PromiseSettledResult<never>[]);
+			const won = [accepted!.status === "fulfilled", created!.status === "fulfilled" && created!.value.status === "ok"];
+			assert.equal(won.filter(Boolean).length, 1, `${kind} ${JSON.stringify(won)}`);
+			const { plants, people, seats, transitions, converted } = gained(before, await stored());
+			assert.deepEqual(
+				{ plants, people, seats, transitions, converted },
+				{
+					plants: won[1] ? 1 : 0,
+					people: 1,
+					seats: 1,
+					transitions: won[1] ? 1 : 0,
+					converted: won[1] && d ? 1 : 0,
+				},
+			);
+			assert.equal(await admin.$count(t.seat, and(eq(t.seat.account_id, a.id), sql`${t.seat.ended_at} IS NULL`)), 1);
+		}
+});
+
+test("AC:TARGET-IDN-014 skipping the lead question adds no role, template or grant, and finalizing a Vision meeting without a lead still makes its required work", async () => {
+	const { createAttendanceWriter, withMeetingsWrite } = await import("../../../packages/domain/src/meetings/index.ts");
+	const f = await makePlant();
+	const before = await stored();
+	const skipped = ok(await call("answerLead", f.a, command({ answer: "skip" }, (await resume(f)).revision), f.p));
+	assert.equal(skipped.lead.answer, "skip");
+	const { teams, roles, tenures, seats, invitations, affiliations, people } = gained(before, await stored());
+	assert.deepEqual(
+		{ teams, roles, tenures, seats, invitations, affiliations, people },
+		{ teams: 0, roles: 0, tenures: 0, seats: 0, invitations: 0, affiliations: 0, people: 0 },
+	);
+	assert.deepEqual(await ministryFacts(f.p.id), { teams: [], roles: [], held: [] });
+	const outside = await otherPerson(f.p.id, "Other leader");
+	assert.equal(await admin.$count(t.seat, eq(t.seat.plant_id, f.p.id)), 1);
+	const guest = await otherPerson(f.p.id, "Vision guest");
+	await admin.update(t.person).set({ stage: "prospect" }).where(eq(t.person.id, guest));
+	const meeting = randomUUID();
+	await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+		resolver_version,status,attendance_revision) VALUES(${meeting},${f.p.id},'vision_meeting',NULL,'2026-10-01','18:00',
+		'America/Chicago','2026-10-01T23:00:00Z','1','in_progress',1)`);
+	const writer = createAttendanceWriter({ reminders: async () => {} } as never);
+	const finalized = await withMeetingsWrite(db, await verifiedWriteActor(f.a.session), (tx, c) =>
+		writer.finalizeAttendance(tx, c, {
+			requestKey: randomUUID(),
+			expectedRevision: "1",
+			input: { meetingId: meeting, attendeeIds: [guest] },
+		}),
+	);
+	assert.equal(finalized.status, "ok", JSON.stringify(finalized));
+	const required = (
+		await admin.execute(
+			sql`SELECT b.kind,t.status,t.deleted_at IS NULL AS visible FROM obligation b JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${meeting} ORDER BY 1`,
+		)
+	).rows;
+	assert.deepEqual(required, [
+		{ kind: "evaluation", status: "not_started", visible: true },
+		{ kind: "follow_up", status: "not_started", visible: true },
+	]);
+	assert.deepEqual(await ministryFacts(f.p.id), { teams: [], roles: [], held: [] });
+	assert.equal((await resume(f)).lead.answer, "skip");
+	assert.notEqual(outside, guest);
+});
+
+test("AC:TARGET-IDN-015 finishing twice with no new date keeps Phase 1 and the launch date, records one completion, claims no reading, and a failed save changes nothing", async () => {
+	const f = await makePlant();
+	await admin.insert(t.launch).values({ plant_id: f.p.id, target_date: "2026-11-10", status: "scheduled" });
+	const r = await resume(f);
+	const journey = { journey: { answer: "existing", phase: 4 }, launch: { answer: "skip" } };
+	const state = async () => ({
+		stored: await stored(),
+		plant: (await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id)))[0],
+		launch: (await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id)))[0],
+	});
+	const before = await state();
+	for (const [table, when] of [
+		["phase_transition", "INSERT"],
+		["audit_event", "INSERT"],
+	] as const) {
+		await failingRow(table, when, () => call("declareJourney", f.a, command(journey, r.revision), f.p));
+		assert.deepEqual(await state(), before, table);
+	}
+	const planned = {
+		...journey,
+		launch: { answer: "planned", date: "2026-12-01", expectedScheduleRevision: String(before.launch!.revision) },
+	};
+	for (const [table, when] of [
+		["launch", "INSERT"],
+		["phase_transition", "INSERT"],
+		["onboarding_setup", "UPDATE"],
+	] as const) {
+		await failingRow(table, when, () => call("declareJourney", f.a, command(planned, r.revision), f.p));
+		assert.deepEqual(await state(), before, `a launch date saved with a failing ${table}`);
+	}
+	const other = await makePlant();
+	const reached = ok(
+		await call(
+			"declareJourney",
+			other.a,
+			command(
+				{ ...planned, launch: { ...planned.launch, expectedScheduleRevision: "1" } },
+				(await resume(other)).revision,
+			),
+			other.p,
+		),
+	);
+	assert.deepEqual(
+		[reached.currentPhase, reached.scheduledLaunchDate],
+		[4, "2026-12-01"],
+		"the same answer with no fault",
+	);
+	const untouched = await state();
+	await failingRow("audit_event", "INSERT", () => call("complete", f.a, command({}, r.revision), f.p));
+	assert.deepEqual(await state(), untouched);
+	const saved = ok(
+		await call(
+			"declareJourney",
+			f.a,
+			command({ journey: { answer: "skip" }, launch: { answer: "no_date" } }, r.revision),
+			f.p,
+		),
+	);
+	assert.deepEqual([saved.currentPhase, saved.scheduledLaunchDate], [1, "2026-11-10"]);
+	const q = command({}, saved.revision);
+	const done = ok(await call("complete", f.a, q, f.p));
+	const once = await state();
+	assert.deepEqual(ok(await call("complete", f.a, q, f.p)), done);
+	assert.deepEqual(await state(), once);
+	const repeated = ok(await call("complete", f.a, command({}, done.revision), f.p));
+	assert.deepEqual(repeated.completion, done.completion);
+	assert.equal(
+		(
+			await admin.execute(
+				sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${f.p.id} AND action='attestation.recorded' AND kind='complete'`,
+			)
+		).rows[0]!.n,
+		1,
+	);
+	const end = await resume(f);
+	assert.deepEqual(
+		[end.currentPhase, end.scheduledLaunchDate, end.reading, end.completion.status, end.lead, end.peopleStep],
+		[1, "2026-11-10", { status: "incomplete" }, "completed", { answer: "pending" }, "pending"],
+	);
+	denied(await call("createPlant", f.a, command({ name: "Again", confirmed: true }, "2")), "active_seat_conflict");
+	assert.equal(await admin.$count(t.phase_transition, eq(t.phase_transition.plant_id, f.p.id)), 1);
+	const keep = await call(
+		"declareJourney",
+		f.a,
+		command({ journey: { answer: "existing", phase: 0 }, launch: { answer: "no_date" } }, end.revision),
+		f.p,
+	);
+	assert.equal((await resume(f)).scheduledLaunchDate, "2026-11-10", keep.status);
+});
+
+test("AC:AF-012 AC:TARGET-IDN-016 converting twice makes one church, one Owner seat, one creation and one approved link for the chosen organization only", async () => {
+	const former = await makePlant();
+	const seatless = await actor("planter");
+	await admin.insert(t.seat).values({
+		account_id: seatless.id,
+		plant_id: former.p.id,
+		role: "member",
+		accepted_at: new Date(Date.now() - 86400000),
+		ended_at: new Date(),
+	});
+	const d = await discovery();
+	assert.equal(await admin.$count(t.seat, eq(t.seat.account_id, d.a.id)), 0);
+	const links = {
+		S1: await relationship(d.a),
+		S2: await relationship(d.a),
+		N1: await relationship(d.a, "sending_network"),
+		N2: await relationship(d.a, "sending_network"),
+	};
+	assert.equal(await admin.$count(t.seat, eq(t.seat.account_id, d.a.id)), 0, "a link grants no seat");
+	const { revision } = activeProfile(ok(await call("getDiscoveryProfile", d.a, {})));
+	const q = command(
+		{
+			discoveryId: d.result.profile.discoveryId,
+			name: "Harvest Point",
+			confirmed: true,
+			relationships: [links.S1],
+		},
+		revision,
+	);
+	const before = await stored();
+	const member = await reader(former, "member"),
+		administrator = await reader(former),
+		stranger = await discovery();
+	const readers = await stored();
+	for (const who of [seatless, stranger.a]) denied(await call("convertDiscovery", who, q));
+	for (const who of [member, administrator, former.a])
+		denied(await call("convertDiscovery", who, q), "active_seat_conflict");
+	denied(await call("convertDiscovery", d.a, q, former.p));
+	denied(await call("convertDiscovery", d.a, command(q.input, String(BigInt(revision) + 1n))), "conflict");
+	for (const [table, when] of [
+		["plant", "INSERT"],
+		["seat", "INSERT"],
+		["person", "INSERT"],
+		["affiliation", "INSERT"],
+		["phase_transition", "INSERT"],
+		["audit_event", "INSERT"],
+		["discovery", "UPDATE"],
+	] as const)
+		await failingRow(table, when, () => call("convertDiscovery", d.a, q));
+	assert.deepEqual(await stored(), readers);
+
+	const [first, second] = (await Promise.all([call("convertDiscovery", d.a, q), call("convertDiscovery", d.a, q)])).map(
+		(r) => ok(r),
+	);
+	assert.deepEqual([first!.status, second!.status].sort(), ["converted", "existing"]);
+	const P = first!.plant;
+	assert.equal(second!.plant.id, P.id);
+	assert.deepEqual([first!.currentPhase, second!.currentPhase], [1, 1]);
+	const { plants, seats, transitions, people, converted } = gained(readers, await stored());
+	assert.deepEqual(
+		{ plants, seats, transitions, people, converted },
+		{ plants: 1, seats: 1, transitions: 1, people: 1, converted: 1 },
+	);
+	const owners = await admin.select().from(t.seat).where(eq(t.seat.plant_id, P.id));
+	assert.deepEqual(
+		owners.map((x) => [x.account_id, x.role, x.ended_at]),
+		[[d.a.id, "owner", null]],
+	);
+	const active = await admin
+		.select()
+		.from(t.affiliation)
+		.where(and(eq(t.affiliation.plant_id, P.id), sql`${t.affiliation.ended_at} IS NULL`));
+	assert.deepEqual(
+		active.map((x) => [x.organization_id, x.share_wiki, x.share_people, x.shared_findings]),
+		[[links.S1.organization.id, true, false, false]],
+	);
+	const approvals = (
+		await admin.execute(sql`SELECT * FROM audit_event WHERE action='affiliation.approved' AND actor_id=${d.a.id}`)
+	).rows;
+	assert.equal(approvals.length, 1);
+	const approval = JSON.stringify(approvals[0]);
+	for (const id of [active[0]!.id, P.id, links.S1.organization.id]) assert.ok(approval.includes(id), approval);
+	for (const link of [links.S2, links.N1, links.N2]) assert.equal(approval.includes(link.organization.id), false);
+	for (const link of Object.values(links)) {
+		const [old] = await admin.select().from(t.affiliation).where(eq(t.affiliation.id, link.relationshipId));
+		assert.ok(old!.ended_at, "the Discovery link ends");
+		assert.equal(
+			await admin.$count(t.seat, eq(t.seat.organization_id, link.organization.id)),
+			1,
+			"no organization gains a seat",
+		);
+	}
+	const settled = await stored();
+	const replay = ok(await call("convertDiscovery", d.a, q));
+	assert.deepEqual([replay.status, replay.plant.id, replay.creation], ["existing", P.id, first!.creation]);
+	denied(await call("convertDiscovery", d.a, { ...q, requestKey: randomUUID() }), "active_seat_conflict");
+	assert.deepEqual(await stored(), settled);
+	assert.ok(before.plants! < settled.plants!);
 });

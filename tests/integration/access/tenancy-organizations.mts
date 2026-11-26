@@ -16,6 +16,7 @@ import {
 	listPlants,
 	listSendingChurches,
 	readIntelligence,
+	readPattern,
 	readLocationHistory,
 } from "../../../packages/domain/src/oversight/index.ts";
 import { owner, sessionId, tenantId, type Owner } from "../../../packages/contracts/src/common/index.ts";
@@ -144,6 +145,10 @@ export function organizationsCases(t: Tenancy, who: TenancyOwner) {
 				["oversight:listSendingChurches", () => listSendingChurches(t.f.db, who.actor)],
 				["oversight:getSendingChurch", () => getSendingChurch(t.f.db, who.actor, a.network)],
 				["oversight:readIntelligence", () => readIntelligence(t.f.db, who.actor, { level: "portfolio", runId: null })],
+				[
+					"oversight:readPattern",
+					() => readPattern(t.f.db, who.actor, { runId: t.plantA.id, patternKey: "NIR-03:portfolio:portfolio" }),
+				],
 				["oversight:readLocationHistory", () => readLocationHistory(t.f.db, who.actor, t.plantA.id)],
 			] as const
 		).map(([name, read]) => tenancyCase(name, () => plain<unknown>(read), { value: null, control: null })),

@@ -1,4 +1,4 @@
-import test, { after, before } from "node:test";
+import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
@@ -12,9 +12,12 @@ import {
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { emailsIn, resendRecorder, type Recorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
-import { ok } from "../../support/fixture.mts";
+import { ok, refused } from "../../support/fixture.mts";
 import { MAILING } from "./church-address.mts";
 import {
+	caseOf,
+	deliverAs,
+	pinnedDate,
 	readAs,
 	rowsFrom,
 	writeAs,
@@ -175,13 +178,13 @@ const mailOf = async (id: string, who: Person) =>
 		FROM mail WHERE logical_key = ${"communication/" + id + "/" + who.id}`);
 
 before(async () => {
-	f = await fixture();
+	f = await fixture({ clock: pinnedDate(caseOf("CASE-NTF-016-CHILD").clock.now) });
 	church = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, church, "owner");
 	owner = { ...a, actor: await f.actor(a.session) };
 });
-after(() => f?.close());
+after(() => f?.close().finally(() => mock.timers.reset()));
 
 test("AC:CASE-NTF-016-CHILD a group email leaves out the people marked as a child with that reason, and everyone else still gets it at the send time", async () => {
 	const ana = await person("Ana", { as: "adult" });
@@ -579,5 +582,135 @@ test("AC:CASE-NTF-016-CHILD an opt-out that reaches a child through a merge leav
 		assert.deepEqual(await mailOf(message.id, kid), [
 			{ state: "refused", refusal: grown ? "unsubscribed" : "child", provider: null, accepted: null },
 		]);
+	}
+});
+
+test("AC:CASE-NTF-016-CHILD an Admin's sends and schedules follow each person's marking up to the send time, with no override", async () => {
+	const { result } = caseOf("CASE-NTF-016-CHILD").expected;
+	const account = await f.account();
+	await f.seat(account, church, "admin");
+	const admin = { ...account, actor: await f.actor(account.session) };
+	const started = owner;
+	owner = admin;
+	try {
+		const ana = await person("Ana", { as: "adult" });
+		const kid = await person("Kid", { as: "child" });
+		const tia = await person("Tia", { born: yearsAgo(9) });
+		const una = await person("Una");
+		const hal = await person("Hal", { as: "adult", householdChild: true });
+		const others = [ana, una, hal];
+		const reasons = ok(
+			await read("readAudience", { groups: [], teamIds: [], personIds: [ana, kid, tia, una, hal].map((p) => p.id) }),
+		).childExclusions.map((p) => p.id);
+		for (const how of [sendNow, schedule]) {
+			const resend = resendRecorder(PRODUCTION);
+			const message = await how([ana, kid, tia, una, hal], resend);
+			await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+			const view = await shown(message.id);
+			const to = sentTo(resend);
+			assert.equal(
+				reasons.join() === [kid.id, tia.id].join() &&
+					statusOf(view, kid) === "child" &&
+					statusOf(view, tia) === "child",
+				result.child_left_out_with_reason,
+			);
+			assert.equal(
+				others.every((p) => to.includes(p.email)) && to.length === others.length,
+				result.other_recipients_sent,
+			);
+			assert.equal(
+				[una, hal].some((p) => !to.includes(p.email)),
+				result.not_recorded_or_household_child_blocked,
+			);
+			assert.deepEqual(explained(view), { child: 2, guardian: 0, unsubscribed: 0, failed: 0, suppressed: 0 });
+			assert.equal(view.totals.child === 2 && message.report.childCount === 2, result.child_counted_separately);
+		}
+
+		const alone = await draft([kid, tia]);
+		const refusedAlone = await scheduleAt(alone);
+		const queued = await rows(sql`SELECT id FROM mail WHERE communication_id = ${alone.communicationId}`);
+		assert.equal(
+			refusedAlone.status === "refused" && refusedAlone.error.code === "children_only" && queued.length === 0,
+			result.only_children_refused_nothing_queued,
+		);
+
+		const ben = await person("Ben", { as: "adult" });
+		const ida = await person("Ida", { as: "child" });
+		const changed = resendRecorder(PRODUCTION);
+		const waiting = await schedule([ana, ben, ida], changed);
+		await mark(ben, "child");
+		await mark(ida, "adult");
+		await atSendTime(f.admin, f.db, waiting.id, changed.transport, keys);
+		assert.equal(!sentTo(changed).includes(ben.email), result.marked_child_before_send_time_skipped);
+		assert.equal(sentTo(changed).includes(ida.email), result.marked_adult_before_send_time_sent);
+		const next = resendRecorder(PRODUCTION);
+		const fresh = await sendNow([ida, ana], next);
+		assert.equal(
+			sentTo(next).includes(ida.email) && fresh.report.childCount === 0,
+			result.marked_adult_included_in_new_send,
+		);
+
+		const went = async () => [await mailOf(waiting.id, ana), statusOf(await shown(waiting.id), ana)];
+		const before_ = await went();
+		changed.take();
+		await mark(ana, "child");
+		await minuteRunner(f.db, changed.transport, keys);
+		assert.deepEqual(await went(), before_);
+		assert.equal(changed.take().length === 0, result.sent_email_unchanged_by_later_marking);
+
+		const forced = await draft([kid, una]);
+		const planned = ok(await scheduleAt(forced));
+		const port = resendRecorder(PRODUCTION);
+		for (const override of [{ override: true }, { includeChildren: [kid.id] }])
+			for (const op of ["sendReviewed", "handOffScheduled"] as const)
+				assert.equal(
+					refused(
+						await deliverAs(
+							f.db,
+							admin.actor,
+							op,
+							{
+								requestKey: key(),
+								expectedRevision: planned.revision,
+								input: { communicationId: forced.communicationId, ...override },
+							},
+							port.transport,
+							keys,
+						),
+						"invalid_input",
+					).code,
+					"invalid_input",
+				);
+		ok(
+			await deliverAs(
+				f.db,
+				admin.actor,
+				"sendReviewed",
+				{
+					requestKey: key(),
+					expectedRevision: planned.revision,
+					input: { communicationId: forced.communicationId, leftOut: [] },
+				},
+				port.transport,
+				keys,
+			),
+		);
+		const again = ok(
+			await write("executeResend", {
+				requestKey: key(),
+				input: { communicationId: forced.communicationId, selection: "proven_failed" },
+			}),
+		);
+		assert.deepEqual(again.eligibleIds, [kid.id]);
+		const retry = await scheduleAt({ ...forced, communicationId: again.communicationId, revision: forced.revision });
+		assert.equal(
+			retry.status === "refused" && retry.error.code,
+			"children_only",
+			"a retry of the left-out child is refused too",
+		);
+		assert.equal(sentTo(port).includes(kid.email), result.staff_override);
+		assert.deepEqual(sentTo(port), [una.email]);
+	} finally {
+		owner = started;
 	}
 });

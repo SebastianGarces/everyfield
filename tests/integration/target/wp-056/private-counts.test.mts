@@ -66,7 +66,7 @@ test("INV-privacy: two readings of every count and summary with nothing between 
 	assert.deepEqual(await everything(viewers), start);
 });
 
-test("INV-privacy: a care note, its correction and its removal move no count, summary, trend, assessment or digest that anyone but its author can read", async () => {
+test("AC:ROLE43-012 INV-privacy: a care note, its correction and its removal move no count, summary, trend, assessment or digest that anyone but its author can read", async () => {
 	const others = ["admin", "member", "lead", "director", "staff", "foreign"] as const;
 	const trend = ["direct: care.readCurrent", "direct: care.readHistory", "summary: care.trends"];
 	await unmoved(others, "author", () => w.actions.writeCare("author", CARE_NOTE), w.actions.clearCare, trend);

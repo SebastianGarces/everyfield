@@ -326,12 +326,12 @@ agent-browser find role textbox text --name "Email" --exact
 agent-browser find role button text --name "Continue" --exact
 ```
 
-- **workspace-deletion**: heading "Church workspace deletion"; button "Continue". As `visitor`, on the QA seed:
+- **workspace-deletion**: heading "Church plant account deletion"; button "Continue". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/workspace-deletion"
 agent-browser wait --load networkidle
-agent-browser find role heading text --name "Church workspace deletion" --exact
+agent-browser find role heading text --name "Church plant account deletion" --exact
 agent-browser find role button text --name "Continue" --exact
 ```
 

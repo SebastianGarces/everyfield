@@ -1,8 +1,11 @@
 import { writeFile } from "node:fs/promises";
-import { database, closeDatabase, exportAccessRequests } from "../src/index.js";
+import { closeDatabase, createDatabase } from "@everyfield/db/client";
+import { exportAccessRequests } from "../src/early-access/store.ts";
 
 const file = process.argv[2];
-const db = database();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is required");
+const db = createDatabase({ connectionString, max: 5 });
 try {
 	const csv = await exportAccessRequests(db);
 	if (file) {

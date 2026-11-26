@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	boardHref,
-	goalHeadline,
 	monthLabel,
 	queryFromSearch,
 	refusalText,
 	stageChanges,
 } from "../../../apps/web/src/features/organizations/board/model.ts";
+import { goalHeadline } from "../../../packages/contracts/src/organizations/pipeline.ts";
 import { dayText } from "../../../packages/contracts/src/common/day.ts";
 
 const starters = [

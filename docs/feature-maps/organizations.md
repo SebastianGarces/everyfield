@@ -48,6 +48,7 @@ flowchart LR
   s4 -- "link #quot;Church planting residency#quot;, then link #quot;Casey Lee#quot;" --> s5
   s5 -.- s5_st0(("enrollment"))
   s5 --- s5_b0["confirm-milestone<br/>tests + cases"]
+  s5 --- s5_b1["end-enrollment<br/>tests + cases"]
   s6["organizations.reviews<br/>/organization/reviews /organization/reviews/[reviewId]"]
   rail -- "Sent for review" --> s6
   s6 -.- s6_st0(("empty"))
@@ -593,6 +594,15 @@ The director confirms a milestone the resident marked done, or records and confi
 - Test: `tests/integration/organizations/residency.test.mts`: `AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step`
 - Test: `tests/integration/organizations/programs.test.mts`: `AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes`
 
+#### organizations.enrollment#end-enrollment
+
+The program's current director ends an active enrollment as Completed or Withdrawn from a dialog with neither preselected. The ended page offers no further change, and the person can be enrolled again.
+
+- Operations: development.updateEnrollment
+- Catalog: MUL-011
+- Cases: ADR1-011
+- Test: `tests/integration/organizations/programs.test.mts`: `AC:ADR1-011 ending is refused with nothing written for anyone but the current director, a bad status, a stale revision and an unknown enrollment`
+
 ### organizations.reviews
 
 Sent for review: kept answers an Owner or Admin sent to this seat, and each send's chosen questions.
@@ -733,7 +743,7 @@ A sending church turns pipeline totals for its network off and on; each choice h
 - Operations: pipelineSharing.setConsent
 - Catalog: MUL-016
 - Cases: ADR1-016
-- Test: `tests/integration/organizations/consent.test.mts`: `AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches`
+- Test: `tests/integration/organizations/consent.test.mts`: `AC:ADR1-016 pipeline totals default off, are shared per relationship and need two churches`
 - Browser, behavior proof (acts and checks the result), from state sending-church:
 
 ```bash
@@ -807,9 +817,10 @@ The addressed Owner or Admin accepts once and a retry returns the same result; t
 - Operations: associations.respondInvitation
 - Catalog: IDN-020
 - Cases: TARGET-IDN-020
-- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history`
+- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 ending one pair keeps other links, content and minimal history`
 - Test: `tests/integration/organizations/relationships.test.mts`: `INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries`
-- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve`
+- Test: `tests/integration/organizations/relationships.test.mts`: `AC:ROLE43-016 wrong side, Member, proof, expiry and revoked initiator cannot approve`
+- Test: `tests/integration/organizations/connections.test.mts`: `AC:TARGET-IDN-020 another affiliate cannot approve this link, competing decisions settle once, and a failed write keeps nothing`
 - Test: `tests/unit/organizations/invitation-proof.test.mts`: `the route answers the read as the page did: signed out, unavailable, expired or the request`
 - Test: `tests/integration/organizations/relationships.test.mts`: `discovery invitations expire after 30 days: the receiver sees who to ask, a new request goes through, and a resend restarts the 30 days`
 

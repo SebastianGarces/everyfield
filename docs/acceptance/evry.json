@@ -228,7 +228,10 @@
         "WP-050",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -382,7 +385,10 @@
         "WP-050",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -538,7 +544,10 @@
         "WP-050",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -695,7 +704,10 @@
         "WP-050",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -851,7 +863,10 @@
         "WP-050",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -1019,7 +1034,10 @@
         "WP-050",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-provider-privacy.test.mts"
+      ],
       "layers": [
         "configuration",
         "request",
@@ -1132,7 +1150,10 @@
         "WP-066",
         "WP-068"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "description": "Enter 2026-03-08T02:30  America/Chicago through native and reviewed Evry meeting/task forms.",
       "given": {
         "P": {
@@ -1214,7 +1235,10 @@
         "WP-066",
         "WP-068"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "description": "Enter 2026-11-01T01:30  Chicago, choose each displayed offset separately and round-trip saved Instant.",
       "given": {
         "P": {
@@ -1295,7 +1319,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "description": "Future one-time meeting 2026-10-20T15:00Z ; change church zone, then separate appointment edit.",
       "given": {
         "P": {
@@ -1423,7 +1450,10 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "description": "Same native/Evry authorized appointment/task DST payload and stale durable review; private operation request.",
       "given": {
         "P": {
@@ -1514,7 +1544,10 @@
         "WP-051",
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-bounds.test.mts"
+      ],
       "description": "25 recent user/assistant messages, >32k token context; 64 reference candidates, 33 more; completed receipt; source sharing revoked",
       "given": {
         "P": {
@@ -1761,7 +1794,11 @@
         "WP-055",
         "WP-094"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/evals/golden.test.mts",
+        "tests/evry/runtime/cases-release.test.mts"
+      ],
       "description": "All 158 inherited plus 52 suite gaps and current UI/org/unmerge/runtime cases; synthetic tenants and fake providers; critical invitation/import/task/team/intelligence/notification/commitment flows",
       "given": {
         "P": {
@@ -2099,7 +2136,10 @@
         "mail.suppression.recordProviderFact",
         "mail.suppression.restoreReviewed"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-mail.test.mts"
+      ],
       "description": "Two eligible prospects share one deduplicated email, one missing address and one suppressed recipient; visible template fork has exact subject/body/placeholders. Prior delivery is accepted-unknown, proven provider-failed, bounce or delivered-nonopener. Draft D exists; future schedule at 29 days valid and 31 days outside window.",
       "given": {
         "P": {
@@ -2555,7 +2595,10 @@
         "storage.putPrivateObject",
         "storage.readAuthorizedObject"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/adapters/documents/cases-family.test.mts"
+      ],
       "description": "Approved templates expose PDF/XLSX formats and exact merge placeholders. Agenda PDF A and PDF B have actual different text; native self-owned text and church-owned document distinct. Unbound private upload digest H; core-values designation points to one current authorized document.",
       "given": {
         "P": {
@@ -2986,7 +3029,10 @@
         "settings.getSection",
         "settings.saveSection"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-identity.test.mts"
+      ],
       "description": "Owner/Admin routine grants equal in one active exact seat; Member, foreign org, preplant Discovery and resumable unprivileged registration present. Two addressed invite claimants race. Profile/timezone preview, pending affiliation A plus independent affiliation B and safe private feedback exist; personal deletion holds 30 days while normal session revoked.",
       "given": {
         "P": {
@@ -3563,7 +3609,10 @@
         "signals.listDefinitions",
         "signals.reaffirm"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-phase.test.mts"
+      ],
       "description": "Fixed-`asOf` snapshot has genuine D0 acquisition retained after withdrawal, current adult eligibility distinct, zero-applicable training Unknown, explicit 60 day attendance AND volunteering evidence, three actual prelaunch practices and unmeasured phase 6 contact criterion. Six foundation articles are split 4/2 between readers; one actual eligible reader later qualifies all 6 above 80. Assessment cited source later revoked; phase 3 currently declared.",
       "given": {
         "P": {
@@ -3991,7 +4040,10 @@
         "launch.schedule",
         "launch.submitDebrief"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-gather.test.mts"
+      ],
       "description": "Launch date planned Oct 25; milestone M linked to overdue task T, similarly named U unlinked. Actual launch has 150 headcount, twelve unnamed guests and one named actual guest. Submitted six-area debrief independent of missing-name answer; editable summary draft unshared until publication.",
       "given": {
         "P": {
@@ -4452,7 +4504,10 @@
         "venues.list",
         "venues.restore"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-gather.test.mts"
+      ],
       "description": "Vision V is scheduled with Alex RSVP-only, Casey previously attended another actual Vision, Jamie first actual attendee; response cards differ from attendance. Hall active and Annex archived; V has a stored location snapshot, structured agenda/kit and approved eight-factor evaluation. Team leader L owns only training meeting T; token bound to V/Alex is pending.",
       "given": {
         "P": {
@@ -4972,7 +5027,10 @@
         "notifications.undoEmailOptOut",
         "notifications.unreadCount"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-mail.test.mts"
+      ],
       "description": "A has N1/N2/N3/N4 unread and one read; B has separate feed. Defaults and explicit choice flags for existing categories recorded. Organization cadence and one missed dated digest interval exist. Association receipt accepted-unknown; opt-out token disable-only.",
       "given": {
         "P": {
@@ -5361,7 +5419,10 @@
         "oversight.listSendingChurches",
         "oversight.readLaunchReadiness"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-insight.test.mts"
+      ],
       "description": "Org A directly recognizes plants P/Q/R; P/Q share health and different per-category permissions, R health OFF. Org B and parent network have separate links. Region is versioned, one ambiguous city unresolved; one authorized ordinary directory lead-name artifact is in older conversation. A Member can read and give own feedback, Admin can request refresh/profile location correction.",
       "given": {
         "P": {
@@ -5740,7 +5801,10 @@
         "people.unmergePeople",
         "people.updatePerson"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-people.test.mts"
+      ],
       "description": "Alex/Casey/Jamie are three own-plant Persons with distinct source/stage/adult classification; foreign Alex shares a name. Alex is linked to an account and has a photo; Casey is unlinked; two linked profiles cannot merge. Pipeline order and two exact duplicates are recorded. CSV includes formula-looking text, duplicate row and invalid email.",
       "given": {
         "P": {
@@ -6167,7 +6231,10 @@
         "people.updateSkill",
         "people.updateTag"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-people.test.mts"
+      ],
       "description": "Alex is head of household H with Casey; Jamie outside. H address differs from each Person. Tags northside/family and skills hospitality-basic/music-advanced exist. Note N authored by A has exact Unicode text; B is another Admin.",
       "given": {
         "P": {
@@ -6512,7 +6579,10 @@
         "people.reactivateCommitment",
         "people.withdrawCommitment"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-people.test.mts"
+      ],
       "description": "Alex has two dated human four-Cs assessments, one approved five-criterion interview with next steps and actual first adult commitment at D0 with authorized private PDF. Casey is already Leader. Alex later withdraws and rejoins; latest current eligibility differs from historical acquisition.",
       "given": {
         "P": {
@@ -6805,7 +6875,10 @@
         "evry.readCatalog",
         "evry.readWorkflowHint"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Plant Admin A has a live seat, organization Member B has a separate exact context, Member C owns one task, and removed actor D has no active seat. The static operation manifest includes People/Tasks/NI and excludes care/coach/background and every executor/approval tool. Two same-name Alex records require one safe choice. Workflow hint text contains a forged authority claim.",
       "given": {
         "P": {
@@ -7125,7 +7198,10 @@
         "evry.submitTurn",
         "evry.updateDraft"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Conversation C belongs to A in plant P with saved messages and a saved draft. Two paged note records include Unicode continuation. Returned Person rows Alex/Casey are separate from a Team row. Server clock and timezone are fixed; one retained source is revoked and 25 messages exceed the recent-message budget. A second conversation belongs to B.",
       "given": {
         "P": {
@@ -7433,7 +7509,11 @@
         "evry.selectQualifiedModel",
         "evry.stageAttachment"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/evals/golden.test.mts",
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Own explicit CSV upload has digest H, one valid row, duplicate Alex and invalid email; another actor attachment and expired handle exist. A cleanup job races an authorized file bind. Synthetic model manifest has one qualified and one unqualified model; fake providers and source-independent exact facts/effects are registered.",
       "given": {
         "P": {
@@ -7725,7 +7805,10 @@
         "evry.reuseRecipe",
         "evry.reviseProposal"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-runtime.test.mts"
+      ],
       "description": "Saved review R has exact meeting/create-guests/send steps, two eligible recipients and expiry T0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. One executor stalls and another resumes the action.",
       "given": {
         "P": {
@@ -8140,7 +8223,10 @@
         "tasks.statusHistory",
         "tasks.waive"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-work.test.mts"
+      ],
       "description": "A owns one high-priority pending task due today; overdue/tomorrow/complete/undated and Jordan-assigned tasks are distractors. T has real one-level child tasks with optional assignees and own history, prerequisite P, recurrence successor S and managed meeting obligation O. A Person has no eligible linked account; a template offer has two selected tasks and one omitted task.",
       "given": {
         "P": {
@@ -8684,7 +8770,10 @@
         "teams.trainingHistory",
         "teams.trainingMatrix"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-work.test.mts"
+      ],
       "description": "Alex has Worship and Hospitality memberships; one role occupied, two open. Team leader L has own-team floor. Eight rubric areas are independent of three chosen teams. Program Q has explicitly saved Alex/Casey applicability with Alex complete; Jamie joins later; program Z has zero applicability. Ten optional ministry templates exist.",
       "given": {
         "P": {
@@ -9138,7 +9227,10 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-family-library.test.mts"
+      ],
       "description": "Global and own-org published editions share one canonical ID; draft/foreign editions inaccessible. Source order selects one winner; reader has 81% on five approved foundation articles and 80% on sixth; another reader completes only sixth. Bookmarks/own rating exist; chosen source later departs.",
       "given": {
         "P": {
@@ -9463,7 +9555,10 @@
       "work_packages": [
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "description": "Reader-A qualified 4/6, Reader-B qualified other 2/6, third reader exactly 80% on one article; one eligible actual Reader-C has all 6 strictly>80 through authorized canonical sources; model read tools invoked without human reading",
       "given": {
         "P": {
@@ -9699,7 +9794,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "description": "Executor A stalls after a lost reply; executor B resumes the action. A cannot publish. The user sees the saved outcome once; no repeated change or send.",
       "given": {
         "P": {
@@ -9937,7 +10035,10 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-scope.test.mts"
+      ],
       "description": "Org-A and org-B both direct affiliates; A health ON/location OFF, B location ON; network parent seat has no direct grant; older allowed directory message contains lead Person display name; retained A citation later revoked",
       "given": {
         "P": {
@@ -10687,7 +10788,10 @@
         "tasks.setSubtaskCompletion",
         "tasks.removeSubtask"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tasks.test.mts"
+      ],
       "description": "Parent P assigned AdminB has child C assigned MemberA through parent_task_id with own revision 2/not_started/history. Child J is assigned Member D. Parent PA is assigned MemberA, while parent PM assigned Member M has child X assigned Member D; M has no Admin role. C has no actual contact outcome. Existing prior prerequisite Q is soft-deleted with retained graph/history. Template source stores inert child definitions before reviewed instantiation.",
       "given": {
         "P": {
@@ -10966,7 +11070,10 @@
         "WP-053",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "description": "Turn has 24 tools/128k cumulative input/16k output/180 sec wall; read failure; provider unknown acceptance; sent receipt; user cancels",
       "given": {
         "P": {
@@ -11218,7 +11325,10 @@
         "WP-051",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "description": "people list returned Alex+Casey and teams list returned Worship; matched 200, returned 2",
       "given": {
         "P": {
@@ -11495,7 +11605,10 @@
         "WP-051",
         "WP-067"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tasks.test.mts"
+      ],
       "description": "One own pending due today, one overdue, one tomorrow, one completed, one undated; linked person differs from account",
       "given": {
         "P": {
@@ -11847,7 +11960,10 @@
         "WP-051",
         "WP-067"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tasks.test.mts"
+      ],
       "description": "Person Alex linked to account-U; duplicate Alex unlinked; Person Casey has no task-eligible seat",
       "given": {
         "P": {
@@ -12107,7 +12223,10 @@
         "WP-051",
         "WP-065"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Vision completed last week, pending tomorrow, cancelled today, team training next week",
       "given": {
         "P": {
@@ -12468,7 +12587,10 @@
         "WP-051",
         "WP-065"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Two meetings same title and distinct dates; known meeting-M selected",
       "given": {
         "P": {
@@ -12757,7 +12879,10 @@
         "WP-051",
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Two open Hospitality roles and one Worship role; one active and one ended membership",
       "given": {
         "P": {
@@ -13054,7 +13179,10 @@
         "WP-051",
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Hospitality role has skills/time/training, historical background requirement, and current Alex membership",
       "given": {
         "P": {
@@ -13334,7 +13462,10 @@
         "WP-051",
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Program-A required for Alex+Casey; only Alex complete; later Jamie joins team; zero-applicability program-B",
       "given": {
         "P": {
@@ -13561,7 +13692,10 @@
         "WP-051",
         "WP-079"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "description": "Known PDF agenda-A and PDF agenda-B with distinct body text; spreadsheet supported cells; foreign doc",
       "given": {
         "P": {
@@ -13865,7 +13999,10 @@
         "WP-051",
         "WP-077"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "description": "Published global and own-org variants same `canonicalId`; draft and foreign variant; sharing revoked midway",
       "given": {
         "P": {
@@ -14106,7 +14243,10 @@
         "WP-051",
         "WP-077"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "description": "Known citation slug resolved to published own-org edition; edition source later revoked",
       "given": {
         "P": {
@@ -14343,7 +14483,10 @@
         "WP-051",
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "description": "Self three unread one read; another account two unread; category interval filters",
       "given": {
         "P": {
@@ -14621,7 +14764,10 @@
         "WP-051",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "description": "Signed own-conversation CSV contains one valid row, duplicate Alex, invalid email; other conversation handle",
       "given": {
         "P": {
@@ -14865,7 +15011,10 @@
         "WP-051",
         "WP-061"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "description": "Alex two commitments; latest has PDF; same-name Person different plant",
       "given": {
         "P": {
@@ -15126,7 +15275,10 @@
         "WP-051",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "description": "Plant timezone America/New_York; server instant 2026-09-20T00:30Z; phase 3; organization context separately selected",
       "given": {
         "P": {
@@ -15341,7 +15493,10 @@
         "WP-051",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "description": "America/New_York March 14 2027 02:30 nonexistent and Nov 1 2026 01:30 twice",
       "given": {
         "P": {
@@ -15580,7 +15735,10 @@
         "WP-051",
         "WP-065"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Hall active capacity 80; Hall Annex inactive; foreign Hall",
       "given": {
         "P": {
@@ -15879,7 +16037,10 @@
         "WP-051",
         "WP-065"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "description": "Known Hall-A active with address and capacity; Hall-B same name",
       "given": {
         "P": {
@@ -16120,7 +16281,10 @@
         "WP-051",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "description": "Vision template default; visible tenant fork; meeting type Orientation; exact placeholders",
       "given": {
         "P": {
@@ -16379,7 +16543,10 @@
         "WP-051",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "description": "Proposal awaiting review; second applied run with one message accepted, delivery unknown",
       "given": {
         "P": {
@@ -16632,7 +16799,10 @@
         "WP-051",
         "WP-059"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "operation_ids": [
         "people.getActivities",
         "people.listPeople"
@@ -16909,7 +17079,10 @@
       "work_packages": [
         "WP-067"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tasks.test.mts"
+      ],
       "operation_ids": [
         "tasks.eligibleAssignees",
         "tasks.list"
@@ -17191,7 +17364,10 @@
         "WP-051",
         "WP-059"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "operation_ids": [
         "people.listPeople"
       ],
@@ -17439,7 +17615,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-bounds.test.mts"
+      ],
       "operation_ids": [],
       "description": "Read turn running, no domain effect; nonpersistent candidate draft exists",
       "given": {
@@ -17686,7 +17865,10 @@
         "WP-051",
         "WP-059"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "operation_ids": [
         "people.listPeople"
       ],
@@ -17938,7 +18120,10 @@
         "WP-051",
         "WP-059"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "operation_ids": [
         "people.getPerson"
       ],
@@ -18202,7 +18387,10 @@
       "work_packages": [
         "WP-067"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tasks.test.mts"
+      ],
       "operation_ids": [
         "tasks.list"
       ],
@@ -18467,7 +18655,10 @@
       "work_packages": [
         "WP-077"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "operation_ids": [
         "wiki.articles.get"
       ],
@@ -18709,7 +18900,10 @@
       "work_packages": [
         "WP-065"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tasks.test.mts"
+      ],
       "operation_ids": [
         "meetings.listAttendance",
         "people.getActivities"
@@ -18976,7 +19170,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-scope.test.mts"
+      ],
       "operation_ids": [],
       "description": "Plant Admin current context; timezone preview and pending Admin invitation recipient known",
       "given": {
@@ -19216,7 +19413,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-scope.test.mts"
+      ],
       "operation_ids": [],
       "description": "Exact network Member; one direct approved plant health category ON; no individual interviews consent/projection",
       "given": {
@@ -19456,7 +19656,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "operation_ids": [],
       "description": "No bank/lease connector/module; approved budget worksheet template and saved venue exist",
       "given": {
@@ -19697,7 +19900,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-scope.test.mts"
+      ],
       "operation_ids": [],
       "description": "Wiki passage includes prayer; Alex recorded 4Cs/interview available to Admin",
       "given": {
@@ -19928,7 +20134,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-scope.test.mts"
+      ],
       "operation_ids": [],
       "description": "No delegated automation grant; recurring Monday autonomous outreach requested",
       "given": {
@@ -20159,7 +20368,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "operation_ids": [],
       "description": "Approved invitation effect meeting completed, guest completed, provider outcome unknown; disconnected browser",
       "given": {
@@ -20421,7 +20633,10 @@
         "WP-054",
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-knowledge.test.mts"
+      ],
       "operation_ids": [
         "people.previewImport"
       ],
@@ -20679,7 +20894,10 @@
       "work_packages": [
         "WP-073"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-intelligence.test.mts"
+      ],
       "operation_ids": [
         "intelligence.readAssessment",
         "tasks.list"
@@ -20951,7 +21169,10 @@
       "work_packages": [
         "WP-075"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "operation_ids": [
         "launch.readWorkspace",
         "tasks.get",
@@ -21234,7 +21455,10 @@
       "work_packages": [
         "WP-075"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "operation_ids": [
         "launch.readWorkspace",
         "tasks.list",
@@ -21501,7 +21725,10 @@
       "work_packages": [
         "WP-075"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "operation_ids": [
         "launch.readWorkspace",
         "tasks.list"
@@ -21752,7 +21979,10 @@
       "work_packages": [
         "WP-075"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "operation_ids": [
         "launch.readWorkspace"
       ],
@@ -22001,7 +22231,10 @@
         "WP-051",
         "WP-059"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "operation_ids": [
         "people.listPeople"
       ],
@@ -22256,7 +22489,10 @@
       "work_packages": [
         "WP-081"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "operation_ids": [
         "notifications.feed"
       ],
@@ -22536,7 +22772,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-launch.test.mts"
+      ],
       "operation_ids": [],
       "description": "Feedback draft Task filtering is confusing; hidden private Person/care context and token in diagnostic",
       "given": {
@@ -22794,7 +23033,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-bounds.test.mts"
+      ],
       "operation_ids": [],
       "description": "10000 People; independent matched count 10000; pages 100; finite 24 tool/128k input/16k output/180s budgets",
       "given": {
@@ -23033,7 +23275,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-scope.test.mts"
+      ],
       "operation_ids": [],
       "description": "Eligible current plant Owner then organization Member; current derived catalog authority",
       "given": {
@@ -23252,7 +23497,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-people.test.mts"
+      ],
       "operation_ids": [],
       "description": "Two Alex names; user note Called today; candidate identities safe fields only",
       "given": {
@@ -23487,7 +23735,10 @@
       "work_packages": [
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-bounds.test.mts"
+      ],
       "operation_ids": [],
       "description": "Registered bounded composer offers reads/preparations, no trusted approval/executor functions",
       "given": {
@@ -23706,7 +23957,10 @@
       "work_packages": [
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-bounds.test.mts"
+      ],
       "operation_ids": [],
       "description": "Orientation Sep 27 2026 10am NY duration 120, Church venue, core Alex+Jordan; long transcript exceeds bounded recent messages",
       "given": {
@@ -23968,7 +24222,10 @@
       "work_packages": [
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "operation_ids": [],
       "description": "NY zone; Nov 1 2026 01:30 two offsets; no selected fold",
       "given": {
@@ -24195,7 +24452,10 @@
       "work_packages": [
         "WP-085"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-clock.test.mts"
+      ],
       "operation_ids": [],
       "description": "NY zone; March 14 2027 02:30 user-entered gap; no meeting",
       "given": {
@@ -24434,7 +24694,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-panel.test.mts"
+      ],
       "operation_ids": [],
       "description": "Conversation-C actor-A context plant 1; caller actor-B or actor-A context plant 2",
       "given": {
@@ -24651,7 +24914,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "operation_ids": [],
       "description": "Failed turn has saved exact draft; completed effects receipts preserved; unresolved effect has known retryable status and same key; second fixture has unknown acceptance",
       "given": {
@@ -24890,7 +25156,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "operation_ids": [],
       "description": "Two-step approved plan; first durable receipt complete; seat revoked before unresolved second",
       "given": {
@@ -25119,7 +25388,10 @@
       "work_packages": [
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-bounds.test.mts"
+      ],
       "operation_ids": [],
       "description": "No arbitrary code executor in smallest loop; request process.env/fs/network; registered bounded read composer exists",
       "given": {
@@ -25340,7 +25612,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-panel.test.mts"
+      ],
       "operation_ids": [],
       "description": "Own task read in contextual panel; open task, expand same conversation; persisted sequence/current draft state",
       "given": {
@@ -25590,7 +25865,10 @@
       "work_packages": [
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "operation_ids": [
         "people.listPeople",
         "teams.list"
@@ -25878,7 +26156,10 @@
       "work_packages": [
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "operation_ids": [
         "people.listPeople",
         "teams.list"
@@ -26159,7 +26440,10 @@
       "work_packages": [
         "WP-069"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-teams.test.mts"
+      ],
       "operation_ids": [
         "people.listPeople",
         "teams.trainingMatrix"
@@ -27777,7 +28061,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-panel.test.mts"
+      ],
       "description": "Contextual panel shows conversation-C with draft-D and `messageSequence` 4",
       "given": {
         "P": {
@@ -28013,7 +28300,10 @@
         "WP-051",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-panel.test.mts"
+      ],
       "description": "Conversation-C has pending edited review rev2 and completed receipt-R",
       "given": {
         "P": {
@@ -28267,7 +28557,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "description": "Review rev1 subject Old approved; shared native form changes subject New",
       "given": {
         "P": {
@@ -28497,7 +28790,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-review.test.mts"
+      ],
       "description": "Unapproved, canceled, expired, revoked, foreign-context and stale-resource proposals",
       "given": {
         "P": {
@@ -29000,7 +29296,10 @@
         "WP-051",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-panel.test.mts"
+      ],
       "description": "Same-conversation saved references include foreign/care guessed IDs and revoked source",
       "given": {
         "P": {

@@ -63,6 +63,8 @@ export const BY_HAND: Readonly<Record<string, string>> = {
 	AWS_SECRET_ACCESS_KEY: "private file storage",
 	AWS_ENDPOINT_URL_S3: "private file storage",
 	AWS_REGION: 'optional, defaults to "auto"',
+	AI_PROVIDER_RECORD:
+		"optional, unset by default: the operator's provider record, set only after Sebastian says in his own words that provider settings are verified",
 	EVRY_MODEL: "the approved paid Evry model",
 	OPENAI_API_KEY: "the paid Evry model's key",
 	EVRY_MONTHLY_CAP_USD: "optional Evry monthly spend cap (default 20)",

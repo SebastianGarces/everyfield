@@ -290,11 +290,13 @@ export function createNotificationService(config: {
 			.filter((i) => i.open)
 			.flatMap((i) => {
 				const asOf = instant.parse(i.asOf);
+				const day = i.due.kind === "date_only" ? { date: i.due.date, zone: i.due.zone } : { date: null, zone: null };
 				return [...i.recipients].sort().flatMap((recipient) =>
 					taskReminderTimes(i.due)
 						.filter((t) => t.at >= asOf)
-						.map((t) =>
-							noticeInput.parse({
+						.map((t) => ({
+							day,
+							v: noticeInput.parse({
 								...i.base,
 								title: i.titles[t.slot],
 								recipient,
@@ -302,14 +304,18 @@ export function createNotificationService(config: {
 								occurrence: t.slot,
 								eligibleAt: t.at,
 							}),
-						),
+						})),
 				);
 			})
-			.map((v) => ({ v, key: `${v.owner.id}/${v.category}/${v.source.id}/${v.source.revision}/${v.occurrence}` }));
+			.map(({ v, day }) => ({
+				v,
+				day,
+				key: `${v.owner.id}/${v.category}/${v.source.id}/${v.source.revision}/${v.occurrence}`,
+			}));
 		const src = sql`src AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)),
 	    locked AS MATERIALIZED (SELECT t.id,t.plant_id,t.revision FROM task t JOIN src i ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t)`;
 		const output: { notice: string | null; mail: string | null }[] = [];
-		const fresh: { v: NoticeInput; key: string; id: string; inApp: boolean }[] = [];
+		const fresh: ((typeof planned)[number] & { id: string; inApp: boolean })[] = [];
 		const mail: MailIntent[] = [];
 		if (planned.length) {
 			const cand = planned.map(({ v, key }, n) => ({
@@ -368,7 +374,7 @@ export function createNotificationService(config: {
 			for (const r of rows.filter((r) => !r.reached)) {
 				const entry = planned[r.n];
 				if (!entry) throw Error("notification_source_mismatch");
-				const { v, key } = entry;
+				const { v } = entry;
 				if (r.kind !== v.owner.kind) throw Error("notification_owner_mismatch");
 				if (!r.source_live) throw Error("notification_source_stale");
 				const result = { notice: null as string | null, mail: null as string | null };
@@ -386,7 +392,7 @@ export function createNotificationService(config: {
 				}
 				if (!r.in_app && !r.email) continue;
 				result.notice = crypto.randomUUID();
-				fresh.push({ v, key, id: result.notice, inApp: r.in_app });
+				fresh.push({ ...entry, id: result.notice, inApp: r.in_app });
 				if (!r.email) continue;
 				if (r.blocked) throw Error("mail_unavailable");
 				mail.push({
@@ -410,7 +416,7 @@ export function createNotificationService(config: {
 			slot.mail = id;
 		});
 		const now = new Date().toISOString();
-		const notices = fresh.map(({ v, key, id, inApp }) => ({
+		const notices = fresh.map(({ v, key, id, inApp, day }) => ({
 			id,
 			tenant: v.owner.id,
 			recipient: v.recipient,
@@ -423,6 +429,7 @@ export function createNotificationService(config: {
 			body: v.text,
 			eligible: v.eligibleAt,
 			archived: inApp ? null : now,
+			...day,
 		}));
 		const write =
 			await tx.execute(sql`WITH ${src}, cancelled AS (UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp()) FROM src i
@@ -434,9 +441,9 @@ export function createNotificationService(config: {
 	      FROM mail m JOIN notice n ON n.id=m.notice_id WHERE m.job_id=j.id AND n.tenant_id=${tenant} AND n.source_record_id IN (SELECT id FROM src)
 	      AND (n.cancelled_at IS NOT NULL OR n.id IN (SELECT id FROM cancelled)) AND (m.state='cancelled' OR m.id IN (SELECT id FROM owed))
 	      AND j.state IN ('ready','retry_wait','claimed') RETURNING j.id),
-	    notices AS (INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,safe_body,eligible_at,created_at,archived_at)
-	      SELECT id,tenant,recipient,category,purpose,key,source,revision,title,body,eligible,${now}::timestamptz,archived
-	      FROM jsonb_to_recordset(${JSON.stringify(notices)}::jsonb) i(id uuid,tenant uuid,recipient uuid,category text,purpose text,key text,source uuid,revision bigint,title text,body text,eligible timestamptz,archived timestamptz)
+	    notices AS (INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,safe_body,eligible_at,created_at,archived_at,schedule_date,timezone)
+	      SELECT id,tenant,recipient,category,purpose,key,source,revision,title,body,eligible,${now}::timestamptz,archived,date,zone
+	      FROM jsonb_to_recordset(${JSON.stringify(notices)}::jsonb) i(id uuid,tenant uuid,recipient uuid,category text,purpose text,key text,source uuid,revision bigint,title text,body text,eligible timestamptz,archived timestamptz,date date,zone text)
 	      ON CONFLICT (recipient_id,logical_key) DO NOTHING RETURNING id)
 	    ${mail.length ? sql`, ${queued.ctes}` : sql``}
 	    SELECT (SELECT count(*) FROM locked)::int AS locked,(SELECT count(*) FROM notices)::int AS notices,

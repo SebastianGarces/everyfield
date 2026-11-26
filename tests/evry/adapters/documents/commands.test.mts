@@ -41,10 +41,10 @@ let docs: Record<"draft" | "agenda" | "policy" | "other", Seeded>;
 before(async () => {
 	await setup();
 	docs = {
-		draft: await seedDocument(plant, "native", "Values Draft", "Prayer comes before planning.", 5),
-		agenda: await seedDocument(plant, "native", "Vision Meeting Agenda", "6:30 PM Welcome", 4),
-		policy: await seedDocument(plant, "church_document", "Conflict of Interest Policy", null, 2),
-		other: await seedDocument(plant, "church_document", "Board Covenant", null, 1),
+		draft: await seedDocument(admin, plant, "native", "Values Draft", "Prayer comes before planning.", 5),
+		agenda: await seedDocument(admin, plant, "native", "Vision Meeting Agenda", "6:30 PM Welcome", 4),
+		policy: await seedDocument(admin, plant, "church_document", "Conflict of Interest Policy", null, 2),
+		other: await seedDocument(admin, plant, "church_document", "Board Covenant", null, 1),
 	};
 });
 

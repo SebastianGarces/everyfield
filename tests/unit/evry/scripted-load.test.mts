@@ -2,6 +2,7 @@ import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
+import { RECORD } from "../../evry/runtime/provider.mts";
 
 const loaded: string[] = [];
 registerHooks({
@@ -15,14 +16,21 @@ const { assessmentDrafter, evryModel } = await import("../../../apps/web/src/ser
 
 const db = {} as never;
 const PAID = { EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" };
+const VERIFIED = { AI_PROVIDER_RECORD: JSON.stringify(RECORD) };
 const SCRIPTED = { EVRY_SCRIPTED_MODEL: "1" };
 
-test("INV-spend: production never loads the scripted package, and gets the paid model or none and no assessments", async () => {
+test("INV-spend: production never loads the scripted package, and gets the paid model only with a verified record, and no assessments", async () => {
 	const cases: [string, Record<string, string | undefined>, string | null][] = [
 		["production, neither", { VERCEL_ENV: "production" }, null],
 		["production, scripted", { ...SCRIPTED, VERCEL_ENV: "production" }, null],
-		["production, paid", { ...PAID, VERCEL_ENV: "production" }, "gpt-6-luna"],
-		["production, paid and scripted", { ...PAID, ...SCRIPTED, VERCEL_ENV: "production" }, "gpt-6-luna"],
+		["production, paid", { ...PAID, VERCEL_ENV: "production" }, null],
+		["production, paid and scripted", { ...PAID, ...SCRIPTED, VERCEL_ENV: "production" }, null],
+		["production, verified", { ...PAID, ...VERIFIED, VERCEL_ENV: "production" }, "gpt-6-luna"],
+		[
+			"production, verified and scripted",
+			{ ...PAID, ...VERIFIED, ...SCRIPTED, VERCEL_ENV: "production" },
+			"gpt-6-luna",
+		],
 	];
 	for (const [name, env, model] of cases) {
 		const selected = await evryModel(env);

@@ -111,9 +111,9 @@ export function RemoveDialog({
 						<DialogBody className="flex flex-col gap-4 text-md text-text-2">
 							<p className="text-pretty">
 								<span className="font-medium text-ink">Removed:</span> their name and contact details, their place on
-								the pipeline and stage history, staff notes, conversations, enrollments in progress, milestone marks and
-								feedback. If they have an Everyfield account, their link to {organization} ends at once; their own
-								account stays as it is.
+								the pipeline and stage history, staff notes, conversations, enrollments in progress or withdrawn,
+								milestone marks and feedback. If they have an Everyfield account, their link to {organization} ends at
+								once; their own account stays as it is.
 							</p>
 							<p className="text-pretty">
 								<span className="font-medium text-ink">Kept, without their name:</span> finished programs as counts, the

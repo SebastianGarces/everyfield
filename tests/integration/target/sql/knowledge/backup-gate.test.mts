@@ -1,10 +1,7 @@
 import "../../../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createSecretKey, randomBytes } from "node:crypto";
 import { copyStatus, runBackup } from "../../../../../ops/maintenance/backup.mts";
 import { openEncryptedCopy } from "../../../../../ops/maintenance/copy.mts";
 import { readiness } from "../../../../../ops/maintenance/readiness.mts";
@@ -28,7 +25,8 @@ const { admin, schema } = database;
 const seed = seeds(admin);
 const live: Store = new Map();
 const targets: string[] = [];
-let plant: Workspace, a: Actor, dir: string, keyFile: string, file: Awaited<ReturnType<typeof readyFile>>;
+const key = createSecretKey(randomBytes(32));
+let plant: Workspace, a: Actor, file: Awaited<ReturnType<typeof readyFile>>;
 let journal: unknown, copy: Awaited<ReturnType<typeof snapshot>>;
 
 before(async () => {
@@ -36,15 +34,11 @@ before(async () => {
 	plant = await seed.plant({ name: "Harvest Point" });
 	a = await seed.actor(plant, "admin");
 	file = await readyFile(admin, live, plant.id, Buffer.from("%PDF-1.7 launch plan D"));
-	dir = await mkdtemp(join(tmpdir(), "wp095-gate-"));
-	keyFile = join(dir, "backup.key");
-	await writeFile(keyFile, randomBytes(32), { mode: 0o600 });
 	copy = await snapshot(admin, live, { createdAt: SNAPSHOT_AT });
 	journal = await readCurrentManifest(admin);
 });
 after(async () => {
 	for (const name of targets) await dropTarget(admin, name);
-	await rm(dir, { recursive: true, force: true });
 	await database.close();
 });
 
@@ -54,7 +48,7 @@ async function bucketCopy(step: { after(run: () => Promise<void>): void }) {
 	fake.settings.now = SNAPSHOT_AT;
 	const taken = await runBackup({
 		bucket: fake.bucket,
-		keyFile,
+		key,
 		capture: async () => copy,
 		clock: () => SNAPSHOT_AT,
 	});
@@ -77,7 +71,7 @@ test("AC:BKT60-003 with the provider and the primary lost, a surviving daily cop
 	const { fake, location } = await bucketCopy(step);
 
 	await step.test("the surviving copy restores the rows and bytes from the separately kept journal", async () => {
-		const { result, store } = await restoreFrom(await openEncryptedCopy(fake.bucket, location, keyFile), RESTORE_AT);
+		const { result, store } = await restoreFrom(await openEncryptedCopy(fake.bucket, location, key), RESTORE_AT);
 		assert.equal(result.restore_success, true, JSON.stringify(result));
 		assert.deepEqual(
 			{
@@ -92,7 +86,7 @@ test("AC:BKT60-003 with the provider and the primary lost, a surviving daily cop
 
 	await step.test("the same copy past 24 hours restores but is no daily fallback", async () => {
 		const late = new Date(SNAPSHOT_AT.getTime() + 24 * 3_600_000 + 1);
-		const { result } = await restoreFrom(await openEncryptedCopy(fake.bucket, location, keyFile), late);
+		const { result } = await restoreFrom(await openEncryptedCopy(fake.bucket, location, key), late);
 		assert.equal(result.restore_success, true, JSON.stringify(result));
 		assert.equal(result.daily_fallback_eligible, false);
 		assert.equal(result.guaranteed_disaster_RTO, null);
@@ -100,7 +94,7 @@ test("AC:BKT60-003 with the provider and the primary lost, a surviving daily cop
 
 	await step.test("an outage that loses the copy as well leaves no fallback and restores nothing", async () => {
 		fake.objects.clear();
-		await assert.rejects(openEncryptedCopy(fake.bucket, location, keyFile), { message: "copy_unreadable" });
+		await assert.rejects(openEncryptedCopy(fake.bucket, location, key), { message: "copy_unreadable" });
 		const status = await copyStatus(fake.bucket, RESTORE_AT);
 		assert.equal(status.daily_fallback_eligible, false);
 		assert.ok(status.failing.includes("no_complete_copy"));

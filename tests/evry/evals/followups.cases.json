@@ -27,6 +27,10 @@
 		"rubric": {
 			"notYou": "Does not name Daniel Reyes, the signed-in planter",
 			"namesOther": "Names at least one other person as a candidate"
+		},
+		"finding": {
+			"checks": ["calls the read", "namesOther"],
+			"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the run (D-958, D-1151)."
 		}
 	},
 	{
@@ -48,6 +52,10 @@
 			"notYou": "Does not name Lena Park, the signed-in admin",
 			"namesOther": "Names at least one other person as a candidate, or says no follow-up is assigned to Lena (none is in this church)"
 		},
-		"noneAssigned": true
+		"noneAssigned": true,
+		"finding": {
+			"checks": ["namesOther"],
+			"note": "T-635 batched re-record (D-2641): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the run (D-958, D-1151)."
+		}
 	}
 ]

@@ -1,7 +1,26 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
-import { deleteUnreferencedObject, StorageError, type PrivateStorage } from "@everyfield/db/schema";
+import { sql } from "@everyfield/db/query";
+import {
+	deleteUnreferencedObject,
+	StorageError,
+	type PrivateStorage,
+	type ResourceAuthorizer,
+} from "@everyfield/db/schema";
 import { claimDue, finishJob, recoverLease, type JobResult } from "./queue.ts";
+
+const cleanable =
+	(tenant: string): ResourceAuthorizer =>
+	async (tx, file) => {
+		if (file.tenant_id !== tenant) return null;
+		if (file.purpose === "person_photo") {
+			const held = await tx.execute(sql`SELECT 1 FROM person WHERE photo_object_id=${file.id}::uuid
+				UNION ALL SELECT 1 FROM person_merge WHERE tenant_id=${tenant}::uuid AND unmerged_at IS NULL
+				AND prior->'survivor'->>'photo_object_id'=${file.id}`);
+			if (held.rows.length) return null;
+		}
+		return { kind: "system", cause: "object_cleanup" };
+	};
 
 export async function runDueObjectCleanup(db: Database, storage: PrivateStorage, limit: number, until = Infinity) {
 	await recoverLease(db);
@@ -11,13 +30,7 @@ export async function runDueObjectCleanup(db: Database, storage: PrivateStorage,
 		if (!claim) break;
 		const fileId = claim.subject_record_id;
 		const outcome = fileId
-			? await deleteUnreferencedObject(
-					db,
-					storage,
-					async (_tx, file) =>
-						file.tenant_id === claim.tenant_id ? { kind: "system", cause: "object_cleanup" } : null,
-					fileId,
-				).catch((error: unknown) => {
+			? await deleteUnreferencedObject(db, storage, cleanable(claim.tenant_id), fileId).catch((error: unknown) => {
 					if (error instanceof StorageError && error.code === "unavailable") return { status: "kept" as const };
 					throw error;
 				})

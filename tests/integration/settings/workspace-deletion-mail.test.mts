@@ -207,7 +207,7 @@ test("a deletion request emails every open seat its own copy; the church's other
 	const copy = (a: Person) => sent.find((m) => m.to === a.email)!;
 	for (const m of sent) {
 		assert.match(m.subject, new RegExp(`^Harvest Point .* is scheduled for deletion$`));
-		assert.match(m.text, /Olivia Owner asked to delete the Harvest Point .* workspace/);
+		assert.match(m.text, /Olivia Owner asked to delete Harvest Point .*'s account on Everyfield/);
 		assert.match(m.text, /Church access is paused for everyone until /);
 		assert.match(m.text, /Only Olivia Owner, the Owner who asked, can cancel the deletion before then\./);
 		assert.doesNotMatch(m.text, /token|\?|\/settings|\/home|erase|will be deleted on/i);
@@ -221,10 +221,10 @@ test("a deletion request emails every open seat its own copy; the church's other
 	assert.match(zoned("Asia/Tokyo"), /^[A-Z][a-z]+ \d{1,2}, \d{4} at \d{1,2}:\d{2} [AP]M \(Asia\/Tokyo\)$/);
 	assert.match(
 		copy(owner).text,
-		/go to https:\/\/app\.example\.test\/workspace-deletion, sign in with your email and password, and choose "Keep the workspace"\./,
+		/go to https:\/\/app\.example\.test\/workspace-deletion, sign in with your email and password, and choose "Keep the church plant account"\./,
 	);
 	for (const a of [seatedAdmin, member]) {
-		assert.match(copy(a).text, /To keep the workspace, contact Olivia Owner, the church's Owner\./);
+		assert.match(copy(a).text, /To keep the account, contact Olivia Owner, the church's Owner\./);
 		assert.doesNotMatch(copy(a).text, /https?:/);
 	}
 });

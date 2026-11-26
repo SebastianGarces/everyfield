@@ -21,6 +21,37 @@ const capability = z.strictObject({
 	operation_ids: z.array(z.string()).refine((ids: string[]) => ids.includes(OPERATION)),
 	environment: z.literal("isolated-test"),
 });
+const ACCESS: Record<string, { ends?: string; narrows: Record<string, (copy: string, live: string) => string> }> = {
+	affiliation: {
+		ends: "ended_at",
+		narrows: both(
+			"share_people",
+			"share_meetings",
+			"share_tasks",
+			"share_ministry_teams",
+			"share_wiki",
+			"share_activity",
+			"shared_findings",
+		),
+	},
+	residency_link: { ends: "ended_at", narrows: both("share_foundations", "share_milestones") },
+	pipeline_sharing: { narrows: both("share_pipeline_totals") },
+	seat: {
+		ends: "ended_at",
+		narrows: {
+			role: (copy, live) => `CASE WHEN 'member' IN (${copy},${live}) THEN 'member'
+				WHEN 'admin' IN (${copy},${live}) THEN 'admin' ELSE ${copy} END`,
+		},
+	},
+	platform_grant: {
+		ends: "revoked_at",
+		narrows: { expires_at: (copy, live) => `least(${copy},${live})` },
+	},
+};
+function both(...columns: string[]) {
+	return Object.fromEntries(columns.map((c) => [c, (copy: string, live: string) => `${copy} AND ${live}`]));
+}
+const access = Object.fromEntries(Object.keys(ACCESS).map((t) => [t, z.array(z.looseObject({ id: z.uuid() }))]));
 const count = z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform(BigInt);
 const witness = z.looseObject({
 	id: z.uuid(),
@@ -53,6 +84,7 @@ const currentManifest = z.strictObject({
 		}),
 	),
 	issues: z.array(z.looseObject({ id: z.uuid(), publication_state: z.string() })),
+	access: z.strictObject(access),
 });
 export const imageSchema = z.strictObject({
 	version: z.literal(1),
@@ -128,6 +160,9 @@ const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest(
 const instant = (value: string | null) => (value ? new Date(value).toISOString().replace(/\.000Z$/, "Z") : null);
 const OPEN_MAIL = sql.raw(`('pending','dispatched','unknown','accepted','scheduled')`);
 const OPEN_ISSUE = sql.raw(`('pending','publishing','unknown')`);
+const UNUSABLE_LINK = sql.raw(
+	`encode(sha256(convert_to(gen_random_uuid()::text || gen_random_uuid()::text, 'UTF8')), 'hex')`,
+);
 const ids = (rows: { id: string }[]) =>
 	sql`(SELECT x::uuid FROM json_array_elements_text(${JSON.stringify(rows.map((r) => r.id))}::json) x)`;
 
@@ -142,7 +177,12 @@ export async function readCurrentManifest(db: Database): Promise<unknown> {
  'issues', (SELECT coalesce(json_agg(json_build_object('id', id, 'publication_state', publication_state,
    'held_reason', held_reason, 'publication_payload', publication_payload, 'publication_hash', publication_hash,
    'repository_id', repository_id, 'repository_name', repository_name, 'issue_number', issue_number,
-   'issue_url', issue_url, 'published_at', published_at)), '[]') FROM feedback)) AS current`);
+   'issue_url', issue_url, 'published_at', published_at)), '[]') FROM feedback),
+ 'access', json_build_object(${sql.raw(
+		Object.keys(ACCESS)
+			.map((table) => `'${table}', (SELECT coalesce(json_agg(a), '[]') FROM "${table}" a)`)
+			.join(", "),
+ )})) AS current`);
 	return rows[0]?.current ?? null;
 }
 
@@ -343,6 +383,16 @@ async function reconcile(tx: Tx, current: ReturnType<typeof currentManifest.pars
 		repository_name=r.repository_name, issue_number=r.issue_number, issue_url=r.issue_url, published_at=r.published_at
 		FROM json_populate_recordset(NULL::feedback, ${JSON.stringify(current.issues)}::json) r
 		WHERE f.id=r.id AND f.publication_state IN ${OPEN_ISSUE}`);
+	for (const [table, { ends, narrows }] of Object.entries(ACCESS)) {
+		const set = [
+			...(ends ? [`${ends}=coalesce(a.${ends}, r.${ends})`] : []),
+			...Object.entries(narrows).map(([column, narrow]) => `${column}=${narrow(`a.${column}`, `r.${column}`)}`),
+		].join(", ");
+		const now = sql`json_populate_recordset(NULL::${sql.raw(table)}, ${JSON.stringify(current.access[table])}::json) r`;
+		await tx.execute(sql`UPDATE ${sql.raw(table)} a SET ${sql.raw(set)} FROM ${now} WHERE a.id=r.id`);
+	}
+	await tx.execute(sql`UPDATE invitation SET token_hash=${UNUSABLE_LINK} WHERE state='pending'`);
+	await tx.execute(sql`UPDATE participation SET rsvp_token_hash=${UNUSABLE_LINK} WHERE rsvp_token_hash IS NOT NULL`);
 	await tx.execute(sql`UPDATE job j SET state='cancelled', error_code='stale', lease_owner=NULL, lease_until=NULL,
 		next_attempt_at=NULL, finished_at=pg_catalog.clock_timestamp()
 		WHERE j.state IN ('ready','claimed','retry_wait','reconcile') AND (

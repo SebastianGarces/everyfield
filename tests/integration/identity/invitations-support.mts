@@ -25,8 +25,13 @@ export const key = randomUUID;
 export async function fixture({
 	lockTimeout = "0",
 	mailKeys = null,
-}: { lockTimeout?: string; mailKeys?: { addressKey: Buffer; encryptionKey: Buffer } | null } = {}) {
-	const database = await testDatabase({ prefix: "wp008", max: 8 });
+	clock,
+}: {
+	lockTimeout?: string;
+	mailKeys?: { addressKey: Buffer; encryptionKey: Buffer } | null;
+	clock?: Date;
+} = {}) {
+	const database = await testDatabase({ prefix: "wp008", max: 8, clock });
 	const { admin, schema } = database;
 	const db = database.connect("runtime", { options: `-c lock_timeout=${lockTimeout}` });
 	const runtimeUrl = database.logins.runtime.url;
@@ -97,6 +102,7 @@ export async function fixture({
 			origin: "http://invitation.example.test",
 			secret: identitySecret,
 			registrationMode: mode,
+			registrationCode: "approved-code",
 			invitations: service,
 			scheduleDelivery: () => {},
 			trustedIp: (request) => request.headers.get("x-test-ip") ?? "127.0.0.1",

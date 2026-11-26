@@ -17,15 +17,15 @@ export function workspaceDeletionContent(
 	if (notice.kind === "cancelled")
 		return {
 			subject: `${church} is no longer being deleted`,
-			text: `${owner} cancelled the deletion of the ${church} workspace on Everyfield. The church is back.\n\nSign in to Everyfield again to use it.`,
+			text: `${owner} cancelled the deletion of ${church}'s account on Everyfield. The church is back.\n\nSign in to Everyfield again to use it.`,
 		};
 	const until = deadline(notice.cancelUntil, recipient.timeZone ?? notice.plant.timeZone);
 	const keep =
 		recipient.accountId === notice.requester.accountId
-			? `To keep the workspace, go to ${new URL("/workspace-deletion", origin).href}, sign in with your email and password, and choose "Keep the workspace".`
-			: `To keep the workspace, contact ${owner}, the church's Owner.`;
+			? `To keep the account, go to ${new URL("/workspace-deletion", origin).href}, sign in with your email and password, and choose "Keep the church plant account".`
+			: `To keep the account, contact ${owner}, the church's Owner.`;
 	return {
 		subject: `${church} is scheduled for deletion`,
-		text: `${owner} asked to delete the ${church} workspace on Everyfield.\n\nChurch access is paused for everyone until ${until}. Only ${owner}, the Owner who asked, can cancel the deletion before then.\n\n${keep}`,
+		text: `${owner} asked to delete ${church}'s account on Everyfield.\n\nChurch access is paused for everyone until ${until}. Only ${owner}, the Owner who asked, can cancel the deletion before then.\n\n${keep}`,
 	};
 }

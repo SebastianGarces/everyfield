@@ -1,4 +1,4 @@
-import test, { after, before } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import "../../platform/setup.mts";
 import { sql } from "../../../../packages/db/src/query.ts";
@@ -12,18 +12,12 @@ import { timeZone } from "../../../../packages/contracts/src/common/index.ts";
 import { ok } from "../../../support/fixture.mts";
 import { key, sorted, world, type Feature, type World } from "./corrections-world.mts";
 
-let w: World;
-before(async () => {
-	w = await world("corratt");
-});
-after(() => w?.database.close());
-
-test("INV-corrections: correcting one wrong attendance mark moves every count, follow-up, task, digest, dashboard, Plant Intelligence, oversight and Evry read, keeps the old mark in history and rewrites nothing sent", async () => {
+async function correctsOneMark(w: World) {
 	const ann = await w.committed(w.p, "Ann Adult");
 	const dana = await w.person(w.p, "Dana Doe", { adultClassification: "adult", email: "dana@example.test" });
 	const eli = await w.person(w.p, "Eli Eager");
-	const first = await w.held(10, [ann.id, dana.id]);
-	const second = await w.held(3, [ann.id, dana.id, eli.id]);
+	const first = await w.held(11, [ann.id, dana.id]);
+	const second = await w.held(4, [ann.id, dana.id, eli.id]);
 	const published = await w.publish({ personIds: [dana.id] });
 	const unchanged = await w.freeze([
 		"mail",
@@ -244,13 +238,13 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 			name: "the church digest",
 			read: async () => (await mine()).lines,
 			before: [
-				{ kind: "task", date: w.day(-8), title: "Follow up with Ann Adult" },
-				{ kind: "task", date: w.day(-8), title: "Follow up with Dana Doe" },
-				{ kind: "task", date: w.day(-1), title: "Follow up with Eli Eager" },
+				{ kind: "task", date: w.day(-9), title: "Follow up with Ann Adult" },
+				{ kind: "task", date: w.day(-9), title: "Follow up with Dana Doe" },
+				{ kind: "task", date: w.day(-2), title: "Follow up with Eli Eager" },
 			],
 			after: [
-				{ kind: "task", date: w.day(-8), title: "Follow up with Ann Adult" },
-				{ kind: "task", date: w.day(-1), title: "Follow up with Eli Eager" },
+				{ kind: "task", date: w.day(-9), title: "Follow up with Ann Adult" },
+				{ kind: "task", date: w.day(-2), title: "Follow up with Eli Eager" },
 			],
 		},
 		{
@@ -294,8 +288,8 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 					status: "shared",
 					counts: {
 						meetings: [
-							{ date: w.day(-10), attended: 2 },
-							{ date: w.day(-3), attended: 3 },
+							{ date: w.day(-11), attended: 2 },
+							{ date: w.day(-4), attended: 3 },
 						],
 						averageDaysBetween: 7,
 						attendedTotal: 5,
@@ -308,8 +302,8 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 					status: "shared",
 					counts: {
 						meetings: [
-							{ date: w.day(-10), attended: 1 },
-							{ date: w.day(-3), attended: 3 },
+							{ date: w.day(-11), attended: 1 },
+							{ date: w.day(-4), attended: 3 },
 						],
 						averageDaysBetween: 7,
 						attendedTotal: 4,
@@ -430,29 +424,29 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 				...sorted(await w.shown("tasks.count", {}, ["count"])),
 			],
 			before: [
-				["Dana Doe", w.day(-10), "open", "you"],
+				["Dana Doe", w.day(-11), "open", "you"],
 				["Ann Adult", "owned", "you"],
 				["Dana Doe", "owned", "you"],
 				["Eli Eager", "owned", "you"],
-				["Evaluate Vision Meeting #1", w.day(-8), null],
-				["Evaluate Vision Meeting #2", w.day(-1), null],
-				["Follow up with Ann Adult", w.day(-8), "you"],
-				["Follow up with Dana Doe", w.day(-8), "you"],
-				["Follow up with Eli Eager", w.day(-1), "you"],
+				["Evaluate Vision Meeting #1", w.day(-9), null],
+				["Evaluate Vision Meeting #2", w.day(-2), null],
+				["Follow up with Ann Adult", w.day(-9), "you"],
+				["Follow up with Dana Doe", w.day(-9), "you"],
+				["Follow up with Eli Eager", w.day(-2), "you"],
 				["checklist rows", 0],
 				["not_started", 5],
 			],
 			after: [
-				["Dana Doe", w.day(-10), "no_longer_needed", "you"],
-				["Dana Doe", w.day(-3), "open", null],
+				["Dana Doe", w.day(-11), "no_longer_needed", "you"],
+				["Dana Doe", w.day(-4), "open", null],
 				["Ann Adult", "owned", "you"],
 				["Dana Doe", "needs_owner", null],
 				["Eli Eager", "owned", "you"],
-				["Evaluate Vision Meeting #1", w.day(-8), null],
-				["Evaluate Vision Meeting #2", w.day(-1), null],
-				["Follow up with Ann Adult", w.day(-8), "you"],
-				["Follow up with Dana Doe", w.day(-1), null],
-				["Follow up with Eli Eager", w.day(-1), "you"],
+				["Evaluate Vision Meeting #1", w.day(-9), null],
+				["Evaluate Vision Meeting #2", w.day(-2), null],
+				["Follow up with Ann Adult", w.day(-9), "you"],
+				["Follow up with Dana Doe", w.day(-2), null],
+				["Follow up with Eli Eager", w.day(-2), "you"],
 				["checklist rows", 0],
 				["no_longer_needed", 1],
 				["not_started", 5],
@@ -512,4 +506,17 @@ test("INV-corrections: correcting one wrong attendance mark moves every count, f
 		),
 		[{ overdue: 3, unowned: 0 }],
 	);
-});
+}
+
+for (const [clock, time] of [
+	["before today's 09:00 reminders", "08:59:59"],
+	["after today's 09:00 reminders", "09:00:01"],
+])
+	test(`INV-corrections: with the clock ${clock}, correcting one wrong attendance mark moves every count, follow-up, task, digest, dashboard, Plant Intelligence, oversight and Evry read, keeps the old mark in history and rewrites nothing sent`, async () => {
+		const w = await world("corratt", time);
+		try {
+			await correctsOneMark(w);
+		} finally {
+			await w.database.close();
+		}
+	});

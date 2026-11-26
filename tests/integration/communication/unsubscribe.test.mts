@@ -1,11 +1,14 @@
-import test, { after, before } from "node:test";
+import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { createDecipheriv, randomBytes, randomUUID } from "node:crypto";
+import { registerHooks } from "node:module";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
+import { issueEmailOptOutToken } from "../../../packages/domain/src/notifications/opt-out.ts";
 import { GET as outboxRoute } from "../../../apps/web/src/app/api/dev/outbox/route.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { createMailService, mailPurpose, mailUnsubscribe } from "../../../packages/domain/src/jobs/mail.ts";
@@ -13,7 +16,19 @@ import { createNotificationService } from "../../../packages/domain/src/jobs/not
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
-import { db, runtime, setup, teardown, tenant } from "../jobs/support.mts";
+import { requestDatabase } from "../../../apps/web/src/server/database.ts";
+import { ok, refused } from "../../support/fixture.mts";
+import { recorded, NOTHING, untouched } from "../../support/recorded.mts";
+import { setServerEnv } from "../../support/server-env.mts";
+import { db, runtime, runtimeSettings, setup, teardown, tenant } from "../jobs/support.mts";
+import { caseOf } from "./communication-support.mts";
+
+const web = new URL("../../../apps/web/src/", import.meta.url).href;
+registerHooks({
+	resolve: (specifier, context, next) =>
+		next(specifier.startsWith("@/") ? `${web}${specifier.slice(2)}.ts` : specifier, context),
+});
+const { POST: oneClick } = await import("../../../apps/web/src/features/notifications/one-click.ts");
 
 const ORIGIN = "https://app.everyfield.test";
 const ring = { current: randomBytes(32), previous: [] };
@@ -189,7 +204,7 @@ test("AC:CASE-NTF-012 a retried send of the same mail repeats the same body unde
 	assert.equal(claimOf(pageToken(a.body)!).category, "task_overdue");
 });
 
-test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
+test("AC:CASE-NTF-012 AC:TARGET-IDN-028 one-click with the header's token turns off task-due email only; the page alone changes nothing", async () => {
 	await notify(linked, "task_due");
 	const [email] = await dispatchAll(linked);
 	assert.ok(email);
@@ -204,9 +219,26 @@ test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email
 		{ category: "task_due", emailEnabled: true, changed: false },
 	);
 	assert.equal(await emailPref("task_due"), null);
+	const code = (reply: { status: string }) =>
+		"error" in reply ? (reply.error as { code: string }).code : reply.status;
+	const forged = Buffer.from(token, "base64url");
+	forged[20]! ^= 1;
+	const stranger = issueEmailOptOutToken(randomBytes(32), { ...claimOf(token), purpose: "disable" } as never);
+	for (const bad of [forged.toString("base64url"), stranger, "x".repeat(token.length)])
+		for (const use of [producer.describeEmailOptOut, producer.applyEmailOptOut, producer.undoEmailOptOut])
+			assert.equal(code(await use(runtime, { token: bad })), "access_denied");
+	assert.equal(
+		code(await producer.undoEmailOptOut(runtime, { token })),
+		"access_denied",
+		"a token with another purpose",
+	);
+	assert.equal(await emailPref("task_due"), null);
 	const clicked = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(clicked.status, "ok", JSON.stringify(clicked));
 	assert.equal((clicked as { value: { changed: boolean; emailEnabled: boolean } }).value.changed, true);
+	const { undoToken } = (clicked as { value: { undoToken: string | null } }).value;
+	assert.ok(undoToken);
+	assert.equal(code(await producer.applyEmailOptOut(runtime, { token: undoToken })), "access_denied");
 	const repeat = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(repeat.status, "ok", JSON.stringify(repeat));
 	assert.equal((repeat as { value: { changed: boolean; emailEnabled: boolean } }).value.emailEnabled, false);
@@ -309,4 +341,144 @@ test("AC:CASE-NTF-012 no token reaches a job error or an audit row", async () =>
 	);
 	for (const r of rows.rows as { v: string }[])
 		assert.ok(!r.v.includes("email-preferences") && !/[\w-]{80,}/.test(r.v), r.v);
+});
+
+test("AC:CASE-NTF-012 a link at its 180-day end, a page open, a wrong or altered token and an undo at one hour change nothing; one explicit POST turns off that category's email and never the bell", async () => {
+	const { expected, given, clock } = caseOf("CASE-NTF-012");
+	const { result } = expected;
+	const inputs = given["behavior-inputs"] as { disable_expires: string; now: string; method: string };
+	const at = Date.parse(inputs.now);
+	assert.deepEqual([inputs.now, inputs.disable_expires], [clock.now, clock.now]);
+	const time = { at };
+	const api = createNotificationProducer({ optOutKeys: ring, now: () => new Date(time.at) });
+	const user = randomUUID(),
+		reader = randomUUID();
+	await db.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${`reader-${reader}@example.test`},true,'Alex')`,
+	);
+	await db.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${reader},${user},'active','planter')`,
+	);
+	await db.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
+		VALUES(${reader},'task_due','in_app',true,0),(${reader},'task_overdue','in_app',false,0)`);
+	const choices = async (channel: string) =>
+		(
+			await db.execute(
+				sql`SELECT category,enabled FROM notification_preference WHERE account_id=${reader} AND channel=${channel} ORDER BY category`,
+			)
+		).rows;
+	const bell = await choices("in_app");
+	const claim = { accountId: reader, category: "task_due", unsubscribeRevision: "0" } as const;
+	const token = (over: object = {}, key: typeof ring | Buffer = ring) =>
+		issueEmailOptOutToken(key, { ...claim, purpose: "disable", iat: inputs.now, ...over } as never);
+	const exact = token({ iat: new Date(at - 180 * 86_400_000).toISOString(), exp: inputs.disable_expires });
+	const live = token();
+	const tooLong = token({ exp: new Date(at + 180 * 86_400_000 + 1).toISOString() });
+	const undoNow = token({ purpose: "undo", exp: inputs.now, iat: new Date(at - 3_600_000).toISOString() });
+	const undoTooLong = token({ purpose: "undo", exp: new Date(at + 3_600_001).toISOString() });
+	const oldKey = randomBytes(32);
+	const flipped = Buffer.from(live, "base64url");
+	flipped[20]! ^= 1;
+
+	setServerEnv({ IDENTITY_DATABASE_URL: runtimeSettings.connectionString });
+	process.env.NOTIFICATION_OPT_OUT_KEYS = ring.current.toString("base64");
+	mock.timers.enable({ apis: ["Date"], now: at });
+	const post = async (path: string, body = "List-Unsubscribe=One-Click") =>
+		(
+			await oneClick(
+				new Request(`${ORIGIN}/email-preferences/${path}/one-click`, {
+					method: "POST",
+					body,
+					headers: { "content-type": "application/x-www-form-urlencoded" },
+				}),
+				{ params: Promise.resolve({ token: path }) },
+			)
+		).status;
+	const opened = async (path: string) => {
+		const view = ok(await api.describeEmailOptOut(runtime, { token: path }));
+		return [view.purpose, view.expired, view.changed, view.emailEnabled, view.inAppEnabled];
+	};
+	try {
+		await untouched(db, async () => {
+			const described = ok(await api.describeEmailOptOut(runtime, { token: exact }));
+			assert.deepEqual(
+				[described.expired, described.changed, described.emailEnabled, described.inAppEnabled],
+				[true, result.expired_change, true, true],
+			);
+			const applied = ok(await api.applyEmailOptOut(runtime, { token: exact }));
+			assert.deepEqual(
+				[applied.expired, applied.changed, applied.emailEnabled, applied.undoToken],
+				[true, result.expired_change, true, null],
+			);
+			const undone = ok(await api.undoEmailOptOut(runtime, { token: undoNow }));
+			assert.deepEqual([undone.expired, undone.changed], [true, result.expired_change], "an undo at its hour");
+			time.at = at - 1;
+			assert.equal(ok(await api.describeEmailOptOut(runtime, { token: exact })).expired, false);
+			time.at = at;
+
+			assert.equal(inputs.method, "GET");
+			for (let scan = 0; scan < 3; scan++)
+				assert.deepEqual(await opened(live), ["disable", false, result.GET_change, true, true]);
+			assert.deepEqual(await opened(exact), ["disable", true, result.GET_change, true, true]);
+			assert.deepEqual(await opened(undoNow), ["undo", true, result.GET_change, true, true]);
+
+			assert.deepEqual(
+				[await post(exact), await post(live, ""), await post(live, "List-Unsubscribe=No")],
+				[410, 400, 400],
+			);
+			for (const bad of [
+				flipped.toString("base64url"),
+				token({}, randomBytes(32)),
+				token({}, { current: oldKey, previous: [] }),
+				tooLong,
+				undoTooLong,
+				undoNow,
+				"x".repeat(live.length),
+			]) {
+				refused(await api.applyEmailOptOut(runtime, { token: bad }), "access_denied");
+				assert.equal(await post(bad), 403);
+			}
+			for (const bad of [live, exact, flipped.toString("base64url"), undoTooLong])
+				refused(await api.undoEmailOptOut(runtime, { token: bad }), "access_denied");
+			refused(await api.applyEmailOptOut(runtime, { token: "" }), "invalid_input");
+		});
+		assert.deepEqual([await choices("email"), await choices("in_app")], [[], bell]);
+
+		const rotated = createNotificationProducer({
+			optOutKeys: { current: randomBytes(32), previous: [oldKey] },
+			now: () => new Date(time.at),
+		});
+		const underOld = token({ category: "task_overdue" }, { current: oldKey, previous: [] });
+		time.at = at + 180 * 86_400_000 - 1;
+		const kept = ok(await rotated.applyEmailOptOut(runtime, { token: underOld }));
+		assert.deepEqual(
+			[kept.changed, kept.inAppEnabled],
+			[true, false],
+			"an old key still opens its own link to its end",
+		);
+		time.at = at;
+
+		const { value, added } = await recorded(db, () => post(live));
+		assert.deepEqual([value, added], [200, { ...NOTHING, audits: ["settings.changed"] }], "one POST, one saved choice");
+		const off = [
+			{ category: "task_due", enabled: false },
+			{ category: "task_overdue", enabled: false },
+		];
+		assert.deepEqual(await choices("email"), off);
+		const again = ok(await api.applyEmailOptOut(runtime, { token: live }));
+		assert.deepEqual([again.changed, again.emailEnabled], [false, false]);
+		assert.ok(again.undoToken);
+		time.at = at + 3_600_000;
+		const late = ok(await api.undoEmailOptOut(runtime, { token: again.undoToken }));
+		assert.deepEqual([late.expired, late.changed], [true, result.expired_change]);
+		assert.deepEqual(await choices("email"), off);
+		time.at = at + 3_600_000 - 1;
+		const inTime = ok(await api.undoEmailOptOut(runtime, { token: again.undoToken }));
+		assert.deepEqual([inTime.expired, inTime.changed, inTime.emailEnabled], [false, true, true]);
+		assert.equal(JSON.stringify(await choices("in_app")) !== JSON.stringify(bell), result.in_app_changed);
+	} finally {
+		mock.timers.reset();
+		delete process.env.NOTIFICATION_OPT_OUT_KEYS;
+		await closeDatabase(requestDatabase() as never);
+	}
 });

@@ -1,7 +1,13 @@
 import { counted } from "@everyfield/contracts/common";
 import type { SitePath } from "@everyfield/contracts/identity";
 import type { Lost } from "@everyfield/contracts/common";
-import type { ProgramKind, ProgramRefusal, ProgramRhythm } from "@everyfield/contracts/organizations";
+import {
+	ENROLLMENT_STATUS,
+	type EnrollmentDetail,
+	type ProgramKind,
+	type ProgramRefusal,
+	type ProgramRhythm,
+} from "@everyfield/contracts/organizations";
 import { PIPELINE_PATH } from "../board/model";
 import { READ_FAILED } from "../../../components/read-failed.ts";
 import type { ReadFailure } from "../../../components/get-reads.ts";
@@ -42,7 +48,26 @@ export function formatMeeting(at: string, day: (value: string) => string) {
 	return `${day(at.slice(0, 10))} at ${time.format(new Date(`${at}Z`))}`;
 }
 
-export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | Lost | ReadFailure) {
+const ENDED = "This enrollment has already ended, so nothing was saved.";
+
+type Refused = { status: "refused"; refusal: ProgramRefusal };
+export function endProblem(answer: Refused | Lost, now: Pick<EnrollmentDetail, "status" | "viewer"> | null) {
+	if (answer.status === "lost") {
+		if (!now) return "We couldn’t reach Everyfield, so we can’t tell if this was saved. Try again.";
+		return now.status === "active"
+			? "We couldn’t reach Everyfield. The enrollment is still active. Try again."
+			: `We lost the connection, but this enrollment has ended as ${ENROLLMENT_STATUS[now.status]}.`;
+	}
+	if (now && !now.viewer.director) return "You no longer direct this program, so nothing was saved.";
+	if (answer.refusal.code === "conflict")
+		return now
+			? "This enrollment changed since you opened it, so nothing was saved. Check it below, then try again."
+			: "This enrollment changed since you opened it, so nothing was saved. Reload the page to see it.";
+	if (answer.refusal.code === "enrollment_ended" && !now) return `${ENDED} Reload the page to see it.`;
+	return programProblem(answer);
+}
+
+export function programProblem(answer: Refused | Lost | ReadFailure) {
 	if (answer.status === "failed") return READ_FAILED;
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
@@ -53,6 +78,8 @@ export function programProblem(answer: { status: "refused"; refusal: ProgramRefu
 			return "Publish the program before enrolling anyone.";
 		case "already_enrolled":
 			return "This person is already enrolled in this program. Each person can have one active enrollment per program.";
+		case "enrollment_ended":
+			return ENDED;
 		case "no_stages":
 			return "Add at least one stage before publishing. Every enrollment starts at a stage.";
 		case "linked_resident":

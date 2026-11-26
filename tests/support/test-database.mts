@@ -54,9 +54,30 @@ export async function pinSchemaClock(admin: Database, schema: string, at: Date) 
 		["now", "STABLE"],
 	])
 		await admin.execute(
-			sql.raw(`CREATE FUNCTION ${name}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
+			sql.raw(`CREATE OR REPLACE FUNCTION ${name}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
 				AS $$ SELECT pg_catalog.${fn}() + '${shift}'::interval $$`),
 		);
+}
+
+export async function frozenClock<T>(
+	admin: Database,
+	schema: string,
+	instant: string,
+	body: () => Promise<T>,
+): Promise<T> {
+	const clock = `${identifier(schema)}.clock_timestamp()`;
+	const { rows } = await admin.execute<{ pinned: string }>(
+		sql`SELECT pg_get_functiondef(${clock}::regprocedure) AS pinned`,
+	);
+	await admin.execute(
+		sql.raw(`CREATE OR REPLACE FUNCTION ${clock} RETURNS timestamptz LANGUAGE sql VOLATILE PARALLEL SAFE
+			AS $$ SELECT '${new Date(instant).toISOString()}'::timestamptz $$`),
+	);
+	try {
+		return await body();
+	} finally {
+		await admin.execute(sql.raw(rows[0]!.pinned));
+	}
 }
 
 export async function createLoginRole(

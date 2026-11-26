@@ -52,9 +52,9 @@ Before creation the account reads the entire currently published global Wiki, no
 | Feature | Template / format and retained output |
 |---|---|
 | DOC-001 | Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail, fixed-layout documents are PDF only, and editable prose documents are edited in the app and exported as PDF and DOCX. The Forme engine (@formepdf) renders PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link. |
-| DOC-004 | Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional. |
+| DOC-004 | Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required. |
 | DOC-005 | Response Card — PDF; quarter-page Vision guest contact/involvement, church. |
-| DOC-006 | Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church with optional meeting date/number. |
+| DOC-006 | Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church required, meeting date and number written in by hand. |
 | DOC-007 | Vision Meeting Agenda — PDF; printed from the meeting's own agenda (its sections, minutes and start times in the app's order, its date, time, place and guest list), with blank write-in rows when it has none. |
 | DOC-008 | Expectations of a Core Group Member — editable Church Document, exported as PDF and DOCX; presence/GROW-PRAY-GIVE/team participation. |
 | DOC-009 | Launch Team Commitment — editable Church Document, exported as PDF and DOCX; member commitment approaching Launch Sunday. |

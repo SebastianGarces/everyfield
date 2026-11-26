@@ -17,6 +17,33 @@ export const articleLive = (id: SQL, plant: SQL) =>
 			WHERE wiki_e.current_revision_id=wiki_r.id AND wiki_e.organization_id=wiki_r.tenant_id AND wiki_e.state='published'
 				AND wiki_f.plant_id=${plant} AND wiki_f.ended_at IS NULL AND wiki_f.share_wiki)))`;
 
+const CATEGORY_FIELDS: [field: string, category: string][] = [
+	["health", "shared_findings"],
+	["findings", "shared_findings"],
+	["people", "share_people"],
+	["tasks", "share_tasks"],
+	["meetings", "share_meetings"],
+	["ministryTeams", "share_ministry_teams"],
+];
+export const sharingEnded = (tool: SQL, tenant: SQL) =>
+	sql`(EXISTS(SELECT FROM affiliation el WHERE el.organization_id=${tenant} AND el.ended_at>=${tool}.created_at
+			AND (position(coalesce(el.plant_id,el.sending_church_id)::text IN (${tool}.body->'result')::text)>0
+				OR ${tool}.body->>'operation'='organizationIntelligence.read'))
+		OR EXISTS(SELECT FROM jsonb_array_elements(coalesce(${tool}.body->'result'->'rows','[]'::jsonb)) ir
+			JOIN affiliation il ON il.organization_id=${tenant} AND il.ended_at IS NULL AND il.plant_id::text=ir->>'id'
+			WHERE ${sql.join(
+				CATEGORY_FIELDS.map(
+					([field, category]) => sql`(ir->'fields'->>${field}<>'Not shared' AND NOT il.${sql.raw(category)})`,
+				),
+				sql` OR `,
+			)}))`;
+
+export const leadBeforeIntelligence = (tool: SQL, activeTurn: SQL) =>
+	sql`(EXISTS(SELECT FROM jsonb_array_elements(coalesce(${tool}.body->'result'->'rows','[]'::jsonb)) lr
+			WHERE lr->'fields'->>'leadPlanter' IS NOT NULL)
+		AND EXISTS(SELECT FROM conversation_event ni WHERE ni.conversation_id=${tool}.conversation_id AND ni.turn_id=${activeTurn}
+			AND ni.kind='tool_result' AND ni.body->>'operation' LIKE 'organizationIntelligence.%'))`;
+
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	person: (id, plant) =>
 		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND coalesce(p.plant_id,p.organization_id)=${plant} AND p.state='live')`,

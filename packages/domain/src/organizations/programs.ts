@@ -199,13 +199,15 @@ x AS (SELECT e.*,p.name AS program_name,p.kind,p.director_seat_id,p.current_vers
  WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND pn.state='live'
   AND ${readsEnrollment(seat, sql`p.director_seat_id`)}),
 ${linkOf(org)}
-SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object('id',x.id,
+SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object('id',x.id,'revision',x.revision::text,
   'person',jsonb_build_object('personId',x.person_id,'name',x.display_name),
   'program',jsonb_build_object('id',x.program_id,'name',x.program_name,'kind',x.kind,
    'director',${seatJson(sql`x.director_seat_id`)}),
   'directorSeatId',x.director_seat_id,'versionNumber',x.version_number,'cohort',x.cohort_label,
   'startedOn',x.started_on::text,'expectedEndOn',x.expected_end_on::text,'status',x.status,
   'stage',(SELECT jsonb_build_object('id',s.id,'label',s.label) FROM development_stage s WHERE s.id=x.current_stage_id),
+  'stages',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'label',s.label) ORDER BY s.position,s.id)
+   FROM development_stage s WHERE s.version_id=x.version_id AND s.organization_id=x.organization_id),'[]'::jsonb),
   'nextMeeting',CASE WHEN x.next_meeting_at IS NOT NULL THEN jsonb_build_object(
    'at',to_char(x.next_meeting_at AT TIME ZONE x.meeting_timezone,'YYYY-MM-DD"T"HH24:MI:SS'),'timezone',x.meeting_timezone) END,
   'milestones',coalesce((SELECT jsonb_agg(${progressJson} ORDER BY m.position,m.id)
@@ -627,10 +629,104 @@ SELECT EXISTS(SELECT FROM pr WHERE current_version_id IS NOT NULL) AS published,
 	);
 }
 
+function updateEnrollment(db: Database, authority: RequestActor, raw: unknown) {
+	return write<{ revision: string; outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.updateEnrollmentRequest, raw);
+		const org = w.organization;
+		const c = input.changes;
+		const meets = c.nextMeetingAt !== undefined;
+		const row = await one(
+			w,
+			z.object({
+				current: z.string().nullable(),
+				staged: z.boolean(),
+				ends: z.boolean(),
+				revision: z.string().nullable(),
+			}),
+			sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.started_on,e.cohort_label,e.expected_end_on,e.current_stage_id,
+  e.next_meeting_at,e.meeting_timezone,o.timezone
+ FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
+ JOIN organization o ON o.id=e.organization_id
+ WHERE e.id=${input.enrollmentId}::uuid AND e.organization_id=${org}::uuid AND e.status='active'
+  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
+st AS (SELECT s.id FROM development_stage s JOIN x ON s.version_id=x.version_id
+ WHERE s.id=${c.stageId ?? null}::uuid AND s.organization_id=${org}::uuid),
+n AS (SELECT coalesce(${c.cohort ?? null}::text,x.cohort_label) AS cohort,
+  coalesce(${c.expectedEndOn ?? null}::date,x.expected_end_on) AS ends,coalesce((SELECT id FROM st),x.current_stage_id) AS stage,
+  CASE WHEN ${meets} THEN ${c.nextMeetingAt ?? null}::timestamp AT TIME ZONE x.timezone ELSE x.next_meeting_at END AS meeting,
+  CASE WHEN ${meets} THEN x.timezone ELSE x.meeting_timezone END AS zone FROM x),
+ok AS (SELECT (${c.stageId ?? null}::uuid IS NULL OR EXISTS(SELECT FROM st)) AS staged,n.ends>=x.started_on AS ends FROM x,n),
+u AS (UPDATE development_enrollment e SET cohort_label=n.cohort,expected_end_on=n.ends,current_stage_id=n.stage,
+  next_meeting_at=n.meeting,meeting_timezone=n.zone,revision=e.revision+1 FROM x,n,ok
+ WHERE e.id=x.id AND e.organization_id=${org}::uuid AND ok.staged AND ok.ends AND x.revision=${input.expectedRevision}::bigint
+  AND (x.cohort_label,x.expected_end_on,x.current_stage_id,x.next_meeting_at) IS DISTINCT FROM (n.cohort,n.ends,n.stage,n.meeting)
+ RETURNING e.revision),
+a AS (${w.audit({
+				action: "development.enrollment_updated",
+				kind: "edit",
+				subjectType: "development_enrollment",
+				subject: sql`x.id`,
+				before: sql`x.revision`,
+				after: sql`u.revision`,
+				metadata: sql`jsonb_build_object('fields',to_jsonb(array_remove(ARRAY[
+ CASE WHEN x.cohort_label<>n.cohort THEN 'cohort' END,CASE WHEN x.expected_end_on<>n.ends THEN 'expectedEndOn' END,
+ CASE WHEN x.current_stage_id<>n.stage THEN 'stage' END,
+ CASE WHEN x.next_meeting_at IS DISTINCT FROM n.meeting THEN 'nextMeeting' END],NULL)))`,
+			})}
+ FROM x,n,u RETURNING id)
+SELECT (SELECT revision::text FROM x) AS current,coalesce((SELECT staged FROM ok),false) AS staged,
+ coalesce((SELECT ends FROM ok),false) AS ends,(SELECT revision::text FROM u) AS revision`,
+		);
+		if (row.revision) return { revision: row.revision, outcome: "changed" as const };
+		if (!row.current) refuse();
+		if (row.current !== input.expectedRevision) refuse({ code: "conflict" });
+		if (!row.staged) refuse({ code: "invalid_input", field: "stageId" });
+		if (!row.ends) refuse({ code: "invalid_input", field: "expectedEndOn" });
+		return { revision: row.current, outcome: "noop" as const };
+	});
+}
+
+function endEnrollment(db: Database, authority: RequestActor, raw: unknown) {
+	return write<{ revision: string }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.endEnrollmentRequest, raw);
+		const org = w.organization;
+		const row = await one(
+			w,
+			z.object({ current: z.string().nullable(), active: z.boolean(), revision: z.string().nullable() }),
+			sql`WITH x AS (SELECT e.id,e.revision,e.status
+ FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
+ WHERE e.id=${input.enrollmentId}::uuid AND e.organization_id=${org}::uuid
+  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
+u AS (UPDATE development_enrollment e SET status=${input.outcome},revision=e.revision+1 FROM x
+ WHERE e.id=x.id AND e.organization_id=${org}::uuid AND x.status='active' AND x.revision=${input.expectedRevision}::bigint
+ RETURNING e.revision),
+a AS (${w.audit({
+				action: "development.enrollment_updated",
+				kind: "edit",
+				subjectType: "development_enrollment",
+				subject: sql`x.id`,
+				before: sql`x.revision`,
+				after: sql`u.revision`,
+				metadata: { fields: ["status"], outcome: input.outcome },
+			})}
+ FROM x,u RETURNING id)
+SELECT (SELECT revision::text FROM x) AS current,coalesce((SELECT status='active' FROM x),false) AS active,
+ (SELECT revision::text FROM u) AS revision`,
+		);
+		if (row.revision) return { revision: row.revision };
+		if (!row.current) refuse();
+		if (!row.active) refuse({ code: "enrollment_ended" });
+		return refuse({ code: "conflict" });
+	});
+}
+
 const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string) => sql`x AS (SELECT e.id,e.version_id,
  e.person_id,e.revision FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
- AND p.organization_id=e.organization_id WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
- AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p),
+ AND p.organization_id=e.organization_id JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
+ WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
+ AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
 m AS (SELECT m.id,m.lineage,m.hands_on FROM development_milestone m JOIN x ON m.version_id=x.version_id
  WHERE m.id=${milestoneId}::uuid AND m.organization_id=${w.organization}::uuid)`;
 
@@ -755,8 +851,9 @@ function applyVersion(db: Database, authority: RequestActor, raw: unknown) {
 			sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,ev.version_number
  FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version ev ON ev.id=e.version_id AND ev.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
  WHERE e.id=${input.enrollmentId}::uuid AND e.organization_id=${org}::uuid AND e.status='active'
-  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p),
+  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p,pn),
 t AS (SELECT v.id,v.version_number FROM development_program_version v JOIN x ON v.id=x.current_version_id
  WHERE v.id=${input.versionId}::uuid AND v.organization_id=${org}::uuid AND v.id<>x.version_id
   AND ${basisOf(org)}=${input.basis}),
@@ -800,8 +897,9 @@ x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_i
  FROM i JOIN development_enrollment e ON e.id=i.enrollment_id AND e.organization_id=${org}::uuid
  JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version ev ON ev.id=e.version_id AND ev.organization_id=e.organization_id
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
  WHERE e.program_id=${input.programId}::uuid AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid
- FOR UPDATE OF e FOR SHARE OF p),
+ FOR UPDATE OF e FOR SHARE OF p,pn),
 t AS (SELECT v.id,v.version_number FROM development_program_version v WHERE v.id=${input.versionId}::uuid
  AND v.organization_id=${org}::uuid AND v.id=(SELECT p.current_version_id FROM development_program p
   WHERE p.id=${input.programId}::uuid AND p.organization_id=${org}::uuid)),
@@ -834,6 +932,8 @@ export const programWriter = {
 	savePlan,
 	publishVersion,
 	enroll,
+	updateEnrollment,
+	endEnrollment,
 	recordMilestone,
 	confirmMilestone,
 	addFeedback,

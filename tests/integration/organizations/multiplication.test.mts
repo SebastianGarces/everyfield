@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { seeds, waitingOnLock, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
+import { raced, seeds, waitingOnLock, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
 import { authorityOf } from "../people/people-support.mts";
 import { readViewer, RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { accountId } from "../../../packages/contracts/src/common/index.ts";
@@ -813,6 +813,46 @@ test("AC:ADR1-004 Luis revoking while Casey's invitation is being accepted leave
 		assert.equal(state, "accepted");
 		assert.equal(await links(r.personId), 1);
 	}
+});
+
+test("AC:ADR1-012 a resident's acceptance that commits first refuses the director's waiting record, which changes nothing", async () => {
+	const r = await resident("Jules");
+	const p = ok(await readProgram(f.db, await authority(dana), { programId: program }));
+	const enrollmentId = randomUUID();
+	ok(
+		await programWriter.enroll(f.db, await authority(dana), {
+			enrollmentId,
+			programId: program,
+			personId: r.personId,
+			cohort: "Autumn 2026",
+			startedOn: "2026-10-01",
+			expectedEndOn: "2028-01-01",
+			stageId: p.published!.stages[0]!.id,
+			nextMeetingAt: null,
+		}),
+	);
+	const e = ok(await enrollment(ana, enrollmentId));
+	assert.deepEqual(e.resident, { status: "not_linked" }, "the director read her as unlinked");
+	const completion = { enrollmentId, milestoneId: e.milestones[0]!.id, completedOn: "2026-10-16" };
+	const [accepted, refused] = await raced(
+		f.admin,
+		f.db,
+		sql`SELECT 1 FROM person WHERE id=${r.personId}::uuid FOR UPDATE`,
+		[
+			() => settle(f.invitations.respondResident(r.who.session, accept(r.invitation))),
+			async () => programWriter.recordMilestone(f.db, await authority(ana), completion),
+		],
+	);
+	assert.equal((accepted as { status: string }).status, "accepted");
+	assert.deepEqual(refused, { status: "refused", refusal: { code: "linked_resident" } });
+	assert.equal(await links(r.personId), 1);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM enrollment_milestone WHERE enrollment_id=${enrollmentId}::uuid`),
+		0,
+	);
+	const after = ok(await enrollment(ana, enrollmentId));
+	assert.equal(after.revision, e.revision);
+	assert.equal(after.milestones[0]!.completion, null);
 });
 
 function exportedMarks(text: string, personId: string) {

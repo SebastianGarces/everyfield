@@ -1026,3 +1026,15 @@ test("INV-evry-recipes: suggested follow-up steps say what to ask for and link n
 		],
 	);
 });
+
+test("an account's empty document results speak of its own documents, a church's of the church", () => {
+	const empty = (facts) => ({
+		...result("documents.listOwned", []),
+		status: "not_found",
+		...(facts && { facts }),
+	});
+	const summary = (facts) => JSON.stringify(cardView("documents.listOwned", empty(facts), null));
+	assert.match(summary({ own: true }), /No document of yours matches\./);
+	assert.doesNotMatch(summary({ own: true }), /church/);
+	assert.match(summary(null), /No document in this church matches/);
+});

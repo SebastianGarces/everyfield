@@ -1467,10 +1467,10 @@ async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 	return { ...actor, selfPersonId: await resolveSelf(db, actor) };
 }
 
-function pinHostClock() {
+export function pinHostClock(at = NOW) {
 	const Real = Date;
 	if ((Real as { pinned?: true }).pinned) return;
-	const shift = NOW.getTime() - Real.now();
+	const shift = at.getTime() - Real.now();
 	globalThis.Date = class extends Real {
 		static pinned = true as const;
 		constructor(...args: unknown[]) {

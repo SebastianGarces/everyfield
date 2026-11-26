@@ -15,7 +15,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Curated article/meeting/team deep links include unknown retired template and unsupported format; the list returns each catalog template once.",
       "given": {
         "P": {
@@ -121,7 +124,10 @@
         "WP-036",
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Preview and generate frozen authorized merge inputs for every offered format; oversized field, foreign subject, malformed renderer output.",
       "given": {
         "P": {
@@ -242,7 +248,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Upload succeeds but insert fails; orphan cleanup races current ready reference; template later removed; source facts changed.",
       "given": {
         "P": {
@@ -348,7 +357,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Core Group Commitment Card with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -415,8 +427,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "pastor_name": "Alex Rivera"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -434,8 +445,7 @@
           "template": "commitment-card",
           "format": "pdf",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "pastor_name": "Alex Rivera"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-004-generate"
         }
@@ -474,7 +484,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Response Card with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -591,7 +604,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Guest Sign-in Sheet with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -658,9 +674,7 @@
         },
         "merge": {
           "fixture_type": "document_merge_values",
-          "church_name": "Harvest Point",
-          "meeting_date": "2026-10-20",
-          "meeting_number": "3"
+          "church_name": "Harvest Point"
         }
       },
       "actor": {
@@ -678,9 +692,7 @@
           "template": "guest-sign-in-sheet",
           "format": "pdf",
           "merge_fields": {
-            "church_name": "Harvest Point",
-            "meeting_date": "2026-10-20",
-            "meeting_number": "3"
+            "church_name": "Harvest Point"
           },
           "request_key": "CASE-DOC-006-generate"
         }
@@ -713,7 +725,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Vision Meeting Agenda with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -834,7 +849,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Create Expectations of a Core Group Member as a Church Document with frozen named church and leader fields, then export revision 1 as a PDF and as a DOCX; open the actual bytes and compare their content with revision 1.",
       "given": {
         "P": {
@@ -1050,7 +1068,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Create Launch Team Commitment as a Church Document with frozen named church and leader fields, then export revision 1 as a PDF and as a DOCX; open the actual bytes and compare their content with revision 1.",
       "given": {
         "P": {
@@ -1266,7 +1287,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Create Vision Meeting Follow-up Letter as a Church Document with frozen named church and leader fields, then export revision 1 as a PDF and as a DOCX; open the actual bytes and compare their content with revision 1.",
       "given": {
         "P": {
@@ -1482,7 +1506,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Board / Elder Meeting Agenda with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -1601,7 +1628,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate First-Year Budget with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -1720,7 +1750,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Budget Worksheet with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -1839,7 +1872,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/template-cases.test.mts"
+      ],
       "description": "Generate Launch Sunday Checklists with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
       "given": {
         "P": {
@@ -1959,7 +1995,10 @@
         "WP-004",
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Magic bytes conflict with claimed PDF,11MiB commitment, foreign key/sign request and replaced object cleanup race.",
       "given": {
         "P": {
@@ -2138,7 +2177,11 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts",
+        "tests/integration/documents/owned.test.mts"
+      ],
       "description": "DOCX zip bomb/macro/external link/empty parse; concurrent save/archive; select one private revision Use for this church.",
       "given": {
         "P": {
@@ -2251,7 +2294,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Preview an outward-facing template for a church with no brand kit; the render uses the neutral theme and accepts a supplied theme input.",
       "given": {
         "P": {
@@ -2332,7 +2378,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Resolve the outward-facing theme for a church with a saved kit; the church theme replaces the neutral theme.",
       "given": {
         "P": {
@@ -2414,7 +2463,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "List the catalog; every template carries exactly one of the four document classes.",
       "given": {
         "P": {
@@ -2492,7 +2544,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Preview a formal/legal template with church branding on, then an operational template.",
       "given": {
         "P": {
@@ -2625,7 +2680,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Preview a bylaws template whose doctrinal section no one has filled.",
       "given": {
         "P": {
@@ -2861,7 +2919,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Preview the child protection policy and read its text for the copy rule.",
       "given": {
         "P": {
@@ -2941,7 +3002,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "An Admin creates a bylaws Church Document and gets the merge values in revision 1. A Member is refused. A fixed-layout template is refused.",
       "given": {
         "P": {
@@ -3065,8 +3129,8 @@
           "given": {
             "template": {
               "fixture_type": "document_template",
-              "id": "commitment-card",
-              "document_class": "operational",
+              "id": "response-card",
+              "document_class": "outward-facing",
               "editable": false,
               "formats": [
                 "pdf"
@@ -3085,7 +3149,7 @@
           "action": {
             "operation": "documents.createFromTemplate",
             "arguments": {
-              "template": "commitment-card",
+              "template": "response-card",
               "merge_fields": {
                 "church_name": "Harvest Point"
               },
@@ -3118,7 +3182,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Export revision 2 as a PDF and a DOCX, edit to revision 3, change the brand kit, then download the revision 2 exports again. The hashes are equal. A new export uses the new theme.",
       "given": {
         "P": {
@@ -3399,7 +3466,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Delete all body text of a bylaws Church Document, then export it. Both files still hold the notice. An outward-facing export does not.",
       "given": {
         "P": {
@@ -3587,7 +3657,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/documents/library-cases.test.mts"
+      ],
       "description": "Export a bylaws Church Document with an unfilled doctrinal slot. Both files show a visible blank. Deleting the slot node is allowed: the save makes revision 2, whose PDF and DOCX leave the section out with no label and no blank, while revision 1 still exports with the blank.",
       "given": {
         "P": {
@@ -3953,7 +4026,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts"
+      ],
       "description": "An Admin resets a saved kit to default; a Member cannot open the settings.",
       "given": {
         "P": {
@@ -4082,7 +4158,11 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts",
+        "tests/unit/settings/brand-assets.test.mts"
+      ],
       "description": "Upload a wide SVG logo with margin and alt text, then a PNG with no alt text.",
       "given": {
         "P": {
@@ -4206,7 +4286,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts"
+      ],
       "description": "Save a pale yellow primary color and no accent color.",
       "given": {
         "P": {
@@ -4322,7 +4405,11 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts",
+        "tests/unit/settings/brand-assets.test.mts"
+      ],
       "description": "Save a kit with a font outside the curated list, then a kit with no font choice.",
       "given": {
         "P": {
@@ -4438,7 +4525,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts"
+      ],
       "description": "Save letterhead details with an EIN, then save a malformed EIN.",
       "given": {
         "P": {
@@ -4565,7 +4655,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts"
+      ],
       "description": "Resolve each document class for a church with a full kit and compare the class rules.",
       "given": {
         "P": {
@@ -4789,7 +4882,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts"
+      ],
       "description": "Resolve the outward-facing theme for a church that has never saved a kit.",
       "given": {
         "P": {
@@ -4865,7 +4961,10 @@
       "work_packages": [
         "WP-104"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/branding/branding-cases.test.mts"
+      ],
       "description": "Change the primary color after a PDF was saved; the saved PDF keeps its bytes and the next PDF uses the new color.",
       "given": {
         "P": {
@@ -4948,7 +5047,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "S1 edit/N1 edit/global for same canonical identity; independent same-slug additions; unsafe organization MDX expression.",
       "given": {
         "P": {
@@ -5052,7 +5154,11 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts",
+        "tests/unit/wiki/contents-list.test.mts"
+      ],
       "description": "Unicode/space/path slug plus missing/duplicate related refs and mobile keyboard navigation.",
       "given": {
         "P": {
@@ -5157,7 +5263,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "English term/title/body query with 20 page phase filter, hidden default/source-view context and database timeout.",
       "given": {
         "P": {
@@ -5266,7 +5375,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Reader at 0.80 then 0.8001, passive restoration, completed meaningful update followed typo; departed source citation.",
       "given": {
         "P": {
@@ -5389,7 +5501,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Concurrent explicit true bookmark requests then false replay; article becomes departed/hidden.",
       "given": {
         "P": {
@@ -5509,7 +5624,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Current own-plant user rates helpful then unhelpful; no-church account and another plant guess article vote.",
       "given": {
         "P": {
@@ -5625,7 +5743,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Authorized rendered article with table/callout/list/local fonts; font failure; affiliation ends before export.",
       "given": {
         "P": {
@@ -6030,7 +6151,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Context guide known route, missing slug, unauthorized source, unavailable store and text instructing tool execution.",
       "given": {
         "P": {
@@ -6135,7 +6259,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Own-org Admin publish/hide current-state check, foreign/global writer and unset invalidation auth; Unicode cache path.",
       "given": {
         "P": {
@@ -6248,7 +6375,10 @@
         "WP-033",
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/starter/cases.db.mts"
+      ],
       "description": "Initial 96/21/7 manifest, second coherent candidate, missing vector, same-ID changed hash and rollback.",
       "given": {
         "P": {
@@ -6361,7 +6491,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Known crawler UA on/wiki, spoofed UA/dashboard or/wikileaks, WhatsApp human WebView, forged route header/session cookie.",
       "given": {
         "P": {
@@ -6487,7 +6620,11 @@
         "WP-032",
         "WP-033"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/activation.db.mts",
+        "tests/reference/starter/cases.db.mts"
+      ],
       "description": "Exact 96 article 21 section 7 mail template hashes/IDs/topology with 11 document template separate inventory.",
       "given": {
         "P": {
@@ -6601,7 +6738,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Same canonical published global/entitled org fork, unrelated same title, draft, split reader completion.",
       "given": {
         "P": {
@@ -6696,7 +6836,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Completed prior read with hidden/departed current body and still-entitled alternate source.",
       "given": {
         "P": {
@@ -6775,7 +6918,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Owner 0/6 and current eligible ordinary Admin/lead actual reader 6/6, all progress 0.8001; title-only unseated lead also 6/6.",
       "given": {
         "P": {
@@ -6908,7 +7054,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Owner reads articles 1–3 and other eligible reader 4–6; each 0.9; one article at exactly 0.80.",
       "given": {
         "P": {
@@ -7004,7 +7153,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Same canonical article published global and entitled org fork, unrelated same-title article, meaningful update and departed former fork.",
       "given": {
         "P": {
@@ -7341,7 +7493,10 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/adapters/documents/account.test.mts"
+      ],
       "description": "Discovery A has no seat, a self-owned native document D, an unsaved Word import H and one currently public global Wiki article W. B owns private document E; plant P and organization O have no grant to A. Conversation C belongs to A in account context.",
       "given": {
         "P": {
@@ -7893,7 +8048,10 @@
       "work_packages": [
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-private-library.test.mts"
+      ],
       "operation_ids": [],
       "description": "No laptop/filesystem connector; one authorized generated agenda available",
       "given": {
@@ -8133,7 +8291,10 @@
       "work_packages": [
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-private-library.test.mts"
+      ],
       "operation_ids": [],
       "description": "Two known agenda documents actual distinct body facts, files readable; names similar",
       "given": {
@@ -9685,7 +9846,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-entitlement.test.mts"
+      ],
       "description": "Former-org excerpt appears in history/cache/export/stream/citation/Evry after departure and rollback; second affiliate active.",
       "given": {
         "P": {
@@ -9819,7 +9983,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "Stored S1 hide, S2 edit, N1 edit, global; source browse S2; later S1 ends and rejoining recognition unranked.",
       "given": {
         "P": {
@@ -9941,7 +10108,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Completedreader old revision then meaningful published new revision, authorized current view.",
       "given": {
         "P": {
@@ -10023,7 +10193,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Typo-only edit and meaningful edit followed intervening typo; publisher flag absent.",
       "given": {
         "P": {
@@ -10238,7 +10411,10 @@
       "work_packages": [
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Voluntary reopen/new source progress and former-org departure with old completed credit.",
       "given": {
         "P": {
@@ -10324,7 +10500,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "description": "Completed Discovery six and training records, meaningful article update with no new evidence.",
       "given": {
         "P": {
@@ -10426,7 +10605,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Customized org article and inherited article each receive published global typo/meaningful change.",
       "given": {
         "P": {
@@ -10546,7 +10728,10 @@
         "WP-031",
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Current own org editors with category email ON receive named upstream cue; revoked editor attempts read.",
       "given": {
         "P": {
@@ -10666,7 +10851,10 @@
       "work_packages": [
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/cases.test.mts"
+      ],
       "description": "Plant-specific guide/corevalues native Church Document and extant plant local Wiki read; plant Wiki edit attempted.",
       "given": {
         "P": {
@@ -10745,7 +10933,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-001",
       "given": {
         "P": {
@@ -10909,7 +11100,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-002",
       "given": {
         "P": {
@@ -11074,7 +11268,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-003",
       "given": {
         "P": {
@@ -11240,7 +11437,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-004",
       "given": {
         "P": {
@@ -11405,7 +11605,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-005",
       "given": {
         "P": {
@@ -11570,7 +11773,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-006",
       "given": {
         "P": {
@@ -11735,7 +11941,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-007",
       "given": {
         "P": {
@@ -11900,7 +12109,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-008",
       "given": {
         "P": {
@@ -12101,7 +12313,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-009",
       "given": {
         "P": {
@@ -12271,7 +12486,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-010",
       "given": {
         "P": {
@@ -12441,7 +12659,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-011",
       "given": {
         "P": {
@@ -12611,7 +12832,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-012",
       "given": {
         "P": {
@@ -12776,7 +13000,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-013",
       "given": {
         "P": {
@@ -12940,7 +13167,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-014",
       "given": {
         "P": {
@@ -13110,7 +13340,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-015",
       "given": {
         "P": {
@@ -13280,7 +13513,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-017",
       "given": {
         "P": {
@@ -13445,7 +13681,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-018",
       "given": {
         "P": {
@@ -13615,7 +13854,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-019",
       "given": {
         "P": {
@@ -13790,7 +14032,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-020",
       "given": {
         "P": {
@@ -13964,7 +14209,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-021",
       "given": {
         "P": {
@@ -14137,7 +14385,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-022",
       "given": {
         "P": {
@@ -14324,7 +14575,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-023",
       "given": {
         "P": {
@@ -14494,7 +14748,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-024",
       "given": {
         "P": {
@@ -14665,7 +14922,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-025",
       "given": {
         "P": {
@@ -14836,7 +15096,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-026",
       "given": {
         "P": {
@@ -15008,7 +15271,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-027",
       "given": {
         "P": {
@@ -15179,7 +15445,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-028",
       "given": {
         "P": {
@@ -15339,7 +15608,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-029",
       "given": {
         "P": {
@@ -15499,7 +15771,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-030",
       "given": {
         "P": {
@@ -15659,7 +15934,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-031",
       "given": {
         "P": {
@@ -15819,7 +16097,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-032",
       "given": {
         "P": {
@@ -15979,7 +16260,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-033",
       "given": {
         "P": {
@@ -16134,7 +16418,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-034",
       "given": {
         "P": {
@@ -16294,7 +16581,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-035",
       "given": {
         "P": {
@@ -16454,7 +16744,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-036",
       "given": {
         "P": {
@@ -16614,7 +16907,10 @@
       "work_packages": [
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-037",
       "given": {
         "P": {
@@ -16786,7 +17082,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-038",
       "given": {
         "P": {
@@ -16951,7 +17250,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-039",
       "given": {
         "P": {
@@ -17115,7 +17417,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-040",
       "given": {
         "P": {
@@ -17279,7 +17584,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-041",
       "given": {
         "P": {
@@ -17442,7 +17750,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-043",
       "given": {
         "P": {
@@ -17603,7 +17914,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-044",
       "given": {
         "P": {
@@ -17764,7 +18078,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-045",
       "given": {
         "P": {
@@ -17931,7 +18248,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-046",
       "given": {
         "P": {
@@ -18113,7 +18433,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-047",
       "given": {
         "P": {
@@ -18280,7 +18603,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-048",
       "given": {
         "P": {
@@ -18441,7 +18767,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-049",
       "given": {
         "P": {
@@ -18602,7 +18931,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-050",
       "given": {
         "P": {
@@ -18763,7 +19095,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-051",
       "given": {
         "P": {
@@ -18926,7 +19261,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-052",
       "given": {
         "P": {
@@ -19089,7 +19427,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-053",
       "given": {
         "P": {
@@ -19252,7 +19593,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-054",
       "given": {
         "P": {
@@ -19417,7 +19761,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-055",
       "given": {
         "P": {
@@ -19582,7 +19929,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-056",
       "given": {
         "P": {
@@ -19751,7 +20101,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-057",
       "given": {
         "P": {
@@ -19919,7 +20272,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-058",
       "given": {
         "P": {
@@ -20084,7 +20440,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-059",
       "given": {
         "P": {
@@ -20251,7 +20610,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-060",
       "given": {
         "P": {
@@ -20424,7 +20786,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-061",
       "given": {
         "P": {
@@ -20606,7 +20971,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-062",
       "given": {
         "P": {
@@ -20782,7 +21150,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-063",
       "given": {
         "P": {
@@ -20954,7 +21325,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-064",
       "given": {
         "P": {
@@ -21122,7 +21496,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-065",
       "given": {
         "P": {
@@ -21287,7 +21664,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-066",
       "given": {
         "P": {
@@ -21450,7 +21830,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-067",
       "given": {
         "P": {
@@ -21510,8 +21893,8 @@
           "active": true,
           "published": true,
           "hidden": false,
-          "override": "S1",
-          "body": "S1 guidance."
+          "override": null,
+          "body": null
         },
         "S2": {
           "fixture_type": "article_source_fixture",
@@ -21613,7 +21996,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-068",
       "given": {
         "P": {
@@ -21782,7 +22168,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-069",
       "given": {
         "P": {
@@ -22110,7 +22499,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-070",
       "given": {
         "P": {
@@ -22279,7 +22671,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-071",
       "given": {
         "P": {
@@ -22449,7 +22844,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-072",
       "given": {
         "P": {
@@ -22774,7 +23172,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-073",
       "given": {
         "P": {
@@ -22944,7 +23345,10 @@
         "WP-034",
         "WP-035"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/source-resolution.test.mts"
+      ],
       "description": "WR-074",
       "given": {
         "P": {
@@ -23117,7 +23521,10 @@
       "work_packages": [
         "WP-003"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/platform-cases.test.mts"
+      ],
       "description": "Producer proof on real Next requests and PostgreSQL sessions: exact-origin denial, expired/revoked session and forged scope, required-write rollback, lease reclaim and late-worker fence. Domain registration and full outbox integration remain downstream.",
       "layers": [
         "request",
@@ -23175,7 +23582,10 @@
       "work_packages": [
         "WP-003"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/platform-cases.test.mts"
+      ],
       "description": "Producer private storage proof with immutable exact-object binding, fresh authority at issue/finalize/reconnect, signature and checksum validation, finite presign expiry and no public caching. Office/PDF previews are inert text. Old bearer URLs retain only bounded expiry.",
       "layers": [
         "request",
@@ -23214,7 +23624,7 @@
           "new_url_after_revoke": null,
           "client_key_accepted": false,
           "cache_control": "private, no-store",
-          "max_url_ttl_seconds": 60
+          "max_url_ttl_seconds": 300
         },
         "event": null
       }
@@ -23245,7 +23655,10 @@
       "work_packages": [
         "WP-003"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/platform-cases.test.mts"
+      ],
       "description": "Producer readiness refuses customer-data clearance without actual bucket/key isolation, seven-day history, encrypted daily copies, coherent matching DB/bytes restore and measured recovery evidence. Vendor naming/config assertions are insufficient. No provider setup is performed.",
       "layers": [
         "configuration",
@@ -23302,7 +23715,10 @@
       "work_packages": [
         "WP-003"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/platform-cases.test.mts"
+      ],
       "description": "Development proof uses synthetic inputs and existing services. Missing concrete spending approval cannot enable a new paid service; reported free allowances never imply unlimited capacity.",
       "layers": [
         "configuration",
@@ -23352,7 +23768,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "given": {
         "A": {
           "fixture_type": "account",
@@ -23440,7 +23859,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "given": {
         "A": {
           "fixture_type": "account",
@@ -23581,7 +24003,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "given": {
         "A": {
           "fixture_type": "account",

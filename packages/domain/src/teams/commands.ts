@@ -821,6 +821,10 @@ export const teamsWriter = {
 							before.leadership,
 						);
 						if (move) queueStageMoves(audit, w.plant.id, w.accountId, [move], "team_membership");
+						if (before.leadership)
+							audit.writes.push(sql`UPDATE team SET leader_person_id = ${input.input.personId}::uuid,
+								leader_source = 'role_derived', leader_role_id = ${before.id}::uuid, revision = revision + 1
+								WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid AND leader_person_id IS NULL`);
 					}
 					return {
 						value: c.membershipResult.parse({

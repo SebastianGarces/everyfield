@@ -4,7 +4,9 @@
 		"allowImportingTsExtensions": true,
 		"types": ["node"],
 		"typeRoots": ["./node_modules/@types"],
-		"allowJs": true
+		"allowJs": true,
+		"jsx": "react-jsx",
+		"lib": ["ES2024", "DOM", "DOM.Iterable"]
 	},
 	"include": ["src/**/*.ts", "../../tests/reference/releases/**/*.mts", "../../tests/reference/starter/**/*.mts"]
 }

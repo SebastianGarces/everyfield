@@ -23,7 +23,10 @@
         "WP-004",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/recovery-cases.test.mts"
+      ],
       "description": "Ordinaryapp/build/preview credentials attempt list/read/write backup bucket; dedicated restricted key succeeds.",
       "given": {
         "P": {
@@ -484,7 +487,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Self account request, current workspace Owner, ordinary Admin/foreign requests and concurrent reads.",
       "given": {
         "P": {
@@ -813,7 +819,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Pending 30 day private hold with revoked normal session; fresh restricted status/cancel proof.",
       "given": {
         "P": {
@@ -1121,7 +1130,10 @@
       "work_packages": [
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Accountcreator owns private doc and created plant-owned doc/generated file/shared history.",
       "given": {
         "P": {
@@ -1241,7 +1253,10 @@
         "WP-039",
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Workspace request with two independently affiliated orgs and unrelated workspace; native private care.",
       "given": {
         "P": {
@@ -1495,7 +1510,10 @@
         "WP-050",
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Deadline purge chunks DB/bytes; object-delete timeout halfway then retry same request.",
       "given": {
         "P": {
@@ -1775,7 +1793,10 @@
         "WP-010",
         "WP-094"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Privacycopy and own feedback status during hold/purge with actual external copy/provider limits.",
       "given": {
         "P": {
@@ -1893,7 +1914,10 @@
         "WP-050",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/recovery-cases.test.mts"
+      ],
       "description": "Actual paid Neon default 1 day vs configured 7 days; daily, manual, latest-preserved snapshot and restored branch expiry.",
       "given": {
         "P": {
@@ -2013,7 +2037,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/recovery-cases.test.mts"
+      ],
       "description": "Actual Tigris seven-day deleted object recovery, soft deleted bucket and earlier version cleanup delay.",
       "given": {
         "P": {
@@ -2713,7 +2740,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/recovery-cases.test.mts"
+      ],
       "description": "Daily encrypted candidate lacks one replaced object; later isolated restore with current witness, key recovered; ordinary app attempts backup-bucket access.",
       "given": {
         "P": {
@@ -2871,7 +2901,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/recovery-cases.test.mts"
+      ],
       "description": "Account creator deleted versus plant owner deleted; old backup contains canceled scheduled mail/private care and expiry witness newer than snapshot.",
       "given": {
         "P": {
@@ -3033,7 +3066,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "layers": [
         "integration"
       ],
@@ -3111,7 +3147,10 @@
       "work_packages": [
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/recovery-cases.test.mts"
+      ],
       "layers": [
         "integration"
       ],
@@ -3215,7 +3254,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Identity public contract accepts minimal retained attribution without exposing private account credentials or using creator as ownership.",
       "given": {
         "contract": {
@@ -3289,7 +3331,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/deletion-cases.test.mts"
+      ],
       "description": "Identity lifecycle contract cannot describe purging as complete or attach completion timestamps to an incomplete purge.",
       "given": {
         "contract": {

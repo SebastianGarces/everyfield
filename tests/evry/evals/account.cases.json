@@ -1,0 +1,150 @@
+{
+	"suite": "account",
+	"model": "scripted",
+	"note": "T-659: a person with no church reads, writes, imports and archives their own documents and reads the public Wiki, on the scripted model with the real adapters and approvals. Cases run in this order for one person; each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "ACC-01",
+			"criterion": 1,
+			"ask": "what documents do I have?",
+			"calls": ["documents.listOwned"],
+			"answer": ["[My Discovery](/documents/written/"]
+		},
+		{
+			"id": "ACC-02",
+			"criterion": 1,
+			"ask": "what does my Discovery document say?",
+			"operation": "documents.read",
+			"calls": ["documents.listOwned", "documents.read"],
+			"answer": ["says: \"My Discovery values.\""]
+		},
+		{
+			"id": "ACC-03",
+			"criterion": 2,
+			"ask": "what does the wiki say about welcome letters?",
+			"operation": "wiki.referenceExcerpt",
+			"calls": ["wiki.search", "wiki.referenceExcerpt"],
+			"answer": ["[Welcome Letters](/wiki/core-group/follow-up/welcome-letters)"]
+		},
+		{
+			"id": "ACC-04",
+			"criterion": 2,
+			"ask": "what does the wiki say about zeppelins?",
+			"operation": "wiki.search",
+			"calls": ["wiki.search"],
+			"answer": ["The Wiki has nothing on zeppelins."]
+		},
+		{
+			"id": "ACC-05",
+			"criterion": 2,
+			"ask": "what is in the wiki?",
+			"operation": "wiki.navigation",
+			"calls": ["wiki.navigation"]
+		},
+		{
+			"id": "ACC-06",
+			"criterion": 2,
+			"ask": "list the wiki articles",
+			"operation": "wiki.articles.list",
+			"calls": ["wiki.articles.list"],
+			"answer": ["[Welcome Letters](/wiki/core-group/follow-up/welcome-letters)"]
+		},
+		{
+			"id": "ACC-07",
+			"criterion": 2,
+			"ask": "which headings are in Running Your Vision Meeting?",
+			"operation": "wiki.tableOfContents",
+			"calls": ["wiki.search", "wiki.tableOfContents"],
+			"answer": ["- Before the Meeting", "- The Agenda"]
+		},
+		{
+			"id": "ACC-08",
+			"criterion": 5,
+			"ask": "in the My Discovery, change \"values\" to \"hopes\"",
+			"operation": "documents.saveNative",
+			"calls": ["documents.listOwned", "documents.read"],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": "My Discovery",
+				"changes": [["text", "My Discovery values.", "My Discovery hopes."]]
+			},
+			"approve": true
+		},
+		{
+			"id": "ACC-09",
+			"criterion": 5,
+			"ask": "write a launch-team welcome letter",
+			"operation": "documents.saveNative",
+			"calls": [],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": null,
+				"changes": [
+					["title", null, "Launch team welcome letter"],
+					[
+						"text",
+						null,
+						"Welcome to the launch team\n\nWe are glad you said yes to helping start this church.\n\nWhat to expect\n\n• Team night every other Thursday\n• A ministry to serve in\n\nReply to this letter with any question."
+					]
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "ACC-10",
+			"criterion": 6,
+			"ask": "make this a document",
+			"operation": "documents.importTextOrWord",
+			"file": { "name": "My call.txt", "text": "I want to serve Austin." },
+			"calls": [],
+			"answer": ["Nothing is added to Documents until you approve it."],
+			"proposal": {
+				"operation": "documents.importTextOrWord",
+				"target": null,
+				"changes": [
+					["file", null, "My call.txt"],
+					["title", null, "My call"],
+					["text", null, "I want to serve Austin."]
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "ACC-11",
+			"criterion": 7,
+			"ask": "archive my Discovery document",
+			"operation": "documents.archive",
+			"calls": ["documents.listOwned"],
+			"proposal": {
+				"operation": "documents.archive",
+				"target": "My Discovery",
+				"changes": [
+					["status", "Live", "Archived"],
+					["list", null, "Documents"]
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "ACC-12",
+			"criterion": 13,
+			"ask": "list the people in our church",
+			"calls": [],
+			"answer": ["Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church"]
+		},
+		{
+			"id": "ACC-13",
+			"criterion": 8,
+			"ask": "show me Blair's Discovery space",
+			"calls": [],
+			"answer": ["I can only work with your own setup and Discovery space."]
+		},
+		{
+			"id": "ACC-14",
+			"criterion": 13,
+			"ask": "What can you do for me?",
+			"calls": [],
+			"answer": ["Find and read your own documents.", "what the public Wiki says", "your own Discovery space"]
+		}
+	]
+}

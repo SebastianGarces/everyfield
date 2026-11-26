@@ -1,0 +1,72 @@
+{
+	"family": "EVRY-FAMILY-TEAMS",
+	"tested": [
+		{
+			"file": "tests/evry/runtime/cases-family-work.test.mts",
+			"test": "AC:EVRY-FAMILY-TEAMS ",
+			"operations": [
+				"teams.addResponsibility",
+				"teams.aggregateHealth",
+				"teams.appointLeader",
+				"teams.archive",
+				"teams.assignMember",
+				"teams.assignRole",
+				"teams.attestCompletion",
+				"teams.completeResponsibility",
+				"teams.correctProgram",
+				"teams.create",
+				"teams.createProgram",
+				"teams.createRole",
+				"teams.deleteResponsibility",
+				"teams.edit",
+				"teams.editResponsibility",
+				"teams.editRole",
+				"teams.endMembership",
+				"teams.exportOrgChart",
+				"teams.get",
+				"teams.health",
+				"teams.history",
+				"teams.importRoles",
+				"teams.initialize",
+				"teams.leaderCandidates",
+				"teams.list",
+				"teams.listImportTemplates",
+				"teams.listMeetings",
+				"teams.listResponsibilities",
+				"teams.listRoles",
+				"teams.listTraining",
+				"teams.membershipHistory",
+				"teams.offerResponsibilities",
+				"teams.orgChart",
+				"teams.personAssignments",
+				"teams.personTeamCounts",
+				"teams.personTraining",
+				"teams.previewRequiredTrainingParticipants",
+				"teams.previewResponsibilities",
+				"teams.previewTemplateImport",
+				"teams.reactivateMembership",
+				"teams.readRequiredTrainingParticipants",
+				"teams.recompleteTraining",
+				"teams.removeRole",
+				"teams.restore",
+				"teams.retireRole",
+				"teams.revokeCompletion",
+				"teams.scheduleMeeting",
+				"teams.searchMembers",
+				"teams.setRequiredTrainingParticipants",
+				"teams.staffingFacts",
+				"teams.staffingSummary",
+				"teams.trainingHistory",
+				"teams.trainingMatrix"
+			]
+		}
+	],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_internal_producer_or_exact_operator"],
+			"operations": ["teams.assignmentEffects", "teams.leadershipEffects"]
+		}
+	],
+	"withheld": []
+}

@@ -431,7 +431,7 @@
 							},
 							{
 								"file": "tests/integration/followups/followups.test.mts",
-								"name": "AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time"
+								"name": "AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time across both clock changes"
 							}
 						],
 						"cases": ["TARGET-TSK-011", "TARGET-MTG-021"]

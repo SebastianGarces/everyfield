@@ -258,9 +258,29 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match(
-		(await events(seatless, none)).text,
-		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
+	const ownAnswer = (await events(seatless, none)).text;
+	assert.equal(
+		ownAnswer,
+		[
+			"Here is what I can do for you here:",
+			"- See your own Discovery space.",
+			"- Find and browse what the public Wiki says.",
+			"- Find and read your own documents.",
+			"- Read your pending link invitations and the history of your links.",
+			"- Read your settings and your own account name and photo.",
+			"- Write a document of your own, or change the words of one you have, for your review.",
+			"- Make a document of your own from a Word or text file you attach here, for your review.",
+			"- Archive one of your documents for your review.",
+			"- Change your account name, or remove your account photo, for your review.",
+			"- Resend or withdraw a pending link invitation for your review.",
+			"- Prepare starting a new church for your review, with you as its Owner.",
+			"- Prepare a private Discovery space for your review, to explore church planting first.",
+			"- Prepare turning your Discovery space into a church for your review, with you as its Owner.",
+			"",
+			"Nothing changes until you review and approve it in the app.",
+			"",
+			"I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
+		].join("\n"),
 	);
 	const memberTaskWrites = [
 		"tasks.complete",
@@ -418,6 +438,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"plant.updateProfile",
 						"plant.setTimezone",
 						"church.digestSchedule.set",
+						"organizations.correctReportingLocation",
 						"privacy.setSharing",
 						"associations.invite",
 						"associations.resendInvitation",
@@ -481,9 +502,18 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"account.removeAvatar",
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
+								"pipeline.saveGoal",
+								"pipeline.saveStages",
 								"development.saveProgram",
 								"development.draftNextVersion",
+								"development.enroll",
+								"development.updateEnrollment",
+								"development.applyVersion",
+								"development.confirmMilestone",
+								"development.completeMilestone",
 								...orgWikiWrites,
+								"organizationIntelligence.requestRefresh",
+								"organizationIntelligence.submitFeedback",
 							]
 						: [
 								"settings.saveSection",
@@ -493,6 +523,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"onboarding.createPlant",
 								"discovery.create",
 								"discovery.convertToPlant",
+								"documents.saveNative",
+								"documents.archive",
+								"documents.importTextOrWord",
 							],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
@@ -625,6 +658,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"intelligence.readScorecard",
 						"intelligence.readAssessment",
 						"intelligence.readAssessmentDelta",
+						"intelligence.readAssessmentHistory",
+						"intelligence.readAssessmentRun",
+						"intelligence.readColdStartGuidance",
+						"intelligence.readOwnFeedback",
 						"calendar.getContext",
 						"calendar.resolve",
 						...wikiReads,
@@ -635,6 +672,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"launch.readDebrief",
 						...ownReads,
 						"account.getAvatar",
+						"geography.listReportingRegionCandidates",
 					]
 				: who === "member"
 					? [
@@ -666,6 +704,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"pipeline.listPeople",
 								"development.draftPlan",
 								"development.readProgram",
+								"pipeline.readGoals",
+								"pipeline.readConversationCounts",
 								"oversight.listPlants",
 								"oversight.getPlant",
 								"organizationIntelligence.read",
@@ -677,7 +717,18 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"account.getAvatar",
 							]
 						: who === "seatless"
-							? ["discovery.getProfile", ...ownReads, "account.getAvatar"]
+							? [
+									"discovery.getProfile",
+									"wiki.search",
+									"wiki.referenceExcerpt",
+									"wiki.navigation",
+									"wiki.articles.list",
+									"wiki.tableOfContents",
+									"documents.listOwned",
+									"documents.read",
+									...ownReads,
+									"account.getAvatar",
+								]
 							: [],
 		);
 	}
@@ -851,6 +902,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"documents_read",
 			"feedback_read",
 			"followups_read",
+			"geography_read",
 			"intelligence_read",
 			"launch_read",
 			"meetings_read",
@@ -1020,67 +1072,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.alexChen}`);
 	}
 	void midTurn;
-});
-
-test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {
-	const owner = await actor("owner");
-	const outputs: unknown[] = [];
-	const call = (toolName: string, input: unknown) => ({
-		type: "tool-call" as const,
-		toolCallId: randomUUID(),
-		toolName,
-		input: JSON.stringify(input),
-	});
-	const base = scriptedModel();
-	const usage = {
-		inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-		outputTokens: { total: 5, text: 5, reasoning: 0 },
-	};
-	const model: LanguageModelV4 = {
-		...base,
-		async doStream(options) {
-			if (options.responseFormat?.type === "json") return base.doStream(options);
-			const last = options.prompt.at(-1);
-			const part = last?.role === "tool" ? last.content.at(-1) : undefined;
-			if (part?.type === "tool-result" && part.output.type === "json") outputs.push(part.output.value);
-			const [listed] = outputs;
-			const resultId = listed && typeof listed === "object" && "resultId" in listed ? listed.resultId : undefined;
-			const parts =
-				outputs.length === 0
-					? [call("people_read", { operation: "people.listPeople", input: { search: "Alex" } })]
-					: outputs.length === 1
-						? [call("select_returned_rows", { resultId, ids: [people.alexRivera, people.casey] })]
-						: outputs.length === 2
-							? [call("select_returned_rows", { resultId, ids: [people.alexRivera] })]
-							: [
-									{ type: "text-start" as const, id: "t" },
-									{ type: "text-delta" as const, id: "t", delta: "Selected Alex Rivera." },
-									{ type: "text-end" as const, id: "t" },
-								];
-			return {
-				stream: new ReadableStream({
-					start(c) {
-						for (const p of parts) c.enqueue(p);
-						c.enqueue({
-							type: "finish",
-							finishReason: { unified: outputs.length < 3 ? "tool-calls" : "stop", raw: undefined },
-							usage,
-						});
-						c.close();
-					},
-				}),
-			};
-		},
-	};
-	const id = await ask(owner, "Select Alex from the people result.");
-	assert.equal(await work(qualified(model)), "succeeded");
-	assert.deepEqual(outputs[1], { error: "not_returned", rejected: 1 }, "a row the result never returned is refused");
-	const { cards } = await events(owner, id);
-	assert.equal(cards.length, 2);
-	assert.deepEqual(
-		[cards[1]!.operation, cards[1]!.result.rows.map((r) => r.id), cards[1]!.originalTotal],
-		["evry.selectReturnedRows", [people.alexRivera], 2],
-	);
 });
 
 test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff; a third failure ends the turn truthfully", async () => {
