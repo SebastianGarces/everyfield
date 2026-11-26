@@ -7,6 +7,7 @@ import lilies from "./files/lilies.jpg";
 import lupins from "./files/lupins.jpg";
 import marigolds from "./files/marigolds.jpg";
 import meadow from "./files/meadow.jpg";
+import plain from "./files/plain.jpg";
 import poppies from "./files/poppies.jpg";
 import reeds from "./files/reeds.jpg";
 import swirl from "./files/swirl.jpg";
@@ -28,6 +29,7 @@ export const PHOTOS = {
 	wildflowers: { src: wildflowers, pos: "60% 45%" },
 	blossom: { src: blossom, pos: "50% 40%" },
 	meadow: { src: meadow, pos: "40% 50%" },
+	plain: { src: plain, pos: "50% 50%" },
 	marigolds: { src: marigolds, pos: "50% 40%" },
 	lilies: { src: lilies, pos: "50% 45%" },
 	lupins: { src: lupins, pos: "50% 50%" },
@@ -38,4 +40,4 @@ export type PhotoName = keyof typeof PHOTOS;
 
 export type Backdrop = PhotoName;
 
-export type HeroPhoto = "wildflowers" | "bluebells";
+export type HeroPhoto = "wildflowers" | "bluebells" | "blossom";
