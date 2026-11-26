@@ -1520,7 +1520,8 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 9
+		"retry": 10,
+		"reason": "The retry is a people write that runs its statements and then rolls back: a refusal, or the MW-CASE wake cases' fault on its required audit insert. The longest, 10, is the 4Cs createAssessment path that MW-CASE-005 replays and faults."
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
@@ -2246,9 +2247,9 @@
 		"limit": 1
 	},
 	"assessments.job.runNext": {
-		"limit": 19,
+		"limit": 20,
 		"retry": 20,
-		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); on the paid model (D92) each dispatch also reserves its worst case in model_spend and settles it (2 more, 1 when the call fails or reports its whole reservation); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 19: a capture and three rejected paid drafts. A resumed run skips the capture. The retry is a capture that lost a serialization race with a write to the same church and ran again (at most 3 times), then drafted and published, or a degraded run whose savepoint rolled back when the methodology could not be read. Its largest first run: 4 transaction, 3 read, 12 write.",
+		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); on the paid model (D92) each dispatch also reserves its worst case in model_spend and settles it (2 more, 1 when the call fails or reports its whole reservation); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 20: a capture, two rejected paid drafts and a third that passes, so the recheck and the publication follow. A resumed run skips the capture. The retry is a capture that lost a serialization race with a write to the same church and ran again (at most 3 times), then drafted and published, or a degraded run whose savepoint rolled back when the methodology could not be read. Its largest first run: 4 transaction, 4 read, 12 write.",
 		"repeats": "The claim fence runs before each provider dispatch, and on the paid model each dispatch reserves and settles model_spend: a capture and at most three drafts, so up to four, bounded by the draft limit, not by rows."
 	},
 	"assessments.listRunsForReview": {
@@ -2346,7 +2347,8 @@
 	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
 		"limit": 5,
-		"retry": 3
+		"retry": 5,
+		"reason": "The retry is a refused refresh: a run id another organization holds reads the shared people, tries the insert and rolls back as a conflict, so it sends the full five statements."
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {
 		"limit": 5,
