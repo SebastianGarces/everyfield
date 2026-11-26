@@ -1,6 +1,5 @@
 const REPOSITORY = 'SebastianGarces/everyfield';
 const DEPLOY_WORKFLOW = 'deploy-production.yml';
-const VERCEL_CLI = 'vercel@65.11.0';
 const SHA = /^[0-9a-f]{40}$/;
 const DEPLOY_JOB_TIMEOUT_MS = 30 * 60 * 1000;
 const WAIT_MS = DEPLOY_JOB_TIMEOUT_MS + 10 * 60 * 1000;
@@ -8,10 +7,7 @@ const POLL_MS = 30 * 1000;
 const VERCEL_GITHUB_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const BUILDING = new Set(['QUEUED', 'INITIALIZING', 'BUILDING']);
 const ANCESTOR_RUNS = 100;
-
-function promoteCommand(deploymentId, scope) {
-  return ['npx', ['--yes', VERCEL_CLI, 'promote', deploymentId, '--yes', ...(scope ? ['--scope', scope] : [])]];
-}
+const SERVE_WAIT_MS = 5 * 60 * 1000;
 
 async function say(core, line) {
   core.info(line);
@@ -25,13 +21,15 @@ async function fail(core, line) {
 }
 
 function vercelClient(token, scope, fetchImpl) {
-  return async function vercel(path, query = {}) {
+  return async function vercel(path, query = {}, method = 'GET') {
     const url = new URL(path, 'https://api.vercel.com');
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     if (scope) url.searchParams.set('slug', scope);
-    const response = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error(`Vercel API ${url.pathname} returned HTTP ${response.status}`);
-    return response.json();
+    const headers = { Authorization: `Bearer ${token}` };
+    const init = method === 'GET' ? { headers } : { method, headers: { ...headers, 'Content-Type': 'application/json' }, body: '{}' };
+    const response = await fetchImpl(url, init);
+    if (!response.ok) throw new Error(`Vercel API ${method} ${url.pathname} returned HTTP ${response.status}`);
+    return method === 'GET' ? response.json() : undefined;
   };
 }
 
@@ -96,7 +94,16 @@ async function waitForBuild({ github, repo, vercel, projectId, sha, run, sleep, 
   }
 }
 
-module.exports = async function promote({ github, context, core, exec }, options = {}) {
+async function waitUntilServed({ vercel, domain, id, sleep, now, pollMs }) {
+  const deadline = now() + SERVE_WAIT_MS;
+  for (;;) {
+    const served = (await vercel(`/v13/deployments/${encodeURIComponent(domain)}`)).id;
+    if (served === id || now() >= deadline) return served;
+    await sleep(pollMs);
+  }
+}
+
+module.exports = async function promote({ github, context, core }, options = {}) {
   const repo = context.repo;
   if (`${repo.owner}/${repo.repo}` !== REPOSITORY) throw new Error('Unexpected promote repository');
   const env = options.env || process.env;
@@ -160,14 +167,15 @@ module.exports = async function promote({ github, context, core, exec }, options
 
   const { uid: id, url: host } = result.ready;
 
-  const { VERCEL_PROJECT_ID: _refusedByCliWithoutOrgId, ...execEnv } = env;
-  const [command, args] = promoteCommand(id, scope);
   try {
-    await exec.exec(command, args, { env: execEnv });
+    await vercel(`/v10/projects/${encodeURIComponent(projectId)}/promote/${encodeURIComponent(id)}`, {}, 'POST');
   } catch (error) {
-    return fail(core, `vercel promote failed for deployment ${id} (${host}) of ${of}: ${error.message}`);
+    return fail(core, `Promote failed for deployment ${id} (${host}) of ${of}: ${error.message}. Production stays on ${current}.`);
   }
-  await say(core, `Promoted deployment ${id} (${host}) of ${of} to production. It replaced ${current}.`);
+  const served = await waitUntilServed({ vercel, domain, id, sleep, now, pollMs });
+  if (served !== id) {
+    return fail(core, `Vercel accepted the promote of deployment ${id} (${host}) of ${of}, but ${domain} still serves ${served} after ${SERVE_WAIT_MS / 60000} minutes.`);
+  }
+  await say(core, `Promoted deployment ${id} (${host}) of ${of} to production. ${domain} serves it. It replaced ${current}.`);
   return { outcome: 'promoted', sha, built, deployment: id, previous: current };
 };
-module.exports.promoteCommand = promoteCommand;
