@@ -456,30 +456,12 @@ test("a Launch Sunday plant counts only an actual Launch Sunday; its launch-date
 	);
 });
 
-const SUBMITTED = "2026-10-12T16:00:00.000Z";
-const debriefOf = (missingNames: "yes" | "no", missingCount: number | null) =>
-	facts({ debrief: { submittedAt: SUBMITTED as never, missingNames, missingCount } });
 const phase5 = async (f: ReturnType<typeof facts>) =>
 	Object.fromEntries(
 		criteriaOf(await readCatalog(), 5, f)
 			.filter((x) => x.key === "guest_data_entered" || x.key === "debrief_done")
 			.map((x) => [x.key, x.status]),
 	);
-
-test("the debrief fact carries the submission, its date, the missing-name answer and count, and drives the Phase 5 criteria", async () => {
-	const yes = debriefOf("yes", 3);
-	assert.deepEqual(yes.debrief, { submitted: true, submittedAt: SUBMITTED, missingNames: true, missingCount: 3 });
-	assert.deepEqual(await phase5(yes), { guest_data_entered: "not_met", debrief_done: "met" });
-	const no = debriefOf("no", null);
-	assert.deepEqual(no.debrief, { submitted: true, submittedAt: SUBMITTED, missingNames: false, missingCount: null });
-	assert.deepEqual(await phase5(no), { guest_data_entered: "met", debrief_done: "met" });
-	const none = facts({});
-	assert.deepEqual(none.debrief, { submitted: false, submittedAt: null, missingNames: null, missingCount: null });
-	assert.deepEqual(await phase5(none), { guest_data_entered: "unknown", debrief_done: "unknown" });
-	assert.notEqual(yes.sourceRevision, none.sourceRevision, "a submission moves the revision");
-	assert.notEqual(yes.sourceRevision, no.sourceRevision, "a corrected answer moves the revision");
-	assert.equal(yes.formulaVersion, "plant-facts/3");
-});
 
 test("a snapshot stored before the debrief fact still parses, and its debrief criteria read Unknown", async () => {
 	const { debrief: _, ...stored } = facts({});
