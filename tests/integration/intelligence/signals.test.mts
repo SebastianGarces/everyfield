@@ -873,7 +873,10 @@ test("AC:PI-DISC-001 AC:PI-DISC-002 Foundational modules complete needs one curr
 	const B1 = await seated(w1, "admin");
 	assert.equal(await criterion(A1), "not_met", "no lead has read the six yet");
 	const before = await grants();
-	await readAs(A1, Array.from({ length: in1.Owner_A_read }, () => 0.81));
+	await readAs(
+		A1,
+		Array.from({ length: in1.Owner_A_read }, () => 0.81),
+	);
 	assert.equal(in1.ratios_B.length, in1.eligibleLead_B_read);
 	await readAs(B1, in1.ratios_B);
 	const audited = await readAudits(w1);

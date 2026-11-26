@@ -71,7 +71,7 @@ const hard = (level: CareLevel | undefined) => level === "strained" || level ===
 export function supportOf(weeks: readonly CareWeek[]) {
 	const latest = weeks[0]?.ordinal ?? null;
 	const streak = (area: CareArea) => {
-		const run = weeks.findIndex((w, i) => w.ordinal !== latest! - i || !hard(w.answer?.answers[area]));
+		const run = weeks.findIndex((w, i) => w.ordinal !== (latest ?? 0) - i || !hard(w.answer?.answers[area]));
 		return run < 0 ? weeks.length : run;
 	};
 	const streaks = Object.fromEntries(CARE_AREAS.map((area) => [area, streak(area)])) as Record<CareArea, number>;
@@ -85,10 +85,9 @@ export const careTrends = carePage.extend({
 	support: z.strictObject({
 		question: z.boolean(),
 		ordinal: z.int().min(1).nullable(),
-		streaks: z.strictObject(Object.fromEntries(CARE_AREAS.map((area) => [area, z.int().min(0)])) as Record<
-			CareArea,
-			z.ZodInt
-		>),
+		streaks: z.strictObject(
+			Object.fromEntries(CARE_AREAS.map((area) => [area, z.int().min(0)])) as Record<CareArea, z.ZodInt>,
+		),
 	}),
 });
 export type CareTrends = z.infer<typeof careTrends>;
