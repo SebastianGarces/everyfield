@@ -1,3 +1,4 @@
+import "server-only";
 import pg from "pg";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";

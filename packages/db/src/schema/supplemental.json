@@ -5031,13 +5031,6 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "plant_geography",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "plant",
 			"privilege_type": "DELETE"
 		},
@@ -7909,13 +7902,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "plant_geography",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "plant_geography",
 			"privilege_type": "INSERT"
 		},
 		{
@@ -7924,13 +7910,6 @@
 			"kind": "table",
 			"object": "plant_geography",
 			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "plant_geography",
-			"privilege_type": "UPDATE"
 		},
 		{
 			"grantee": "everyfield_runtime",
