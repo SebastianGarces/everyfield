@@ -21,9 +21,11 @@ import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { FEEDBACK_COMMANDS } from "../adapters/feedback/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
+import { OVERSIGHT_COMMANDS } from "../adapters/oversight/commands/index.ts";
 import { LAUNCH_COMMANDS } from "../adapters/launch/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 import { WIKI_COMMANDS } from "../adapters/wiki/commands/index.ts";
+import { worded } from "../catalog/types.ts";
 import { articleLive } from "../conversations/liveness.ts";
 
 export const refusalCode = (code: string) =>
@@ -49,6 +51,7 @@ export const REVIEWED_WRITES = {
 	...WIKI_COMMANDS,
 	...DOCUMENTS_COMMANDS,
 	...LAUNCH_COMMANDS,
+	...OVERSIGHT_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -64,9 +67,9 @@ export const REASON_WRITES = (Object.values(REVIEWED_WRITES) as ReviewedWrite<un
 );
 
 export function allowedWrites(actor: EvryActor, offered: Offered = everyOperation) {
-	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter(
-		(w) => offered(w.operation) && w.allowed(actor),
-	);
+	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[])
+		.filter((w) => offered(w.operation) && w.allowed(actor))
+		.map((w) => worded(actor, w));
 }
 
 export const mine = (actor: EvryActor) =>
@@ -178,6 +181,7 @@ const review = z.strictObject({
 	notes: z.array(z.string()).optional(),
 	earlier: z.array(change).optional(),
 	refusal: z.string().optional(),
+	private: z.literal(true).optional(),
 	withheld: z.literal(true).optional(),
 });
 export const proposalRow = z.strictObject({

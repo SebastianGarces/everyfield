@@ -31,10 +31,3 @@ export async function checkoutClient(db: Database): Promise<{ client: pg.PoolCli
 export function closeDatabase(db: ReturnType<typeof createDatabase>): Promise<void> {
 	return db.$client.end();
 }
-
-let configured: ReturnType<typeof createDatabase> | undefined;
-export function database() {
-	const connectionString = process.env.DATABASE_URL;
-	if (!connectionString) throw new Error("DATABASE_URL is required");
-	return (configured ??= createDatabase({ connectionString, max: 5 }));
-}

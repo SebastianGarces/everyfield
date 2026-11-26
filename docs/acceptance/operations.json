@@ -15,7 +15,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Active account acct-feedback-1 is Owner in Harvest Point. Submit twice with request key fb-1, category bug, description \"Save button stops\", page \"Documents\", address /documents?token=secret#draft, church Harvest Point, role Owner, browser Chrome 130 on macOS, screen 1440 x 900, theme dark, app version v3.0 and server time 2026-10-14T07:00:00Z. Try a screenshot field, another author's status ID and a suspended author.",
       "given": {
         "P": {
@@ -143,7 +146,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Plant Admin tries platform list; platform principal edits status with changed reviewed state, missing row or unchanged value.",
       "given": {
         "P": {
@@ -240,7 +246,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Raw private feedback includes names/tokens/church text and instruction; safe closed category/area; lost GitHub create response then repo config change.",
       "given": {
         "P": {
@@ -350,7 +359,10 @@
       "work_packages": [
         "WP-048"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/dashboard/dashboard.test.mts"
+      ],
       "description": "No-seat Discovery, org seat, unfinished saved onboarding, created Phase 1 with 0/6 and stale browser parameters.",
       "given": {
         "P": {
@@ -448,7 +460,10 @@
       "work_packages": [
         "WP-048"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/dashboard/dashboard.test.mts"
+      ],
       "description": "Seat-person cohort, recruited people, viewer-owned overdue task, another assignee task and old corrected meeting activity.",
       "given": {
         "P": {
@@ -546,7 +561,10 @@
       "work_packages": [
         "WP-097"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/access/early-access-cases.test.mts"
+      ],
       "description": "Approved E3 form fields/phases/results, E4 request/limiter/receipt representation, rate-limit-first duplicate and pending retry, one provider email under concurrent HTTP attempts, safe sixteen-column CSV and strict retention cutoffs.",
       "given": {
         "configuration": {
@@ -2894,7 +2912,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Sustained mail backlog plus due digests across tail tenant; overlapping ticks and stopped handler lease.",
       "given": {
         "P": {
@@ -3025,7 +3046,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Public health with DB down; privileged readiness sees mail lag; error response contains secret canary.",
       "given": {
         "P": {
@@ -3122,7 +3146,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Telemetry sink timeout, malformed/public secret config and private-care/mail/prompt canaries.",
       "given": {
         "P": {
@@ -3262,7 +3289,10 @@
       "work_packages": [
         "WP-022"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Attendance finalization fails audit insert; process crashes after commit before advisory mail wakeup.",
       "given": {
         "P": {
@@ -3427,7 +3457,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Fresh isolated migration replay, changed applied checksum and unknown DB target; later restore uses stale deletion state.",
       "given": {
         "P": {
@@ -3547,7 +3580,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Synthetic demo reset points at shared endpoint despite sentinel; repeated approved reference install with plant fork.",
       "given": {
         "P": {
@@ -3667,7 +3703,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "CI mocked SQL suites pass but real-native run absent; isolated restore ready row lacks bytes.",
       "given": {
         "P": {
@@ -3789,7 +3828,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Preview source/URL mismatches checkout, production secret copied, real sender enabled, unrelated localhost server.",
       "given": {
         "P": {
@@ -3908,7 +3950,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Merged workflow unavailable; safe feedback intake succeeds; legacy private board ID/token config absent.",
       "given": {
         "P": {
@@ -4037,7 +4082,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Script inventory lists readonly and destructive seed; source test file exists but native transaction proof absent.",
       "given": {
         "P": {
@@ -4153,7 +4201,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Legacy catalog probe includes retired tables/helper but no live runtime; new catalog generated.",
       "given": {
         "P": {
@@ -4274,7 +4325,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Expected usage and high retry/backup bytes compared current official prices; no paid approval or actual restore evidence.",
       "given": {
         "P": {
@@ -4421,7 +4475,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Durable native feedback original plus safe automatic public issue and lost external receipt.",
       "given": {
         "P": {
@@ -4481,7 +4538,7 @@
         "state": {},
         "result": {
           "private_original_retained": true,
-          "public_body": "Save failed",
+          "public_body": "A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: <opaque reference>.",
           "publication_status": "unknown",
           "duplicate_issues": 0
         },
@@ -4840,7 +4897,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Existing free development allowance versus proposed recurringpaid monthly usage/recovery/model cost.",
       "given": {
         "P": {
@@ -5090,7 +5150,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "One Next/Neon interactive transaction faults credential/domain claim/grant and rollback; separate migration principal.",
       "given": {
         "A": {
@@ -5210,7 +5273,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Current avatar/person photo/commitment/generated/native/staged file replacement+cleanup race and foreign ID.",
       "given": {
         "P": {
@@ -5348,7 +5414,10 @@
         "WP-079",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Current exact object signed URL then scope revoke, TTL expiry and guessed client key.",
       "given": {
         "P": {
@@ -5471,7 +5540,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Selected vendor names but no actual tier/schedule/retention/key/preview/restore evidence.",
       "given": {
         "P": {
@@ -5585,7 +5657,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Safe closed category/product-area original intake; configured public repo changes after actual issue created.",
       "given": {
         "P": {
@@ -5714,7 +5789,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Original account and another account guessing own status ID; platform admin DTO includes contacts.",
       "given": {
         "P": {
@@ -5806,7 +5884,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Private original has church Harvest Point, role Owner, browser Chrome 130 on macOS, screen 1440 x 900, theme dark, app version v3.0, name/email and token URL. Automatic publication and separately reviewed richer text are attempted.",
       "given": {
         "P": {
@@ -5890,7 +5971,7 @@
       "expected": {
         "state": {},
         "result": {
-          "public_body": "Save failed",
+          "public_body": "A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: <opaque reference>.",
           "private_names_in_public": false,
           "token_in_public": null
         },
@@ -6156,7 +6237,10 @@
         "WP-049",
         "WP-084"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-feedback.test.mts"
+      ],
       "description": "Reviewed Evry feedback carries instruction to code/merge; merged external workflow unavailable.",
       "given": {
         "P": {
@@ -6236,7 +6320,10 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/feedback/feedback-cases.test.mts"
+      ],
       "description": "Description has names, tokens, logs and tool instructions; private dialog details are church Harvest Point, role Owner, browser Chrome 130, screen 1440 x 900, theme dark and app version v3.0. Approved public area is Documents; a second submission has a forged path.",
       "given": {
         "P": {
@@ -6358,7 +6445,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Restricted offline backup candidate validation checks database and exact byte checksums, original subject expiry and key recovery evidence. It cannot certify live provider settings.",
       "given": {
         "candidate": {
@@ -6431,7 +6521,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "Inspect the actual application build and development connection privileges: app-owned auth, interactive PostgreSQL rollback, runtime distinct from migration operator, no separate worker.",
       "given": {
         "execution": {
@@ -6495,7 +6588,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operations-cases.test.mts"
+      ],
       "description": "A registered owning adapter writes source, required history and recorded outcome and advisory job in one real transaction. Failure at a required writer rolls back all writes; success commits one durable intent even without an in-memory wakeup.",
       "given": {
         "execution": {
@@ -6563,7 +6659,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/operator-cases.test.mts"
+      ],
       "description": "Offline evaluation proof inspection distinguishes a declared protocol or test file from executed pinned synthetic evidence. No model call, rollout grant or provider setup follows from missing or failed evidence.",
       "given": {
         "evaluation": {

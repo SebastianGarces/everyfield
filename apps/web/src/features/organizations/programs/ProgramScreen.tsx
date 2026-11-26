@@ -1,7 +1,12 @@
 "use client";
 
 import { counted, dayText } from "@everyfield/contracts/common";
-import { APPLY_VERSION_LIMIT, type ProgramDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
+import {
+	APPLY_VERSION_LIMIT,
+	ENROLLMENT_STATUS,
+	type ProgramDetail,
+	type ProgramVersion,
+} from "@everyfield/contracts/organizations";
 import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -389,7 +394,12 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 										{e.name}
 									</Link>
 									<p className="text-text-2">
-										{[e.cohort, e.stage, `Version ${e.versionNumber}`, e.status === "active" ? null : e.status]
+										{[
+											e.cohort,
+											e.stage,
+											`Version ${e.versionNumber}`,
+											e.status === "active" ? null : ENROLLMENT_STATUS[e.status],
+										]
 											.filter(Boolean)
 											.join(" · ")}
 									</p>

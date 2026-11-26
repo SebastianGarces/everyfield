@@ -30,8 +30,8 @@ function facts(plantId: string, teamId: SQL) {
 			ELSE att.members::float8 / att.roster END AS "attendanceRate",
 		json_build_array(40, 35, 25) AS weights,
 		CASE WHEN coalesce(train.denominator, 0) = 0 OR coalesce(roles.n, 0) = 0 OR coalesce(meetings.n, 0) = 0 THEN NULL
-			ELSE ((train.numerator::float8 / train.denominator) * 40)
-				+ ((coalesce(fill.filled, 0)::float8 / roles.n) * 35)
+			ELSE ((coalesce(fill.filled, 0)::float8 / roles.n) * 40)
+				+ ((train.numerator::float8 / train.denominator) * 35)
 				+ ((CASE WHEN coalesce(att.roster, 0) = 0 THEN 0::float8 ELSE att.members::float8 / att.roster END) * 25)
 			END AS composite,
 		meetings.n AS "windowMeetings", meetings.first AS "windowFrom", meetings.last AS "windowTo"

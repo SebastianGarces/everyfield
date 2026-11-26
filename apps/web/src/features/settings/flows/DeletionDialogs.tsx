@@ -1,6 +1,7 @@
 "use client";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { accountName } from "@everyfield/contracts/identity";
 import {
 	Button,
 	ConfirmDialog,
@@ -14,7 +15,7 @@ import {
 	Input,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import type { DeletionStatus, FlowPort, SectionResult } from "../port";
+import type { DeletionStatus, FlowPort, SectionResult, SettingsViewer } from "../port";
 import { useWrite } from "../save";
 import { SaveError } from "../SaveError";
 import { useFlows } from "../store";
@@ -30,7 +31,7 @@ const WORKSPACE_CONSEQUENCES = [
 	"People, meetings, tasks, documents and files are hidden right away. Connected organizations stop seeing what you shared.",
 	"You can cancel for 30 days. After that, the church's data is deleted. Backup copies expire within 7 days after the deletion finishes.",
 	"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.",
-	"Each person's own account stays. Their other churches and organizations are not touched.",
+	"Each person's own login stays. Their other churches and organizations are not touched.",
 ];
 
 export function WorkspaceDeletionDialog({
@@ -70,15 +71,15 @@ export function WorkspaceDeletionDialog({
 		<Dialog open={open} onOpenChange={change}>
 			<DialogTrigger asChild>
 				<Button variant="danger" size="sm" icon={Delete02Icon}>
-					Delete church workspace
+					Delete church plant account
 				</Button>
 			</DialogTrigger>
 			<DialogContent size="sm" role="alertdialog">
 				<DialogHeader
 					icon={Delete02Icon}
 					tone="magenta"
-					title={`Delete ${name}?`}
-					description="This deletes the church workspace for everyone, not only your account."
+					title={`Delete ${name}'s account?`}
+					description="This permanently deletes your church plant account and everything in it."
 				/>
 				<DialogBody className="flex flex-col gap-4">
 					<ul className="flex flex-col gap-2 rounded-md bg-surface px-5 py-4 text-text-2">
@@ -96,10 +97,10 @@ export function WorkspaceDeletionDialog({
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" onClick={() => change(false)} disabled={write.pending}>
-						Keep the workspace
+						Keep the account
 					</Button>
 					<Button variant="danger" onClick={confirm} loading={write.pending} disabled={!matches}>
-						Delete workspace
+						Delete account
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -109,14 +110,20 @@ export function WorkspaceDeletionDialog({
 
 export function AccountDeletionDialog({
 	section,
+	viewer,
 	onRequested,
 }: {
 	section: AccountSection;
+	viewer: SettingsViewer;
 	onRequested: (status: DeletionStatus | null) => void;
 }) {
 	const port = useFlows();
 	const [open, setOpen] = useState(false);
 	const write = useWrite("account-deletion");
+	const stays =
+		viewer.context === "account"
+			? null
+			: accountName(viewer.context === "plant" ? "plant" : viewer.organization.organizationKind);
 	return (
 		<ConfirmDialog
 			open={open}
@@ -128,7 +135,7 @@ export function AccountDeletionDialog({
 			}
 			tone="danger"
 			title="Delete your account?"
-			description={`This deletes the login for ${section.email}. Your church workspace stays.`}
+			description={`This deletes the login for ${section.email}.${stays ? ` Your ${stays} stays.` : ""}`}
 			consequences={[
 				"You are signed out on every device at once.",
 				"Records you added for your church, such as people, notes and documents, stay with the church. Your name on them is removed.",

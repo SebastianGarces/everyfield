@@ -16,7 +16,7 @@
 		"typecheck": "node tools/ci/typecheck.ts",
 		"typecheck:bun": "node tools/ci/typecheck.ts typecheck:bun",
 		"typecheck:tools": "node tools/ci/typecheck.ts typecheck:tools -p tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json tests/evry/tsconfig.json tests/integration/tsconfig.json",
-		"access:export": "pnpm --filter @everyfield/db export",
+		"access:export": "pnpm --filter @everyfield/domain access:export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
 		"test:early-access": "pnpm --filter @everyfield/domain test",
 		"test:workflow": "node scripts/test-workflow.mjs",

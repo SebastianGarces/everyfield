@@ -41,26 +41,30 @@ import {
 	proposalForModel,
 	refusalForModel,
 	resultForModel,
+	reviewsRead,
 } from "../../../packages/evry/src/runtime/tools.ts";
-import { prepareProposal, type Proposal as Prepared } from "../../../packages/evry/src/proposals/store.ts";
+import { readNotes, updateNotes } from "../../../packages/evry/src/conversations/notes.ts";
+import {
+	cancelProposal,
+	prepareProposal,
+	type Proposal as Prepared,
+} from "../../../packages/evry/src/proposals/store.ts";
 import { REVIEW_MINUTES } from "../../../packages/evry/src/proposals/review.ts";
 import {
+	conversationState,
 	createConversation,
+	readReviews,
 	submitTurn,
 	type ConversationEvent,
 } from "../../../packages/evry/src/conversations/store.ts";
 import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
+import type { PipelineName } from "./pipeline-church.mts";
+import { nativePorts } from "./settings-ports.mts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
-import {
-	CONNECTION_READS,
-	SEAT_READS,
-	SETTINGS_COMMANDS,
-	SETTINGS_READS,
-	SHARING_READS,
-} from "../../../packages/evry/src/adapters/settings/index.ts";
+import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
 import { DASHBOARD_READS } from "../../../packages/evry/src/adapters/dashboard/reads/index.ts";
@@ -70,58 +74,62 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
-import { PEOPLE_RECORD_COMMANDS } from "../../../packages/evry/src/adapters/people/commands/records.ts";
 import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
-import { BROWSE_READS } from "../../../packages/evry/src/adapters/wiki/reads/browse.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
+const RECORDED_LAUNCH = new Set([
+	"launch.saveDebriefDraft",
+	"launch.saveDebriefSummaryDraft",
+	"launch.correctGuestAttendance",
+]);
+const RECORDED_SETTINGS = new Set([
+	"settings.saveSection",
+	"associations.resendInvitation",
+	"associations.revokeInvitation",
+	"associations.declineInvitation",
+	"account.removeAvatar",
+	"organizations.correctReportingLocation",
+]);
+const RECORDED_PIPELINE = new Set([
+	"pipeline.readGoals",
+	"pipeline.readConversationCounts",
+	"pipeline.saveGoal",
+	"pipeline.saveStages",
+	"development.enroll",
+	"development.updateEnrollment",
+	"development.applyVersion",
+	"development.confirmMilestone",
+	"development.completeMilestone",
+]);
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
-	...CONNECTION_READS.map((a) => a.operation),
-	...SETTINGS_READS.map((a) => a.operation),
-	...Object.keys(SETTINGS_COMMANDS),
+	...Object.keys(SETTINGS_COMMANDS).filter((op) => !RECORDED_SETTINGS.has(op)),
 	...ONBOARDING_READS.map((a) => a.operation),
 	...Object.keys(ONBOARDING_COMMANDS),
 	...DASHBOARD_READS.map((a) => a.operation),
 	...FEEDBACK_READS.map((a) => a.operation),
 	...Object.keys(FEEDBACK_COMMANDS),
-	...PIPELINE_READS.map((a) => a.operation),
-	...Object.keys(PIPELINE_COMMANDS),
+	...[...PIPELINE_READS.map((a) => a.operation), ...Object.keys(PIPELINE_COMMANDS)].filter(
+		(op) => !RECORDED_PIPELINE.has(op),
+	),
 	...LAUNCH_READS.map((a) => a.operation),
-	...Object.keys(LAUNCH_COMMANDS),
+	...Object.keys(LAUNCH_COMMANDS).filter((op) => !RECORDED_LAUNCH.has(op)),
 	...PLAN_WRITES,
 	...Object.keys(INVITATION_COMMANDS),
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
-	"documents.saveNative",
-	"documents.generate",
-	"documents.templates.contextual",
-	"documents.templates.get",
-	"documents.resolveContext",
-	"documents.preview",
-	"documents.history.list",
-	"documents.history.get",
-	"documents.download",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
-	...BROWSE_READS.map((a) => a.operation),
 	"organizationIntelligence.readHistory",
 	"organizationIntelligence.readLocations",
 	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
-	...Object.keys(PEOPLE_RECORD_COMMANDS),
-	"people.getStatusWarnings",
-	"communication.getDraft",
-	COMPOSE_READS,
-	READ_DRAFT,
-	UPDATE_DRAFT,
-	READ_REVIEW,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
-const SCRIPTED_ONLY = new Set<string>(["documents.importTextOrWord", ...BROWSE_READS.map((a) => a.operation)]);
+const SCRIPTED_ONLY = new Set<string>(["documents.importTextOrWord"]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -150,6 +158,8 @@ async function capped<T>(call: () => PromiseLike<T>): Promise<T> {
 	}
 }
 
+const withoutReasoningBlob = (key: string, value: unknown) => (key === "reasoningEncryptedContent" ? undefined : value);
+
 export const callKey = ({
 	prompt,
 	tools,
@@ -160,7 +170,12 @@ export const callKey = ({
 	providerOptions,
 }: LanguageModelV4CallOptions) =>
 	createHash("sha256")
-		.update(JSON.stringify({ prompt, tools, toolChoice, reasoning, maxOutputTokens, responseFormat, providerOptions }))
+		.update(
+			JSON.stringify(
+				{ prompt, tools, toolChoice, reasoning, maxOutputTokens, responseFormat, providerOptions },
+				withoutReasoningBlob,
+			),
+		)
 		.digest("hex")
 		.slice(0, 16);
 
@@ -194,7 +209,7 @@ function merged(parts: LanguageModelV4StreamPart[]) {
 	return out;
 }
 
-export function recorder(name: string) {
+export function recorder(name: string, selectModel = selectQualifiedModel) {
 	const file = new URL(`${name}.recorded.json`, import.meta.url);
 	let loaded: Recorded | null = (() => {
 		try {
@@ -209,7 +224,7 @@ export function recorder(name: string) {
 	let real: LanguageModelV4 | null = null;
 	function realModel() {
 		if (real) return real;
-		const selected = selectQualifiedModel(process.env);
+		const selected = selectModel(process.env);
 		if (selected.status !== "qualified" || !selected.spend)
 			throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
 		if (loaded && loaded.model !== selected.id)
@@ -303,11 +318,46 @@ export function recorder(name: string) {
 			calls,
 		};
 		for (const call of Object.values(out.calls)) if (call.kind === "stream") call.parts = merged(call.parts);
-		writeFileSync(file, JSON.stringify(out, null, "\t") + "\n");
+		writeFileSync(file, JSON.stringify(out, withoutReasoningBlob, "\t") + "\n");
 		loaded = out;
 		return out.spend;
 	}
 	return { model, save, file: () => loaded };
+}
+
+const UUID = /[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/g;
+const PINNED = "5b6d1f0e-";
+const seedStart = NOW.toISOString().slice(0, 15);
+const SEEDED = new RegExp(`${seedStart}\\d:\\d\\d(?:\\.\\d+)?Z`, "g");
+const SEEDED_TEXT = /(Nov 9, 2026, 9:0)\d(?::\d\d)?( AM)/g;
+const pinnedTimes = (text: string) =>
+	text
+		.replace(SEEDED, `${seedStart}0:00.000Z`)
+		.replace(SEEDED_TEXT, (_, at: string, half: string) => `${at}0:00${half}`);
+function withPinnedSeed(model: LanguageModelV4): LanguageModelV4 {
+	const real: string[] = [];
+	const pinned = (id: string) => {
+		if (id.startsWith(PINNED)) return id;
+		if (!real.includes(id)) real.push(id);
+		return `${PINNED}0000-4000-8000-${(0x900000 + real.indexOf(id)).toString(16).padStart(12, "0")}`;
+	};
+	const pin = (options: LanguageModelV4CallOptions): LanguageModelV4CallOptions => ({
+		...options,
+		prompt: JSON.parse(pinnedTimes(JSON.stringify(options.prompt)).replace(UUID, pinned)),
+	});
+	const unpin = (text: string) => text.replace(UUID, (id) => real.find((r) => pinned(r) === id) ?? id);
+	return {
+		...model,
+		doGenerate: (options) => model.doGenerate(pin(options)),
+		async doStream(options) {
+			const out = await model.doStream(pin(options));
+			const toReal = new TransformStream<LanguageModelV4StreamPart, LanguageModelV4StreamPart>({
+				transform: (part, controller) =>
+					controller.enqueue(part.type === "tool-call" ? { ...part, input: unpin(part.input) } : part),
+			});
+			return { ...out, stream: out.stream.pipeThrough(toReal) };
+		},
+	};
 }
 
 const golden = recorder("golden");
@@ -350,7 +400,7 @@ export const MAIL: MailPort = {
 };
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
-const unrecorded = async () => ({ error: "source_unavailable" });
+const cardId = (n: number) => `5b6d1f0e-0000-4000-8000-${(0x7000 + n).toString(16).padStart(12, "0")}`;
 
 let writing: Promise<unknown> = Promise.resolve();
 function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
@@ -431,9 +481,23 @@ const bytesOf = (f: CaseFile): Uint8Array =>
 						)
 					: new TextEncoder().encode(fill(f.csv ?? ""));
 
+export type Earlier = {
+	notes?: string;
+	cards?: { operation: string; input: unknown; declined?: boolean }[];
+};
+type ConverseOptions = {
+	recordings?: ReturnType<typeof recorder>;
+	mail?: MailPort;
+	earlier?: Earlier;
+	pinIds?: boolean;
+};
+
+export type EvalActor =
+	ActorName | Exclude<PipelineName, "hill"> | "director" | "networkMember" | "otherDirector" | "starter";
+export type EvalChurch = { db: GoldenChurch["db"]; actors: Partial<Record<EvalActor, EvryActor>> };
 export async function converse(
-	church: GoldenChurch,
-	as: ActorName,
+	church: EvalChurch,
+	as: EvalActor,
 	text: string,
 	history: Turn[] = [],
 	attachments: CaseFile[] = [],
@@ -441,14 +505,17 @@ export async function converse(
 	page?: string,
 	offer: readonly string[] = [],
 	repetition = 1,
-	{ recordings = golden, mail = MAIL }: { recordings?: ReturnType<typeof recorder>; mail?: MailPort } = {},
+	{ recordings = golden, mail = MAIL, earlier, pinIds = false }: ConverseOptions = {},
 ): Promise<Conversation> {
 	const { db } = church;
+	const native = nativePorts();
 	const writer = oneWriterAtATime(db);
 	const actor = church.actors[as];
+	if (!actor) throw Error(`no ${as} in this church`);
 	const keys: string[] = [];
 	const inputs: string[] = [];
-	const model = override ?? recordings.model(keys, inputs, repetition);
+	const recordedModel = recordings.model(keys, inputs, repetition);
+	const model = override ?? (pinIds ? withPinnedSeed(recordedModel) : recordedModel);
 	const recorded = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
 	const offered = (op: string) => offer.includes(op) || recorded(op);
 	const catalog = readCatalog(actor, offered);
@@ -475,6 +542,36 @@ export async function converse(
 	);
 	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: bytesOf(f) }));
 	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
+	const conversationFiles = {
+		read: async (id: string) => {
+			const f = files.find((x) => x.id === id);
+			if (!f) throw new EvryRefusal("attachment_elsewhere");
+			return f.bytes;
+		},
+	};
+	let conversation: ReturnType<typeof openConversation> | null = null;
+	const opened = () => (conversation ??= openConversation(writer, actor, files));
+	const shown: string[] = [];
+	const shownAs = (id: string) => {
+		if (!shown.includes(id)) shown.push(id);
+		return cardId(shown.indexOf(id) + 1);
+	};
+	if (earlier) {
+		const open = await opened();
+		if (earlier.notes !== undefined) {
+			const kept = { notes: earlier.notes, expectedRevision: 0 };
+			const saved = await updateNotes(writer, actor, open.lease, open.id, kept);
+			if (saved.status !== "saved") throw Error(`earlier notes ${saved.status}`);
+		}
+		for (const { operation, input, declined } of earlier.cards ?? []) {
+			const call = { operation, input };
+			const card = await prepareProposal(writer, actor, open.lease, open.id, call, mail, native, conversationFiles);
+			if (!card) throw Error(`no earlier card for ${operation}`);
+			shownAs(card.id);
+			if (declined) await cancelProposal(writer, actor, card.id);
+		}
+	}
+	const reviews = earlier?.cards ? ((await conversationState(db, actor, (await opened()).id))?.reviews ?? []) : [];
 	const state = {
 		attachments: files.map((f) => ({
 			id: f.id,
@@ -484,7 +581,7 @@ export async function converse(
 			status: "available" as const,
 			checkedDigest: f.checked ? createHash("sha256").update(f.bytes).digest("hex") : null,
 		})),
-		reviews: [],
+		reviews: reviews.map((r) => ({ ...r, id: shownAs(r.id) })),
 	};
 	const context = compileContext({
 		actor,
@@ -500,13 +597,6 @@ export async function converse(
 		state,
 		settingsGuidance: false,
 	});
-	const conversationFiles = {
-		read: async (id: string) => {
-			const f = files.find((x) => x.id === id);
-			if (!f) throw new EvryRefusal("attachment_elsewhere");
-			return f.bytes;
-		},
-	};
 	let cards = 0;
 	const saved = new Set<ToolCall>();
 	const results = new Map<number, SourceResult>();
@@ -527,7 +617,6 @@ export async function converse(
 		results.set(resultId, result);
 		return resultForModel(resultId, result);
 	};
-	let conversation: ReturnType<typeof openConversation> | null = null;
 
 	const tools = modelTools(
 		actor,
@@ -538,7 +627,7 @@ export async function converse(
 				calls.push(call);
 				const resultId = ++sequence;
 				try {
-					call.result = pinnedAsOf(await invokeRead(db, actor, adapter, input, null, conversationFiles, MAIL));
+					call.result = pinnedAsOf(await invokeRead(db, actor, adapter, input, native, conversationFiles, MAIL));
 					return keep(resultId, call.result);
 				} catch (error) {
 					if (
@@ -578,8 +667,7 @@ export async function converse(
 				if (!admit()) return { error: "tool_budget" };
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
-				const number = proposals.length;
-				const open = await (conversation ??= openConversation(writer, actor, files));
+				const open = await opened();
 				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
 					saved.add(check);
 					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
@@ -593,7 +681,7 @@ export async function converse(
 					open.id,
 					call,
 					mail,
-					null,
+					native,
 					conversationFiles,
 				).catch((error: unknown) =>
 					error instanceof EvryRefusal ? { error: error.code, problem: error.problem } : { error: "unknown" },
@@ -608,13 +696,43 @@ export async function converse(
 				return proposalForModel({
 					...proposal,
 					review: pinnedContactTime(proposal.review, call.input),
-					id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
+					id: shownAs(proposal.id),
 					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
 				});
 			}),
-			readNotes: unrecorded,
-			updateNotes: unrecorded,
-			readReview: unrecorded,
+			readNotes: inOrder(async () => {
+				if (!admit()) return { error: "tool_budget" };
+				calls.push({ operation: READ_DRAFT, input: {} });
+				const found = await readNotes(db, actor, (await opened()).id);
+				if (!found) return { error: "source_unavailable" };
+				const { notes, revision, withheld } = found;
+				return withheld ? { notes: "", revision, withheld } : { notes, revision };
+			}),
+			updateNotes: inOrder(async (call: { notes: string; expectedRevision: number }) => {
+				if (!admit()) return { error: "tool_budget" };
+				const made: ToolCall = { operation: UPDATE_DRAFT, input: call };
+				calls.push(made);
+				const open = await opened();
+				const saved = await updateNotes(writer, actor, open.lease, open.id, call);
+				if (saved.status === "saved") return { revision: saved.revision };
+				made.error = saved.status;
+				if (saved.status === "stale") return { error: "stale_notes", revision: saved.revision };
+				if (saved.status === "too_long") return { error: "notes_too_long", limit: LIMITS.notesChars };
+				return { error: "cancelled" };
+			}),
+			readReview: inOrder(async ({ proposalId }: { proposalId?: string }) => {
+				if (!admit()) return { error: "tool_budget" };
+				const call: ToolCall = { operation: READ_REVIEW, input: proposalId ? { proposalId } : {} };
+				calls.push(call);
+				const asked = proposalId ? (shown.find((_, n) => cardId(n + 1) === proposalId) ?? proposalId) : null;
+				const found = await readReviews(db, actor, (await opened()).id, asked);
+				if (!found) return { error: "source_unavailable" };
+				call.result = reviewsRead(
+					found.total,
+					found.reviews.map((r) => ({ ...r, id: shownAs(r.id) })),
+				);
+				return keep(++sequence, call.result);
+			}),
 		},
 		offered,
 	);
@@ -634,6 +752,8 @@ export async function converse(
 	let failure: unknown = null;
 	for await (const part of run.fullStream) {
 		if (part.type === "text-delta") answer += part.text;
+		else if (part.type === "tool-call" && part.toolName === "compose_reads")
+			calls.push({ operation: COMPOSE_READS, input: part.input });
 		else if (part.type === "error" && !abort.signal.aborted) failure ??= part.error;
 	}
 	if (failure) throw failure;

@@ -127,10 +127,7 @@ async function saveReading(
 						WHEN ${mode} = 'progress' AND ${fraction}::numeric > 0.80 THEN ${fraction}::numeric
 						ELSE NULL END,
 					COALESCE(e.policy_version, 'wiki-reading-v1'),
-					CASE
-						WHEN v.meaningful
-							THEN GREATEST(COALESCE(e.last_read_meaningful_sequence, 0), v.meaningful_sequence)
-						ELSE COALESCE(e.last_read_meaningful_sequence, 0) END,
+					GREATEST(COALESCE(e.last_read_meaningful_sequence, 0), v.meaningful_sequence),
 					CASE WHEN ${mode} = 'bookmark' THEN ${desired}::boolean ELSE COALESCE(e.bookmarked, false) END,
 					COALESCE(e.revision, 1) + CASE WHEN ${mode} = 'bookmark' THEN 1 ELSE 0 END
 				FROM me m
@@ -169,7 +166,6 @@ async function saveReading(
 				(SELECT completed FROM ins) AS completed,
 				(SELECT bookmarked FROM ins) AS bookmarked,
 				(SELECT last_read FROM ins) AS last_read,
-				(SELECT meaningful FROM visible) AS meaningful,
 				(SELECT meaningful_sequence FROM visible) AS visible_sequence,
 				(SELECT bookmarked FROM existing) AS stored_bookmarked,
 				(SELECT revision::text FROM existing) AS stored_revision,
@@ -186,7 +182,6 @@ async function saveReading(
 				completed: z.boolean().nullable(),
 				bookmarked: z.boolean().nullable(),
 				last_read: z.coerce.number().nullable(),
-				meaningful: z.boolean().nullable(),
 				visible_sequence: z.coerce.number().nullable(),
 				stored_bookmarked: z.boolean().nullable(),
 				stored_revision: z.string().nullable(),
@@ -207,8 +202,7 @@ async function saveReading(
 					completed,
 					observedFraction: row.stored_fraction ?? "0",
 					bookmarked: desired,
-					meaningfulUpdateLabel:
-						completed && row.meaningful === true && (row.visible_sequence ?? 0) > (row.stored_last_read ?? 0),
+					meaningfulUpdateLabel: completed && (row.visible_sequence ?? 0) > (row.stored_last_read ?? 0),
 					earnedCreditRetained: completed,
 				}),
 			);
@@ -222,7 +216,7 @@ async function saveReading(
 			completed,
 			observedFraction: row.fraction ?? "0",
 			bookmarked: row.bookmarked === true,
-			meaningfulUpdateLabel: completed && row.meaningful === true && (row.visible_sequence ?? 0) > (row.last_read ?? 0),
+			meaningfulUpdateLabel: completed && (row.visible_sequence ?? 0) > (row.last_read ?? 0),
 			earnedCreditRetained: completed,
 		});
 	});

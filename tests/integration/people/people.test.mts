@@ -1,6 +1,18 @@
 import { fixture, ok, refused, waitingOnLock, type Actor, type Workspace } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { authorityOf, church, noReminders, okWith, plantPerson, reads as read, type Reply } from "./people-support.mts";
+import {
+	authorityOf,
+	church,
+	memoryStorage,
+	noReminders,
+	okWith,
+	plantPerson,
+	reads as read,
+	type Reply,
+} from "./people-support.mts";
+import { frozenClock } from "../../support/test-database.mts";
+import { failingWrite, faulted, recorded, touched, untouched } from "../../support/recorded.mts";
+import { fixture as invitationFixture } from "../identity/invitations-support.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -13,18 +25,56 @@ import { PeopleReadContext, withPeopleWrite, type Context } from "../../../packa
 import { effectiveAdult, effectiveAdultSql, plantTodaySql } from "../../../packages/domain/src/people/adult.ts";
 import {
 	assessments,
+	commitments,
+	peopleMerge,
+	peopleUnmerge,
 	peopleWriter as write,
 	accountPersonProducer as accounts,
 	getAccountLink,
 	readColumnOrders,
 	readPersonPage,
 	personFields as fields,
+	readPersonPhoto,
+	readPersonPhotos,
+	uploadPersonPhoto,
 } from "../../../packages/domain/src/people/index.ts";
 import { gatedTransaction, lockedWrite, nativeWrite } from "../../../packages/domain/src/operations/writes.ts";
+import {
+	createAttendanceWriter,
+	guestsWriter,
+	withMeetingsWrite,
+	type MeetingsContext,
+} from "../../../packages/domain/src/meetings/index.ts";
+import {
+	createTaskWriter,
+	taskReader,
+	withTaskWrite,
+	type TaskContext,
+} from "../../../packages/domain/src/tasks/index.ts";
+import { runDueObjectCleanup } from "../../../packages/domain/src/jobs/object-cleanup.ts";
+import { runDuePurges } from "../../../packages/domain/src/jobs/lifecycle-purge.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
+import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { ownerLabel } from "../../../apps/web/src/features/tasks/model.ts";
 
 const database = await fixture({ prefix: "wp011", max: 6, plant: { timezone: "America/New_York" } });
 const { admin } = database;
 const db = database.pools.runtime;
+const cases = await fixture({
+	prefix: "wp011_cases",
+	max: 6,
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"] },
+	plant: { timezone: "America/Chicago", name: "P" },
+	clock: new Date("2026-10-13T16:00:00Z"),
+});
+const casePools: Partial<typeof cases.pools> & { cleanup?: typeof cases.admin } = cases.pools;
+const caseDb = cases.pools.runtime;
+const P = cases.tenant,
+	Q = await cases.plant({ timezone: "America/New_York", name: "Q" });
+const alexAccount = await cases.actor(P, "admin", { email: "alex@example.test" }),
+	coauthor = await cases.actor(P, "admin"),
+	seatedMember = cases.actors.member,
+	casey = await cases.actor(Q, "admin", { email: "casey@example.test" });
 let queries: string[] = [];
 let beforeSend: ((text: string) => Promise<void>) | null = null;
 
@@ -81,6 +131,7 @@ before(async () => {
 });
 after(async () => {
 	await database.close();
+	await cases.close();
 });
 
 async function seatedReader(role: "owner" | "admin" | "member", selected: Workspace) {
@@ -1970,4 +2021,1420 @@ test("AC:REQ-PPL-026 a derived adult is only an input to a count: the commitment
 	assert.equal(byName["Count Adult No Card"]!.commitment.state, "unknown");
 	assert.equal(byName["Count Adult Launch"]!.commitment.state, "unknown");
 	assert.equal(byName["Count Child Card"]!.adultClassification, "child");
+});
+
+const at = (who: Actor, plant: { id: string } = who === casey ? Q : P) => ({
+	session: who.session,
+	selected: church(plant.id),
+});
+const caseTx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(caseDb, body);
+const caseWrite = async <T,>(who: Actor, body: Parameters<typeof withPeopleWrite<T>>[2]) =>
+	withPeopleWrite(caseDb, await authorityOf(caseDb, who), body);
+const envelope = (expectedRevision: string, input: object) => ({ requestKey: randomUUID(), expectedRevision, input });
+const casePerson = async (displayName: string, extra: object = {}, who = alexAccount) =>
+	ok(
+		await caseWrite(who, (t, c) =>
+			write.createPerson(t, c, { requestKey: randomUUID(), input: { displayName, ...extra } }),
+		),
+	).person;
+const caseRevision = async (id: string) =>
+	(await cases.admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM person WHERE id=${id}::uuid`)).rows[0]!
+		.r;
+async function seedPerson(
+	displayName: string,
+	{ plant = P, stage = "prospect", retired = false, createdAt = "2026-10-01T12:00:00Z", id = randomUUID() } = {},
+) {
+	await cases.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,retired_at,created_at) VALUES(${id},${plant.id},${plant.id},${displayName},'other',
+		${stage},'unknown','unknown',0,${retired ? "retired" : "live"},${retired ? "2026-10-05T12:00:00Z" : null},${createdAt})`);
+	return id;
+}
+async function caseMeeting(plant: { id: string } = P) {
+	const id = randomUUID();
+	await cases.admin.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,
+		resolver_version,status,attendance_revision) VALUES(${id},${plant.id},'vision_meeting','2026-10-12','18:00',
+		'America/Chicago','2026-10-12T23:00:00Z','1','in_progress',1)`);
+	return id;
+}
+const quiet = async () => undefined;
+const attendance = createAttendanceWriter({ reminders: quiet }),
+	tasks = createTaskWriter({ reminders: quiet });
+const revised = async <T,>(
+	personId: string,
+	body: (t: WriteTx, c: PeopleContext, revision: string) => Promise<Reply<T>>,
+) => {
+	const revision = await caseRevision(personId);
+	return caseWrite(alexAccount, (t, c) => body(t, c, revision));
+};
+const meetingWrite = async <T,>(who: Actor, body: (t: WriteTx, c: MeetingsContext) => Promise<T>) =>
+	withMeetingsWrite(caseDb, await authorityOf(caseDb, who), body as never) as Promise<T>;
+const taskWrite = async <T,>(who: Actor, body: (t: WriteTx, c: TaskContext) => Promise<T>) =>
+	withTaskWrite(caseDb, await authorityOf(caseDb, who), body as never) as Promise<T>;
+const personTask = async (personId: string, title: string, due: object = { kind: "undated" }) =>
+	ok(
+		await taskWrite(alexAccount, (t, c) =>
+			tasks.create(t, c, {
+				requestKey: randomUUID(),
+				input: { title, due, relation: { kind: "person", id: personId } },
+			}),
+		),
+	).task;
+const nothing = { audits: [], jobs: [], notices: 0, mail: 0 };
+const refusedUntouched = async (body: () => Promise<{ status: string }>, code = "unavailable") =>
+	refused(await untouched(cases.admin, body), code);
+async function held<T>(
+	start: (t: WriteTx) => Promise<T>,
+	transact: (body: (t: WriteTx) => Promise<T>) => Promise<T> = caseTx,
+) {
+	const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+	const { promise: holding, resolve: ready } = Promise.withResolvers<void>();
+	const first = transact(async (t) => {
+		const value = await start(t);
+		ready();
+		await gate;
+		return value;
+	});
+	await Promise.race([holding, first]);
+	return {
+		async settle<R>(rival: Promise<R>) {
+			assert.ok(await waitingOnLock(caseDb), "the rival waits for the first write");
+			release();
+			return [await first, await rival] as const;
+		},
+	};
+}
+const retireRequest = async (id: string, handoffs: object[] = []) =>
+	envelope(await caseRevision(id), {
+		personId: id,
+		reason: "Moved away",
+		reviewRevision: ok(await caseTx((t) => read.getStatusWarnings(t, at(alexAccount), { personId: id })))
+			.reviewRevision,
+		handoffs,
+	});
+async function retireCase(id: string, handoffs: object[] = []) {
+	const request = await retireRequest(id, handoffs);
+	return ok(await caseWrite(alexAccount, (t, c) => write.retirePerson(t, c, request, noReminders)));
+}
+
+const okList = (reply: Awaited<ReturnType<typeof read.listPeople>>) => ok(reply);
+
+test("AC:TARGET-PPL-001 the 25 tied people who hold both tags page once each, with no retired, foreign, wildcard or one-tag match", async () => {
+	const tag = async (name: string) =>
+		ok(await caseWrite(alexAccount, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name } })))
+			.tag.id;
+	const tags = [await tag("north"), await tag("family")];
+	const assign = (person: string, tagId: string, plant: { id: string } = P) =>
+		cases.admin.execute(sql`INSERT INTO person_tag(person_id,plant_id,tag_id) VALUES(${person},${plant.id},${tagId})`);
+	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
+	for (const [i, id] of ids.entries()) await seedPerson(`%/_ ${i + 1}`, { id });
+	const retired = await seedPerson("%/_ retired", { retired: true }),
+		wildcard = await seedPerson("a/bc", {}),
+		northOnly = await seedPerson("%/_ north only", {}),
+		familyOnly = await seedPerson("%/_ family only", {}),
+		foreign = await seedPerson("%/_ foreign", { plant: Q });
+	for (const id of [...ids, retired, wildcard]) for (const t of tags) await assign(id, t);
+	await assign(northOnly, tags[0]!);
+	await assign(familyOnly, tags[1]!);
+	const request = { search: "%/_", tags, limit: 10 };
+	const list = (extra: object, who = alexAccount) =>
+		caseTx((t) => read.listPeople(t, at(who), { ...request, ...extra } as never));
+	const { added } = await recorded(cases.admin, () =>
+		untouched(cases.admin, async () => {
+			for (const view of ["list", "card", "pipeline"] as const) {
+				const seen: string[] = [];
+				let page: number | null = 1;
+				const sizes: number[] = [];
+				while (page) {
+					const reply: ReturnType<typeof okList> = okList(await list({ view, page }));
+					assert.equal(reply.total, 25);
+					sizes.push(reply.items.length);
+					seen.push(...reply.items.map((p) => p.id));
+					for (const p of reply.items)
+						assert.deepEqual(
+							[p.adultClassification, p.adultClassificationSource, p.birthDate],
+							["unknown", "not_recorded", null],
+						);
+					page = reply.next;
+				}
+				assert.deepEqual(sizes, [10, 10, 5], view);
+				assert.deepEqual(seen, ids, view);
+			}
+		}),
+	);
+	assert.deepEqual(added, nothing);
+	const found = async (extra: object, who = alexAccount) => okList(await list({ limit: 100, ...extra }, who)).items;
+	const idsOf = (items: { id: string }[]) => items.map((p) => p.id).sort();
+	assert.deepEqual(idsOf(await found({ archived: "only" })), [retired]);
+	assert.deepEqual(idsOf(await found({ search: "a/bc" })), [wildcard]);
+	assert.deepEqual(idsOf(await found({ tags: [tags[0]] })), [...ids, northOnly].sort());
+	assert.deepEqual(idsOf(await found({ tags: [tags[1]] })), [...ids, familyOnly].sort());
+	assert.deepEqual(idsOf(await found({ stages: ["leader"] })), []);
+	assert.deepEqual(idsOf(await found({ stages: ["prospect"], adultClassification: "unknown" })), ids);
+	for (const adultClassification of ["adult", "child"]) assert.deepEqual(await found({ adultClassification }), []);
+	assert.deepEqual(idsOf(await found({ tags: [] }, casey)), [foreign]);
+	for (const page of [2, 3]) {
+		assert.ok(okList(await list({ page })).items.length);
+		const crossed = okList(await list({ page }, casey));
+		assert.deepEqual([crossed.items, crossed.total], [[], 0]);
+		await refusedUntouched(() => caseTx((t) => read.listPeople(t, at(casey, P), { ...request, page } as never)));
+	}
+	refused(await list({ cursor: "page-2-of-another-church" }), "invalid_input");
+	refused(await list({ limit: 101 }), "invalid_input");
+});
+
+test("AC:TARGET-PPL-002 a create or edit that names an account, a file, a creator or a background check is refused whole; the same contact without it saves", async () => {
+	const contact = { displayName: "Jamie", city: "Chicago", street: null };
+	const create = (input: object, requestKey: string = randomUUID(), who = alexAccount) =>
+		caseWrite(who, (t, c) => write.createPerson(t, c, { requestKey, input }));
+	const forged: object[] = [
+		{ account: casey.id },
+		{ accountId: casey.id },
+		{ linkedAccountId: casey.id },
+		{ linked_account_id: casey.id },
+		{ creatorId: casey.id },
+		{ createdBy: casey.id },
+		{ photoObjectId: randomUUID() },
+		{ storageKey: `private/${P.id}/${randomUUID()}` },
+		{ tenantId: Q.id },
+		{ backgroundCheck: "passed" },
+		{ background_check: "passed" },
+		{ account: casey.id, background_check: "passed" },
+	];
+	const requestKey = randomUUID();
+	for (const extra of forged)
+		await refusedUntouched(() => create({ ...contact, ...extra }, requestKey), "invalid_input");
+	for (const displayName of ["", "   ", "\t\n"])
+		await refusedUntouched(() => create({ ...contact, displayName }, requestKey), "invalid_input");
+	await refusedUntouched(() => create(contact, requestKey, seatedMember));
+	await refusedUntouched(() => caseTx((t) => write.createPerson(t, at(casey, P), { requestKey, input: contact })));
+	const saved = await touched(cases.admin, () => recorded(cases.admin, () => create(contact, requestKey)));
+	assert.deepEqual(saved.tables, ["audit_event", "people_column", "person", "plant", "record"]);
+	assert.deepEqual(saved.value.added, { ...nothing, audits: ["people.created"] });
+	const person = ok(saved.value.value).person;
+	assert.deepEqual(
+		{ ...person, id: null, createdAt: null },
+		{
+			id: null,
+			createdAt: null,
+			revision: "1",
+			displayName: "Jamie",
+			firstName: null,
+			lastName: null,
+			email: null,
+			phone: null,
+			street: null,
+			city: "Chicago",
+			stateProvince: null,
+			postalCode: null,
+			country: null,
+			owner: { kind: "plant", id: P.id },
+			lifecycle: { state: "live" },
+			stage: "prospect",
+			source: "other",
+			sourceDetails: null,
+			summaryNotes: null,
+			adultClassification: "unknown",
+			adultClassificationSource: "not_recorded",
+			birthDate: null,
+			commitment: { state: "unknown" },
+		},
+	);
+	const stored = (
+		await cases.admin.execute(
+			sql`SELECT tenant_id,linked_account_id,photo_object_id,display_name,street,city FROM person WHERE id=${person.id}::uuid`,
+		)
+	).rows[0];
+	assert.deepEqual(stored, {
+		tenant_id: P.id,
+		linked_account_id: null,
+		photo_object_id: null,
+		display_name: "Jamie",
+		street: null,
+		city: "Chicago",
+	});
+	assert.deepEqual(
+		(
+			await cases.admin.execute(
+				sql`SELECT actor_id,kind FROM audit_event WHERE subject_id=${person.id}::uuid AND action='people.created'`,
+			)
+		).rows,
+		[{ actor_id: alexAccount.id, kind: "create" }],
+	);
+	const patch = (values: object) =>
+		revised(person.id, (t, c, revision) =>
+			write.updatePerson(t, c, envelope(revision, { personId: person.id, patch: values })),
+		);
+	for (const extra of forged) await refusedUntouched(() => patch({ phone: "555-0100", ...extra }), "invalid_input");
+	await refusedUntouched(() => patch({ stage: "leader" }), "invalid_input");
+	await refusedUntouched(() => patch({ displayName: "  " }), "invalid_input");
+	const addressed = ok(await patch({ street: "1 Main St", phone: "555-0100" })).person;
+	assert.deepEqual([addressed.street, addressed.city, addressed.phone], ["1 Main St", "Chicago", "555-0100"]);
+	const cleared = await recorded(cases.admin, () => patch({ street: null }));
+	const kept = ok(cleared.value).person;
+	assert.deepEqual([kept.street, kept.city, kept.phone], [null, "Chicago", "555-0100"]);
+	assert.deepEqual(cleared.added, { ...nothing, audits: ["people.updated"] });
+	assert.deepEqual(
+		ok(await caseTx((t) => read.getActivities(t, at(seatedMember), { personId: person.id }))).items.map((i) =>
+			i.kind === "activity" ? i.action : i.kind,
+		),
+		["updated", "updated", "created"],
+	);
+});
+
+test("AC:TARGET-PPL-002 a Launch guest with one name becomes a prospect from the guest list with no surname, account, commitment or qualification", async () => {
+	const meetingId = await caseMeeting();
+	const guest = (input: object) =>
+		meetingWrite(alexAccount, (t, c) =>
+			guestsWriter.createGuestContact(t, c, { requestKey: randomUUID(), input: { meetingId, ...input } }),
+		);
+	for (const extra of [{ accountId: casey.id }, { backgroundCheck: "passed" }, { storageKey: "private/x" }])
+		await refusedUntouched(() => guest({ displayName: "Jamie", ...extra }), "invalid_input");
+	await refusedUntouched(() => guest({ displayName: "   " }), "invalid_input");
+	const { value, tables } = await touched(cases.admin, () => guest({ displayName: " Jamie " }));
+	assert.deepEqual(tables, ["audit_event", "participation", "people_column", "person", "plant", "record"]);
+	const personId = ok(value).guest.person.personId;
+	const person = plantPerson(await caseTx((t) => read.getPerson(t, at(alexAccount), { personId })));
+	assert.deepEqual(
+		[person.displayName, person.firstName, person.lastName, person.email, person.phone],
+		["Jamie", null, null, null, null],
+	);
+	assert.deepEqual(
+		[person.stage, person.source, person.adultClassification, person.commitment],
+		["prospect", "meeting_guest_list", "unknown", { state: "unknown" }],
+	);
+	assert.deepEqual(ok(await caseTx((t) => getAccountLink(t, at(alexAccount), { personId }))), { status: "unlinked" });
+});
+
+test("AC:WP011-KNOW-069 AC:WP011-KNOW-099 a person saved with one name has nothing else assumed, is saved once, and stays the church's after its author's account is removed", async (t) => {
+	const author = await cases.actor(P, "admin", {
+		email: `author-${randomUUID()}@example.test`,
+		user: { name: "Morgan" },
+	});
+	const request = { requestKey: "WP011-KNOW-099", input: { displayName: "Jamie" } };
+	const create = () => caseWrite(author, (t, c) => write.createPerson(t, c, request));
+	const made = await recorded(cases.admin, create);
+	const { person } = ok(made.value);
+	assert.deepEqual(made.added, { ...nothing, audits: ["people.created"] });
+	assert.deepEqual(ok(await untouched(cases.admin, create)).person, person);
+	const facts = async (who: Actor) => {
+		const read_ = plantPerson(await caseTx((t) => read.getPerson(t, at(who), { personId: person.id })));
+		return {
+			displayName: read_.displayName,
+			adultClassification: read_.adultClassification,
+			commitment: read_.commitment,
+			link: ok(await caseTx((t) => getAccountLink(t, at(who), { personId: person.id }))).status,
+			owner: read_.owner,
+		};
+	};
+	const expected = {
+		displayName: "Jamie",
+		adultClassification: "unknown",
+		commitment: { state: "unknown" },
+		link: "unlinked",
+		owner: church(P.id),
+	};
+	assert.deepEqual(await facts(author), expected);
+	const created = async () =>
+		ok(await caseTx((t) => read.getActivities(t, at(alexAccount), { personId: person.id }))).items.map((item) =>
+			item.kind === "activity" ? [item.action, item.actor] : [],
+		);
+	const attribution = () =>
+		cases.admin
+			.execute(
+				sql`SELECT actor_id,actor_token IS NOT NULL AS scoped FROM audit_event
+				WHERE subject_id=${person.id}::uuid AND action='people.created'`,
+			)
+			.then((r) => r.rows);
+	assert.deepEqual(await attribution(), [{ actor_id: author.id, scoped: true }]);
+	const named = await created();
+	assert.ok(JSON.stringify(named).includes(author.id), JSON.stringify(named));
+
+	const deletion = deletionOperations({
+		queue: (t, i) =>
+			queueJobs(t, [
+				{
+					tenant: i.subject.id,
+					kind: "lifecycle_purge",
+					subject: i.witnessId,
+					key: "purge/" + i.requestId,
+					revision: i.revision,
+					eligibleAt: i.eligibleAt,
+				},
+			]),
+		workspaceNotice: quiet,
+	});
+	const subject = { kind: "account" as const, id: accountId.parse(author.id) };
+	const { r } = (
+		await cases.admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM account WHERE id=${author.id}::uuid`)
+	).rows[0]!;
+	await cases.admin.execute(
+		sql`UPDATE seat SET accepted_at='2026-01-01T00:00:00Z' WHERE account_id=${author.id}::uuid`,
+	);
+	const requested = new Date("2026-09-13T16:00:00Z");
+	t.mock.timers.enable({ apis: ["Date"], now: requested });
+	ok(
+		await frozenClock(cases.admin, cases.schema, requested.toISOString(), () =>
+			caseTx((x) =>
+				deletion.requestAccountDeletion(
+					x,
+					{ session: author.session, selected: subject },
+					envelope(r, { confirmed: true }),
+				),
+			),
+		),
+	);
+	t.mock.timers.setTime(Date.parse("2026-10-13T16:00:00Z"));
+	assert.equal(await runDuePurges(caseDb, casePools.cleanup!, memoryStorage(), 10), 1);
+	t.mock.timers.reset();
+	assert.deepEqual(
+		(
+			await cases.admin.execute(sql`SELECT w.state,(SELECT email FROM auth_user WHERE id=${author.user}::uuid) AS email
+				FROM lifecycle_witness w WHERE opaque_subject_id=${author.id}::uuid`)
+		).rows,
+		[{ state: "purged", email: `removed-${author.id}@removed.invalid` }],
+	);
+	assert.deepEqual(await facts(alexAccount), expected, "the church keeps the person whole");
+	assert.deepEqual(await attribution(), [{ actor_id: null, scoped: true }], "only the church's own token stays");
+	const unnamed = JSON.stringify(await created());
+	for (const gone of [author.id, author.email, "Morgan"]) assert.equal(unnamed.includes(gone), false, gone);
+});
+
+test("AC:WP011-KNOW-098 a guest named at a meeting becomes a person in the same transaction, an existing person is reused when chosen, and a matching name links no account", async () => {
+	const namesake = await cases.actor(P, "member", {
+		email: `jamie-${randomUUID()}@example.test`,
+		user: { name: "Jamie" },
+	});
+	const meetingId = await caseMeeting();
+	const request = {
+		requestKey: "WP011-KNOW-098",
+		input: { meetingId, displayName: "Jamie" },
+	};
+	const guest = () => meetingWrite(alexAccount, (t, c) => guestsWriter.createGuestContact(t, c, request));
+	const named = async () =>
+		(
+			await cases.admin.execute<{ id: string }>(
+				sql`SELECT id FROM person WHERE plant_id=${P.id}::uuid AND display_name='Jamie' AND source='meeting_guest_list'`,
+			)
+		).rows.map((x) => x.id);
+	const before = await named();
+	for (const table of ["participation", "audit_event"]) {
+		await failingWrite(cases.admin, { on: table, event: "INSERT OR UPDATE" }, () =>
+			refusedUntouched(guest, "required_write_failed"),
+		);
+		assert.deepEqual(await named(), before, `a failed ${table} leaves no person`);
+	}
+	const { personId: guestId } = ok(await guest()).guest.person;
+	assert.deepEqual(
+		(await named()).filter((id) => !before.includes(id)),
+		[guestId],
+	);
+	assert.deepEqual(ok(await untouched(cases.admin, guest)).guest.person.personId, guestId);
+	const unlinked = async (id: string) => {
+		const person = plantPerson(await caseTx((t) => read.getPerson(t, at(alexAccount), { personId: id })));
+		assert.deepEqual(
+			[person.displayName, person.source, person.adultClassification, person.commitment],
+			["Jamie", "meeting_guest_list", "unknown", { state: "unknown" }],
+		);
+		assert.deepEqual(ok(await caseTx((t) => getAccountLink(t, at(alexAccount), { personId: id }))), {
+			status: "unlinked",
+		});
+	};
+	await unlinked(guestId);
+
+	const second = await caseMeeting();
+	const people = async () =>
+		(await cases.admin.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM person`)).rows[0]!.n;
+	const held = await people();
+	const invited = ok(
+		await meetingWrite(alexAccount, (t, c) =>
+			guestsWriter.inviteGuest(t, c, {
+				requestKey: randomUUID(),
+				input: { meetingId: second, personId: guestId, inviterPersonId: null },
+			}),
+		),
+	);
+	assert.equal(invited.guest.person.personId, guestId);
+	assert.equal(await people(), held, "the chosen person is reused");
+
+	const direct = await casePerson("Jamie", { source: "meeting_guest_list" });
+	assert.notEqual(direct.id, guestId);
+	for (const id of [direct.id, guestId]) await unlinked(id);
+	assert.deepEqual(
+		(await cases.admin.execute(sql`SELECT count(*)::int AS n FROM person WHERE linked_account_id=${namesake.id}::uuid`))
+			.rows,
+		[{ n: 0 }],
+	);
+});
+
+const presenceOf = async (meetingId: string, personId: string) =>
+	(
+		await cases.admin.execute(
+			sql`SELECT presence FROM participation WHERE meeting_id=${meetingId}::uuid AND person_id=${personId}::uuid`,
+		)
+	).rows.map((r) => r.presence);
+
+test("AC:TARGET-PPL-003 retirement and a check-in race to one order, keep history and duties, and stop every new current reference", async () => {
+	const p = await casePerson("Assigned Alex");
+	const [pastMeeting, lateMeeting, raced] = [await caseMeeting(), await caseMeeting(), await caseMeeting()];
+	const checkIn = (meetingId: string, personId: string) =>
+		meetingWrite(alexAccount, (t, c) =>
+			attendance.checkIn(t, c, { requestKey: randomUUID(), input: { meetingId, personId } }),
+		);
+	ok(await checkIn(pastMeeting, p.id));
+	const note = ok(
+		await revised(p.id, (t, c, revision) =>
+			write.addNote(t, c, envelope(revision, { personId: p.id, body: "Kept note" })),
+		),
+	);
+	const duty = await personTask(p.id, "Call Alex");
+	const handoffs = [{ kind: "needs_owner", dutyId: duty.id, expectedRevision: duty.revision }];
+	const request = await retireRequest(p.id, handoffs);
+	const retiring = await held((t) => write.retirePerson(t, at(alexAccount), request, noReminders));
+	const [retired, late] = await retiring.settle(checkIn(lateMeeting, p.id));
+	assert.deepEqual([ok(retired).person.lifecycle.state, ok(retired).needsOwner], ["retired", [duty.id]]);
+	assert.deepEqual(refused(late, "invalid_subject").details, { personIds: [p.id] });
+	assert.deepEqual(await presenceOf(lateMeeting, p.id), []);
+	assert.deepEqual(await presenceOf(pastMeeting, p.id), ["attended"]);
+	const kept = async () =>
+		(
+			await cases.admin.execute(sql`SELECT (SELECT person_id FROM task WHERE id=${duty.id}::uuid) AS duty,
+			(SELECT status FROM task WHERE id=${duty.id}::uuid) AS status,
+			(SELECT body FROM person_note WHERE id=${note.noteId}::uuid) AS note,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${p.id}::uuid AND action='people.created') AS created`)
+		).rows[0];
+	const history = { duty: p.id, status: "not_started", note: "Kept note", created: 1 };
+	assert.deepEqual(await kept(), history);
+	assert.equal(
+		plantPerson(await caseTx((t) => read.getPerson(t, at(seatedMember), { personId: p.id }))).lifecycle.state,
+		"retired",
+	);
+	const feed = ok(await caseTx((t) => read.getActivities(t, at(seatedMember), { personId: p.id }))).items;
+	assert.deepEqual(
+		feed.map((i) => (i.kind === "activity" ? i.action : i.kind)),
+		["retired", "note", "created"],
+	);
+
+	const other = await casePerson("Attends first"),
+		attending = await casePerson("Checked in while retiring");
+	const retireOther = await retireRequest(attending.id);
+	const entering = await held(
+		(t) =>
+			attendance.checkIn(t, at(alexAccount) as never, {
+				requestKey: randomUUID(),
+				input: { meetingId: raced, personId: attending.id },
+			}),
+		(body) => meetingWrite(alexAccount, body),
+	);
+	const [entered, after] = await entering.settle(
+		caseWrite(alexAccount, (t, c) => write.retirePerson(t, c, retireOther, noReminders)),
+	);
+	ok(entered);
+	refused(after, "conflict");
+	assert.equal((await retireCase(attending.id)).person.lifecycle.state, "retired");
+	assert.deepEqual(await presenceOf(raced, attending.id), ["attended"]);
+
+	const tag = ok(
+		await caseWrite(alexAccount, (t, c) =>
+			fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Retire check" } }),
+		),
+	).tag.id;
+	const head = await casePerson("Household head");
+	const made = ok(
+		await revised(head.id, (t, c, revision) =>
+			fields.createHouseholdWithHead(t, c, envelope(revision, { name: "Head household", headPersonId: head.id })),
+		),
+	);
+	assert.ok(made.result.status === "available");
+	const householdId = made.result.household.id;
+	const references: [string, (id: string) => Promise<{ status: string }>][] = [
+		["invalid_subject", (id) => checkIn(lateMeeting, id)],
+		[
+			"invalid_subject",
+			(id) =>
+				taskWrite(alexAccount, (t, c) =>
+					tasks.create(t, c, {
+						requestKey: randomUUID(),
+						input: { title: "New duty", relation: { kind: "person", id } },
+					}),
+				),
+		],
+		[
+			"unavailable",
+			(id) =>
+				revised(id, (t, c, revision) =>
+					fields.addToHousehold(t, c, envelope(revision, { householdId, personId: id, role: "other" })),
+				),
+		],
+		[
+			"unavailable",
+			(id) =>
+				caseWrite(alexAccount, (t, c) =>
+					fields.assignTag(t, c, { requestKey: randomUUID(), input: { personId: id, tagId: tag } }),
+				),
+		],
+		[
+			"unavailable",
+			(id) =>
+				revised(id, (t, c, revision) => write.addNote(t, c, envelope(revision, { personId: id, body: "Late note" }))),
+		],
+	];
+	for (const [code, refer] of references) {
+		refused(await untouched(cases.admin, () => refer(p.id)), code);
+		ok(await refer(other.id));
+	}
+	const guests = (people: string[]) =>
+		meetingWrite(alexAccount, (t, c) =>
+			guestsWriter.addGuests(t, c, { requestKey: randomUUID(), input: { meetingId: raced, people } }),
+		);
+	const added = ok(await guests([p.id, other.id]));
+	assert.deepEqual([added.notAdded, added.guests.length], [[p.id], 1]);
+	assert.deepEqual(await kept(), history);
+});
+
+test("AC:TARGET-PPL-003 an ordinary retired person is restored once without seat or household; a merged source and a foreign person never are", async () => {
+	const member = await cases.actor(P, "member");
+	const p = await casePerson("Ordinary Alex");
+	await cases.admin.execute(sql`UPDATE person SET linked_account_id=${member.id} WHERE id=${p.id}::uuid`);
+	const made = ok(
+		await revised(p.id, (t, c, revision) =>
+			fields.createHouseholdWithHead(t, c, envelope(revision, { name: "Alex household", headPersonId: p.id })),
+		),
+	);
+	assert.ok(made.result.status === "available");
+	await retireCase(p.id);
+	await cases.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${member.id}`);
+	const restore = async (id: string, who = alexAccount, plant: { id: string } | undefined = undefined) => {
+		const request = envelope(await caseRevision(id), { personId: id });
+		return caseTx((t) => write.restorePerson(t, at(who, plant), request));
+	};
+	await refusedUntouched(() => restore(p.id, seatedMember));
+	await refusedUntouched(() => restore(p.id, casey));
+	await refusedUntouched(() => restore(p.id, casey, P));
+	const foreign = await seedPerson("Foreign retired", { plant: Q, retired: true });
+	await refusedUntouched(() => restore(foreign));
+	refused(
+		await untouched(cases.admin, () =>
+			caseTx((t) => write.restorePerson(t, at(alexAccount), envelope("1", { personId: randomUUID() }))),
+		),
+	);
+	refused(
+		await untouched(cases.admin, () =>
+			caseWrite(alexAccount, (t, c) => write.restorePerson(t, c, envelope("1", { personId: p.id }))),
+		),
+		"conflict",
+	);
+	const { value, added } = await recorded(cases.admin, () =>
+		touched(cases.admin, async () => {
+			const request = envelope(await caseRevision(p.id), { personId: p.id });
+			const first = ok(await caseWrite(alexAccount, (t, c) => write.restorePerson(t, c, request)));
+			assert.deepEqual(ok(await caseWrite(alexAccount, (t, c) => write.restorePerson(t, c, request))), first);
+			return first;
+		}),
+	);
+	assert.deepEqual(added, { ...nothing, audits: ["people.restored"] });
+	assert.deepEqual(value.tables, ["audit_event", "people_column", "person", "plant", "record"]);
+	assert.deepEqual([value.value.outcome, value.value.person.lifecycle.state], ["changed", "live"]);
+	assert.deepEqual(ok(await caseTx((t) => fields.getHousehold(t, at(alexAccount), { personId: p.id }))), {
+		status: "none",
+	});
+	assert.deepEqual(
+		(
+			await cases.admin.execute(sql`SELECT ended_at IS NOT NULL AS ended FROM seat WHERE account_id=${member.id}`)
+		).rows.map((r) => r.ended),
+		[true],
+	);
+
+	const survivor = await casePerson("Survivor Alex"),
+		source = await casePerson("Merged Alex");
+	const review = ok(
+		await caseTx((t) =>
+			peopleMerge.getMergeReview(t, at(alexAccount), { sourceId: source.id, survivorId: survivor.id }),
+		),
+	);
+	const merged = ok(
+		await caseWrite(alexAccount, (t, c) =>
+			peopleMerge.mergePeople(t, c, {
+				requestKey: randomUUID(),
+				input: { sourceId: source.id, survivorId: survivor.id, reviewDigest: review.reviewDigest },
+			}),
+		),
+	);
+	const lifecycle = plantPerson(
+		await caseTx((t) => read.getPerson(t, at(alexAccount), { personId: source.id })),
+	).lifecycle;
+	assert.ok(lifecycle.state === "merged");
+	assert.equal(lifecycle.survivorId, survivor.id);
+	await refusedUntouched(() => restore(source.id), "use_reviewed_unmerge");
+	await refusedUntouched(async () => {
+		const request = await retireRequest(source.id);
+		return caseWrite(alexAccount, (t, c) => write.retirePerson(t, c, request, noReminders));
+	}, "use_reviewed_unmerge");
+	const preview = ok(
+		await caseTx((t) => peopleUnmerge.previewUnmerge(t, at(alexAccount), { mergeId: merged.mergeId })),
+	);
+	ok(
+		await caseWrite(alexAccount, (t, c) =>
+			peopleUnmerge.unmergePeople(t, c, envelope(preview.reviewRevision, { mergeId: merged.mergeId })),
+		),
+	);
+	assert.equal(
+		plantPerson(await caseTx((t) => read.getPerson(t, at(alexAccount), { personId: source.id }))).lifecycle.state,
+		"live",
+	);
+});
+
+test("AC:TARGET-PPL-006 leader back to attendee with a declined duty changes the stage once, leaves the duty needing an owner and the commitment as it was", async () => {
+	const account = await cases.actor(P, "member");
+	const p = await casePerson("Leader Alex", { adultClassification: "adult" });
+	await cases.admin.execute(sql`UPDATE person SET linked_account_id=${account.id} WHERE id=${p.id}::uuid`);
+	ok(
+		await caseWrite(alexAccount, (t, c) =>
+			commitments.createCommitment(t, c, {
+				requestKey: randomUUID(),
+				input: { personId: p.id, kind: "core_group", occurredOn: "2026-10-01" },
+			}),
+		),
+	);
+	const person = async () => plantPerson(await caseTx((t) => read.getPerson(t, at(alexAccount), { personId: p.id })));
+	const request = async (stage: string, handoffs: object[] = [], reason = "Correct actual stage") =>
+		envelope(await caseRevision(p.id), { personId: p.id, stage, reason, handoffs });
+	const change = (input: object, who = alexAccount) =>
+		caseWrite(who, (t, c) => write.changeStatus(t, c, input, noReminders));
+	const skipped = ok(await caseTx((t) => read.getStatusWarnings(t, at(alexAccount), { personId: p.id })));
+	assert.deepEqual(
+		[skipped.warnings, skipped.hardGate],
+		[["assessment_not_recorded", "interview_not_recorded"], false],
+	);
+	ok(await change(await request("prospect")));
+	const toLeader = await recorded(cases.admin, async () => change(await request("leader")));
+	assert.deepEqual(toLeader.added, { ...nothing, audits: ["people.stage_changed"] });
+	assert.equal(ok(toLeader.value).person.stage, "leader");
+	const before = await person();
+	assert.deepEqual([before.commitment.state, before.adultClassification], ["active", "adult"]);
+	const duty = await personTask(p.id, "Open duty");
+	const declined = [{ kind: "needs_owner", dutyId: duty.id, expectedRevision: duty.revision }];
+	const down = await request("attendee", declined);
+	await refusedUntouched(async () => change(await request("attendee")), "conflict");
+	await refusedUntouched(() => change(down, seatedMember));
+	await refusedUntouched(() => caseTx((t) => write.changeStatus(t, at(casey), down, noReminders)));
+	await refusedUntouched(() => change({ ...down, expectedRevision: "1" }), "conflict");
+	await refusedUntouched(() => change({ ...down, input: { ...down.input, stage: "elder" } }), "invalid_input");
+	await refusedUntouched(() => change({ ...down, input: { ...down.input, reason: " " } }), "invalid_input");
+	const moved = await recorded(cases.admin, () => touched(cases.admin, () => change(down)));
+	assert.deepEqual(moved.added, { ...nothing, audits: ["people.stage_changed"] });
+	assert.deepEqual(moved.value.tables, ["audit_event", "people_column", "person", "plant", "record", "task"]);
+	const first = ok(moved.value.value);
+	assert.deepEqual([first.outcome, first.person.stage, first.needsOwner], ["changed", "attendee", [duty.id]]);
+	const again = await recorded(cases.admin, () => untouched(cases.admin, () => change(down)));
+	assert.deepEqual(ok(again.value), first);
+	assert.deepEqual(again.added, nothing);
+	const same = await recorded(cases.admin, async () => change(await request("attendee")));
+	assert.equal(ok(same.value).outcome, "noop");
+	assert.equal(ok(same.value).person.revision, first.person.revision);
+	const moves = (
+		await cases.admin.execute(sql`SELECT before_value->>'stage' AS from, after_value->>'stage' AS to, reason, actor_id,
+			kind FROM audit_event WHERE subject_id=${p.id}::uuid AND action='people.stage_changed' ORDER BY occurred_at,id`)
+	).rows.map((r) => [r.from, r.to, r.reason, r.actor_id, r.kind]);
+	assert.deepEqual(moves.slice(-2), [
+		["leader", "attendee", "Correct actual stage", alexAccount.id, "edit"],
+		[null, null, "Correct actual stage", alexAccount.id, "noop"],
+	]);
+	const feed = ok(await caseTx((t) => read.getActivities(t, at(seatedMember), { personId: p.id }))).items;
+	assert.deepEqual(
+		feed.flatMap((i) => (i.kind === "stage_changed" ? [[i.from, i.to]] : [])),
+		[
+			["leader", "attendee"],
+			["prospect", "leader"],
+			["core_group", "prospect"],
+		],
+	);
+	const after = await person();
+	assert.deepEqual(
+		[after.commitment, after.adultClassification, after.adultClassificationSource],
+		[before.commitment, "adult", "recorded"],
+	);
+	const shown = ok(
+		await caseTx(async (t) => taskReader.get(t, await authorityOf(t, alexAccount), { taskId: duty.id })),
+	);
+	assert.ok(shown.status === "available" && "task" in shown);
+	assert.equal(shown.task.assignees.length, 0);
+	assert.equal(ownerLabel(shown.task.assignees[0] ?? null), "Needs owner");
+	assert.equal(ok(await caseTx((t) => read.getOwnAccountPerson(t, at(account), {}))).status, "linked");
+});
+
+test("AC:TARGET-PPL-006 two stage changes from one reviewed state: the second waits, then is refused with no second history row", async () => {
+	const p = await casePerson("Raced stage");
+	const request = (stage: string) => envelope(p.revision, { personId: p.id, stage, reason: "Reviewed", handoffs: [] });
+	const first = await held((t) => write.changeStatus(t, at(alexAccount), request("attendee"), noReminders));
+	const [won, lost] = await first.settle(
+		caseWrite(coauthor, (t, c) => write.changeStatus(t, c, request("leader"), noReminders)),
+	);
+	assert.equal(ok(won).person.stage, "attendee");
+	refused(lost, "conflict");
+	const { added } = await recorded(cases.admin, async () =>
+		refused(await caseWrite(coauthor, (t, c) => write.changeStatus(t, c, request("leader"), noReminders)), "conflict"),
+	);
+	assert.deepEqual(added, nothing);
+	assert.deepEqual(
+		(
+			await cases.admin.execute(
+				sql`SELECT after_value->>'stage' AS stage,actor_id FROM audit_event WHERE subject_id=${p.id}::uuid AND action='people.stage_changed'`,
+			)
+		).rows,
+		[{ stage: "attendee", actor_id: alexAccount.id }],
+	);
+});
+
+test("AC:TARGET-PPL-007 seven stages fill five columns, only open parent duties warn by the church's day, and a foreign reorder changes nothing", async () => {
+	const ids: Record<string, string> = {};
+	const stages = ["prospect", "attendee", "following_up", "interviewed", "core_group", "launch_team", "leader"];
+	for (const stage of stages)
+		ids[stage] = await seedPerson(`Column ${stage}`, { stage, createdAt: "2026-10-12T12:00:00Z" });
+	const foreign = await seedPerson("Column foreign", { plant: Q, stage: "core_group" }),
+		anchor = await seedPerson("Column foreign anchor", { plant: Q, stage: "core_group" }),
+		gone = await seedPerson("Column retired", { stage: "core_group", retired: true });
+	const board = async (who = alexAccount) =>
+		ok(await caseTx((t) => read.getPipelineData(t, at(who), { search: "Column " })));
+	const columns = async () => (await board()).groups.map((g) => [g.column, g.cards.map((c) => c.person.stage).sort()]);
+	const columnStages = [
+		["prospect", ["prospect"]],
+		["attendee", ["attendee"]],
+		["following_up", ["following_up"]],
+		["interviewed", ["interviewed"]],
+		["core_group", ["core_group", "launch_team", "leader"]],
+	];
+	assert.deepEqual(await columns(), columnStages);
+	const task = {
+		undated: await personTask(ids.prospect!, "Undated"),
+		overdue: await personTask(ids.prospect!, "Overdue", { kind: "local_date", date: "2026-10-12" }),
+		today: await personTask(ids.prospect!, "Due today", { kind: "local_date", date: "2026-10-13" }),
+		complete: await personTask(ids.attendee!, "Done", { kind: "local_date", date: "2026-10-01" }),
+		waived: await personTask(ids.following_up!, "Waived", { kind: "local_date", date: "2026-10-01" }),
+		deleted: await personTask(ids.interviewed!, "Deleted", { kind: "local_date", date: "2026-10-01" }),
+		parent: await personTask(ids.core_group!, "Parent", { kind: "local_date", date: "2026-10-20" }),
+	};
+	const child = ok(
+		await taskWrite(alexAccount, (t, c) =>
+			tasks.createSubtask(t, c, envelope(task.parent.revision, { parentId: task.parent.id, title: "Child" })),
+		),
+	).task;
+	const relate = envelope(child.revision, {
+		taskId: child.id,
+		patch: { relation: { kind: "person", id: ids.launch_team } },
+	});
+	await refusedUntouched(() => taskWrite(alexAccount, (t, c) => tasks.edit(t, c, relate)), "invalid_input");
+	const duties = async (stage: string) => {
+		const card = (await board()).groups.flatMap((g) => g.cards).find((c) => c.person.id === ids[stage]);
+		assert.ok(card);
+		return [
+			card.activeParentDuties.map((d) => [d.id, d.dueOn, d.warning]).sort(),
+			card.coverage,
+			card.inactivity.level,
+		];
+	};
+	for (const name of ["complete", "waived", "deleted"] as const)
+		assert.deepEqual(await duties({ complete: "attendee", waived: "following_up", deleted: "interviewed" }[name]), [
+			[[task[name].id, "2026-10-01", "overdue"]],
+			"covered",
+			"none",
+		]);
+	const one = (id: string, revision: string) => envelope(revision, { taskId: id });
+	ok(await taskWrite(alexAccount, (t, c) => tasks.complete(t, c, one(task.complete.id, task.complete.revision))));
+	ok(await taskWrite(alexAccount, (t, c) => tasks.waive(t, c, one(task.waived.id, task.waived.revision))));
+	ok(await taskWrite(alexAccount, (t, c) => tasks.delete(t, c, one(task.deleted.id, task.deleted.revision))));
+	const { added } = await recorded(cases.admin, () =>
+		untouched(cases.admin, async () => {
+			assert.deepEqual(await duties("prospect"), [
+				[
+					[task.undated.id, null, "missing_due_date"],
+					[task.overdue.id, "2026-10-12", "overdue"],
+					[task.today.id, "2026-10-13", "none"],
+				].sort(),
+				"covered",
+				"none",
+			]);
+			for (const stage of ["attendee", "following_up", "interviewed", "launch_team", "leader"])
+				assert.deepEqual(await duties(stage), [[], "uncovered", "none"], stage);
+			assert.deepEqual(await duties("core_group"), [[[task.parent.id, "2026-10-20", "none"]], "covered", "none"]);
+		}),
+	);
+	assert.deepEqual(added, nothing);
+
+	const seen = async (who = alexAccount) => (await board(who)).groups.find((g) => g.column === "core_group")!.revision;
+	const reorder = (who: Actor, plant: { id: string }, revision: string, personId: string, afterId: string | null) =>
+		caseTx((t) =>
+			write.reorderPipeline(t, at(who, plant), envelope(revision, { column: "core_group", personId, afterId })),
+		);
+	const own = ids.leader!;
+	await refusedUntouched(async () => reorder(alexAccount, Q, await seen(casey), foreign, null));
+	await refusedUntouched(async () => reorder(alexAccount, Q, await seen(casey), foreign, anchor));
+	await refusedUntouched(async () => reorder(alexAccount, P, await seen(), foreign, null));
+	await refusedUntouched(async () => reorder(alexAccount, P, await seen(), own, foreign), "conflict");
+	await refusedUntouched(async () => reorder(alexAccount, P, await seen(), gone, null), "conflict");
+	await refusedUntouched(async () => reorder(alexAccount, P, await seen(), own, gone), "conflict");
+	await refusedUntouched(async () => reorder(casey, P, await seen(), own, null));
+	await refusedUntouched(async () => reorder(seatedMember, P, await seen(), own, null));
+	await refusedUntouched(
+		async () =>
+			caseTx(async (t) =>
+				write.reorderPipeline(t, at(alexAccount), {
+					...envelope(await seen(), {
+						plant: Q.id,
+						columns: ["prospect", "attendee", "contacted", "committed", "leader"],
+					}),
+				}),
+			),
+		"invalid_input",
+	);
+	const stale = await seen();
+	const moved = await recorded(cases.admin, () =>
+		touched(cases.admin, () => reorder(alexAccount, P, stale, own, null)),
+	);
+	ok(moved.value.value);
+	assert.deepEqual(moved.value.tables, ["audit_event", "people_column", "person", "plant", "record"]);
+	assert.deepEqual(moved.added, { ...nothing, audits: ["people.updated"] });
+	assert.equal((await board()).groups.find((g) => g.column === "core_group")!.cards[0]!.person.id, own);
+	await refusedUntouched(() => reorder(alexAccount, P, stale, ids.core_group!, null), "conflict");
+	ok(await reorder(casey, Q, await seen(casey), foreign, anchor));
+	assert.deepEqual(await columns(), columnStages);
+});
+
+test("AC:TARGET-PPL-008 three entries at one instant page once each, and no other author, person or church can edit or delete a note or an event", async () => {
+	const p = await casePerson("Timeline Alex"),
+		other = await casePerson("Another person");
+	const tied = Array.from({ length: 3 }, () => randomUUID())
+		.sort()
+		.reverse();
+	const [a1, a2, a3] = tied as [string, string, string];
+	for (const [id, author] of [
+		[a1, alexAccount.id],
+		[a3, coauthor.id],
+	])
+		await cases.admin.execute(
+			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${id},${P.id},${P.id},${p.id},${author},'Original note.','2026-10-01T12:00:00Z','2026-10-01T12:00:00Z')`,
+		);
+	await cases.admin.execute(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,
+		before_value,after_value,occurred_at,recorded_at) VALUES(${a2},${P.id},${alexAccount.id},'people.stage_changed','edit','person',
+		${p.id},'{"stage":"prospect"}','{"stage":"attendee"}','2026-10-01T12:00:00Z','2026-10-01T12:00:00Z')`);
+	await cases.admin.execute(
+		sql`UPDATE audit_event SET occurred_at='2026-10-01T11:00:00Z' WHERE subject_id=${p.id}::uuid AND action='people.created'`,
+	);
+	const page = async (n: number, who = alexAccount) =>
+		ok(await caseTx((t) => read.getActivities(t, at(who), { personId: p.id, limit: 2, page: n })));
+	const { added } = await recorded(cases.admin, () =>
+		untouched(cases.admin, async () => {
+			for (const who of [alexAccount, coauthor, seatedMember]) {
+				const [first, second] = [await page(1, who), await page(2, who)];
+				const items = [...first.items, ...second.items];
+				assert.deepEqual([first.next, second.next], [2, null]);
+				assert.deepEqual(items.map((i) => i.id).slice(0, 3), [a1, a2, a3]);
+				assert.equal(new Set(items.map((i) => i.id)).size, 4);
+				assert.deepEqual(
+					items.map((i) => i.kind),
+					["note", "stage_changed", "note", "activity"],
+				);
+				assert.deepEqual(
+					items.slice(0, 3).map((i) => [i.occurredAt, i.actor]),
+					[alexAccount, alexAccount, coauthor].map((who) => [
+						"2026-10-01T12:00:00.000Z",
+						{ kind: "current_account", accountId: who.id },
+					]),
+				);
+			}
+		}),
+	);
+	assert.deepEqual(added, nothing);
+	refused(await caseTx((t) => read.getActivities(t, at(casey), { personId: p.id })));
+
+	type Change = { noteId: string; personId?: string; revision?: string; who?: Actor; plant?: { id: string } };
+	const edit = ({ noteId, personId = p.id, revision = "1", who = alexAccount, plant }: Change) =>
+		caseTx((t) =>
+			write.editNote(
+				t,
+				at(who, plant),
+				envelope(revision, { personId, noteId, body: "Changed note.", reason: "Correction" }),
+			),
+		);
+	const remove = ({ noteId, personId = p.id, revision = "1", who = alexAccount, plant }: Change) =>
+		caseTx((t) => write.deleteNote(t, at(who, plant), envelope(revision, { personId, noteId, reason: "Remove" })));
+	const created = (
+		await cases.admin.execute<{ id: string }>(
+			sql`SELECT id FROM audit_event WHERE subject_id=${p.id}::uuid AND action='people.created'`,
+		)
+	).rows[0]!.id;
+	const denied: [Change, string?][] = [
+		[{ noteId: a3 }],
+		[{ noteId: a1, who: coauthor }],
+		[{ noteId: a1, personId: other.id }],
+		[{ noteId: a3, personId: other.id, who: coauthor }],
+		[{ noteId: a2 }],
+		[{ noteId: created }],
+		[{ noteId: randomUUID() }],
+		[{ noteId: a1, who: seatedMember }],
+		[{ noteId: a1, who: casey }],
+		[{ noteId: a1, who: casey, plant: P }],
+		[{ noteId: a1, revision: "2" }, "conflict"],
+	];
+	for (const [change, code] of denied)
+		for (const attempt of [edit, remove]) {
+			const { added } = await recorded(cases.admin, () => refusedUntouched(() => attempt(change), code));
+			assert.deepEqual(added, nothing);
+		}
+	const stored = async (id: string) =>
+		(
+			await cases.admin.execute(
+				sql`SELECT body,revision::text AS revision,author_id,occurred_at='2026-10-01T12:00:00Z' AS kept,removed_at IS NOT NULL AS removed FROM person_note WHERE id=${id}::uuid`,
+			)
+		).rows[0];
+	const original = { body: "Original note.", revision: "1", author_id: coauthor.id, kept: true, removed: false };
+	assert.deepEqual(await stored(a3), original);
+	const blank = envelope("1", { personId: p.id, noteId: a3, reason: "Correction" });
+	for (const body of ["  ", "x".repeat(5001)])
+		await refusedUntouched(
+			() => caseTx((t) => write.editNote(t, at(coauthor), { ...blank, input: { ...blank.input, body } })),
+			"invalid_input",
+		);
+	const edited = await recorded(cases.admin, () => edit({ noteId: a3, who: coauthor }));
+	ok(edited.value);
+	assert.deepEqual(edited.added, { ...nothing, audits: ["people.updated"] });
+	assert.deepEqual(await stored(a3), { ...original, body: "Changed note.", revision: "2" });
+	const audit = async () =>
+		(
+			await cases.admin.execute(sql`SELECT actor_id,before_value,after_value,reason FROM audit_event
+			WHERE subject_id=${p.id}::uuid AND metadata->>'noteId'=${a3} ORDER BY occurred_at,id`)
+		).rows;
+	const correction = {
+		actor_id: coauthor.id,
+		before_value: { body: "Original note." },
+		after_value: { body: "Changed note." },
+		reason: "Correction",
+	};
+	assert.deepEqual(await audit(), [correction]);
+	const removed = await recorded(cases.admin, () => remove({ noteId: a3, revision: "2", who: coauthor }));
+	ok(removed.value);
+	assert.deepEqual(removed.added, { ...nothing, audits: ["people.updated"] });
+	assert.deepEqual(await stored(a3), { ...original, body: "", revision: "3", removed: true });
+	const feed = ok(await caseTx((t) => read.getActivities(t, at(seatedMember), { personId: p.id }))).items;
+	assert.deepEqual(
+		feed.map((i) => [i.id, i.kind]),
+		[
+			[a1, "note"],
+			[a2, "stage_changed"],
+			[a3, "note_removed"],
+			[created, "activity"],
+		],
+	);
+	await refusedUntouched(() => edit({ noteId: a3, revision: "3", who: coauthor }));
+});
+
+test("AC:TARGET-PPL-004 two same-email contacts are never linked for an account: racing accepts make one new linked Person, kept after the seat ends", async (t) => {
+	const f = await invitationFixture();
+	t.after(() => f.close());
+	const s = await f.setup();
+	const context = (a: { session: string }) => ({
+		session: a.session as PeopleContext["session"],
+		selected: church(s.w.id),
+	});
+	const run = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(f.db, body);
+	const contact = async (displayName: string) =>
+		ok(
+			await run((t) =>
+				write.createPerson(t, context(s.sender), {
+					requestKey: randomUUID(),
+					input: { displayName, email: s.recipient.email },
+				}),
+			),
+		).person;
+	const contacts = [await contact("Alex"), await contact("Alex 2")];
+	const alone = { accountId: s.recipient.id, owner: church(s.w.id) };
+	const resolve = () => run((t) => accounts.ensureAccountPerson(t, { ...alone, selection: { kind: "resolve" } }));
+	const asked = await recorded(f.admin, () => touched(f.admin, resolve));
+	const candidates = contacts.map((p) => p.id).sort();
+	assert.deepEqual(ok(asked.value.value), { status: "needs_selection", candidatePersonIds: candidates });
+	assert.deepEqual([asked.value.tables, asked.added], [[], nothing]);
+	const invitation = await f.invitation(s);
+	const { promise: held, resolve: release } = Promise.withResolvers<void>();
+	const { promise: holding, resolve: locked } = Promise.withResolvers<void>();
+	const holder = f.admin.transaction(async (b) => {
+		await b.execute(sql`SELECT 1 FROM account WHERE id=${s.recipient.id}::uuid FOR UPDATE`);
+		locked();
+		await held;
+	});
+	await holding;
+	const accepts = [1, 2].map(() => f.invitations.accept(s.recipient.session, invitation.claim));
+	assert.ok(await waitingOnLock(f.db, { count: 2 }), "both accepts wait");
+	release();
+	await holder;
+	const [first, second] = await Promise.all(accepts);
+	assert.deepEqual(first, second);
+	assert.ok(first!.seat.kind === "plant");
+	const linked = first!.seat.personId,
+		seatId = first!.seat.seatId;
+	const links = async () =>
+		(
+			await f.admin.execute(
+				sql`SELECT id,linked_account_id AS account,state,email,commitment_state AS commitment FROM person WHERE plant_id=${s.w.id}::uuid ORDER BY id`,
+			)
+		).rows;
+	const expected = [
+		...contacts.map((p) => ({
+			id: p.id,
+			account: null,
+			state: "live",
+			email: s.recipient.email,
+			commitment: "unknown",
+		})),
+		{ id: linked, account: s.recipient.id, state: "live", email: null, commitment: "unknown" },
+	].sort((a, b) => (a.id < b.id ? -1 : 1));
+	assert.deepEqual(await links(), expected);
+	const linkAudits = async () =>
+		(
+			await f.admin.execute(
+				sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${linked}::uuid AND action='people.created'`,
+			)
+		).rows[0]!.n;
+	assert.equal(await linkAudits(), 1);
+	const reviewed = (person: Person, account: typeof s.recipient.id) =>
+		run((t) =>
+			accounts.ensureAccountPerson(t, {
+				...alone,
+				accountId: account,
+				selection: {
+					kind: "reviewed_contact",
+					person: { owner: church(s.w.id), personId: person.id, revision: person.revision, state: "live" },
+				},
+			}),
+		);
+	for (const again of [resolve, () => reviewed(contacts[0]!, s.recipient.id)]) {
+		const kept = await recorded(f.admin, () => touched(f.admin, again));
+		assert.deepEqual(ok(kept.value.value), { status: "linked", personId: linked });
+		assert.deepEqual([kept.value.tables, kept.added], [[], nothing]);
+	}
+	const thief = await f.account();
+	const linkedPerson = async () =>
+		plantPerson(await run((t) => read.getPerson(t, context(s.sender), { personId: linked })));
+	const taken = await touched(f.admin, async () => reviewed(await linkedPerson(), thief.id));
+	refused(taken.value);
+	assert.deepEqual(taken.tables, []);
+	const forged = await touched(f.admin, () =>
+		run((t) =>
+			write.createPerson(t, context(s.sender), {
+				requestKey: randomUUID(),
+				input: { displayName: "Forged", accountId: s.recipient.id },
+			}),
+		),
+	);
+	refused(forged.value, "invalid_input");
+	assert.deepEqual(forged.tables, []);
+
+	ok(
+		await run(async (t) =>
+			write.updatePerson(t, context(s.sender), {
+				requestKey: randomUUID(),
+				expectedRevision: (await linkedPerson()).revision,
+				input: { personId: linked, patch: { email: "crm@example.test" } },
+			}),
+		),
+	);
+	const own = () => run((t) => read.getOwnAccountPerson(t, context(s.recipient), {}));
+	assert.deepEqual(ok(await own()), { status: "linked", personId: linked });
+	assert.deepEqual(ok(await run((t) => read.getOwnAccountPerson(t, context(s.sender), {}))), { status: "unlinked" });
+	assert.equal(
+		(await f.admin.execute(sql`SELECT email FROM auth_user WHERE id=${s.recipient.user}`)).rows[0]!.email,
+		s.recipient.email,
+	);
+	await f.seats.remove(
+		await f.actor(s.sender.session),
+		s.w as never,
+		{
+			requestKey: randomUUID(),
+			expectedRevision: "1",
+			input: { seatId, expectedRole: "member", handoffs: [] },
+		},
+		noReminders,
+	);
+	refused(await own());
+	assert.deepEqual(
+		(await links()).find((p) => p.id === linked),
+		{ id: linked, account: s.recipient.id, state: "live", email: "crm@example.test", commitment: "unknown" },
+	);
+	assert.deepEqual(ok(await resolve()), { status: "linked", personId: linked });
+
+	const owned = okWith(
+		await run((t) =>
+			accounts.ensureAccountPerson(t, {
+				accountId: s.sender.id,
+				owner: church(s.w.id),
+				selection: { kind: "first", displayName: "Owner Person" },
+			}),
+		),
+		"linked",
+	).personId;
+	const ownerPerson = async () =>
+		plantPerson(await run((t) => read.getPerson(t, context(s.sender), { personId: owned })));
+	const committed = async () =>
+		ok(await run((t) => read.listPeople(t, context(s.sender), { commitment: "active" }))).items.map((p) => p.id);
+	const bootstrap = await ownerPerson();
+	assert.deepEqual(
+		[bootstrap.stage, bootstrap.adultClassification, bootstrap.commitment],
+		["leader", "unknown", { state: "unknown" }],
+	);
+	assert.deepEqual(await committed(), []);
+	assert.deepEqual((await f.admin.execute(sql`SELECT id FROM commitment`)).rows, []);
+	ok(
+		await run((t) =>
+			commitments.createCommitment(t, context(s.sender), {
+				requestKey: randomUUID(),
+				input: { personId: owned, kind: "core_group", occurredOn: "2026-10-01" },
+			}),
+		),
+	);
+	assert.equal((await ownerPerson()).commitment.state, "active");
+	assert.deepEqual(await committed(), [owned]);
+});
+
+const photoBytes = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
+
+test("AC:TARGET-PPL-005 a person's photo moves to version 2 once, a failed save keeps the old one, and no foreign, retired or stale read gets a photo, key or link", async () => {
+	const storage = memoryStorage();
+	const alex = await create("Photo Alex"),
+		other = await create("Photo Casey");
+	const native = async <T,>(who: Who, body: Parameters<typeof withPeopleWrite<T>>[2]) =>
+		withPeopleWrite(db, await authorityOf(db, actors[who]), body);
+	const photo = (shade: number) => Buffer.concat([photoBytes, Buffer.alloc(shade)]);
+	const stage = async (personId: string, who: Who = 0, byteLength = photoBytes.length) =>
+		native(who, (t, c) =>
+			fields.requestPersonPhotoUpload(t, c, { requestKey: randomUUID(), personId, mime: "image/png", byteLength }),
+		);
+	const upload = async (personId: string, bytes: Buffer = photoBytes) => {
+		const { uploadId } = ok(await stage(personId, 0, bytes.length));
+		return { uploadId, stored: await uploadPersonPhoto(db, storage, ctx(), { uploadId, bytes }) };
+	};
+	const currentRevision = async (id: string) => String(await storedRevision(id));
+	const setRequest = async (personId: string, uploadId: string) => ({
+		requestKey: randomUUID(),
+		expectedRevision: await currentRevision(personId),
+		input: { personId, uploadId },
+	});
+	const set = async (personId: string, uploadId: string) => {
+		const request = await setRequest(personId, uploadId);
+		return native(0, (t, c) => fields.setPersonPhoto(t, c, request));
+	};
+	const shown = (personId: string, who: Who = 1) => tx((t) => fields.getPersonPhoto(t, ctx(who), { personId }));
+	const bytesOf = async (personId: string, versionId: string, who: Who = 1) =>
+		readPersonPhoto(db, storage, ctx(who), { personId, versionId });
+	const reviewer = new PeopleReadContext(await tx((t) => authorityOf(t, actors[1])));
+	const listed = async (personIds: string[]) => ok(await readPersonPhotos(db, reviewer, { personIds })).photos;
+
+	const one = await upload(alex.id);
+	ok(one.stored);
+	ok(await set(alex.id, one.uploadId));
+	const version1 = { status: "available", personId: alex.id, versionId: one.uploadId };
+	assert.deepEqual(ok(await shown(alex.id)), version1);
+	assert.deepEqual(Buffer.from(ok(await bytesOf(alex.id, one.uploadId)).bytes), photoBytes);
+
+	const failed = await (async () => {
+		storage.state.failPuts = true;
+		try {
+			return await upload(alex.id);
+		} finally {
+			storage.state.failPuts = false;
+		}
+	})();
+	refused(failed.stored);
+	const rejectedSet = await touched(admin, () => set(alex.id, failed.uploadId));
+	refused(rejectedSet.value);
+	assert.deepEqual(rejectedSet.tables, []);
+	const two = await upload(alex.id, photo(1));
+	ok(two.stored);
+	await faulted(admin, "audit_event", () => set(alex.id, two.uploadId));
+	assert.deepEqual(ok(await shown(alex.id)), version1);
+	assert.deepEqual(Buffer.from(ok(await bytesOf(alex.id, one.uploadId)).bytes), photoBytes);
+
+	const request = await setRequest(alex.id, two.uploadId);
+	const save = (who: Who = 0, selected: Owner = church(plants[0])) =>
+		tx((t) => fields.setPersonPhoto(t, ctx(who, selected) as never, request));
+	const attempts: (() => Promise<Reply<unknown>>)[] = [
+		() => save(1),
+		() => save(2),
+		() => save(2, church(plants[1])),
+		() => stage(alex.id, 1),
+		() => stage(alex.id, 2),
+	];
+	for (const attempt of attempts) {
+		const denied = await touched(admin, attempt);
+		refused(denied.value);
+		assert.deepEqual(denied.tables, []);
+	}
+	const replaced = await recorded(admin, () =>
+		touched(admin, () => native(0, (t, c) => fields.setPersonPhoto(t, c, request))),
+	);
+	assert.deepEqual(replaced.added, { ...nothing, audits: ["people.updated"], jobs: ["object_cleanup"] });
+	assert.deepEqual(replaced.value.tables, ["audit_event", "job", "person", "plant", "record"]);
+	const saved = ok(replaced.value.value);
+	const version2 = { status: "available", personId: alex.id, versionId: two.uploadId };
+	assert.deepEqual(
+		{ ...saved, receiptId: null },
+		{
+			photo: version2,
+			personRevision: String(BigInt(request.expectedRevision) + 1n),
+			outcome: "changed",
+			receiptId: null,
+		},
+	);
+	const again = await recorded(admin, () =>
+		touched(admin, () => native(0, (t, c) => fields.setPersonPhoto(t, c, request))),
+	);
+	assert.deepEqual([ok(again.value.value), again.value.tables, again.added], [saved, [], nothing]);
+	const versions = (
+		await admin.execute(
+			sql`SELECT after_value->>'photo' AS photo FROM audit_event WHERE subject_id=${alex.id}::uuid AND after_value ? 'photo' ORDER BY occurred_at,id`,
+		)
+	).rows.map((r) => r.photo);
+	assert.deepEqual(versions, [one.uploadId, two.uploadId]);
+	assert.deepEqual(ok(await shown(alex.id)), version2);
+	assert.deepEqual(await listed([alex.id]), [
+		{ personId: alex.id, photo: { kind: "person", personId: alex.id, versionId: two.uploadId } },
+	]);
+	refused(await bytesOf(alex.id, one.uploadId));
+	assert.deepEqual(Buffer.from(ok(await bytesOf(alex.id, two.uploadId)).bytes), photo(1));
+	for (const answer of [saved, await shown(alex.id), await listed([alex.id])]) {
+		const text = JSON.stringify(answer);
+		for (const hidden of ["private/", "http", "storage", "key", "synthetic-only"])
+			assert.equal(text.toLowerCase().includes(hidden), false, text);
+	}
+	const unseen = new PeopleReadContext(await tx((t) => authorityOf(t, actors[2])));
+	for (const selected of [church(plants[0]), church(plants[1])]) {
+		refused(await tx((t) => fields.getPersonPhoto(t, ctx(2, selected), { personId: alex.id })));
+		refused(await readPersonPhoto(db, storage, ctx(2, selected), { personId: alex.id, versionId: two.uploadId }));
+	}
+	assert.deepEqual(ok(await readPersonPhotos(db, unseen, { personIds: [alex.id] })).photos, []);
+	refused(await bytesOf(other.id, two.uploadId));
+	refused(await set(other.id, two.uploadId));
+
+	assert.equal(storage.objects.size, 2);
+	await admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp() WHERE kind='object_cleanup' AND subject_record_id=ANY(${sql.param([failed.uploadId, one.uploadId, two.uploadId])}::uuid[])`,
+	);
+	await runDueObjectCleanup(db, storage, 10);
+	assert.equal(storage.objects.size, 1);
+	assert.deepEqual(
+		(
+			await admin.execute(
+				sql`SELECT id,state FROM file_object WHERE id=ANY(${sql.param([failed.uploadId, one.uploadId])}::uuid[])`,
+			)
+		).rows
+			.filter((r) => r.state === "ready" || r.state === "pending")
+			.map((r) => r.id),
+		[],
+	);
+	assert.deepEqual(Buffer.from(ok(await bytesOf(alex.id, two.uploadId)).bytes), photo(1));
+
+	const gone = await create("Photo retired"),
+		goneUpload = await upload(gone.id),
+		spare = await upload(gone.id);
+	ok(await set(gone.id, goneUpload.uploadId));
+	ok(await bytesOf(gone.id, goneUpload.uploadId));
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: gone.id }))).reviewRevision;
+	const revisionBefore = await currentRevision(gone.id);
+	ok(
+		await native(0, (t, c) =>
+			write.retirePerson(
+				t,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: revisionBefore,
+					input: { personId: gone.id, reason: "Moved away", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+	refused(await shown(gone.id, 0));
+	refused(await bytesOf(gone.id, goneUpload.uploadId, 0));
+	assert.deepEqual(await listed([gone.id]), []);
+	const late = await touched(admin, () => set(gone.id, spare.uploadId));
+	refused(late.value);
+	assert.deepEqual(late.tables, []);
+	refused(await stage(gone.id));
+});
+
+test("AC:TARGET-PPL-005 a merge can take the source's photo and keeps the other, and unmerging gives each person their own photo back", async () => {
+	const storage = memoryStorage();
+	const make = async (name: string, padding: number) => {
+		const p = await create(name);
+		const bytes = Buffer.concat([photoBytes, Buffer.alloc(padding)]);
+		const { uploadId } = ok(
+			await tx((t) =>
+				fields.requestPersonPhotoUpload(t, ctx(), {
+					requestKey: randomUUID(),
+					personId: p.id,
+					mime: "image/png",
+					byteLength: bytes.length,
+				}),
+			),
+		);
+		ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId, bytes }));
+		ok(
+			await withPeopleWrite(db, await authorityOf(db, actors[0]), (t, c) =>
+				fields.setPersonPhoto(t, c, {
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: { personId: p.id, uploadId },
+				}),
+			),
+		);
+		return { id: p.id, uploadId, bytes };
+	};
+	const survivor = await make("Merge survivor", 1),
+		source = await make("Merge source", 2);
+	const photoOf = async (personId: string, versionId: string) => {
+		const reply = await readPersonPhoto(db, storage, ctx(1), { personId, versionId });
+		return reply.status === "ok" ? Buffer.from(reply.value.bytes) : null;
+	};
+	const pair = { sourceId: source.id, survivorId: survivor.id };
+	const review = ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(), pair)));
+	const merged = ok(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, ctx(), {
+				requestKey: randomUUID(),
+				input: { ...pair, reviewDigest: review.reviewDigest, fieldChoices: { photo: "source" } },
+			}),
+		),
+	);
+	const shown = (personId: string) => tx((t) => fields.getPersonPhoto(t, ctx(1), { personId }));
+	assert.deepEqual(ok(await shown(survivor.id)), {
+		status: "available",
+		personId: survivor.id,
+		versionId: source.uploadId,
+	});
+	assert.deepEqual(await photoOf(survivor.id, source.uploadId), source.bytes);
+	assert.equal(await photoOf(survivor.id, survivor.uploadId), null);
+	refused(await shown(source.id));
+	assert.equal(await photoOf(source.id, source.uploadId), null);
+	await admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp() WHERE kind='object_cleanup' AND subject_record_id=ANY(${sql.param([survivor.uploadId, source.uploadId])}::uuid[])`,
+	);
+	await runDueObjectCleanup(db, storage, 10);
+	assert.equal(storage.objects.size, 2);
+	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId: merged.mergeId })));
+	assert.deepEqual([preview.conflicts, preview.fields], [[], ["photo"]]);
+	ok(
+		await tx((t) =>
+			peopleUnmerge.unmergePeople(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: preview.reviewRevision,
+				input: { mergeId: merged.mergeId },
+			}),
+		),
+	);
+	for (const own of [survivor, source]) {
+		assert.deepEqual(ok(await shown(own.id)), { status: "available", personId: own.id, versionId: own.uploadId });
+		assert.deepEqual(await photoOf(own.id, own.uploadId), own.bytes);
+	}
+	assert.equal(await photoOf(survivor.id, source.uploadId), null);
 });

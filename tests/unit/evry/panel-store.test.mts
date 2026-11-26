@@ -67,3 +67,54 @@ test("opening a conversation from History that gets no answer asks to check the 
 	assert.equal(state.problem, "That conversation could not open. Check your connection and try again.");
 	assert.equal(state.chat.conversation?.id, CURRENT);
 });
+
+test("an account with no church attaches Word and text files only: a CSV, photo or PDF says which files fit and is never sent", async () => {
+	const staged: string[] = [];
+	const port = {
+		openLatest: async () => ({ status: "ok", value: { conversation: null } }),
+		createConversation: async () => ({ status: "ok", value: { ...conversation(CURRENT), context: "account" } }),
+		stageAttachment: async (_id: string, name: string) => {
+			staged.push(name);
+			return {
+				status: "ok",
+				value: { attachment: { id: OTHER, name }, upload: { url: "https://files.example.test", headers: {} } },
+			};
+		},
+		putFile: async () => true,
+		stageAvatar: async () => {
+			staged.push("avatar");
+			return null;
+		},
+		heldDraft: () => null,
+		holdDraft: () => {},
+	} as unknown as EvryPort;
+	const store = createEvryPanelStore({ context: "account", port });
+	const add = (...files: File[]) => store.getState().actions.addFiles(files, "documents");
+	for (const file of [
+		new File(["a,b"], "people.csv", { type: "text/csv" }),
+		new File(["x"], "me.png", { type: "image/png" }),
+		new File(["%PDF-"], "letter.pdf", { type: "application/pdf" }),
+	]) {
+		add(file);
+		assert.equal(
+			store.getState().fileNotice,
+			"Evry can take Word (.docx) and text (.txt) files here. Save the file as one of those and attach it again.",
+			file.name,
+		);
+		assert.deepEqual([store.getState().files, store.getState().photo], [[], null], file.name);
+	}
+	add(new File(["hope"], "Hopes.txt", { type: "text/plain" }), new File(["word"], "Call.docx"));
+	for (let n = 0; n < 5; n++) await new Promise((resolve) => setImmediate(resolve));
+	const { files, fileNotice } = store.getState();
+	assert.deepEqual(
+		[files.map((f) => [f.name, f.state]), fileNotice, staged],
+		[
+			[
+				["Hopes.txt", "ready"],
+				["Call.docx", "ready"],
+			],
+			null,
+			["Hopes.txt", "Call.docx"],
+		],
+	);
+});

@@ -30,10 +30,6 @@
 					},
 					"expect": [
 						{
-							"role": "heading",
-							"name": "Your first assessment hasn't been prepared yet"
-						},
-						{
 							"role": "region",
 							"name": "Next steps from your records"
 						},
@@ -121,7 +117,7 @@
 					"id": "cold-start-guidance",
 					"says": "With no assessment yet, the page lists next steps from the church's own records, each a link to where to record it.",
 					"catalog": ["PI-034"],
-					"operations": [],
+					"operations": ["intelligence.readColdStartGuidance"],
 					"proof": {
 						"tests": [
 							{
@@ -141,8 +137,7 @@
 								}
 							]
 						}
-					},
-					"noOperation": "no code is named intelligence.readColdStartGuidance; the page builds its next steps from the facts it reads"
+					}
 				}
 			]
 		},

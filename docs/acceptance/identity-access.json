@@ -22,7 +22,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; zero affiliations. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -131,7 +134,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one sending church. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -251,7 +257,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one network. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -371,7 +380,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one of each. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -500,7 +512,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two sending churches. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -629,7 +644,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two networks. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -758,7 +776,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; pending requests. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -875,7 +896,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; concurrent distinct org approvals. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1064,7 +1088,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; duplicate same org approval. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1225,7 +1252,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end one affiliation. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1371,7 +1401,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; plant Owner or ordinary accepted Admin request, exact org Owner/Admin approval. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1531,7 +1564,10 @@
       "work_packages": [
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; Discovery conversion. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1687,7 +1723,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; parent network auto access. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1820,7 +1859,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; precise termination roles. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -1966,7 +2008,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; automatic replacement or ending other links. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2112,7 +2157,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing plant consent. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2266,7 +2314,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing exact org approval. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2402,7 +2453,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one exact org Admin approves. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2563,7 +2617,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign org Admin or unrelated affiliates veto. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2709,7 +2766,11 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts",
+        "tests/unit/organizations/end-dialog.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; authorized own-link end. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -2855,7 +2916,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end foreign link. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3001,7 +3065,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; no surviving valid access path. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3133,7 +3200,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; surviving approved affiliation or independent grant. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3281,7 +3351,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end linkage. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3456,7 +3529,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notice transport failure. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3608,7 +3684,11 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts",
+        "tests/integration/target/wp-056/link-end.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; replay stale read. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3760,7 +3840,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new approved org. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -3920,7 +4003,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new applicable sharing categories. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4091,7 +4177,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org A OFF org B ON. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4261,7 +4350,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; change org A. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4404,7 +4496,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end org A. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4551,7 +4646,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notification policy changed before dispatch. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4703,7 +4801,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; ended before notification. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -4855,7 +4956,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign recipient or tampered org settings URL. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5000,7 +5104,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; private checkin or org Admin interview request. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5157,7 +5264,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; planter differs from workspace Owner. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5313,7 +5423,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new source boolean or inactive finance/facilities. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5484,7 +5597,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; portfolio same plant through multiple affiliations. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5641,7 +5757,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end sending church with separately recognized network. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5788,7 +5907,10 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org Admin tries another organization policy or plant private fields. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
@@ -5937,7 +6059,10 @@
         "WP-010",
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Change church Chicago→Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
       "given": {
         "P": {
@@ -6055,7 +6180,10 @@
         "WP-010",
         "WP-043"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/zone-history.test.mts"
+      ],
       "description": "Church zone edit after saved past meeting/history and prior assessment with `asOf`/zone.",
       "given": {
         "P": {
@@ -6161,7 +6289,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "LocalDate 2026-10-13 task remains same text while zone change previews different future UTC boundary.",
       "given": {
         "P": {
@@ -6268,7 +6399,10 @@
         "WP-010",
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Two reviewed-state zone edits; same-zone retry and failure before replanning-intent insert.",
       "given": {
         "P": {
@@ -6439,7 +6573,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Personal author zone Auckland and church zone Chicago; change church only.",
       "given": {
         "P": {
@@ -6532,7 +6669,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "No personal timezone stored; device and church differ and client supplies inferred UTC.",
       "given": {
         "P": {
@@ -6624,7 +6764,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Answered stable private week; edit personal zone twice without saving answer.",
       "given": {
         "P": {
@@ -6721,7 +6864,10 @@
       "work_packages": [
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/outcome.test.mts"
+      ],
       "description": "Inspect selected automatic resolver/viewport engineering attribution and current approved Launch contracts.",
       "given": {
         "P": {
@@ -6824,7 +6970,10 @@
       "operation_ids": [
         "maintenance.purgeEligibleSubject"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/purge-subject.test.mts"
+      ],
       "description": "Account A request R is at deadline; plant P request S is 1 second before deadline; plant Q was canceled; account B independent. R owns privateCare bytes and account-native document but shares plant-owned ordinary history; object delete for R times out after DB chunk commit.",
       "given": {
         "P": {
@@ -7090,7 +7239,10 @@
       "operation_ids": [
         "maintenance.restoreWithCurrentManifest"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-manifest.test.mts"
+      ],
       "description": "Encrypted yesterday DB+byte manifest has A active, while current witness says A purged and copies expire today; P pending deletion and affiliation X revoked; provider journal says sendE accepted-unknown and scheduledF canceled. Isolated target normal jobs/mail/issue publishers disabled.",
       "given": {
         "P": {
@@ -7431,7 +7583,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Plant linked directly to org-A and org-B; unprivileged source helper has no actor; org-A Admin has exact current seat",
       "given": {
         "P": {
@@ -7652,7 +7807,11 @@
         "WP-007",
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/integration/organizations/profile.test.mts"
+      ],
       "description": "Same-org Owner/Admin/Member and foreign-org Admin edit name/contact/profile and attempt kind/billing/transfer fields.",
       "given": {
         "P": {
@@ -7893,7 +8052,10 @@
         "WP-008",
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "Plant linked to sending S and network N; S Owner/Admin ends S only, races/retries and transport notice fails.",
       "given": {
         "P": {
@@ -8012,7 +8174,12 @@
         "WP-030",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts",
+        "tests/integration/target/wp-056/link-end.test.mts",
+        "tests/integration/oversight/oversight.test.mts"
+      ],
       "description": "End S while independent N survives; requery directory/health/notifications/Wiki and cached bodies.",
       "given": {
         "P": {
@@ -8123,7 +8290,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Owner O differs from ordinary recorded lead Person L; absent lead and multiple ordinary role candidates.",
       "given": {
         "P": {
@@ -8224,7 +8394,10 @@
         "WP-093",
         "WP-096"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Inspect directory lead projection for account IDs/contact/care and inspect organization intelligence input.",
       "given": {
         "P": {
@@ -8334,7 +8507,10 @@
         "WP-050",
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Personal deletion by original account with private care/avatar/account-owned files plus church-owned documents/records.",
       "given": {
         "P": {
@@ -10093,7 +10269,10 @@
         "WP-051",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/execution/roles.test.mts"
+      ],
       "description": "Plant A Owner O/Admin A/Member M, foreign Owner F and revoked A repeat routine native/Evry administration.",
       "given": {
         "P": {
@@ -10428,7 +10607,11 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/evry/execution/roles.test.mts"
+      ],
       "description": "O/A/M and CRM-only lead L request Plant A deletion; O confirms exact workspace with fresh proof; ask to delete another login.",
       "given": {
         "P": {
@@ -10649,7 +10832,10 @@
         "WP-009",
         "WP-011"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Owner bootstrap races two requests against one linked Person, then response loss and retry.",
       "given": {
         "P": {
@@ -10762,7 +10948,10 @@
       "work_packages": [
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Owner answers yes with ordinary lead role/container absent, then present; occupied optional Senior Pastor role and unrelated templates exist.",
       "given": {
         "P": {
@@ -10854,7 +11043,10 @@
         "WP-009",
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Owner answers no or skips, later edits ordinary ministry lead title.",
       "given": {
         "P": {
@@ -10997,7 +11189,10 @@
         "WP-008",
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/execution/roles.test.mts"
+      ],
       "description": "Linked lead Member, unlinked lead contact and pending/revoked Admin invite each attempt administration.",
       "given": {
         "P": {
@@ -11275,7 +11470,10 @@
       "work_packages": [
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "Separate operating lead accepts addressed ordinary Admin invitation, racing revoke and retry.",
       "given": {
         "P": {
@@ -11397,7 +11595,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Remove/change lead title while account seat, private answers and required meeting work exist.",
       "given": {
         "P": {
@@ -11484,7 +11685,10 @@
       "work_packages": [
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "Admin removes ordinary Admin/Member, targets actual Owner, self-promotes Member and races target-role revision.",
       "given": {
         "P": {
@@ -11611,7 +11815,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Two current Admin authors; guess another author ID through native create/read/correct/history/trend/support.",
       "given": {
         "P": {
@@ -11713,7 +11920,10 @@
         "WP-015",
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Merge/relink Persons and edit title/seat role with account-authored private weeks and histories present.",
       "given": {
         "P": {
@@ -11810,7 +12020,12 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/private-items.test.mts",
+        "tests/integration/target/wp-056/private-counts.test.mts",
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Private-answer canary plus history/week/nudge canaries; inspect every tool/context/model/log/eval/email/org/PI projection.",
       "given": {
         "P": {
@@ -11907,7 +12122,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Single eligible reader ratios 0.80/0.8001; Owner 0/6, accepted Admin lead 6/6; two eligible readers each disjoint 3/6.",
       "given": {
         "P": {
@@ -12066,7 +12284,11 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts",
+        "tests/integration/phases/phases.test.mts"
+      ],
       "description": "Create church at 0/6 reading with no lead title and a different reader’s progress; retry after later phase transition.",
       "given": {
         "A": {
@@ -12155,7 +12377,10 @@
       "work_packages": [
         "WP-023"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/followups/followups.test.mts"
+      ],
       "description": "Finalize Vision with no lead title or eligible selected assignee, including zero attendees.",
       "given": {
         "P": {
@@ -12247,7 +12472,11 @@
         "WP-043",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/roles-authority.test.mts",
+        "tests/evry/execution/roles.test.mts"
+      ],
       "description": "Plant Admin/lead attempts org/global/platform actions; exact org Owner/Admin approves its own relationship/category.",
       "given": {
         "P": {
@@ -12351,7 +12580,10 @@
         "WP-008",
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/execution/roles.test.mts"
+      ],
       "description": "Inspect native and tool catalog for excluded ownership claim/designation/transfer/special-rejoin/former-lead panels.",
       "given": {
         "P": {
@@ -12466,7 +12698,11 @@
         "WP-010",
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Self deletion request, another-account deletion, former lead, 30 day private hold and 7 day post-completed-purge recovery horizon.",
       "given": {
         "P": {
@@ -12560,7 +12796,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts"
+      ],
       "description": "Known account; casing variants; 4/5 identifier failures and 19/20 IP failures just before/at 15 minute cutoff; null and forged IP; concurrent bad secrets; expired cookie with safe nested return; repeated logout.",
       "given": {
         "P": {
@@ -12687,7 +12926,10 @@
         "WP-005",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "All 4 account types; concurrent same-email registration; successful, malformed, duplicate and beta-refused attempts sharing IP; credential success followed by failed grant; token revoked during resume.",
       "given": {
         "A": {
@@ -12758,7 +13000,10 @@
         "WP-008",
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "Gate enabled/disabled; valid/invalid code; all invitation subjects; wrong email, revoked and expired token; expire token while form open.",
       "given": {
         "P": {
@@ -12843,7 +13088,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts"
+      ],
       "description": "Production with flags absent and forged switch POST; isolated fixture environment with allowed and arbitrary account IDs.",
       "given": {
         "P": {
@@ -12921,7 +13169,11 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/access/access.test.mts",
+        "tests/integration/access/privileges.test.mts"
+      ],
       "description": "Owner/Admin/Member/Discovery/seatless/org/platform actors; malformed multiple-current-seat row; forged client capabilities; stale role after page load.",
       "given": {
         "P": {
@@ -13022,7 +13274,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "A/Bac counts; wrong-type/empty/over 3 MiB uploads; failed reference write, failed old deletion and browser cached previous version.",
       "given": {
         "P": {
@@ -13134,7 +13389,11 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts",
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Two pending tabs; target address collision; wrong-account/expired/superseded token; password reset/change racing confirm; changing target addresses; non UTC process.",
       "given": {
         "P": {
@@ -13724,7 +13983,11 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts",
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Stale password tabs, forged actor/current Session ID, wrong secret, competing reset/email confirmation and current vs other sessions.",
       "given": {
         "P": {
@@ -13820,7 +14083,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts"
+      ],
       "description": "Missing/existing addresses; provider outage; expired/reused/foreign-purpose token; 2 concurrent redeemers; credential/email change first; non UTC process.",
       "given": {
         "P": {
@@ -13926,7 +14192,11 @@
         "WP-010",
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/evry/adapters/settings/sharing.test.mts"
+      ],
       "description": "TARGET-IDN-010",
       "given": {
         "P": {
@@ -14135,7 +14405,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Partial locality, explicit nullable clears, warning=alert, invalid zone, UTC day differing local day, zone-change future preview and street in oversight.",
       "given": {
         "P": {
@@ -14235,7 +14508,11 @@
       "work_packages": [
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/integration/notifications/notifications.test.mts"
+      ],
       "description": "A/B users and plant/org audiences; unsupported category; plant sharing OFF while org push ON; own old vs current mailbox; failed auto save.",
       "given": {
         "P": {
@@ -14341,7 +14618,10 @@
       "work_packages": [
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Double-submit basics, failure before Person/settings/audit, seat acceptance race, partial city only, actual creation at 0/6 reading and no journey answer.",
       "given": {
         "A": {
@@ -14443,7 +14723,10 @@
       "work_packages": [
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Owner yes/no/skip; ordinary lead role/container absent or present; optional Senior Pastor role occupied/selected; other CRM lead without account seat; finalization with no lead title.",
       "given": {
         "P": {
@@ -14531,7 +14814,10 @@
         "WP-038",
         "WP-045"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Skip each optional step; back after basics; fail launch/phase between saves; repeat finish; existing launch date+no-date selection; 0/6 reading at Phase 1 creation.",
       "given": {
         "P": {
@@ -14622,7 +14908,10 @@
       "work_packages": [
         "WP-009"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/onboarding.test.mts"
+      ],
       "description": "Discovery owner/foreign actor, seatless former Member, association ON/OFF conversion and conversion racing first-seat acceptance.",
       "given": {
         "P": {
@@ -14730,7 +15019,10 @@
       "work_packages": [
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "Plant/sending/network invites; new/existing seatless/already seated/associated Discovery; wrong address; concurrent accept/revoke/resend and response loss.",
       "given": {
         "P": {
@@ -14829,7 +15121,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/coach.test.mts"
+      ],
       "description": "Forged coach invitation/assignment route or assistant request; external relationship attestation.",
       "given": {
         "P": {
@@ -14914,7 +15209,11 @@
         "WP-008",
         "WP-017"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts",
+        "tests/integration/teams/ministry.test.mts"
+      ],
       "description": "Two Admin removals, actual Owner target, own self-promotion, foreign Member, role/leader appointment race, open and waived duties.",
       "given": {
         "P": {
@@ -15026,7 +15325,10 @@
         "WP-007",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "All 5 subjects; plant has 2 networks+2 sending churches; invite approval by wrong/other affiliate Member; competing accepts+revoke; mail failure.",
       "given": {
         "P": {
@@ -15164,7 +15466,11 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts",
+        "tests/integration/organizations/relationships.test.mts"
+      ],
       "description": "Plant linked 2 orgs; each side ends one; org Member/foreign Admin; repeat sever and queued notice failure; ordinary later invite.",
       "given": {
         "P": {
@@ -15306,7 +15612,10 @@
         "WP-007",
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Two orgs with mixed category ON/OFF; simultaneous acceptance; rejoin; missing settings; push preference ON while category OFF. Closed seven-category mapping, independent activity toggle and shared_findings toggle; unknown category and duplicate NI consent attempt.",
       "given": {
         "P": {
@@ -15429,7 +15738,11 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts",
+        "tests/integration/oversight/oversight.test.mts"
+      ],
       "description": "Org A/B linked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
       "given": {
         "P": {
@@ -15524,7 +15837,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Network A/B, sending church Slinked A, plants Pwith S+Aand Qwith S+B, expired pending invite; Sending church Member request.",
       "given": {
         "P": {
@@ -15639,7 +15955,10 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/affiliation-cases.test.mts"
+      ],
       "description": "Guess coach collections/detail/download paths and ask Evry to use an assignment read.",
       "given": {
         "P": {
@@ -15738,7 +16057,11 @@
         "WP-010",
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/integration/organizations/profile.test.mts"
+      ],
       "description": "Own org Owner/Admin/Member+foreign org; change org kind; personal self versus another account; plant Owner/Admin deletion; pending cancel.",
       "given": {
         "P": {
@@ -15834,7 +16157,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/connections.test.mts"
+      ],
       "description": "An unsupported helper request, ordinary exact-link sever and forged equivalent reference change.",
       "given": {
         "P": {
@@ -15922,7 +16248,14 @@
         "WP-005",
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts",
+        "tests/integration/settings/settings.test.mts",
+        "tests/unit/shell/route-origin.test.mts",
+        "tests/integration/communication/unsubscribe.test.mts",
+        "tests/integration/jobs/scheduled.test.mts"
+      ],
       "description": "No/forged/expired/revoked cookie every private family; forged Wiki headers/crawler UA on People/settings; same host different scheme/port; origin less look alike webhook/unsubscribe/job; valid signatures/purpose tokens; GET unsubscribe.",
       "given": {
         "P": {
@@ -16044,7 +16377,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/execution/church-roles.test.mts"
+      ],
       "description": "Plant A Owner O, Admin A, Member M, seatless CRM lead L, Plant B Owner F, and Network N Member. Repeat each routine action and workspace deletion through native and reviewed Evry entry points; revoke A between preview and execution.",
       "given": {
         "P": {
@@ -16461,7 +16797,11 @@
         "WP-006",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts",
+        "tests/integration/identity/invitations.test.mts"
+      ],
       "description": "Fault-inject after credentials, before token claim, during Person link/audit/mail-intent write and after domain commit but before response; concurrently revoke the invitation and retry with the same account/intent plus an unrelated authenticated account.",
       "given": {
         "A": {
@@ -16874,7 +17214,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Two same plant authors in Chicago/Auckland; open answer then switch across date line repeatedly; concurrent save/roll over; three mixed concern weeks, missing week, Steady correction and old historical streak.",
       "given": {
         "P": {
@@ -17030,7 +17373,10 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/authority-boundaries.test.mts"
+      ],
       "description": "Access contract boundary round trip. No live session, tenant policy, SQL enforcement or native/Evry workflow proof.",
       "given": {
         "contract": {
@@ -17096,7 +17442,11 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/authority-boundaries.test.mts",
+        "tests/evry/execution/write-policy.test.mts"
+      ],
       "description": "Access contract boundary round trip. No live session, tenant policy, SQL enforcement or native/Evry workflow proof.",
       "given": {
         "contract": {
@@ -17153,7 +17503,10 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/authority-boundaries.test.mts"
+      ],
       "description": "Access contract boundary round trip. No live session, tenant policy, SQL enforcement or native/Evry workflow proof.",
       "given": {
         "contract": {
@@ -17232,7 +17585,10 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/access/access.test.mts"
+      ],
       "description": "Live access producer checks on the shared development PostgreSQL database. Full feature writes and product screens remain integration obligations.",
       "given": {
         "A": {
@@ -17334,7 +17690,10 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/execution/write-policy.test.mts"
+      ],
       "description": "Live access producer checks on the shared development PostgreSQL database. Full feature writes and product screens remain integration obligations.",
       "given": {
         "A": {
@@ -17432,7 +17791,10 @@
       "work_packages": [
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/access/access.test.mts"
+      ],
       "description": "Live access producer checks on the shared development PostgreSQL database. Full feature writes and product screens remain integration obligations.",
       "given": {
         "A": {
@@ -17524,7 +17886,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/authority-boundaries.test.mts"
+      ],
       "description": "Organization contract boundary round trip only. Live consent changes, authorization and transaction effects remain API/integration proof.",
       "given": {
         "contract": {
@@ -17581,7 +17946,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/authority-boundaries.test.mts"
+      ],
       "description": "Organization contract boundary round trip only. Live consent changes, authorization and transaction effects remain API/integration proof.",
       "given": {
         "contract": {
@@ -17638,7 +18006,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/contracts/common/authority-boundaries.test.mts"
+      ],
       "description": "Organization contract boundary round trip only. Live consent changes, authorization and transaction effects remain API/integration proof.",
       "given": {
         "contract": {
@@ -17695,7 +18066,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/consent.test.mts"
+      ],
       "description": "PostgreSQL producer behavior through live current session and exact consent gates. No UI or aggregate delivery claim.",
       "given": {
         "P": {
@@ -17801,7 +18175,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/residency.test.mts"
+      ],
       "description": "PostgreSQL producer behavior through live current session and exact consent gates. No UI or aggregate delivery claim.",
       "given": {
         "P": {
@@ -17906,7 +18283,10 @@
       "work_packages": [
         "WP-007"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/organizations/consent.test.mts"
+      ],
       "description": "PostgreSQL producer behavior through live current session and exact consent gates. No UI or aggregate delivery claim.",
       "given": {
         "P": {
@@ -18005,7 +18385,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -18067,7 +18450,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/identity.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -18133,7 +18519,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts"
+      ],
       "given": {
         "A": {
           "fixture_type": "account",

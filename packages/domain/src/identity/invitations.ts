@@ -108,7 +108,7 @@ export function createInvitationService(config: InvitationConfig) {
 			text:
 				i.purpose === "seat"
 					? `${i.inviter_description} invited you to join ${name} as ${i.role === "admin" ? "an Admin" : "a Member"}.\n\nReview the invitation: ${link}\n\nExpires ${d.expires(i).toISOString()}.`
-					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${link}\n\nExpires ${d.expires(i).toISOString()}.`,
+					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a seat in ${name}'s account.\n\nReview the invitation: ${link}\n\nExpires ${d.expires(i).toISOString()}.`,
 		});
 	}
 	function residentOf(i: { resident_person_id: string | null }) {
@@ -566,6 +566,7 @@ export function createInvitationService(config: InvitationConfig) {
 						event_key: cmd.id,
 					}),
 				);
+				const joined = c.accountName(selected.kind === "plant" ? "plant" : selected.organizationKind);
 				await enqueue(tx, cmd, {
 					owner: selected,
 					invitationId: i.id,
@@ -576,8 +577,8 @@ export function createInvitationService(config: InvitationConfig) {
 					logicalKey: `invitation-accepted/${i.id}`,
 					subject: "Your invitation was accepted",
 					text: resident
-						? "You accepted an invitation to link your Everyfield account. This link does not add a workspace seat. Sign in to review your sharing choices."
-						: "You accepted an invitation to join an Everyfield workspace. Sign in to review your membership. If this was not you, review your account security.",
+						? `You accepted an invitation to link your Everyfield account. This link does not add a seat in the ${joined}. Sign in to review your sharing choices.`
+						: `You accepted an invitation to join a ${joined} on Everyfield. Sign in to review your membership. If this was not you, review your account security.`,
 				});
 			}
 			events.push(await d.event(tx, cmd, i.id, "accept", declined ? null : "invitation.claimed", i.revision, after));

@@ -10,6 +10,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
+import { captured } from "../../../runtime/captured.ts";
 import { churchZone, localTime, ownerOrAdmin } from "../../tasks/reads/index.ts";
 import { id } from "../../tasks/values.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
@@ -459,6 +460,14 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 	},
 };
 
+const PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
+function invitationText(t: { origin: string; meetingType: string | null; bodyHtml: string }): Record<string, string> {
+	if (t.origin !== "plant" || !t.meetingType) return {};
+	const body = plainText(t.bodyHtml);
+	const placeholders = [...new Set([...body.matchAll(PLACEHOLDER)].map((m) => captured(m, 1)))];
+	return { meetingType: t.meetingType, body, placeholders: placeholders.join(", ") };
+}
+
 export const listTemplates: ReadAdapter<Record<string, never>> = {
 	operation: "communication.templates.list",
 	description:
@@ -479,6 +488,7 @@ export const listTemplates: ReadAdapter<Record<string, never>> = {
 					category: t.category,
 					subject: t.subject,
 					sourceKey: t.origin === "system" ? t.sourceKey : null,
+					...invitationText(t),
 				},
 			}));
 		return {
@@ -489,7 +499,10 @@ export const listTemplates: ReadAdapter<Record<string, never>> = {
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: ["template bodies", "archived templates"],
+			exclusions: [
+				rows.some((r) => "body" in r.fields) ? "other template bodies" : "template bodies",
+				"archived templates",
+			],
 		};
 	},
 };

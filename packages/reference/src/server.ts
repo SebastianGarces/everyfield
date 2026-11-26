@@ -56,6 +56,7 @@ export interface ReferenceDependencies {
 	loadArtifact: (locator: string) => Promise<unknown>;
 	policyFor: (key: string) => ValidationPolicy;
 	authorize: (command: Promotion) => ReferenceAuthority | null;
+	preflighted?: boolean;
 }
 export interface ActivationReceipt {
 	operationId: string;
@@ -67,6 +68,39 @@ export interface ActivationReceipt {
 	createdRelease: boolean;
 }
 
+export async function requirePublisher(
+	tx: Pick<Transaction, "select">,
+	authority: Pick<ReferenceAuthority, "actorId" | "session">,
+): Promise<void> {
+	const grant = await tx
+		.select({ id: platform_grant_g.id })
+		.from(platform_grant_g)
+		.innerJoin(account_a, eq(account_a.id, platform_grant_g.account_id))
+		.where(
+			and(
+				and(
+					and(
+						and(
+							eq(platform_grant_g.account_id, authority.actorId),
+							eq(platform_grant_g.capability, "reference_publish"),
+						),
+						isNull(platform_grant_g.revoked_at),
+					),
+					or(
+						isNull(platform_grant_g.expires_at),
+						gt(
+							platform_grant_g.expires_at,
+							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+						),
+					),
+				),
+				and(eq(account_a.registration_state, "active"), authority.session),
+			),
+		)
+		.for("share", { of: [platform_grant_g, account_a] });
+	if (grant.length !== 1) throw new ReferenceRefusal("access_denied");
+}
+
 export function referenceService(db: Database, deps: ReferenceDependencies) {
 	async function authorizeCurrent(
 		tx: Transaction,
@@ -75,39 +109,13 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 	): Promise<ReferenceAuthority> {
 		const authority = deps.authorize(command);
 		if (!authority || authority.review.commandDigest !== requestDigest) throw new ReferenceRefusal("access_denied");
-		const grant = await tx
-			.select({ id: platform_grant_g.id })
-			.from(platform_grant_g)
-			.innerJoin(account_a, eq(account_a.id, platform_grant_g.account_id))
-			.where(
-				and(
-					and(
-						and(
-							and(
-								eq(platform_grant_g.account_id, authority.actorId),
-								eq(platform_grant_g.capability, "reference_publish"),
-							),
-							isNull(platform_grant_g.revoked_at),
-						),
-						or(
-							isNull(platform_grant_g.expires_at),
-							gt(
-								platform_grant_g.expires_at,
-								sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-							),
-						),
-					),
-					and(eq(account_a.registration_state, "active"), authority.session),
-				),
-			)
-			.for("share", { of: [platform_grant_g, account_a] });
-		if (grant.length !== 1) throw new ReferenceRefusal("access_denied");
+		await requirePublisher(tx, authority);
 		return authority;
 	}
 	async function promote(input: unknown, artifactLocator: string): Promise<ActivationReceipt> {
 		const command = promotion.parse(input),
 			requestDigest = hash(canonical(command));
-		await db.transaction((preflight) => authorizeCurrent(preflight, command, requestDigest));
+		if (!deps.preflighted) await db.transaction((preflight) => authorizeCurrent(preflight, command, requestDigest));
 		const candidate = generation.safeParse(await deps.loadArtifact(artifactLocator));
 		if (!candidate.success || candidate.data.key !== command.generationKey)
 			throw new ReferenceRefusal("invalid_generation");

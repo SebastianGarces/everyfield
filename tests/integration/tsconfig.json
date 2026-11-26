@@ -8,7 +8,10 @@
 		"typeRoots": ["../../apps/web/node_modules/@types"],
 		"types": ["node"],
 		"moduleDetection": "force",
-		"paths": { "@/*": ["../../apps/web/src/*"] }
+		"paths": {
+			"@/*": ["../../apps/web/src/*"],
+			"@ai-sdk/provider": ["../../packages/evry/node_modules/@ai-sdk/provider"]
+		}
 	},
 	"files": ["./task-assignees.mts"],
 	"include": [

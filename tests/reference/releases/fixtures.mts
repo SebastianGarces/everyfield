@@ -3,7 +3,7 @@ import { loadStarter } from "../../../packages/reference/src/starter.ts";
 import { planGeneration, chunkEntries, completeGeneration } from "../../../packages/reference/src/bundle.ts";
 import { loadApprovedSnapshot } from "../../../packages/reference/src/starter/verify/snapshot.ts";
 import type { ValidationPolicy } from "../../../packages/reference/src/bundle.ts";
-import { hash, canonical } from "../../../packages/reference/src/hash.ts";
+import { hash, canonical, stableId } from "../../../packages/reference/src/hash.ts";
 export const starter = await loadStarter();
 export const wiki = await loadApprovedSnapshot();
 const freeze = JSON.parse(
@@ -28,4 +28,23 @@ export function fixture(key = "synthetic-R1") {
 		editorial: { approved: true, originalAvailable: true, conflicts: [] },
 	};
 	return { bundle, policy, manifestHash: hash(canonical(bundle)) };
+}
+
+type Entry = ReturnType<typeof fixture>["policy"]["plan"]["entries"][number];
+export function revised(
+	key: string,
+	edit: (entry: Entry, base: ReturnType<typeof fixture>) => Record<string, unknown> | null,
+	vector: readonly number[] = [0.4, 0.5, 0.6],
+): ReturnType<typeof fixture> {
+	const base = fixture(key);
+	const entries = base.policy.plan.entries.map((e) => {
+		const change = edit(e, base);
+		if (!change) return e;
+		const body = JSON.stringify({ ...JSON.parse(e.body), ...change });
+		const contentHash = hash(body);
+		return { ...e, body, contentHash, revisionId: stableId(`${key}:${e.id}:${contentHash}`) };
+	});
+	const plan = { ...base.policy.plan, key, entries } as Parameters<typeof completeGeneration>[0];
+	const bundle = completeGeneration(plan, identities, new Map(chunkEntries(entries).map((p) => [p.key, vector])));
+	return { bundle, policy: { ...base.policy, plan }, manifestHash: hash(canonical(bundle)) };
 }

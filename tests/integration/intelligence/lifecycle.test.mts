@@ -309,10 +309,11 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 	ok(await requestIntelligenceRefresh(c0.db, s.director, { runId: fed }));
 	const r0 = await current(p);
 	ok(await assessments.submitFeedback(c0.db, p.actor, { runId: r0!.runId, ordinal: 1, rating: "useful", comment: "" }));
+	const [pattern] = (await network(s, "portfolio", s.runId))!.groups[0]!.patterns;
 	ok(
 		await submitIntelligenceFeedback(c0.db, s.director, {
 			runId: s.runId,
-			patternKey: "portfolio:NIR-03",
+			patternKey: pattern!.key,
 			rating: "useful",
 		}),
 	);

@@ -165,16 +165,24 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"pipeline.readGoals",
+		"pipeline.readConversationCounts",
 		"intelligence.readCommittedAdultCohort",
 		"intelligence.readScorecard",
 		"intelligence.readAssessment",
 		"intelligence.readAssessmentDelta",
+		"intelligence.readAssessmentHistory",
+		"intelligence.readAssessmentRun",
+		"intelligence.readColdStartGuidance",
+		"intelligence.readOwnFeedback",
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
 		"organizationIntelligence.readHistory",
 		"organizationIntelligence.readLocations",
 		"organizationIntelligence.readLocationHistory",
+		"oversight.listSendingChurches",
+		"oversight.getSendingChurch",
 		"calendar.getContext",
 		"calendar.resolve",
 		"wiki.search",
@@ -211,6 +219,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"settings.getSection",
 		"organizations.getProfile",
 		"account.getAvatar",
+		"geography.listReportingRegionCandidates",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -307,19 +316,13 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 	});
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
 		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
-		const plantDomains = [
-			"people",
-			"peopleOrganization",
-			"tasks",
-			"followups",
-			"meetings",
-			"teams",
-			"wiki",
-			"documents",
-		];
+		const plantDomains = ["people", "peopleOrganization", "tasks", "followups", "meetings", "teams"];
+		const shared = ["wiki", "documents"];
 		assert.deepEqual(
-			readCatalog(actor).domains.filter((d) => plantDomains.includes(d.domain)),
-			[],
+			readCatalog(actor)
+				.domains.filter((d) => [...plantDomains, ...shared].includes(d.domain))
+				.map((d) => d.domain),
+			actor.contextKind === "account" ? shared : [],
 			actor.contextKind,
 		);
 	}
@@ -400,7 +403,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the link invitation changes, the stage move, the program create and the four organization Wiki writes; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the link invitation changes, the stage, goal and program writes, the Network Intelligence writes and the four organization Wiki writes; every seat reads its pipeline and programs and may propose a next version or an enrollment change, which only a program's director gets a card for, and only a network seat reads its sending churches", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -425,12 +428,20 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"pipeline.readGoals",
+		"pipeline.readConversationCounts",
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
 		"organizationIntelligence.readHistory",
 		"organizationIntelligence.readLocations",
 		"organizationIntelligence.readLocationHistory",
+	];
+	const directed = [
+		"development.updateEnrollment",
+		"development.applyVersion",
+		"development.confirmMilestone",
+		"development.completeMilestone",
 	];
 	const ownReads = ["associations.listInvitations", "associations.getHistory", "settings.getSection"];
 	const orgWiki = [
@@ -457,9 +468,15 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 				"account.removeAvatar",
 				"organizations.updateProfile",
 				"pipeline.proposeStageMove",
+				"pipeline.saveGoal",
+				"pipeline.saveStages",
 				"development.saveProgram",
 				"development.draftNextVersion",
+				"development.enroll",
+				...directed,
 				...orgWiki,
+				"organizationIntelligence.requestRefresh",
+				"organizationIntelligence.submitFeedback",
 			],
 			role,
 		);
@@ -471,9 +488,40 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"settings.saveSection",
 		"account.removeAvatar",
 		"development.draftNextVersion",
+		...directed,
+		"organizationIntelligence.submitFeedback",
 	]);
+	assert.deepEqual(
+		tools(
+			actor(
+				{ kind: "organization", id, organizationKind: "sending_network" } as EvryActor["owner"],
+				"sending_network",
+				"member",
+			),
+		),
+		[
+			...pipeline,
+			"oversight.listSendingChurches",
+			"oversight.getSendingChurch",
+			...ownReads,
+			"organizations.getProfile",
+			"account.getAvatar",
+			"settings.saveSection",
+			"account.removeAvatar",
+			"development.draftNextVersion",
+			...directed,
+			"organizationIntelligence.submitFeedback",
+		],
+	);
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
 		"discovery.getProfile",
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.navigation",
+		"wiki.articles.list",
+		"wiki.tableOfContents",
+		"documents.listOwned",
+		"documents.read",
 		...ownReads,
 		"account.getAvatar",
 		"settings.saveSection",
@@ -483,6 +531,9 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"onboarding.createPlant",
 		"discovery.create",
 		"discovery.convertToPlant",
+		"documents.saveNative",
+		"documents.archive",
+		"documents.importTextOrWord",
 	]);
 	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
 	assert.ok(plantOwner.includes("notifications.previewPlanterDigest"));
@@ -491,6 +542,40 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		const plantSeat = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", role));
 		for (const op of orgWiki) assert.equal(plantSeat.includes(op), false, `${role} ${op}`);
 	}
+});
+
+test("INV-evry-ni-feedback: a Member's prompt and tools offer their own rating and name only a refresh as an Owner's or Admin's", async () => {
+	const { capabilitiesAnswer, compileContext } = await import("../../../packages/evry/src/context/compile.ts");
+	const feedback = "organizationIntelligence.submitFeedback";
+	const id = "0f8fad5b-d9cb-469f-a165-70867728950e";
+	for (const kind of ["sending_church", "sending_network"] as const)
+		for (const role of ["owner", "admin", "member"] as const) {
+			const actor = {
+				owner: { kind: "organization", id, organizationKind: kind },
+				contextKind: kind,
+				role,
+			} as unknown as EvryActor;
+			const catalog = readCatalog(actor);
+			const { system } = compileContext({
+				actor,
+				catalog,
+				history: [],
+				text: "x",
+				references: [],
+				now: new Date("2026-11-09T15:00:00Z"),
+				state: null,
+			});
+			const described = catalog.reviewedWrites.find((w) => w.operation === feedback)!.description;
+			const member = role === "member";
+			assert.match(described, /their own rating|user's own rating/);
+			assert.equal(/Owner or Admin/.test(described), !member, `${kind} ${role}`);
+			const refresh = "Only an Owner or Admin can refresh Network Intelligence. Nothing was requested.";
+			assert.equal(system.includes(refresh), member, `${kind} ${role}`);
+			assert.equal(/refresh Network Intelligence or rate its patterns/.test(system), !member, `${kind} ${role}`);
+			const can = capabilitiesAnswer(catalog, actor);
+			assert.match(can, /your own rating of a Network Intelligence pattern/);
+			assert.equal(/Network Intelligence refresh/.test(can), !member, `${kind} ${role}`);
+		}
 });
 
 test("INV-golden-guidance: the prompt and tools an Owner's model gets name the next weekday, the follow-up owner check, private care, sending a draft as shown, missed notifications, the import header, a new person's source and an invitation's meeting; a seat without the tool or context gets none of it", async () => {
@@ -547,6 +632,32 @@ const outerAliases = (text: string) =>
 		.match(/[\w$]+/g)
 		?.filter((name) => /^[rc]$/i.test(name)) ?? [];
 
+test("INV-account-wording: an account's own-document and Wiki tools never speak of a church or another reader's data, and a plant's tools keep their own words", () => {
+	const said = (actor: EvryActor) => {
+		const catalog = readCatalog(actor);
+		return new Map(
+			[...catalog.domains.flatMap((d) => d.operations), ...catalog.reviewedWrites].map((o): [string, string] => [
+				o.operation,
+				o.description,
+			]),
+		);
+	};
+	const account = said(as("account", null));
+	const plant = said(as("plant", "owner"));
+	const own = [...account.keys()].filter((operation) => /^(wiki|documents)\./.test(operation));
+	assert.equal(own.length, 10);
+	for (const operation of own) {
+		assert.doesNotMatch(account.get(operation)!, /\bchurch|\bOwner or Admin|\bseat\b/i, operation);
+		assert.ok(plant.get(operation), operation);
+	}
+	assert.match(plant.get("documents.listOwned")!, /^List the documents this church saved in Everyfield/);
+	assert.match(plant.get("wiki.search")!, /^Search this church's Wiki by key words/);
+	const schema = (actor: EvryActor) =>
+		JSON.stringify(asSchema(modelTools(actor, {} as never).documents_read!.inputSchema as never).jsonSchema);
+	assert.doesNotMatch(schema(as("account", null)), /church/i);
+	assert.match(schema(as("plant", "owner")), /Church Documents/);
+});
+
 test("INV-row-liveness: no liveness rule names a table r or c, which the queries around it use for the checked row and its conversation", () => {
 	const rendered = new PgDialect().sqlToQuery(
 		rowLive(sql.raw("outer_row.j"), sql.raw("outer_plant"), sql.raw("outer_account")),
@@ -559,7 +670,7 @@ test("INV-row-liveness: no liveness rule names a table r or c, which the queries
 	assert.deepEqual(outerAliases("FROM person live_r WHERE live_r.kind='r'"), []);
 });
 
-const TOOL_SCHEMA_BUDGET = 215_000;
+const TOOL_SCHEMA_BUDGET = 222_000;
 
 test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within their byte budget", async () => {
 	const idle = {
@@ -585,7 +696,8 @@ test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within
 			assert.doesNotMatch(JSON.stringify(schema), /"\$ref"/, `${name}: the sizes below would miss a shared definition`);
 			for (const option of schema.oneOf ?? schema.anyOf ?? [schema]) {
 				const { properties } = option as { properties: { operation?: { const: string } } };
-				bytes.set(properties.operation?.const ?? name, Buffer.byteLength(JSON.stringify(option)));
+				const tool = properties.operation?.const ?? name;
+				bytes.set(tool, Math.max(bytes.get(tool) ?? 0, Buffer.byteLength(JSON.stringify(option))));
 			}
 		}
 	const installed = [

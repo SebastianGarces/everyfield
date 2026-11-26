@@ -27,6 +27,7 @@ import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
 import { mailDelay, readSwitches } from "../flags/index.ts";
+import { logFailure } from "../log.ts";
 import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, deny, identityRefusals, transaction } from "./budget.ts";
@@ -55,6 +56,7 @@ export type IdentityConfig = {
 	invitations?: ReturnType<typeof createInvitationService>;
 	plugins?: BetterAuthPlugin[];
 	registrationMode?: "open" | "invitation_only" | "closed";
+	registrationCode?: string;
 };
 
 const headers = {
@@ -85,6 +87,14 @@ export function createIdentityService(config: IdentityConfig) {
 	if (origin !== config.origin) throw Error("canonical_origin_required");
 	const budget = attemptBudget(config.admissionDb, config.secret);
 	const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver, plugins: config.plugins });
+
+	const registrationMode = (code: string | null | undefined) =>
+		config.registrationMode === "invitation_only" &&
+		config.registrationCode &&
+		code &&
+		digest(code) === digest(config.registrationCode)
+			? "open"
+			: (config.registrationMode ?? "open");
 
 	const account = (authUser: string) => readIdentityAccount(config.db, authUser);
 
@@ -133,13 +143,18 @@ export function createIdentityService(config: IdentityConfig) {
 		const h = new Headers({ origin, "content-type": "application/json" });
 		const cookie = request.headers.get("cookie");
 		if (cookie) h.set("cookie", cookie);
-		return auth.handler(
-			new Request(`${origin}/api/auth/${path}`, {
-				method: body === undefined ? "GET" : "POST",
-				headers: h,
-				...(body === undefined ? {} : { body: JSON.stringify(body) }),
-			}),
-		);
+		try {
+			return await auth.handler(
+				new Request(`${origin}/api/auth/${path}`, {
+					method: body === undefined ? "GET" : "POST",
+					headers: h,
+					...(body === undefined ? {} : { body: JSON.stringify(body) }),
+				}),
+			);
+		} catch (error) {
+			logFailure({ component: "identity", event: "auth_request_failed" }, error);
+			return new Response(null, { status: 500 });
+		}
 	}
 	async function session(request: Request) {
 		const response = await call(request, "get-session");
@@ -206,7 +221,7 @@ export function createIdentityService(config: IdentityConfig) {
 									: "sending_church"
 							: "discovery";
 					return json({
-						mode: config.registrationMode ?? "open",
+						mode: registrationMode(url.searchParams.get("code")),
 						kinds:
 							invitation?.status === "pending"
 								? [kind]
@@ -250,7 +265,7 @@ export function createIdentityService(config: IdentityConfig) {
 						!(await config.invitations?.registrationEligible(v.invitationProof, v.email)))
 				)
 					return json({ status: "continue_identity_proof" });
-				if ((config.registrationMode ?? "open") !== "open" && invitation?.status !== "pending")
+				if (registrationMode(v.registrationCode) !== "open" && invitation?.status !== "pending")
 					return json({ status: "continue_identity_proof" });
 				const kind =
 					v.kind === "invitation"
@@ -307,28 +322,36 @@ export function createIdentityService(config: IdentityConfig) {
 				const v = signInRequest.parse(input),
 					reservation = await budget.reserve("login", v.email, ip);
 				const result = await call(request, path, { email: v.email, password: v.password });
-				await budget.finish(reservation, result.ok);
-				if (!result.ok) deny("invalid_credentials");
-				const resultBody = z.object({ user: z.object({ id: z.uuid() }) }).parse(await result.json());
-				const found = await lookupIdentityAccount(config.db, resultBody.user.id);
-				if (found?.blocked) deny("unauthenticated");
-				if (!found) {
-					const native = await config.authDb
-						.select({ email: tables.auth_user.email, created_at: tables.auth_user.created_at })
-						.from(tables.auth_user)
-						.where(eq(tables.auth_user.id, resultBody.user.id));
-					const u = z.object({ email: z.email(), created_at: z.date() }).parse(native[0]);
-					const saved = await budget.registrationIntent(u.email, u.created_at);
-					if (!saved) return cookies(json({ status: "signed_in", returnTo: safeReturn(v.returnTo) }), result);
-					const intent = z
-						.object({
-							kind: z.enum(["planter", "discovery", "sending_church", "network"]),
-							intent: z.string().regex(/^[a-f0-9]{64}$/),
-						})
-						.parse(JSON.parse(saved));
-					await pending(resultBody.user.id, intent.kind, intent.intent);
+				if (!result.ok) {
+					await budget.finish(reservation, false);
+					deny("invalid_credentials");
 				}
-				return cookies(json({ status: "signed_in", returnTo: safeReturn(v.returnTo) }), result);
+				const resultBody = z.object({ token: z.string(), user: z.object({ id: z.uuid() }) }).parse(await result.json());
+				try {
+					await budget.finish(reservation, true);
+					const found = await lookupIdentityAccount(config.db, resultBody.user.id);
+					if (found?.blocked) deny("unauthenticated");
+					if (!found) {
+						const native = await config.authDb
+							.select({ email: tables.auth_user.email, created_at: tables.auth_user.created_at })
+							.from(tables.auth_user)
+							.where(eq(tables.auth_user.id, resultBody.user.id));
+						const u = z.object({ email: z.email(), created_at: z.date() }).parse(native[0]);
+						const saved = await budget.registrationIntent(u.email, u.created_at);
+						if (!saved) return cookies(json({ status: "signed_in", returnTo: safeReturn(v.returnTo) }), result);
+						const intent = z
+							.object({
+								kind: z.enum(["planter", "discovery", "sending_church", "network"]),
+								intent: z.string().regex(/^[a-f0-9]{64}$/),
+							})
+							.parse(JSON.parse(saved));
+						await pending(resultBody.user.id, intent.kind, intent.intent);
+					}
+					return cookies(json({ status: "signed_in", returnTo: safeReturn(v.returnTo) }), result);
+				} catch (error) {
+					await config.authDb.delete(tables.auth_session).where(eq(tables.auth_session.token, resultBody.token));
+					throw error;
+				}
 			}
 			if (path === "request-password-reset" || path === "send-verification-email") {
 				const v = passwordRecoveryRequest.parse(input);

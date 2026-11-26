@@ -62,6 +62,11 @@ export function syncReminderJobs(m: MeetingRow, asOf: Date): SQLWrapper[] {
 	return writes;
 }
 
+const linkedGuests = sql`SELECT p.linked_account_id AS a FROM participation g JOIN person p ON p.id = g.person_id
+	WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND p.state = 'live'`;
+const linkedCoreGroup = sql`SELECT p.linked_account_id AS a FROM person p WHERE p.plant_id = m.plant_id AND p.state = 'live'
+	AND p.stage IN ('core_group', 'launch_team', 'leader')`;
+
 const planRow = meetingRow.extend({
 	reminder_recipients: z.array(z.uuid()),
 	announcement_recipients: z.array(z.uuid()),
@@ -72,13 +77,10 @@ export async function planNotifications(db: Reader, plantId: string, raw: z.inpu
 			SELECT account_id FROM seat WHERE plant_id = ${sql.param(plantId)}::uuid AND ended_at IS NULL AND accepted_at <= clock_timestamp()
 		)
 		SELECT ${meetingColumns},
-			ARRAY(SELECT DISTINCT a FROM (
-				SELECT p.linked_account_id AS a FROM participation g JOIN person p ON p.id = g.person_id
-				WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND p.state = 'live'
-				UNION SELECT m.creator_id) x WHERE a IN (SELECT account_id FROM seated) ORDER BY a) AS reminder_recipients,
-			ARRAY(SELECT DISTINCT p.linked_account_id FROM person p WHERE p.plant_id = m.plant_id AND p.state = 'live'
-				AND p.stage IN ('core_group', 'launch_team', 'leader') AND p.linked_account_id IN (SELECT account_id FROM seated)
-				ORDER BY 1) AS announcement_recipients
+			ARRAY(SELECT DISTINCT a FROM (${linkedGuests} UNION SELECT m.creator_id) x
+				WHERE a IN (SELECT account_id FROM seated) ORDER BY a) AS reminder_recipients,
+			ARRAY(SELECT DISTINCT a FROM (${linkedCoreGroup}) x WHERE a IN (SELECT account_id FROM seated)
+				ORDER BY a) AS announcement_recipients
 		FROM meeting m WHERE ${plantMeeting(plantId, input.meetingId)}`);
 	if (!r.rows[0]) return null;
 	const m = planRow.parse(r.rows[0]);
@@ -140,5 +142,7 @@ export function meetingMailGrants(input: SQLWrapper): SQLWrapper {
 		JOIN meeting m ON m.id=n.source_record_id AND m.plant_id=n.tenant_id AND m.revision=n.source_revision
 		JOIN seat s ON s.account_id=i.recipient AND s.plant_id=m.plant_id AND ${seatHeld("s")}
 		WHERE m.status IN ('planning','ready') AND m.retired_at IS NULL AND m.starts_at>clock_timestamp()
+			AND CASE n.purpose WHEN 'meeting_reminder' THEN i.recipient = m.creator_id OR i.recipient IN (${linkedGuests})
+				ELSE i.recipient IN (${linkedCoreGroup}) END
 		FOR SHARE OF n, m, s`;
 }

@@ -1,7 +1,9 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import * as C from "../../../packages/contracts/src/oversight/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
+import { createAssessments } from "../../../packages/domain/src/intelligence/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { getPreferences } from "../../../packages/domain/src/notifications/index.ts";
 import { getPlant, listPlants, readIntelligence } from "../../../packages/domain/src/oversight/index.ts";
@@ -48,8 +50,14 @@ const SETUP: Record<string, () => Promise<void>> = {
 	redeemerGrows: () => ch.redeemerGrows(),
 	harvestRegionCorrected: () => ch.harvestRegionCorrected(),
 	meetingsHeld: () => ch.meetingsHeld(),
+	churchLinked: () => ch.churchLinked(),
+	unreleasedRun: async () => {
+		const harvest = ch.plants["Harvest Point"]!;
+		ok(await createAssessments().requestRefresh(ch.db, harvest.actor, { requestId: randomUUID() }));
+		await ch.runJob(harvest);
+	},
 };
-const PLACE_READS = new Set(OVERSIGHT_READS.slice(3).map((a) => a.operation));
+const PLACE_READS = new Set(OVERSIGHT_READS.slice(3, 6).map((a) => a.operation));
 const id = (name: string) => ch.plants[name]!.id;
 const link = (name: string) => `[${name}](/network/plants/${id(name)})`;
 const view = async (level: C.Level, runId: string | null = null, who: Who = "director") =>

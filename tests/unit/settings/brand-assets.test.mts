@@ -1,6 +1,7 @@
 import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { recordId } from "../../../packages/contracts/src/common/values.ts";
 import { ASSET_MAX_BYTES } from "../../../packages/contracts/src/branding/values.ts";
@@ -120,8 +121,10 @@ test("AC:CASE-BRD-002 alt text is required: blank text is refused on the client,
 	assert.deepEqual(p.ops(), ["requestUpload"]);
 });
 
-test("AC:CASE-BRD-002 the client refuses a wrong type and an oversize file before any request", () => {
+test("AC:CASE-BRD-002 AC:CASE-BRD-004 the client refuses a wrong type, a font file and an oversize file before any request", () => {
 	assert.match(fileProblem({ size: 10, type: "image/gif" }) ?? "", /SVG, PNG or WebP/);
+	for (const type of ["font/ttf", "font/otf", "font/woff2"])
+		assert.match(fileProblem({ size: 10, type }) ?? "", /SVG, PNG or WebP/);
 	assert.match(fileProblem({ size: ASSET_MAX_BYTES + 1, type: "image/png" }) ?? "", /3 MB/);
 	assert.equal(fileProblem({ size: ASSET_MAX_BYTES, type: "image/webp" }), null);
 	assert.equal(fileProblem({ size: 1, type: "image/svg+xml" }), null);
@@ -192,7 +195,14 @@ test("AC:CASE-BRD-006 the preview places the stored assets and keeps the type fa
 	assert.deepEqual(email.documentClass === "email" && email.headerLogo, assets.full_logo);
 });
 
-test("AC:CASE-BRD-002 the brand swatch is the draft primary color, or neutral ink with a note", () => {
+test("AC:CASE-BRD-002 a stored logo is previewed on light, dark and brand; the brand swatch is the draft primary color, or neutral ink with a note", () => {
+	const { cases } = JSON.parse(
+		readFileSync(new URL("../../../docs/acceptance/knowledge.json", import.meta.url), "utf8"),
+	) as { cases: { id: string; expected: { result: { preview_backgrounds: string[] } } }[] };
+	assert.deepEqual(
+		backgrounds("#1F4E79" as never, "#1A1A1A").map(({ name }) => name.toLowerCase()),
+		cases.find(({ id }) => id === "CASE-BRD-002")!.expected.result.preview_backgrounds,
+	);
 	assert.deepEqual(backgrounds("#1F4E79" as never, "#1A1A1A")[2], { name: "Brand", color: "#1F4E79" });
 	const neutral = backgrounds(null, "#1A1A1A")[2]!;
 	assert.equal(neutral.color, "#1A1A1A");

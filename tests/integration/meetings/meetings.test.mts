@@ -205,7 +205,7 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	assert.deepEqual(created.agenda.sections, [], "only Vision starts from the default agenda");
 });
 
-test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses and a fall-fold time needs its offset", async () => {
+test("AC:B03-008 AC:B03-009 AC:TARGET-MTG-002 AC:TARGET-TSK-018 an entered spring-gap time refuses and a fall-fold time needs its offset", async () => {
 	const gap = await run(meetings.schedule, {
 		requestKey: key(),
 		input: { type: "orientation", date: "2026-03-08", time: "02:30" },

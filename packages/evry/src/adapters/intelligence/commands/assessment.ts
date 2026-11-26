@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
+import { RATING } from "../reads/assessment.ts";
 
 const assessments = createAssessments();
 type Card = { label: string; changes: { field: string; before: unknown; after: unknown }[]; notes: string[] };
@@ -70,7 +71,6 @@ export const requestRefresh = assessmentWrite({
 	run: (tx, authority, args) => assessments.requestRefresh(tx, authority, args),
 });
 
-const RATING = { useful: "Useful", not_useful: "Not useful" } as const;
 const feedbackInput = z.strictObject({
 	ordinal: z.int().min(0).max(5),
 	rating: c.feedbackRating,

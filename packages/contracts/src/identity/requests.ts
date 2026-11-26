@@ -10,7 +10,8 @@ const proof = z.string().min(1).max(4096);
 const name = z.string().trim().min(1).max(200);
 export const accountKind = z.enum(["plant_precreation", "discovery", "sending_church", "sending_network"]);
 
-const identity = { email: normalizedEmail, password: nativePassword, name, requestKey };
+const registrationCode = z.string().min(1).max(200).optional();
+const identity = { email: normalizedEmail, password: nativePassword, name, requestKey, registrationCode };
 export const registrationRequest = z.discriminatedUnion("kind", [
 	z.strictObject({ ...identity, kind: z.literal("plant_precreation") }),
 	z.strictObject({ ...identity, kind: z.literal("discovery") }),

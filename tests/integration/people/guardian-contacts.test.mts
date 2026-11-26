@@ -1,6 +1,16 @@
 import { fixture, ok, refused } from "../../support/fixture.mts";
+import { recorded, untouched } from "../../support/recorded.mts";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
-import { authorityOf, church, isActivity, reads, type Reply, type Row, withStatus } from "./people-support.mts";
+import {
+	authorityOf,
+	church,
+	isActivity,
+	noReminders,
+	reads,
+	type Reply,
+	type Row,
+	withStatus,
+} from "./people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -14,16 +24,17 @@ import {
 } from "../../../packages/domain/src/people/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-const database = await fixture({ prefix: "t487" });
+const database = await fixture({ prefix: "t487", clock: new Date("2026-10-13T16:00:00Z") });
 const { admin } = database;
 const db = database.pools.runtime;
 const otherChurch = (await database.plant()).id;
 const actors = [
-	database.actors.owner,
+	database.actors.admin,
 	database.actors.member,
 	await database.actor({ kind: "plant", id: otherChurch }, "admin"),
+	database.actors.owner,
 ] as const;
-type Who = 0 | 1 | 2;
+type Who = 0 | 1 | 2 | 3;
 type Person = Awaited<ReturnType<typeof person>>;
 const inHousehold = (result: Extract<Awaited<ReturnType<typeof fields.getHousehold>>, { status: "ok" }>["value"]) =>
 	withStatus(result, "available");
@@ -35,7 +46,7 @@ const key = () => randomUUID();
 const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
 const revisionOf = async (id: string) =>
 	(await rows<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0]!.r;
-const yearsAgo = (years: number) => `${new Date().getUTCFullYear() - years}-01-15`;
+const yearsAgo = (years: number) => `${2026 - years}-01-15`;
 
 after(async () => {
 	await database.close();
@@ -71,7 +82,24 @@ async function home(head: Person, ...members: [Person, string][]) {
 		);
 	return household;
 }
-const contact = async (child: Person, guardian: Person, on = true, who: Who = 0) =>
+async function retire(p: Person) {
+	const { reviewRevision } = ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: p.id })));
+	ok(
+		await write(0, async (t, c) =>
+			people.retirePerson(
+				t,
+				c,
+				{
+					requestKey: key(),
+					expectedRevision: await revisionOf(p.id),
+					input: { personId: p.id, reason: "Moved away", reviewRevision, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
+	);
+}
+const contact = async (child: Person, guardian: { id: string }, on = true, who: Who = 0) =>
 	write(who, async (t, c) =>
 		fields.setGuardianContact(t, c, {
 			requestKey: key(),
@@ -95,13 +123,28 @@ const history = async (child: Person) =>
 		.items.filter(isActivity)
 		.filter((i) => i.guardian);
 
-test("AC:CASE-PPL-009-GUARDIAN staff mark an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history", async () => {
+test("AC:CASE-PPL-009-GUARDIAN an admin marks an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history", async () => {
 	const maria = await person("Maria Lopez", { adultClassification: "adult" });
 	const ava = await person("Ava Lopez", { adultClassification: "child" });
 	await home(maria, [ava, "child"]);
 	const before = await revisionOf(ava.id);
+	assert.deepEqual(
+		shownContacts(await card(ava), ava),
+		[],
+		"the head of the household is no contact until staff say so",
+	);
+	assert.deepEqual(await stored(ava), [{ n: 0 }]);
 
-	const saved = ok(await contact(ava, maria));
+	const request = {
+		requestKey: key(),
+		expectedRevision: before,
+		input: { personId: ava.id, guardianPersonId: maria.id, contact: true },
+	};
+	const mark = () => write(0, (t, c) => fields.setGuardianContact(t, c, request));
+	const { value, added } = await recorded(admin, mark);
+	const saved = ok(value);
+	assert.deepEqual(added, { audits: ["people.updated"], jobs: [], notices: 0, mail: 0 });
+	assert.deepEqual(ok(await untouched(admin, mark)), saved, "a retry of the same save adds nothing");
 	assert.equal(saved.outcome, "changed");
 	assert.deepEqual(shownContacts(saved.result, ava), ["Maria Lopez"]);
 	assert.deepEqual(shownContacts(await card(ava), ava), ["Maria Lopez"]);
@@ -129,6 +172,7 @@ test("AC:CASE-PPL-009-GUARDIAN staff mark an adult in a child's household as the
 	const again = ok(await contact(ava, maria));
 	assert.equal(again.outcome, "noop", "a repeat add changes nothing");
 	assert.deepEqual(await stored(ava), [{ n: 1 }]);
+	assert.equal((await history(ava)).length, 1);
 });
 
 test("AC:CASE-PPL-009-GUARDIAN a second adult can be added, and either contact can be removed, leaving the other", async () => {
@@ -141,7 +185,9 @@ test("AC:CASE-PPL-009-GUARDIAN a second adult can be added, and either contact c
 	const both = ok(await contact(kai, eve)).result;
 	assert.deepEqual(shownContacts(both, kai), ["Dan Park", "Eve Park"]);
 
-	const removed = ok(await contact(kai, dan, false));
+	const removal = await recorded(admin, () => contact(kai, dan, false));
+	assert.deepEqual(removal.added, { audits: ["people.updated"], jobs: [], notices: 0, mail: 0 });
+	const removed = ok(removal.value);
 	assert.equal(removed.outcome, "changed");
 	assert.deepEqual(shownContacts(removed.result, kai), ["Eve Park"]);
 	assert.deepEqual(shownContacts(await card(kai), kai), ["Eve Park"]);
@@ -167,31 +213,37 @@ test("AC:CASE-PPL-009-GUARDIAN a contact who is not marked as an adult, outside 
 	const far = await person("Uma Far", { adultClassification: "adult" }, 2);
 	await home(gus, [liv, "child"], [kid, "child"], [unknown, "other"], [young, "child"], [gone, "spouse"]);
 	await home(outside);
-	await admin.execute(sql`UPDATE person SET state='retired' WHERE id=${sql.param(gone.id)}`);
+	await retire(gone);
 	const before = await revisionOf(liv.id);
 
+	const ineligible = (guardian: { id: string }, child = liv, who: Who = 0) =>
+		untouched(admin, () => contact(child, guardian, true, who));
 	for (const [who, reason] of [
 		[kid, "not_adult"],
 		[unknown, "not_adult"],
 		[young, "not_adult"],
 		[outside, "not_in_household"],
 	] as const)
-		assert.equal(refused(await contact(liv, who), "invalid_input").details.reason, reason, who.displayName);
-	refused(await contact(liv, gone));
-	refused(await contact(liv, far));
-	refused(await contact(liv, liv), "invalid_subject");
-	assert.equal(
-		refused(await contact(gus, liv), "invalid_input").details.reason,
-		"not_child",
-		"only a child gets a contact",
-	);
-	refused(await contact(liv, gus, true, 1), "unavailable");
+		assert.equal(refused(await ineligible(who), "invalid_input").details.reason, reason, who.displayName);
+	for (const gap of [gone, far, { id: key(), displayName: "Nobody" }])
+		assert.deepEqual(refused(await ineligible(gap)).details, {}, gap.displayName);
+	refused(await ineligible(liv), "invalid_subject");
+	assert.equal(refused(await ineligible(liv, gus), "invalid_input").details.reason, "not_child");
+	refused(await ineligible(gus, liv, 1));
+	refused(await ineligible(gus, liv, 2));
+	refused(await ineligible(far, liv, 2));
 
 	assert.deepEqual(await stored(liv), [{ n: 0 }]);
 	assert.equal(await revisionOf(liv.id), before);
 	assert.deepEqual(await history(liv), []);
 	const eligible = (await card(liv)).members.filter((m) => m.adult === "adult").map((m) => m.displayName);
 	assert.deepEqual(eligible, ["Gus Hale"], "only live adults in the household are offered");
+	assert.deepEqual(shownContacts(ok(await contact(liv, gus)).result, liv), ["Gus Hale"]);
+	assert.deepEqual(
+		await rows(sql`SELECT count(*)::int n FROM guardian_contact g JOIN person a ON a.id=g.guardian_person_id
+			JOIN person c ON c.id=g.child_person_id WHERE a.tenant_id<>c.tenant_id OR a.tenant_id<>g.plant_id`),
+		[{ n: 0 }],
+	);
 });
 
 test("AC:CASE-PPL-009-GUARDIAN when the adult or the child leaves the household, the contact is gone", async () => {
@@ -214,10 +266,13 @@ test("AC:CASE-PPL-009-GUARDIAN when the adult or the child leaves the household,
 			),
 		).result;
 
-	const left = await leave(ann);
+	const { value: left, added } = await recorded(admin, () => leave(ann));
+	assert.deepEqual(added, { audits: ["people.updated"], jobs: [], notices: 0, mail: 0 });
 	assert.deepEqual([shownContacts(left, cy), shownContacts(left, di)], [["Bo Vale"], []]);
 	assert.deepEqual([shownContacts(await card(cy), cy), shownContacts(await card(di), di)], [["Bo Vale"], []]);
-	await leave(cy);
+	assert.deepEqual(await stored(cy), [{ n: 1 }]);
+	assert.deepEqual(shownContacts(await leave(cy), cy), []);
+	assert.deepEqual(shownContacts(await card(bo), cy), []);
 	assert.deepEqual(
 		await rows(
 			sql`SELECT count(*)::int n FROM guardian_contact WHERE child_person_id IN (${sql.param(cy.id)}, ${sql.param(di.id)})`,

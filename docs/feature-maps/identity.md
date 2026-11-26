@@ -207,7 +207,7 @@ Registration reveals no account or church, and a repeated registration ends in o
 - No operation: sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code
 - Catalog: IDN-002
 - Cases: TARGET-IDN-030
-- Test: `tests/integration/identity/identity.test.mts`: `AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes`
+- Test: `tests/integration/identity/identity.test.mts`: `AC:TARGET-IDN-030 AC:WP005-API-STAGED INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes`
 
 ### identity.recover
 
@@ -289,7 +289,7 @@ A real reset consumes one proof, refuses an expired or used one and signs out ev
 - No operation: sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code
 - Catalog: IDN-009
 - Cases: TARGET-IDN-009
-- Test: `tests/integration/identity/identity.test.mts`: `AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully`
+- Test: `tests/integration/identity/identity.test.mts`: `AC:TARGET-IDN-009 AC:WP005-API-RESET INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully`
 
 ### identity.verify-email
 
@@ -319,7 +319,7 @@ Confirming the address records it with its security event and mail together.
 
 - No operation: sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code
 - Catalog: IDN-002
-- Test: `tests/integration/identity/identity.test.mts`: `INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together`
+- Test: `tests/integration/identity/identity.test.mts`: `AC:TARGET-IDN-030 INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together`
 
 ### identity.invitation
 

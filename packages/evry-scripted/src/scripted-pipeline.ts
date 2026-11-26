@@ -26,7 +26,7 @@ function turnOutputs(prompt: Prompt): Output[] {
 }
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
 
-const LOG = /\b(?:log|record|add|write)\b.*\b(?:conversation|call|note|assessment|milestone)s?\b/i;
+const LOG = /\b(?:log|record|add|write)\b.*\b(?:conversation|call|note|assessment)s?\b/i;
 const JUDGE = /\b(?:notes?|feedback|rank|ranking|most ready|ready to plant|best (?:fit|candidate)|calling)\b/i;
 const OTHER_PIPELINE = /\b([A-Z][\w-]*(?: [A-Z][\w-]*)*)'s pipeline\b/;
 const NAMED = /\b(?:where is|where's|has|is|about|show me|find)\s+([A-Z][a-z]+)\b/;
@@ -38,7 +38,7 @@ const DRAFT =
 	/\bdraft (?:a |an )?(\d{1,3})[- ]month (apprenticeship|residency)(?: program)? plan(?: with ([A-Z][a-z]+) as (?:the )?director)?/i;
 
 const NEXT = /\bdraft (?:a |the )?next version of (.+?)(?::\s*([\s\S]*))?$/i;
-const PUBLISH = /\b(?:publish|enroll|apply)\b.*\b(?:version|program|residency|apprenticeship|plan)\b/i;
+const PUBLISH = /\bpublish\b.*\b(?:version|program|residency|apprenticeship|plan)\b/i;
 const SHOW_PROGRAM =
 	/\b(?:show(?: me)?|what(?:'s| is| does)|tell me about)\s+(?:about\s+)?(.*?\b(?:residency|apprenticeship|program))\b/i;
 const QUOTED = `["'\u2018\u201c]([^"'\u2019\u201d]+)["'\u2019\u201d]`;

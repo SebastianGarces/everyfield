@@ -16,10 +16,12 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { FIELD_SOURCE, FILE_FORMAT, fillInput, fillRefusal, fillRequest, type FillInput } from "../fill.ts";
-import { rowId } from "../../native.ts";
+import { accountContext, rowId } from "../../native.ts";
 import { documentText } from "./text.ts";
 
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
+const reader = (actor: EvryActor) => inPlant(actor) || accountContext(actor);
+const ownFacts = (actor: EvryActor) => (accountContext(actor) ? { facts: { own: true } } : {});
 const live = (actor: EvryActor) =>
 	liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined });
 
@@ -65,16 +67,22 @@ function documentRow(row: z.infer<typeof listedRow>, extra: Record<string, strin
 	};
 }
 
+const listTitle = z.string().trim().min(1).max(200).optional().describe("Words from the document's title");
 const listInput = z.strictObject({
-	title: z.string().trim().min(1).max(200).optional().describe("Words from the document's title"),
+	title: listTitle,
 	store: z.enum(["written", "church"]).optional().describe("written: Documents; church: Church Documents"),
 });
 export const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 	operation: "documents.listOwned",
 	description:
 		"List the documents this church saved in Everyfield, as Documents and Church Documents show them: each title, its type (written document, core values or Church Document), its template, when it last changed and its link in the app. It reads titles only; read a document with documents.read before saying what it says. These are the church's own documents, not the Everyfield Wiki. Evry sees only documents saved in Everyfield, never files on a computer, phone, drive, email or the web: when asked about such files, say Evry can only see documents in Everyfield and offer these. Any seat may read documents; only an Owner or Admin can make, export, archive or mark one, so tell anyone else that an Owner or Admin has to do it.",
+	account: {
+		description:
+			"List the user's own documents in Everyfield, as their Documents page shows them: each title, its type, when it last changed and its link in the app. It reads titles only; read a document with documents.read before saying what it says. These are the user's own private documents, not the Everyfield Wiki. Evry sees only documents saved in Everyfield, never files on a computer, phone, drive, email or the web: when asked about such files, say Evry can only see documents in Everyfield and offer these.",
+		input: z.strictObject({ title: listTitle }),
+	},
 	input: listInput,
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
 		const words = (input.title?.split(/\s+/).filter(Boolean) ?? []).map((w) => `%${w.replace(/[\\%_]/g, "\\$&")}%`);
 		const r = await tx.execute(sql`
@@ -97,6 +105,7 @@ export const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 				"archived and deleted documents",
 				"files outside Everyfield",
 			],
+			...ownFacts(actor),
 		};
 	},
 };
@@ -106,8 +115,11 @@ const readRow = listedRow.extend({ body: z.string(), archived: z.boolean() });
 export const read: ReadAdapter<z.infer<typeof readInput>> = {
 	operation: "documents.read",
 	description: `Read one of this church's documents: its title, type, link and its actual text in reading order (at most ${TEXT_CHARS.toLocaleString("en-US")} characters). When you say what a document says, quote its words in quotation marks; never describe a document from its title.`,
+	account: {
+		description: `Read one of the user's own documents: its title, type, link and its actual text in reading order (at most ${TEXT_CHARS.toLocaleString("en-US")} characters). When you say what a document says, quote its words in quotation marks; never describe a document from its title.`,
+	},
 	input: readInput,
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
 		const r = await tx.execute(sql`
 			SELECT d.id, d.title, d.kind, d.template_id, d.template_version, r.recorded_at, r.body,
@@ -128,6 +140,7 @@ export const read: ReadAdapter<z.infer<typeof readInput>> = {
 				next: null,
 				completeness: "complete",
 				exclusions: [],
+				...ownFacts(actor),
 			};
 		const full = found.store === "church" ? churchText(found.body) : nativeText(readNative(found.body).body);
 		const cut = full.length > TEXT_CHARS;
@@ -148,6 +161,7 @@ export const read: ReadAdapter<z.infer<typeof readInput>> = {
 			exclusions: cut
 				? [`text after the first ${TEXT_CHARS.toLocaleString("en-US")} characters`, "images"]
 				: ["images"],
+			...ownFacts(actor),
 		};
 	},
 };

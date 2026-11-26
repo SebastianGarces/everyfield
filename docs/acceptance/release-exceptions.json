@@ -1,6 +1,11 @@
 {
   "exceptions": [
     {
+      "id": "AI44-001",
+      "package": "WP-058",
+      "reason": "It compares the privacy policy with verified provider settings, so it waits for those settings and T-351's privacy text with Maya's OK."
+    },
+    {
       "id": "UI45-005",
       "package": "WP-094",
       "reason": "Its result is keyboard focus returned to the Evry button after the panel closes, which only a browser shows."

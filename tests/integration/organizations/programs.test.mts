@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { fixture, waitingOnLock, type Actor, type Workspace } from "../../support/fixture.mts";
 import { recordId } from "../../../packages/contracts/src/common/index.ts";
 import { authorityOf } from "../people/people-support.mts";
 import {
@@ -433,7 +433,7 @@ test("AC:ADR1-011 an Owner enrolls Casey; the pipeline stage stays; a second act
 	);
 	assert.equal(new Date(String(stored.rows[0]!.utc) + "Z").toISOString(), "2026-10-21T00:00:00.000Z");
 	await assert.rejects(
-		admin.execute(sql`UPDATE development_enrollment SET status='withdrawn' WHERE id=${caseyResidency}`),
+		admin.execute(sql`UPDATE development_enrollment SET status='paused' WHERE id=${caseyResidency}`),
 		(error: { cause?: { constraint?: string } }) => error.cause?.constraint === "development_enrollment_ck_1",
 	);
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
@@ -1326,4 +1326,338 @@ test("ten people move in one apply, the same single statement as two", async () 
 	);
 	assert.ok((await program(ana, tenProgram)).enrollments.every((e) => e.versionNumber === 2));
 	assert.equal((await appliedTo(people.map((x) => x.id))).length, 10);
+});
+
+test("AC:ADR1-011 the director updates an enrollment: named fields only, one audited revision; a stale, foreign or ended one is refused", async () => {
+	const programId = randomUUID();
+	const p = ok(
+		await createProgram(db, await authority(dana), {
+			programId,
+			kind: "apprenticeship",
+			name: "Grace Fellows",
+			directorSeatId: anaSeat,
+			plan: templatePlan(),
+		}),
+	);
+	ok(await publishVersion(db, await authority(ana), { programId, expectedRevision: p.revision }));
+	const enrollmentId = randomUUID();
+	const person = randomUUID();
+	await enrollNew(programId, person, enrollmentId, "Riley Fellow", "Assimilating");
+	const before = await enrollment(ana, enrollmentId);
+	const update = async (a: Actor, changes: object, expectedRevision: string = before.revision, id = enrollmentId) =>
+		programWriter.updateEnrollment(db, await authority(a), { enrollmentId: id, expectedRevision, changes });
+	const audited = async () =>
+		(
+			await admin.execute(sql`SELECT actor_id,before_revision::int AS before,after_revision::int AS after,metadata
+				FROM audit_event WHERE action='development.enrollment_updated' AND subject_id=${enrollmentId}`)
+		).rows;
+
+	for (const a of [dana, luis, dee, ben, hillOwner]) refusedWith(await update(a, { cohort: "X" }), "unavailable");
+	refusedWith(await update(ana, { stageId: randomUUID() }), "invalid_input");
+	refusedWith(await update(ana, { stageId: before.milestones[0]!.id }), "invalid_input");
+	refusedWith(await update(ana, { expectedEndOn: "2000-01-01" }), "invalid_input");
+	refusedWith(await update(ana, {}), "invalid_input");
+	assert.deepEqual([await enrollment(ana, enrollmentId), await audited()], [before, []]);
+
+	assert.equal(ok(await update(ana, { cohort: before.cohort })).outcome, "noop");
+	const gathering = before.stages[2]!;
+	assert.deepEqual(
+		ok(await update(ana, { cohort: "Winter", stageId: gathering.id, nextMeetingAt: "2026-12-01T19:00:00" })),
+		{ revision: String(Number(before.revision) + 1), outcome: "changed" },
+	);
+	const after = await enrollment(ana, enrollmentId);
+	assert.deepEqual(after, {
+		...before,
+		revision: String(Number(before.revision) + 1),
+		cohort: "Winter",
+		stage: gathering,
+		nextMeeting: { at: "2026-12-01T19:00:00", timezone: "America/Chicago" },
+	});
+	assert.deepEqual(await audited(), [
+		{
+			actor_id: ana.id,
+			before: Number(before.revision),
+			after: Number(after.revision),
+			metadata: { fields: ["cohort", "stage", "nextMeeting"] },
+		},
+	]);
+	refusedWith(await update(ana, { cohort: "Stale" }), "conflict");
+	const both = await Promise.all([
+		update(ana, { cohort: "First" }, after.revision),
+		update(ana, { cohort: "Second" }, after.revision),
+	]);
+	assert.deepEqual(both.map((x) => x.status).sort(), ["ok", "refused"], "one of two changes to the same revision wins");
+	const won = await enrollment(ana, enrollmentId);
+	await admin.execute(sql`UPDATE development_enrollment SET status='completed' WHERE id=${enrollmentId}`);
+	refusedWith(await update(ana, { cohort: "Ended" }, won.revision), "unavailable");
+});
+
+async function atOnce<T>(enrollmentId: string, writes: (() => Promise<T>)[]): Promise<T[]> {
+	let held!: () => void, release!: () => void;
+	const locked = new Promise<void>((r) => (held = r));
+	const released = new Promise<void>((r) => (release = r));
+	const holder = admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT 1 FROM development_enrollment WHERE id=${enrollmentId}::uuid FOR UPDATE`);
+		held();
+		await released;
+	});
+	await locked;
+	const runs: Promise<T>[] = [];
+	for (const write of writes) {
+		runs.push(write());
+		await waitingOnLock(db, { count: runs.length });
+	}
+	release();
+	await holder;
+	return Promise.all(runs);
+}
+
+const ending = { programId: randomUUID(), kind: "residency", name: "Grace Sending Residency" };
+const handsOn = { lineage: randomUUID(), title: "Preach on a Sunday", description: "One sermon", handsOn: true };
+async function activeEnrollment(name: string, person: string = randomUUID()) {
+	const known = ok(await readPrograms(db, await authority(dana))).programs.some((p) => p.id === ending.programId);
+	if (!known) {
+		const p = ok(
+			await createProgram(db, await authority(dana), {
+				...ending,
+				directorSeatId: anaSeat,
+				plan: { ...templatePlan(), milestones: [...templatePlan().milestones, handsOn] },
+			}),
+		);
+		ok(await publishVersion(db, await authority(ana), { programId: ending.programId, expectedRevision: p.revision }));
+	}
+	const enrollmentId = randomUUID();
+	await enrollNew(ending.programId, person, enrollmentId, name, "Assimilating");
+	return { person, enrollmentId, before: await enrollment(ana, enrollmentId) };
+}
+const end = async (a: Actor, enrollmentId: string, expectedRevision: string, outcome = "completed") =>
+	programWriter.endEnrollment(db, await authority(a), { enrollmentId, expectedRevision, outcome });
+const endAudits = async (enrollmentId: string) =>
+	(
+		await admin.execute(sql`SELECT actor_id,before_revision::int AS before,after_revision::int AS after,metadata
+			FROM audit_event WHERE action='development.enrollment_updated' AND subject_id=${enrollmentId}`)
+	).rows;
+const kept = async (enrollmentId: string) =>
+	(
+		await admin.execute(sql`SELECT to_jsonb(e)-'status'-'revision' AS e,
+			(SELECT jsonb_agg(to_jsonb(m) ORDER BY m.id) FROM enrollment_milestone m WHERE m.enrollment_id=e.id) AS marks,
+			(SELECT jsonb_agg(to_jsonb(f) ORDER BY f.id) FROM assignment_feedback f WHERE f.enrollment_id=e.id) AS feedback,
+			(SELECT jsonb_agg(to_jsonb(pp)) FROM pipeline_person pp WHERE pp.person_id=e.person_id) AS place,
+			(SELECT count(*) FROM pipeline_stage_move s JOIN pipeline_person pp ON pp.id=s.pipeline_person_id
+				WHERE pp.person_id=e.person_id) AS moves
+			FROM development_enrollment e WHERE e.id=${enrollmentId}`)
+	).rows[0]!;
+const everyOtherWrite = (e: Awaited<ReturnType<typeof activeEnrollment>>) => {
+	const { enrollmentId, before } = e;
+	const [first, second] = before.milestones;
+	const preach = before.milestones.find((m) => m.handsOn)!;
+	const version = { versionId: randomUUID(), stageId: before.stages[0]!.id, basis: "0".repeat(32) };
+	return {
+		update: async () =>
+			programWriter.updateEnrollment(db, await authority(ana), {
+				enrollmentId,
+				expectedRevision: before.revision,
+				changes: { cohort: "Late change" },
+			}),
+		apply: async () => applyVersion(db, await authority(ana), { enrollmentId, ...version }),
+		applyMany: async () =>
+			programWriter.applyVersions(db, await authority(ana), {
+				programId: ending.programId,
+				versionId: version.versionId,
+				enrollments: [{ enrollmentId, stageId: version.stageId, basis: version.basis }],
+			}),
+		record: async () =>
+			recordMilestone(db, await authority(ana), {
+				enrollmentId,
+				milestoneId: first!.id,
+				completedOn: "2026-10-01",
+			}),
+		confirm: async () =>
+			programWriter.confirmMilestone(db, await authority(ana), { enrollmentId, milestoneId: second!.id }),
+		feedback: async () =>
+			addFeedback(db, await authority(ana), {
+				feedbackId: randomUUID(),
+				enrollmentId,
+				milestoneId: preach.id,
+				body: "Too late",
+			}),
+	};
+};
+
+for (const outcome of ["completed", "withdrawn"] as const)
+	test(`AC:ADR1-011 the director ends an enrollment as ${outcome}: one audited revision, everything else kept, and the person can enroll again`, async () => {
+		const x = await activeEnrollment(`Ending ${outcome}`);
+		const preach = x.before.milestones.find((m) => m.handsOn)!;
+		ok(
+			await recordMilestone(db, await authority(ana), {
+				enrollmentId: x.enrollmentId,
+				milestoneId: x.before.milestones[1]!.id,
+				completedOn: "2026-10-01",
+			}),
+		);
+		ok(
+			await addFeedback(db, await authority(ana), {
+				feedbackId: randomUUID(),
+				enrollmentId: x.enrollmentId,
+				milestoneId: preach.id,
+				body: "Clear and warm",
+			}),
+		);
+		const before = await enrollment(ana, x.enrollmentId);
+		const rows = await kept(x.enrollmentId);
+		const active = async () =>
+			ok(await readPrograms(db, await authority(dana))).programs.find((p) => p.id === ending.programId)!
+				.activeEnrollments;
+		const [enrolledBefore, residentsBefore] = [await active(), await residents(dana)];
+
+		assert.deepEqual(ok(await end(ana, x.enrollmentId, before.revision, outcome)), {
+			revision: String(Number(before.revision) + 1),
+		});
+
+		assert.deepEqual(await kept(x.enrollmentId), rows);
+		const after = { ...before, status: outcome, revision: String(Number(before.revision) + 1) };
+		assert.deepEqual(await enrollment(ana, x.enrollmentId), after);
+		assert.deepEqual(await endAudits(x.enrollmentId), [
+			{
+				actor_id: ana.id,
+				before: Number(before.revision),
+				after: Number(before.revision) + 1,
+				metadata: { fields: ["status"], outcome },
+			},
+		]);
+		assert.deepEqual([await active(), await residents(dana)], [enrolledBefore - 1, residentsBefore - 1]);
+
+		for (const who of [dana, luis])
+			assert.deepEqual(await enrollment(who, x.enrollmentId), {
+				...after,
+				viewer: { administrator: true, director: false },
+			});
+		for (const who of [ben, hillOwner])
+			refusedWith(await readEnrollment(db, await authority(who), { enrollmentId: x.enrollmentId }), "unavailable");
+
+		for (const [name, write] of Object.entries(everyOtherWrite(x))) {
+			const reply = await write();
+			assert.equal(reply.status === "refused" && reply.refusal.code, "unavailable", name);
+		}
+		for (const again of ["completed", "withdrawn"])
+			refusedWith(await end(ana, x.enrollmentId, after.revision, again), "enrollment_ended");
+		assert.deepEqual([await kept(x.enrollmentId), (await endAudits(x.enrollmentId)).length], [rows, 1]);
+
+		const next = await activeEnrollment("", x.person);
+		assert.equal(next.before.status, "active");
+		assert.deepEqual(
+			next.before.milestones.map((m) => m.completion),
+			next.before.milestones.map(() => null),
+		);
+		refusedWith(
+			await enroll(db, await authority(dana), {
+				enrollmentId: randomUUID(),
+				programId: ending.programId,
+				personId: x.person,
+				cohort: "Third",
+				startedOn: "2026-10-01",
+				expectedEndOn: "2027-10-01",
+				stageId: next.before.stages[0]!.id,
+				nextMeetingAt: null,
+			}),
+			"already_enrolled",
+		);
+		assert.deepEqual(await enrollment(ana, x.enrollmentId), after);
+		assert.deepEqual(
+			(await program(ana, ending.programId)).enrollments
+				.filter((e) => e.personId === x.person)
+				.map((e) => [e.id, e.status]),
+			[
+				[next.enrollmentId, "active"],
+				[x.enrollmentId, outcome],
+			],
+		);
+	});
+
+test("a program lists its active enrollments first and then the ended ones by name", async () => {
+	const ended = await activeEnrollment("Aaron Ended");
+	ok(await end(ana, ended.enrollmentId, ended.before.revision, "withdrawn"));
+	await activeEnrollment("Zoe Active");
+	const list = (await program(dana, ending.programId)).enrollments;
+	const statuses = list.map((e) => e.status);
+	const firstEnded = statuses.findIndex((s) => s !== "active");
+	assert.ok(list.findIndex((e) => e.name === "Zoe Active") < firstEnded);
+	assert.ok(statuses.slice(firstEnded).every((s) => s !== "active"));
+	assert.ok(statuses.includes("completed") && statuses.includes("withdrawn"));
+});
+
+test("AC:ADR1-011 ending is refused with nothing written for anyone but the current director, a bad status, a stale revision and an unknown enrollment", async () => {
+	const x = await activeEnrollment("Refused Ending");
+	const rows = async () => [
+		await kept(x.enrollmentId),
+		(await enrollment(dana, x.enrollmentId)).status,
+		(await enrollment(dana, x.enrollmentId)).revision,
+		await endAudits(x.enrollmentId),
+	];
+	const untouched = await rows();
+	const revision = x.before.revision;
+	for (const who of [dana, luis, dee, ben, hillOwner])
+		refusedWith(await end(who, x.enrollmentId, revision), "unavailable");
+	const resident = await database.actor(null, "owner", { user: { name: "Resident" } });
+	refusedWith(await end(resident, x.enrollmentId, revision), "unavailable");
+	refusedWith(await end(ana, randomUUID(), revision), "unavailable");
+	for (const status of ["active", "paused", "", null]) {
+		refusedWith(await end(ana, x.enrollmentId, revision, status as string), "invalid_input");
+	}
+	refusedWith(await end(ana, x.enrollmentId, String(Number(revision) + 1)), "conflict");
+
+	const direct = (seat: string) =>
+		admin.execute(sql`UPDATE development_program SET director_seat_id=${seat} WHERE id=${ending.programId}`);
+	await direct(deeSeat);
+	refusedWith(await end(ana, x.enrollmentId, revision), "unavailable");
+	await direct(anaSeat);
+
+	const state = (to: string) =>
+		admin.execute(
+			sql`UPDATE person SET state=${to},retired_at=${to === "live" ? null : new Date().toISOString()}::timestamptz WHERE id=${x.person}`,
+		);
+	await state("retired");
+	refusedWith(await end(ana, x.enrollmentId, revision), "unavailable");
+	await state("live");
+	assert.deepEqual(await rows(), untouched);
+
+	ok(
+		await programWriter.updateEnrollment(db, await authority(ana), {
+			enrollmentId: x.enrollmentId,
+			expectedRevision: revision,
+			changes: { cohort: "Changed first" },
+		}),
+	);
+	refusedWith(await end(ana, x.enrollmentId, revision), "conflict");
+	assert.equal((await enrollment(ana, x.enrollmentId)).status, "active");
+});
+
+test("INV-concurrency: of two ends at once one wins, and every other write that waits for an end is refused", async () => {
+	const pair = await activeEnrollment("Two Ends");
+	const replies = await atOnce(pair.enrollmentId, [
+		() => end(ana, pair.enrollmentId, pair.before.revision, "completed"),
+		() => end(ana, pair.enrollmentId, pair.before.revision, "withdrawn"),
+	]);
+	assert.deepEqual(
+		replies.map((r) => (r.status === "ok" ? "ok" : r.refusal.code)),
+		["ok", "enrollment_ended"],
+	);
+	assert.equal((await endAudits(pair.enrollmentId)).length, 1);
+
+	const names = Object.keys(everyOtherWrite(pair)) as (keyof ReturnType<typeof everyOtherWrite>)[];
+	for (const name of names) {
+		const x = await activeEnrollment(`Race ${name}`);
+		const waits = everyOtherWrite(x)[name];
+		const rows = await kept(x.enrollmentId);
+		const raced = await atOnce<{ status: string; refusal?: { code: string } }>(x.enrollmentId, [
+			() => end(ana, x.enrollmentId, x.before.revision, "withdrawn"),
+			waits,
+		]);
+		assert.deepEqual(
+			raced.map((r) => (r.status === "ok" ? "ok" : r.refusal?.code)),
+			["ok", "unavailable"],
+			name,
+		);
+		assert.deepEqual(await kept(x.enrollmentId), rows, name);
+	}
 });

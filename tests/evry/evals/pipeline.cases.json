@@ -382,7 +382,7 @@
 			"calls": [],
 			"native": "move",
 			"answer": [
-				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people."
 			],
 			"absent": ["Casey", "finished her apprenticeship"]
 		},
@@ -396,7 +396,7 @@
 			"calls": [],
 			"native": "move",
 			"answer": [
-				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people."
 			],
 			"absent": ["Casey", "finished her apprenticeship"]
 		},
@@ -429,7 +429,7 @@
 			"calls": [],
 			"native": "move",
 			"answer": [
-				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people."
 			],
 			"absent": ["Jordan", "youth retreat"]
 		},
@@ -443,7 +443,7 @@
 			"calls": [],
 			"native": "move",
 			"answer": [
-				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people."
 			],
 			"absent": ["Jordan", "youth retreat"]
 		},
@@ -474,7 +474,7 @@
 			"calls": [],
 			"native": "move",
 			"answer": [
-				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people."
 			],
 			"absent": ["Casey"]
 		},
@@ -488,7 +488,7 @@
 			"calls": [],
 			"native": "move",
 			"answer": [
-				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages, change stages or sending goals, create programs or enroll people."
 			],
 			"absent": ["Casey"]
 		},
@@ -652,6 +652,470 @@
 				"[Programs](/organization/pipeline/programs)",
 				"Nothing was published."
 			]
+		},
+		{
+			"id": "NET-01",
+			"criterion": 12,
+			"actor": "dana",
+			"ask": "add a sending goal: develop 6 leaders and plant 2 churches by 2028 because two campuses are full",
+			"operation": "pipeline.saveGoal",
+			"calls": [],
+			"proposal": {
+				"operation": "pipeline.saveGoal",
+				"target": "New sending goal"
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-02",
+			"criterion": 12,
+			"actor": "ben",
+			"ask": "what are our sending goals?",
+			"operation": "pipeline.readGoals",
+			"calls": ["pipeline.readGoals"],
+			"answer": [
+				"**Develop 6 leaders to plant 2 churches by 2028**: two campuses are full",
+				"no counts chosen",
+				"Plants sent: Not available yet."
+			]
+		},
+		{
+			"id": "NET-03",
+			"criterion": 12,
+			"actor": "luis",
+			"ask": "change our 2028 goal to 8 leaders",
+			"operation": "pipeline.saveGoal",
+			"calls": ["pipeline.readGoals"],
+			"proposal": {
+				"operation": "pipeline.saveGoal",
+				"target": "Develop 6 leaders to plant 2 churches by 2028",
+				"changes": [
+					{
+						"field": "leaderTarget",
+						"before": 6,
+						"after": 8
+					}
+				],
+				"notes": ["Saving a goal moves no one and changes no stage."]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-04",
+			"criterion": 12,
+			"actor": "luis",
+			"ask": "change our 2028 goal to 9 leaders, counting from 2199-01-01",
+			"operation": "pipeline.saveGoal",
+			"calls": ["pipeline.readGoals"],
+			"answer": ["The counting-from date can't be after today, so there is nothing to approve."],
+			"proposal": {
+				"operation": "pipeline.saveGoal",
+				"target": "Develop 8 leaders to plant 2 churches by 2028"
+			}
+		},
+		{
+			"id": "NET-05",
+			"criterion": 12,
+			"actor": "ana",
+			"ask": "change our 2028 goal to 10 leaders",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can", "change stages or sending goals"]
+		},
+		{
+			"id": "NET-06",
+			"criterion": 12,
+			"actor": "ana",
+			"ask": "how many leadership conversations did we log this quarter?",
+			"operation": "pipeline.readConversationCounts",
+			"calls": ["pipeline.readConversationCounts"],
+			"answer": ["Leadership conversations by month:", "By quarter:"],
+			"absent": ["Casey", "youth group"]
+		},
+		{
+			"id": "NET-07",
+			"criterion": 13,
+			"actor": "dana",
+			"ask": "rename the Not continuing stage to Stepped back and add a stage called Assessed after Potential leader",
+			"operation": "pipeline.saveStages",
+			"calls": ["pipeline.listPeople"],
+			"proposal": {
+				"operation": "pipeline.saveStages",
+				"target": "Pipeline stages",
+				"changes": [
+					{
+						"field": "renamedStages",
+						"before": ["Not continuing"],
+						"after": ["Stepped back"]
+					},
+					{
+						"field": "addedStages",
+						"before": null,
+						"after": ["Assessed, counted as Other"]
+					},
+					{
+						"field": "stageOrder",
+						"before": ["Potential leader", "Apprentice", "Resident", "Commissioned", "Not continuing"],
+						"after": ["Potential leader", "Assessed", "Apprentice", "Resident", "Commissioned", "Stepped back"]
+					}
+				],
+				"notes": ["No person moves."]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-08",
+			"criterion": 13,
+			"actor": "luis",
+			"ask": "remove the Commissioned stage",
+			"operation": "pipeline.saveStages",
+			"calls": ["pipeline.listPeople"],
+			"answer": ["Commissioned still has 1 person, so it can't be removed."],
+			"proposal": {
+				"operation": "pipeline.saveStages",
+				"target": "Pipeline stages"
+			}
+		},
+		{
+			"id": "NET-09",
+			"criterion": 13,
+			"actor": "ben",
+			"ask": "remove the Resident stage",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can", "change stages or sending goals"]
+		},
+		{
+			"id": "NET-10",
+			"criterion": 14,
+			"actor": "dana",
+			"ask": "enroll Jordan Reyes in the residency in the Spring cohort from 2026-10-01 to 2028-05-31",
+			"operation": "development.enroll",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.enroll",
+				"target": "Jordan Reyes",
+				"changes": [
+					{
+						"field": "program",
+						"before": null,
+						"after": "Church planting residency, Version 2"
+					},
+					{
+						"field": "cohort",
+						"before": null,
+						"after": "Spring cohort"
+					},
+					{
+						"field": "startedOn",
+						"before": null,
+						"after": "Oct 1, 2026"
+					},
+					{
+						"field": "expectedEndOn",
+						"before": null,
+						"after": "May 31, 2028"
+					},
+					{
+						"field": "programStage",
+						"before": null,
+						"after": "Assimilating"
+					}
+				],
+				"notes": ["Their pipeline stage doesn't change."]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-11",
+			"criterion": 14,
+			"actor": "luis",
+			"ask": "enroll Jordan Reyes in the residency in the Fall cohort from 2026-10-01 to 2028-05-31",
+			"operation": "development.enroll",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": ["Jordan Reyes is already enrolled in Church planting residency."],
+			"proposal": {
+				"operation": "development.enroll",
+				"target": "Jordan Reyes"
+			}
+		},
+		{
+			"id": "NET-12",
+			"criterion": 14,
+			"actor": "ben",
+			"ask": "enroll Sam Patel in the residency in the Spring cohort from 2026-10-01 to 2028-05-31",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can", "enroll people"]
+		},
+		{
+			"id": "NET-13",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "what milestones has Casey finished in the residency?",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Casey Lee in Church planting residency, Version 1, stage Assimilating:",
+				"- Start a small group and raise a replacement: Finished",
+				"- Write a church planting prospectus: Not finished"
+			],
+			"absent": ["youth group"]
+		},
+		{
+			"id": "NET-14",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "change Jordan's cohort in the residency to Winter cohort",
+			"operation": "development.updateEnrollment",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.updateEnrollment",
+				"target": "Jordan Reyes",
+				"changes": [
+					{
+						"field": "cohort",
+						"before": "Spring cohort",
+						"after": "Winter cohort"
+					}
+				],
+				"notes": ["The version, finished milestones and their pipeline stage stay as they are."]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-15",
+			"criterion": 14,
+			"actor": "luis",
+			"ask": "change Casey's cohort in the residency to Winter cohort",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director changes an enrollment",
+				"directed by Ana Ruiz, so I prepared nothing."
+			]
+		},
+		{
+			"id": "NET-16",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "apply the new version of the residency to Casey",
+			"operation": "development.applyVersion",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.applyVersion",
+				"target": "Casey Lee",
+				"changes": [
+					{
+						"field": "programVersion",
+						"before": "Version 1",
+						"after": "Version 2"
+					},
+					{
+						"field": "programStage",
+						"before": "Assimilating",
+						"after": "Assimilating"
+					},
+					{
+						"field": "addedMilestones",
+						"before": null,
+						"after": ["Lead a vision night"]
+					},
+					{
+						"field": "changedMilestones",
+						"before": ["Write a church planting prospectus"],
+						"after": ["Write and present a church planting prospectus"]
+					}
+				],
+				"notes": ["Finished work kept: Start a small group and raise a replacement."]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-17",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "record that Jordan finished 'Lead a vision night' in the residency on 2026-10-01",
+			"operation": "development.completeMilestone",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.completeMilestone",
+				"target": "Jordan Reyes",
+				"changes": [
+					{
+						"field": "milestone",
+						"before": null,
+						"after": "Lead a vision night"
+					},
+					{
+						"field": "milestoneProgress",
+						"before": "Not finished",
+						"after": "Finished Oct 1, 2026"
+					}
+				]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-18",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "confirm Casey's milestone 'Lead a vision night' in the residency",
+			"operation": "development.confirmMilestone",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.confirmMilestone",
+				"target": "Casey Lee",
+				"changes": [
+					{
+						"field": "milestone",
+						"before": null,
+						"after": "Lead a vision night"
+					},
+					{
+						"field": "milestoneProgress",
+						"before": "Marked done Oct 1, 2026",
+						"after": "Confirmed by you"
+					}
+				]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-19",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "record that Casey finished 'Write and present a church planting prospectus' in the residency on 2026-10-01",
+			"operation": "development.completeMilestone",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": ["Casey Lee has a linked account, so they mark this milestone themselves on My residency."],
+			"proposal": {
+				"operation": "development.completeMilestone",
+				"target": "Casey Lee"
+			}
+		},
+		{
+			"id": "NET-20",
+			"criterion": 15,
+			"actor": "dana",
+			"ask": "log that I had an ICNU conversation with Jordan yesterday",
+			"calls": [],
+			"answer": [
+				"Leadership conversations are logged on the Pipeline page, not here, and so are notes and assessments."
+			],
+			"absent": ["milestone"]
+		},
+		{
+			"id": "NET-21",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "end Jordan's enrollment in the residency",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Did the enrollment end as Completed, because they finished the program, or as Withdrawn, because they left it? Nothing was prepared."
+			],
+			"absent": ["finished Church"]
+		},
+		{
+			"id": "NET-22",
+			"criterion": 14,
+			"actor": "luis",
+			"ask": "Jordan dropped out of the residency",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director changes an enrollment",
+				"directed by Ana Ruiz, so I prepared nothing."
+			],
+			"absent": ["finished Church"]
+		},
+		{
+			"id": "NET-23",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Jordan dropped out of the residency",
+			"operation": "development.updateEnrollment",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.updateEnrollment",
+				"target": "Jordan Reyes",
+				"changes": [
+					{
+						"field": "status",
+						"before": "Active",
+						"after": "Withdrawn"
+					}
+				],
+				"notes": [
+					"Church planting residency, Version 2.",
+					"An ended enrollment cannot be changed or reopened.",
+					"Its milestones and feedback stay in the record.",
+					"Their pipeline stage does not change."
+				]
+			},
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "NET-24",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Jordan finished the residency",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"answer": [
+				"Jordan Reyes's enrollment in Church planting residency has ended as Withdrawn. Nothing was prepared."
+			],
+			"absent": ["has finished"]
+		},
+		{
+			"id": "NET-25",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Casey dropped out",
+			"calls": ["development.readProgram"],
+			"answer": ["Which program? Grace Austin has"],
+			"absent": ["review card"]
+		},
+		{
+			"id": "NET-26",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "Casey finished the residency",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": ["Which person: Casey Lee or Casey Nguyen? Nothing was prepared."],
+			"absent": ["review card"]
+		},
+		{
+			"id": "NET-27",
+			"criterion": 14,
+			"actor": "ana",
+			"ask": "mark Casey Lee's enrollment in the residency as completed",
+			"operation": "development.updateEnrollment",
+			"calls": ["development.readProgram", "development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.updateEnrollment",
+				"target": "Casey Lee",
+				"changes": [
+					{
+						"field": "status",
+						"before": "Active",
+						"after": "Completed"
+					}
+				],
+				"notes": [
+					"Church planting residency, Version 2.",
+					"An ended enrollment cannot be changed or reopened.",
+					"Its milestones and feedback stay in the record.",
+					"Their pipeline stage does not change."
+				]
+			},
+			"answer": ["I prepared a review card. Nothing changes until you approve it."],
+			"approve": {},
+			"outcome": "completed"
 		}
 	]
 }

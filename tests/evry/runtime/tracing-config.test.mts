@@ -16,7 +16,7 @@ async function logged<T>(body: () => T | Promise<T>) {
 }
 const registered = async () => (await logged(flushTraces)).lines.length > 0;
 
-test("INV-tracing: missing Langfuse keys write one tracing_disabled line with the SDK's default host and register nothing", async () => {
+test("INV-tracing: missing Langfuse keys write one tracing_disabled line with no host and register nothing", async () => {
 	for (const env of [{}, { LANGFUSE_PUBLIC_KEY: "pk-lf-config" }, { LANGFUSE_SECRET_KEY: "sk-lf-config" }]) {
 		const { result, lines } = await logged(() => registerTracing(env));
 		assert.equal(result, false);
@@ -25,7 +25,7 @@ test("INV-tracing: missing Langfuse keys write one tracing_disabled line with th
 				component: "evry",
 				event: "tracing_disabled",
 				reason: "missing_keys",
-				baseUrlHost: "cloud.langfuse.com",
+				baseUrlHost: null,
 				environment: null,
 				environmentValid: true,
 			},
@@ -98,7 +98,7 @@ test("INV-privacy: a refusal line shows the base URL's host and never its user i
 		{
 			component: "evry",
 			event: "tracing_disabled",
-			reason: "invalid_environment",
+			reason: "invalid_base_url",
 			baseUrlHost: "us.cloud.langfuse.com",
 			environment: "not-a-word",
 			environmentValid: false,

@@ -57,5 +57,6 @@ export function identityAuth(config: {
 		advanced: { database: { generateId: () => randomUUID() }, trustedProxyHeaders: false },
 		rateLimit: { enabled: false },
 		logger: { disabled: true },
+		onAPIError: { throw: true },
 	});
 }

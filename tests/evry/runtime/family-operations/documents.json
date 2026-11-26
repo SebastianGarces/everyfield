@@ -1,0 +1,48 @@
+{
+	"family": "EVRY-FAMILY-DOCUMENTS",
+	"tested": [
+		{
+			"file": "tests/evry/adapters/documents/cases-family.test.mts",
+			"test": "AC:EVRY-FAMILY-DOCUMENTS",
+			"operations": [
+				"documents.archive",
+				"documents.designateCoreValues",
+				"documents.download",
+				"documents.generate",
+				"documents.getAuthorized",
+				"documents.history.get",
+				"documents.history.list",
+				"documents.importTextOrWord",
+				"documents.listOwned",
+				"documents.preview",
+				"documents.read",
+				"documents.readCoreValuesEvidence",
+				"documents.resolveContext",
+				"documents.saveNative",
+				"documents.templates.contextual",
+				"documents.templates.get",
+				"documents.templates.list",
+				"documents.useForChurch"
+			],
+			"through": {
+				"documents.getAuthorized": "documents.read",
+				"documents.useForChurch": "documentsWriter.useForChurch"
+			}
+		}
+	],
+	"excluded": [
+		{
+			"rule": "REQ-EVR-020",
+			"authority": ["registered_scoped_internal_caller"],
+			"operations": [
+				"documents.purgeOwnedForDeletion",
+				"documents.reconcileOrphans",
+				"storage.createAuthorizedDownload",
+				"storage.deleteUnreferencedObject",
+				"storage.putPrivateObject",
+				"storage.readAuthorizedObject"
+			]
+		}
+	],
+	"withheld": []
+}

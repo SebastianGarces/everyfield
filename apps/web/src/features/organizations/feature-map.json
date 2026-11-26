@@ -1120,6 +1120,21 @@
 						],
 						"cases": ["ADR1-012"]
 					}
+				},
+				{
+					"id": "end-enrollment",
+					"says": "The program's current director ends an active enrollment as Completed or Withdrawn from a dialog with neither preselected. The ended page offers no further change, and the person can be enrolled again.",
+					"catalog": ["MUL-011"],
+					"operations": ["development.updateEnrollment"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/programs.test.mts",
+								"name": "AC:ADR1-011 ending is refused with nothing written for anyone but the current director, a bad status, a stale revision and an unknown enrollment"
+							}
+						],
+						"cases": ["ADR1-011"]
+					}
 				}
 			]
 		},
@@ -1417,7 +1432,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/organizations/consent.test.mts",
-								"name": "AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches"
+								"name": "AC:ADR1-016 pipeline totals default off, are shared per relationship and need two churches"
 							}
 						],
 						"cases": ["ADR1-016"],
@@ -1590,7 +1605,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
-								"name": "AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history"
+								"name": "AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 ending one pair keeps other links, content and minimal history"
 							},
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
@@ -1598,7 +1613,11 @@
 							},
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
-								"name": "AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve"
+								"name": "AC:ROLE43-016 wrong side, Member, proof, expiry and revoked initiator cannot approve"
+							},
+							{
+								"file": "tests/integration/organizations/connections.test.mts",
+								"name": "AC:TARGET-IDN-020 another affiliate cannot approve this link, competing decisions settle once, and a failed write keeps nothing"
 							},
 							{
 								"file": "tests/unit/organizations/invitation-proof.test.mts",

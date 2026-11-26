@@ -9,8 +9,11 @@ import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/ta
 import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { createSignals } from "../../../packages/domain/src/intelligence/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
-import { ACTOR_SPECS, PLANT, type ActorName } from "./golden-church.mts";
+import { ACTOR_SPECS, pinHostClock, PLANT, type ActorName } from "./golden-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+
+const LAUNCH_NOW = new Date("2026-11-25T12:01:00Z");
+pinHostClock(LAUNCH_NOW);
 
 export const ZONE = "America/Chicago";
 export const today = () =>
@@ -122,6 +125,25 @@ export async function seedGuests(db: Database) {
 	const owner = await authorityOf(db, "owner");
 	for (const displayName of GUESTS)
 		ok(await writer.addGuestAttendance(db, owner, { requestKey: randomUUID(), input: { displayName } }));
+}
+
+export async function seedDebrief(db: Database) {
+	const answers = {
+		wentWell: "The worship team was ready.",
+		toChange: null,
+		operations: null,
+		followUpPlan: null,
+		supportNeeded: null,
+		missingNames: "no",
+		missingCount: null,
+	};
+	ok(
+		await writer.submitDebrief(db, await authorityOf(db, "owner"), {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { draftId: null, answers },
+		}),
+	);
 }
 
 export async function seedOutcome(db: Database, attendance: number) {

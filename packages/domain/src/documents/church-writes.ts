@@ -358,7 +358,7 @@ export const churchWriter = {
 			const template = builtIn ?? storedTemplate(stored?.body ?? null) ?? deny("unavailable");
 			const title = stored?.title ?? template.title;
 			if (!builtIn) knownFields(template, cleaned.values);
-			const frozen = frozenData(template.fields, sources);
+			const frozen = frozenData(template.fields, sources, cleaned.values);
 			const data: Record<string, string> = { ...frozen.data, ...cleaned.values };
 			const required = template.fields.find((f) => f.required && !data[f.key]?.trim());
 			if (required) deny("unavailable");

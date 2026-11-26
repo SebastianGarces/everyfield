@@ -68,6 +68,7 @@ const mergeRow = z.object({
 	households_exist: z.boolean(),
 	tags_exist: z.boolean(),
 	later_merge: z.boolean(),
+	feedback_since: z.boolean(),
 	undone: z.array(z.string()),
 	added_to_moved: z.array(c.referenceKind),
 	edited: z.array(z.string()),
@@ -100,6 +101,9 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
   WHERE NOT EXISTS(SELECT FROM tag t WHERE t.id=d::uuid AND t.plant_id=m.tenant_id)),
  'later_merge',EXISTS(SELECT FROM person_merge l WHERE l.tenant_id=m.tenant_id AND l.survivor_id=m.survivor_id
   AND l.unmerged_at IS NULL AND l.id<>m.id AND l.merged_at>=m.merged_at),
+ 'feedback_since',EXISTS(SELECT FROM assignment_feedback f JOIN development_enrollment e ON e.id=f.enrollment_id
+  AND e.organization_id=f.organization_id WHERE f.organization_id=m.tenant_id AND e.person_id=m.survivor_id
+  AND f.written_at>m.merged_at),
  'undone',(SELECT coalesce(jsonb_agg(k.key||'|'||k.id),'[]') FROM person_merge l CROSS JOIN LATERAL (
   SELECT e.key,i.id FROM jsonb_each(l.moved) e CROSS JOIN LATERAL jsonb_array_elements_text(e.value) i(id)
    WHERE e.key NOT IN ('participation','participation_inviter')
@@ -137,11 +141,13 @@ function organizationInverse(merge: Merge, source: Facts, survivor: Facts): Inve
 		conflicts.push("source_changed");
 	if (survivor.state !== "live" || survivor.revision !== merge.survivor_revision) conflicts.push("survivor_changed");
 	const referencesChanged = referencesDigest(survivor.refs) !== merge.references_digest;
-	if (referencesChanged) conflicts.push("references_changed");
+	if (referencesChanged || merge.feedback_since) conflicts.push("references_changed");
 	if (merge.moved.mail?.length) conflicts.push("mail_sent");
+	const changed = new Set(referencesChanged ? changedKinds(merge, survivor) : []);
+	if (merge.feedback_since) changed.add("development_enrollment");
 	return {
 		conflicts,
-		changed: referencesChanged ? changedKinds(merge, survivor) : [],
+		changed: [...changed].sort(),
 		changedFields: [],
 		stays: [],
 		staysFields: [],

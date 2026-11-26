@@ -21,7 +21,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Unauthenticated/missing-secret tick and valid fixed registered schedule request with forged job arguments.",
       "given": {
         "P": {
@@ -209,7 +212,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Two workers attempt the same due work concurrently; a replaced worker later resumes.",
       "given": {
         "P": {
@@ -424,7 +430,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "One tenant perpetual mail backlog with other tenant digest/deletion/reference owed work.",
       "given": {
         "P": {
@@ -574,7 +583,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "A synthetic executor invocation reaches its configured route deadline mid page with unstarted claims and a slow provider call.",
       "given": {
         "P": {
@@ -714,7 +726,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Three confirmed retryable refusals and a permanent policy denial with RetryAfter.",
       "given": {
         "P": {
@@ -875,7 +890,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Digest catchup has more 100 lines across several missed periods and sharing revoked after compile.",
       "given": {
         "P": {
@@ -1045,7 +1063,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Time-only assessment demand at unchanged source; provider call reaches 45 second timeout, source changes during inference, and the worker loses execution ownership before resuming.",
       "given": {
         "P": {
@@ -1210,7 +1231,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Reference job completes subset chunks then provider timeout and manifest replaced.",
       "given": {
         "P": {
@@ -1359,7 +1383,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Import/render timeout with existing ready file; object cleanup races DB finalization.",
       "given": {
         "P": {
@@ -1509,7 +1536,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Feedback external create timeout with exact frozen repository and duplicate candidate marker.",
       "given": {
         "P": {
@@ -1644,7 +1674,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Deletion deadline claim collides cancellation before/at boundary; new request after old cancel receipt.",
       "given": {
         "P": {
@@ -1878,7 +1911,10 @@
       "work_packages": [
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/jobs/execution-cases.test.mts"
+      ],
       "description": "Production expected/high burst and actual deployment schedule, `maxDuration`, handler registration measured; paid config unavailable.",
       "given": {
         "P": {
