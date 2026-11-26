@@ -16,7 +16,8 @@ flowchart LR
   s0 --- s0_b0["declare<br/>tests + cases + browser presence"]
   s0 --- s0_b1["readiness<br/>tests + cases + browser presence"]
   s0 --- s0_b2["change-phase<br/>tests + cases + browser behavior"]
-  s0 --- s0_b3["owners-only<br/>tests + cases"]
+  s0 --- s0_b3["attest-readiness<br/>tests + browser presence"]
+  s0 --- s0_b4["owners-only<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -120,6 +121,20 @@ agent-browser find role button click --name "Move to Phase"
 agent-browser wait --load networkidle
 agent-browser wait --text "Map phase move"
 ! agent-browser find role dialog text --name "Change phase" --exact
+```
+
+#### phases.journey#attest-readiness
+
+An Owner or Admin records, corrects and retracts the three readiness attestations, each with dated history.
+
+- No operation: signals.attest and signals.correct serve readiness as signals.attestReadiness and signals.correctReadiness (packages/domain/src/intelligence/signals.ts), names that differ from the catalog ids
+- Catalog: PI-028
+- Test: `tests/integration/intelligence/readiness-actions.test.mts`: `INV-readiness-actions: record, correct, retract and record again; the criterion follows`
+- Test: `tests/integration/intelligence/readiness-actions.test.mts`: `INV-readiness-actions: a worship agreement names a person with no account`
+- Browser, presence proof only (the control is there; the tests prove the outcome), from state current:
+
+```bash
+agent-browser find role heading text --name "What you attest" --exact
 ```
 
 #### phases.journey#owners-only

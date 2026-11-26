@@ -227,6 +227,36 @@
 					}
 				},
 				{
+					"id": "attest-readiness",
+					"says": "An Owner or Admin records, corrects and retracts the three readiness attestations, each with dated history.",
+					"catalog": ["PI-028"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/intelligence/readiness-actions.test.mts",
+								"name": "INV-readiness-actions: record, correct, retract and record again; the criterion follows"
+							},
+							{
+								"file": "tests/integration/intelligence/readiness-actions.test.mts",
+								"name": "INV-readiness-actions: a worship agreement names a person with no account"
+							}
+						],
+						"browser": {
+							"state": "current",
+							"steps": [],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "What you attest"
+								}
+							],
+							"kind": "presence"
+						}
+					},
+					"noOperation": "signals.attest and signals.correct serve readiness as signals.attestReadiness and signals.correctReadiness (packages/domain/src/intelligence/signals.ts), names that differ from the catalog ids"
+				},
+				{
 					"id": "owners-only",
 					"says": "Only a live Owner or Admin seat reads the journey or changes the phase.",
 					"catalog": ["PHASE-007"],
