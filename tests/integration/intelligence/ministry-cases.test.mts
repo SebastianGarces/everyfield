@@ -109,7 +109,7 @@ const attest = (p: ChurchPlant, key: string, value: "yes" | "not_yet", asOf?: st
 		expectedRevision: "0",
 		input: { key, value, ...(asOf ? { asOf } : {}) },
 	});
-const readiness = (p: ChurchPlant, input: c.ReadinessInput) =>
+const readiness = (p: ChurchPlant, input: { key: c.ReadinessKey } & Record<string, unknown>) =>
 	signals.attestReadiness(w.db, p.actor, { requestKey: randomUUID(), expectedRevision: "0", input });
 const roots = () =>
 	w.one<{ plants: number; seats: number; affiliations: number; grants: number }>(
