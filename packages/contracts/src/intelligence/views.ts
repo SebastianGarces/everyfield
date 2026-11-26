@@ -114,6 +114,9 @@ export const CRITERION_EVIDENCE: Partial<Record<z.infer<typeof criterionKey>, re
 	systems_tested: ["attestations.systems_tested", "attestations.systems_tested.asOf"],
 	launch_window: ["launch.daysToLaunch"],
 	first_service_complete: ["firstService.milestone", "firstService.heldOn"],
+	coach_assigned: ["readiness.relationship", "readiness.relationship.asOf"],
+	worship_leader: ["readiness.worship_agreement", "readiness.worship_agreement.asOf"],
+	geographic_area: ["readiness.community", "readiness.community.asOf"],
 };
 
 export const assessedCriterion = z.strictObject({

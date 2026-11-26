@@ -1,0 +1,3 @@
+ALTER TABLE "attestation_revision" DROP CONSTRAINT "attestation_revision_ck_5";
+ALTER TABLE "attestation" ADD CONSTRAINT "attestation_ck_6" CHECK ((((key <> 'worship_agreement'::text) OR (person_id IS NOT NULL)) AND ((key <> ALL (ARRAY['community'::text, 'relationship'::text])) OR ((person_id IS NULL) AND (statement IS NOT NULL)))));
+ALTER TABLE "attestation_revision" ADD CONSTRAINT "attestation_revision_ck_5" CHECK ((key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text, 'worship_agreement'::text, 'community'::text, 'relationship'::text])));
