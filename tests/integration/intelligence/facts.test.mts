@@ -244,7 +244,7 @@ test("AC:CA001 AC:CA003 30 committed adults on two teams count once each, childr
 	const both = a.evidence.find((e) => e.person.id === adults[0]!.id)!;
 	assert.deepEqual([both.kinds, both.committedSince], [["core_group", "launch_team"], day(-60)]);
 	assert.equal(r.criteria.committed_adults, "met");
-	assert.equal(r.formulaVersion, "plant-facts/2");
+	assert.equal(r.formulaVersion, "plant-facts/3");
 });
 
 test("AC:CA004 29 known adults and one unclassified person read Unknown with at least 29 and name that person", async () => {
@@ -491,6 +491,10 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"launch.gathering_reached_on": sql`UPDATE launch SET gathering_reached_on=${day(-1)},
 			gathering_reached_name='Constituted as a church' WHERE plant_id=${o.w.id}`,
 		"launch.gathering_reached_name": sql`UPDATE launch SET gathering_reached_name='Church constituted' WHERE plant_id=${o.w.id}`,
+		launch_debrief: sql`INSERT INTO launch_debrief(plant_id,version,missing_names,missing_count,saved_at,submitted_at)
+			VALUES(${o.w.id},1,'yes',3,clock_timestamp(),clock_timestamp())`,
+		"launch_debrief.version": sql`INSERT INTO launch_debrief(plant_id,version,missing_names,saved_at,submitted_at)
+			VALUES(${o.w.id},2,'no',clock_timestamp(),clock_timestamp())`,
 	};
 	let last = (await read(o)).sourceRevision;
 	for (const [input, change] of Object.entries(changes)) {
@@ -511,6 +515,9 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 	assert.equal(answered.criteria.systems_tested, "met");
 	await checkIn(o);
 	await f.admin.execute(sql`UPDATE person SET email='rowan@example.test',notes='unrelated' WHERE id=${p.id}`);
+	await f.admin.execute(sql`UPDATE launch_debrief SET went_well='unrelated' WHERE plant_id=${o.w.id}`);
+	await f.admin.execute(sql`INSERT INTO launch_debrief(plant_id,version,missing_names,missing_count,saved_at)
+		VALUES(${o.w.id},3,'yes',9,clock_timestamp())`);
 	const quiet = await read(o);
 	assert.equal(quiet.sourceRevision, answered.sourceRevision);
 	assert.deepEqual(stable(quiet), stable(answered));
@@ -518,6 +525,7 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"anyAttendance",
 		"attendance",
 		"attestations",
+		"debrief",
 		"followUps",
 		"fourCs",
 		"interviews",

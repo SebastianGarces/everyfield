@@ -4,8 +4,8 @@ import { instant, localDate } from "../common/time.ts";
 import { criterionKey, criterionStatus } from "../phases/index.ts";
 import { renewal, signalKey, signalValue } from "./signals.ts";
 
-export const FACTS_FORMULA_VERSION = "plant-facts/2";
-const formulaVersion = z.enum(["plant-facts/1", FACTS_FORMULA_VERSION]);
+export const FACTS_FORMULA_VERSION = "plant-facts/3";
+const formulaVersion = z.enum(["plant-facts/1", "plant-facts/2", FACTS_FORMULA_VERSION]);
 export const ADULT_TARGET = 30;
 export const GROWTH_SLOWED_DAYS = 21;
 export const GROWTH_STALLED_DAYS = 28;
@@ -136,6 +136,22 @@ export const firstService = z.discriminatedUnion("path", [
 	}),
 ]);
 
+export const debriefFact = z.discriminatedUnion("submitted", [
+	z.strictObject({
+		submitted: z.literal(false),
+		submittedAt: z.null(),
+		missingNames: z.null(),
+		missingCount: z.null(),
+	}),
+	z.strictObject({
+		submitted: z.literal(true),
+		submittedAt: instant,
+		missingNames: z.boolean(),
+		missingCount: z.int().min(1).nullable(),
+	}),
+]);
+export type DebriefFact = z.infer<typeof debriefFact>;
+
 const recordPresence = z.strictObject({ count: z.int().min(0), latestOn: localDate.nullable() });
 const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
 
@@ -155,6 +171,7 @@ export const plantFacts = z.strictObject({
 	humanRecords,
 	launch: z.strictObject({ targetOn: localDate.nullable(), daysToLaunch: z.int().nullable() }),
 	firstService: firstService.optional(),
+	debrief: debriefFact.optional(),
 	criteria: z.partialRecord(criterionKey, criterionStatus),
 });
 export type PlantFacts = z.infer<typeof plantFacts>;

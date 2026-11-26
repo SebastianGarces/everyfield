@@ -1,6 +1,7 @@
 import { addDays, daysBetween, instant, type Clock, type Instant } from "@everyfield/contracts/common";
 import { measure } from "@everyfield/contracts/followups";
 import * as c from "@everyfield/contracts/intelligence";
+import { evidenceOf } from "@everyfield/contracts/launch";
 import type { CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -72,6 +73,13 @@ export const factInputs = z.strictObject({
 			path: z.enum(["launch_sunday", "milestone"]),
 			reachedOn: z.string().nullable(),
 			reachedName: z.string().nullable(),
+		})
+		.nullable(),
+	debrief: z
+		.strictObject({
+			submittedAt: instant,
+			missingNames: z.enum(["yes", "no"]),
+			missingCount: z.int().nullable(),
 		})
 		.nullable(),
 });
@@ -150,6 +158,22 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	}
 	const heldOn = l?.status === "completed" ? held(l.actual) : null;
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
+}
+
+function debriefOf(d: FactInputs["debrief"]): z.input<typeof c.debriefFact> {
+	if (!d) return { submitted: false, submittedAt: null, missingNames: null, missingCount: null };
+	const missing = d.missingNames === "yes";
+	return {
+		submitted: true,
+		submittedAt: d.submittedAt,
+		missingNames: missing,
+		missingCount: missing ? d.missingCount : null,
+	};
+}
+
+function debriefCriteria(d: FactInputs["debrief"]): Partial<Record<CriterionKey, CriterionStatus>> {
+	const e = evidenceOf(d && { answers: d, submittedAt: d.submittedAt });
+	return { guest_data_entered: e.guestNamesEntered.status, debrief_done: e.debriefDone.status };
 }
 
 const revisionOf = (inputs: FactInputs | (Omit<FactInputs, "phase"> & { phase: undefined })) =>
@@ -334,6 +358,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		systems_tested: answer("systems_tested"),
 		...c.launchCriteria(launch),
 		first_service_complete: firstService.status,
+		...debriefCriteria(inputs.debrief),
 	};
 
 	return c.plantFacts.parse({
@@ -352,6 +377,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
 		launch,
 		firstService,
+		debrief: debriefOf(inputs.debrief),
 		criteria,
 	});
 }
@@ -440,7 +466,10 @@ function inputsSql() {
   FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant),
  'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status,
   'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
-  FROM launch l WHERE l.plant_id=x.plant)
+  FROM launch l WHERE l.plant_id=x.plant),
+ 'debrief',(SELECT jsonb_build_object('submittedAt',${iso(sql`d.submitted_at`)},'missingNames',d.missing_names,
+  'missingCount',d.missing_count) FROM launch_debrief d WHERE d.plant_id=x.plant AND d.submitted_at IS NOT NULL
+  ORDER BY d.version DESC LIMIT 1)
  )`;
 }
 

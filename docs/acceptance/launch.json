@@ -7647,7 +7647,10 @@
       "work_packages": [
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/launch/debrief-cases.test.mts"
+      ],
       "description": "PI evidence DTO includes bounded submission/counts with private care/reflection canaries.",
       "given": {
         "P": {
