@@ -98,7 +98,10 @@ test("AC:SEC-09 mail callbacks are admitted only by a fresh signature over their
 			["signed other bytes", callback(`${body} `, { id: args.event_id, signature: sign(args.event_id, now, body) })],
 			["signed other id", callback(body, { id: args.event_id, signature: sign("evt-other", now, body) })],
 			["stale timestamp", callback(body, { id: args.event_id, stamp: now - 301 })],
-			["future timestamp", callback(body, { id: args.event_id, stamp: now + 301 })],
+			// The route compares against its own later, unfloored clock read, so `now + 301` from a floored
+			// read lands inside the 300 s window when the sub-second part plus the elapsed time reach 1 s
+			// (run 45830498780). Ceil the read and add 60 s for the time before the last request.
+			["future timestamp", callback(body, { id: args.event_id, stamp: Math.ceil(Date.now() / 1000) + 300 + 60 })],
 			[
 				"no timestamp",
 				new Request("https://app.everyfield.test/api/webhooks/resend", {
