@@ -72,6 +72,7 @@ function DocumentRows({ documents }: { documents: OwnedView[] }) {
 export function MyDocuments({ initial }: { initial: DocumentOutcome<OwnedView[]> }) {
 	const listed = useLocalRead(loadMyDocuments, {
 		initial,
+		fresh: Infinity,
 		failed: (): DocumentOutcome<OwnedView[]> | ReadFailure => ({ status: "lost" }),
 	});
 	const result = listed.value;

@@ -116,10 +116,10 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 	});
 }
 
-export async function mineOf(db: Database, authority: RequestActor) {
+export async function mineOf(db: Database, authority: RequestActor): Promise<DocumentOutcome<OwnedView[]>> {
 	const listed = await documentsWriter.listMine(db, authority, {});
 	if (listed.status === "refused") return refused(listed.error);
-	return { status: "ok" as const, value: listed.value.documents.map(presentOwned) };
+	return { status: "ok", value: listed.value.documents.map(presentOwned) };
 }
 
 export function writtenScope(authority: RequestActor): "church" | "account" | null {
