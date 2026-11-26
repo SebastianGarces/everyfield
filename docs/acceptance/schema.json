@@ -4451,7 +4451,10 @@
         "WP-022",
         "WP-046"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-person-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
