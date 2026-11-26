@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import {
+	createOnboardingProducer,
+	readDiscoverySteps,
+	readOnboardingEntry,
+} from "../../../packages/domain/src/onboarding/index.ts";
 import { accountId, instant, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { readLeadPlanter } from "../../../packages/domain/src/settings/index.ts";
@@ -99,6 +103,10 @@ export function onboardingCases(t: Tenancy, who: TenancyOwner) {
 		tenancyCase("onboarding:readOnboardingEntry", async () => ({ status: "ok", value: await entry() }), {
 			value: entryOf(owner),
 			control: (value) => assert.deepEqual(value, entryOf(planters.a)),
+		}),
+		tenancyCase("onboarding:readDiscoverySteps", () => readDiscoverySteps(t.f.db, producer, who.actor), {
+			refused: "unavailable",
+			control: null,
 		}),
 		tenancyCase(
 			"settings:readLeadPlanter",

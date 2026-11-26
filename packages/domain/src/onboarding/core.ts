@@ -153,6 +153,7 @@ export async function begin(
 		| "onboarding.createPlant"
 		| "discovery.create"
 		| "discovery.convertToPlant"
+		| "discovery.setStep"
 		| "identity.answerLeadOnboarding"
 		| "onboarding.declareJourney"
 		| "onboarding.complete",

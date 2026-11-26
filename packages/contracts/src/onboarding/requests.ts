@@ -4,6 +4,7 @@ import { recordId, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import { organizationOwner, sharingChoices } from "../organizations/subjects.ts";
 import { phaseNumber } from "../phases/index.ts";
+import { templateKey } from "../tasks/index.ts";
 
 const name = z.string().trim().min(1).max(200);
 const localityPart = z.string().trim().max(200).nullable().optional();
@@ -12,6 +13,10 @@ export const plantBasics = z.strictObject({ name, locality: locality.optional(),
 export const createPlantRequest = commandEnvelope(plantBasics);
 export const createDiscoveryRequest = commandEnvelope(z.strictObject({}));
 export const getDiscoveryProfileRequest = z.strictObject({});
+export const getDiscoveryStepsRequest = z.strictObject({});
+export const setDiscoveryStepRequest = commandEnvelope(
+	z.strictObject({ discoveryId: recordId, stepKey: templateKey, done: z.boolean() }),
+);
 export const getResumeRequest = z.strictObject({});
 export const completeOnboardingRequest = commandEnvelope(z.strictObject({}));
 

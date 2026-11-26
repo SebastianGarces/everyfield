@@ -288,10 +288,17 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 		"nextVision",
 		"people",
 		"phase",
+		"readiness",
 		"roles",
 		"training",
 		"vision",
 		"zone",
+	]);
+	assert.deepEqual(Object.keys(factInputs.shape.readiness.unwrap().element.shape).sort(), [
+		"asOf",
+		"key",
+		"kind",
+		"named",
 	]);
 	assert.deepEqual(Object.keys(factInputs.shape.interviews.shape).sort(), ["count", "latestOn"]);
 	assert.deepEqual(Object.keys(factInputs.shape.fourCs.shape).sort(), ["count", "latestOn"]);
@@ -445,5 +452,45 @@ test("a Launch Sunday plant counts only an actual Launch Sunday; its launch-date
 		[scheduled.criteria.launch_date_set, scheduled.criteria.launch_window],
 		["met", "met"],
 		"a scheduled launch still sets the date and window",
+	);
+});
+
+test("AC:PI-028 readiness attestations add their criteria only when answered, and a plant without them reads exactly as before", () => {
+	const none = facts({});
+	assert.equal("readiness" in none, false);
+	assert.deepEqual(
+		[none.criteria.coach_assigned, none.criteria.worship_leader, none.criteria.geographic_area],
+		[undefined, "unknown", undefined],
+	);
+	assert.equal(none.sourceRevision, facts({}).sourceRevision);
+	const answered = facts({
+		readiness: [
+			{ key: "community", kind: "answered", asOf: day(-3), named: "Eastside" },
+			{ key: "relationship", kind: "corrected", asOf: day(-9), named: "Hill Network" },
+			{ key: "worship_agreement", kind: "answered", asOf: day(-1), named: "Robin" },
+		],
+	});
+	assert.deepEqual(
+		[answered.criteria.coach_assigned, answered.criteria.worship_leader, answered.criteria.geographic_area],
+		["met", "met", "met"],
+	);
+	assert.notEqual(answered.sourceRevision, none.sourceRevision);
+	const withdrawn = facts({
+		readiness: [
+			{ key: "community", kind: "retracted", asOf: day(0), named: "Eastside" },
+			{ key: "worship_agreement", kind: "answered", asOf: day(-1), named: null },
+		],
+	});
+	assert.deepEqual(
+		[withdrawn.criteria.coach_assigned, withdrawn.criteria.worship_leader, withdrawn.criteria.geographic_area],
+		[undefined, "unknown", undefined],
+		"a retraction or a person no longer live meets nothing",
+	);
+	assert.deepEqual(
+		withdrawn.readiness!.map((r) => [r.key, r.state]),
+		[
+			["community", "retracted"],
+			["worship_agreement", "answered"],
+		],
 	);
 });

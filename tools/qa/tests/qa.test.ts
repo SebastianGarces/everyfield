@@ -656,6 +656,8 @@ const DISCOVERY_PLANTER = [
 	"foundation eded80bd-e505-4a56-91d6-67b8d071ef73 read by Jo Rivera",
 	"Discovery document Notes on my calling",
 	"Discovery document Questions for my sending church",
+	"starter step vision-summary done by Jo Rivera",
+	"starter step meet-a-coach done by Jo Rivera",
 ].join(", ");
 const NOV4_MAIL =
 	"suppressed address of Leo Pratt, message QA delivery check, suppressed admin address, past restore of the admin address";
@@ -1622,6 +1624,12 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 			JOIN account a ON a.id = d.account_id JOIN auth_user u ON u.id = a.auth_user_id
 			WHERE u.email IN ('${QA_LOGINS.endedResident}', '${QA_LOGINS.resident}') ORDER BY 1`),
 		[QA_LOGINS.endedResident, QA_LOGINS.resident].map((email) => ({ email, revision: "1", converted_at: null })),
+	);
+	assert.deepEqual(
+		await query(`SELECT s->>'key' AS key, d.steps_revision::text AS revision FROM discovery d
+			JOIN account a ON a.id = d.account_id JOIN auth_user u ON u.id = a.auth_user_id
+			CROSS JOIN jsonb_array_elements(d.steps) s WHERE u.email = '${QA_LOGINS.discovery}' ORDER BY 1`),
+		["meet-a-coach", "vision-summary"].map((key) => ({ key, revision: "3" })),
 	);
 });
 

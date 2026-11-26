@@ -150,6 +150,63 @@ export const correctCandidateRequest = z.strictObject({
 	]),
 });
 
+export const readinessKey = z.enum(["relationship", "worship_agreement", "community"]);
+export type ReadinessKey = z.infer<typeof readinessKey>;
+export const READINESS_QUESTION_VERSION = "readiness-attestations/1";
+const namedText = z.string().trim().min(1).max(TEXT_MAX);
+
+export const readinessInput = z.discriminatedUnion("key", [
+	z.strictObject({ key: z.literal("relationship"), organization: namedText, mentor: optionalText, asOf }),
+	z.strictObject({ key: z.literal("worship_agreement"), personId: recordId, statement: optionalText, asOf }),
+	z.strictObject({ key: z.literal("community"), area: namedText, plan: optionalText, asOf }),
+]);
+export type ReadinessInput = z.infer<typeof readinessInput>;
+export const attestReadinessRequest = z.strictObject({ requestKey, expectedRevision: revision, input: readinessInput });
+export const correctReadinessRequest = z.strictObject({
+	requestKey,
+	expectedRevision: revision,
+	input: z.discriminatedUnion("action", [
+		z.strictObject({ action: z.literal("correct"), attestation: readinessInput }),
+		z.strictObject({ action: z.literal("retract"), key: readinessKey }),
+	]),
+});
+export const readReadinessRequest = z.strictObject({ key: readinessKey.nullable() });
+
+export const readinessEntry = z.strictObject({
+	key: readinessKey,
+	state: z.enum(["answered", "retracted", "unanswered"]),
+	asOf: localDate.nullable(),
+	named: z.string().nullable(),
+	personId: recordId.nullable(),
+	statement: z.string().nullable(),
+	reference: z.string().nullable(),
+	authorName: z.string().nullable(),
+	recordedAt: instant.nullable(),
+	revision,
+});
+export type ReadinessEntry = z.infer<typeof readinessEntry>;
+export const readinessRevision = z.strictObject({
+	id: recordId,
+	key: readinessKey,
+	revision: z.int().min(1),
+	kind: z.enum(["answered", "corrected", "retracted"]),
+	asOf: localDate,
+	named: z.string().nullable(),
+	personId: recordId.nullable(),
+	statement: z.string().nullable(),
+	reference: z.string().nullable(),
+	authorName: z.string().nullable(),
+	recordedAt: instant,
+	questionVersion: z.literal(READINESS_QUESTION_VERSION),
+});
+export type ReadinessRevision = z.infer<typeof readinessRevision>;
+export const readinessPage = z.strictObject({
+	today: localDate,
+	attestations: z.array(readinessEntry).length(readinessKey.options.length),
+	history: z.array(readinessRevision),
+});
+export const readinessWriteResult = z.strictObject({ outcome: z.literal("saved"), attestation: readinessEntry });
+
 export const renewal = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("current"), daysLeft: z.int().min(0).max(REAFFIRM_WINDOW_DAYS) }),
 	z.strictObject({ status: z.literal("needs_renewing") }),
