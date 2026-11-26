@@ -49,8 +49,8 @@ const expected = (id: string) => (caseOf("intelligence", id).expected as { resul
 const argumentsOf = (id: string) => caseOf("intelligence", id).action.arguments as Result;
 const base = caseOf("intelligence", "NI-001") as ReturnType<typeof caseOf> & { clock: { now: string } };
 const given = base.given as Record<string, Record<string, unknown>>;
-let shift = 0;
-const clock = { now: () => new Date(Date.now() + shift).toISOString() as never };
+let pinned = 0;
+const clock = { now: () => new Date(pinned).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
 const care = createPrivateCare();
@@ -82,7 +82,7 @@ let runA: string;
 const forbidden: string[] = [];
 
 async function at(instant: string) {
-	shift = Date.parse(instant) - Date.now();
+	pinned = Date.parse(instant);
 	await pinSchemaClock(c0.admin, c0.database.schema, new Date(instant));
 }
 const as = async (who: { session: string }) =>
@@ -202,7 +202,7 @@ async function publish(p: ChurchPlant, seen = true) {
 
 before(async () => {
 	const available = String(given["P-released"]!.available_at);
-	shift = Date.parse(available) - Date.now();
+	pinned = Date.parse(available);
 	c0 = await church("ni", { clock: new Date(available) });
 	await c0.release("methodology-2026.11");
 	await installGeographyRelease(c0.admin);

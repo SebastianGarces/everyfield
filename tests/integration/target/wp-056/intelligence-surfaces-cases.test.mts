@@ -19,8 +19,8 @@ import { caseOf } from "../sql/core/support.mts";
 const NI031 = caseOf("intelligence", "NI-031") as ReturnType<typeof caseOf> & { clock: { now: string } };
 const result = NI031.expected.result as { private_fields_in_diagnostics: number; raw_manifest: null };
 const args = NI031.action.arguments as { surfaces: string[]; canaries: string[] };
-let shift = 0;
-const clock = { now: () => new Date(Date.now() + shift).toISOString() as never };
+let pinned = 0;
+const clock = { now: () => new Date(pinned).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
 const care = createPrivateCare();
@@ -45,7 +45,7 @@ let runId: string;
 
 before(async () => {
 	const now = NI031.clock.now;
-	shift = Date.parse(now) - Date.now();
+	pinned = Date.parse(now);
 	c0 = await church("ni031", { clock: new Date(now) });
 	useApp(c0.database.logins.runtime.url.href);
 	await c0.release("methodology-2026.11");

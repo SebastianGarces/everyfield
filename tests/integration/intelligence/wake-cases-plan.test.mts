@@ -52,8 +52,7 @@ let dbClock: { now: () => never };
 before(async () => {
 	W = await wakeWorld("mw2");
 	await installGeographyRelease(W.c.admin);
-	const shift = Date.parse((await W.c.one<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`)).t) - Date.now();
-	dbClock = { now: () => new Date(Date.now() + shift).toISOString() as never };
+	dbClock = W.clock;
 });
 after(() => W?.close());
 

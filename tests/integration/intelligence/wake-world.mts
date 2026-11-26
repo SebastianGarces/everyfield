@@ -90,10 +90,14 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 	const c = await church(prefix, { clock: new Date(at), max: 8 });
 	await c.release("methodology-2026.11");
 	const { db } = c;
-	const dbNow = Date.parse((await c.one<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`)).t);
-	const shift = dbNow - Date.now();
+	// The code clock is the DB's pinned schema clock as last read, moved by `sync` before each step, never the host clock.
+	let pinned = 0;
+	const sync = async () => {
+		pinned = Date.parse((await c.one<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`)).t);
+	};
+	await sync();
 	let skew = 0;
-	const clock = { now: () => new Date(Date.now() + shift + skew).toISOString() as never };
+	const clock = { now: () => new Date(pinned + skew).toISOString() as never };
 	const job = createAssessmentJob({ clock });
 	const assessments = createAssessments({ clock });
 	const scripted = (options: Parameters<typeof scriptedAssessmentDrafter>[0] = {}) =>
@@ -111,11 +115,13 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 			next_attempt_at=NULL WHERE kind='assessment' AND subject_record_id<>${p.id} AND state IN ('ready','retry_wait','claimed')`);
 	const run = async (p: { id: string }, drafter = scripted(), limit = 20) => {
 		await isolate(p);
+		await sync();
 		return runAssessmentBatch(job, db, drafter, limit);
 	};
 	const current = async (p: { actor: RequestActor }) =>
 		ok(await assessments.readAssessment(db, p.actor, {})).current?.runId ?? null;
 	async function publish(p: ChurchPlant) {
+		await sync();
 		ok(await assessments.requestRefresh(db, p.actor, { requestId: randomUUID() }));
 		await run(p);
 		const now = ok(await assessments.readAssessment(db, p.actor, {})).current;
@@ -141,6 +147,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		c.rows<{ producer_key: string }>(sql`SELECT producer_key FROM job WHERE kind='assessment'
 			AND subject_record_id=${p.id} AND producer_key LIKE 'change/%' ORDER BY eligible_at,id`);
 	const sweep = async (p: { id: string }) => {
+		await sync();
 		await job.scheduleAssessments(db, 500);
 		return changeDemands(p);
 	};
@@ -237,6 +244,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		o: { attempt: () => Promise<unknown>; facts: () => Promise<Json>; action?: string },
 	) {
 		const s = k.failure;
+		await sync();
 		assert.equal(s.action.arguments.fault, "required_consequence_before_completion");
 		const before = await snapshot(w);
 		assert.equal(before.input, w.r0.sourceRevision);
@@ -262,6 +270,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		assert.equal(e.wake_delivery, "paused");
 		const before = await snapshot(w);
 		const ids = await auditIds(w.P);
+		await sync();
 		const result = await o.write();
 		assert.deepEqual(listed(await o.facts(), e.facts), e.facts, "the listed facts changed");
 		const after = await snapshot(w);
@@ -456,6 +465,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		c,
 		db,
 		clock,
+		sync,
 		job,
 		assessments,
 		scripted,
