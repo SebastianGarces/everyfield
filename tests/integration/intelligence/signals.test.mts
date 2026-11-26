@@ -1024,4 +1024,21 @@ test("AC:PI-028 the three attestations correct and retract with their history ke
 	]);
 	assert.equal(racers.filter((r) => r.status === "ok").length, 1);
 	assert.equal(racers.find((r) => r.status === "refused")!.error.code, "revision_conflict");
+	const fresh = await f.workspace();
+	const b = await seated(fresh);
+	const [one1, two] = [await person(b, "First Singer"), await person(b, "Second Singer")];
+	const singers = await Promise.all([
+		readiness(b, { key: "worship_agreement", personId: one1.id }),
+		readiness(b, { key: "worship_agreement", personId: two.id }),
+	]);
+	assert.equal(singers.filter((r) => r.status === "ok").length, 1, "one worship agreement per church");
+	assert.equal(singers.find((r) => r.status === "refused")!.error.code, "revision_conflict");
+	assert.equal(
+		(
+			await one<{ n: number }>(
+				sql`SELECT count(*)::int n FROM attestation WHERE plant_id=${fresh.id} AND key='worship_agreement'`,
+			)
+		).n,
+		1,
+	);
 });

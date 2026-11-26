@@ -741,8 +741,8 @@ export function createSignals(config: { clock?: Clock } = {}) {
   AND (SELECT ok FROM gate) FOR UPDATE),
  want AS (SELECT coalesce(${nullable(i.asOf)}::date,x.today) AS as_of FROM ctx x WHERE (SELECT ok FROM gate)
   AND EXISTS(SELECT FROM who) AND NOT EXISTS(SELECT FROM prior) AND coalesce(${nullable(i.asOf)}::date,x.today)<=x.today),
- born AS (INSERT INTO attestation(plant_id,key,person_id,state,answer,as_of,attested_at,statement,source_description,revision)
-  SELECT ${s.plant}::uuid,${i.key},${v.personId}::uuid,'answered',true,w.as_of,${s.at},${v.statement},${v.reference},1
+ born AS (INSERT INTO attestation(id,plant_id,key,person_id,state,answer,as_of,attested_at,statement,source_description,revision)
+  SELECT md5(${s.plant}::text||':'||${i.key}::text)::uuid,${s.plant}::uuid,${i.key},${v.personId}::uuid,'answered',true,w.as_of,${s.at},${v.statement},${v.reference},1
   FROM want w WHERE ${q.expectedRevision}::bigint=0 AND NOT EXISTS(SELECT FROM cur) ON CONFLICT DO NOTHING RETURNING *),
  again AS (UPDATE attestation a SET state='answered',answer=true,person_id=${v.personId}::uuid,as_of=w.as_of,
   attested_at=${s.at},statement=${v.statement},source_description=${v.reference},revision=a.revision+1

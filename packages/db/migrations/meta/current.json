@@ -2576,28 +2576,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "attestation_uq_3": {
-          "name": "attestation_uq_3",
-          "columns": [
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "(key = 'worship_agreement'::text)",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {

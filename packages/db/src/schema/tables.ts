@@ -446,9 +446,6 @@ export const attestation = pgTable(
 		uniqueIndex("attestation_uq_2")
 			.using("btree", table.plant_id.asc().nullsLast(), table.key.asc().nullsLast(), table.person_id.asc().nullsLast())
 			.where(sql`(person_id IS NOT NULL)`),
-		uniqueIndex("attestation_uq_3")
-			.using("btree", table.plant_id.asc().nullsLast(), table.key.asc().nullsLast())
-			.where(sql`(key = 'worship_agreement'::text)`),
 	],
 );
 export const attestation_revision = pgTable(
