@@ -253,8 +253,15 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		const after = await snapshot(w);
 		assert.equal(e.current_assessment, "R0");
 		assert.equal(after.current, w.r0.runId, "R0 stays current");
-		assert.notEqual(after.input, before.input, "P's assessment input state differs from R0's");
-		assert.notEqual(after.input, w.r0.sourceRevision);
+		const inputExpected = e.assessment_input_state;
+		const inputMoves = typeof inputExpected === "object" && inputExpected !== null && "different_from" in inputExpected;
+		if (inputMoves) {
+			assert.notEqual(after.input, before.input, "P's assessment input state differs from R0's");
+			assert.notEqual(after.input, w.r0.sourceRevision);
+		} else {
+			assert.equal(inputExpected, k.given.P && (k.given.P as Json).assessment_input_state);
+			assert.equal(after.input, w.r0.sourceRevision, "P's assessment input state is still R0's");
+		}
 		assert.deepEqual(after.orgA, before.orgA, "Org-A's input state is unchanged");
 		assert.deepEqual(after.orgB, before.orgB, "Org-B's input state is unchanged");
 		assert.equal(after.assessmentJobs, before.assessmentJobs, "the write queues no assessment: the wake stays paused");
@@ -279,13 +286,19 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		assert.deepEqual(replayed, after, "an exact replay adds no effect and no input change");
 		assert.deepEqual(await auditsSince(w.P, ids), events);
 
-		assert.equal(e.sweep_discovers_change, true);
+		assert.equal(e.sweep_discovers_change, inputMoves);
 		const demands = await sweep(w.P);
-		assert.equal(demands.length, 1, "the next sweep finds the change: one change demand");
+		if (inputMoves) assert.equal(demands.length, 1, "the next sweep finds the change: one change demand");
+		else {
+			const ran = (await runs(w.P)).length;
+			await run(w.P);
+			assert.equal((await runs(w.P)).length, ran, "the sweep's demand, if any, runs no assessment");
+			assert.equal(await assessmentJobs(w.P), before.assessmentJobs + demands.length);
+		}
 		assert.equal(e.replay_new_effects, 0);
 		assert.deepEqual(listed(await o.facts(), e.facts), e.facts);
 		assert.equal(await current(w.P), w.r0.runId);
-		return { result, input: after.input, demand: demands[0]!.producer_key };
+		return { result, input: after.input, demand: inputMoves ? demands[0]!.producer_key : null };
 	}
 
 	const runs = (p: { id: string }) =>
@@ -303,7 +316,12 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 	const settledAudits = (runId: string) =>
 		count(sql`SELECT count(*) AS n FROM audit_event WHERE event_key=${"assessment:" + runId}`);
 
-	async function stalePublications(w: WakePlant, k: LoadedWakeCase, captured: string) {
+	async function stalePublications(
+		w: WakePlant,
+		k: LoadedWakeCase,
+		captured: string,
+		demand: string | null = "change",
+	) {
 		const r0 = w.r0.runId;
 		const sent = await notices(w.P);
 		for (const s of [k.staleInput, k.staleClaim]) {
@@ -314,6 +332,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		const ia = k.staleInput.action.arguments;
 		assert.notEqual(ia.captured_source, ia.live_source);
 
+		if (!demand) ok(await assessments.requestRefresh(db, w.P.actor, { requestId: randomUUID() }));
 		let moved = false;
 		assert.equal(
 			await run(
@@ -330,7 +349,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 			1,
 		);
 		const stale = (await runs(w.P)).at(-1)!;
-		assert.ok(stale.demand_key.startsWith("change/"), "the sweep's change demand ran");
+		assert.ok(stale.demand_key.startsWith(demand ? "change/" : "manual/"), "the queued demand ran");
 		assert.equal(stale.source_revision, captured, "captured at the write's input state");
 		const live = await inputState(w.P);
 		assert.notEqual(live, stale.source_revision, "the live input moved");
@@ -415,7 +434,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 	) {
 		await requiredConsequenceFailure(w, k, { attempt: o.attempt ?? o.write, facts: o.facts, action: o.action });
 		const done = await pausedWrite(w, k, o);
-		await stalePublications(w, k, done.input);
+		await stalePublications(w, k, done.input, done.demand);
 		return done.result;
 	}
 

@@ -9,7 +9,13 @@ import { randomUUID } from "node:crypto";
 import { assessments, commitments, peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { createAttendanceWriter, meetingsWriter } from "../../../packages/domain/src/meetings/index.ts";
 import { createTaskWriter } from "../../../packages/domain/src/tasks/index.ts";
-import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
+import {
+	TEMPLATES,
+	teamsReader,
+	teamsWriter,
+	trainingReader,
+	trainingWriter,
+} from "../../../packages/domain/src/teams/index.ts";
 import { ok } from "../../support/fixture.mts";
 import { listed, wakeCase, wakeWorld, type LoadedWakeCase, type WakePlant, type WakeWorld } from "./wake-world.mts";
 
@@ -400,6 +406,34 @@ const ROWS: Row<unknown>[] = [
 				},
 			}));
 			return await asAdmin(w, assessments.createAssessment, raw);
+		},
+	}),
+	row<Arranged>({
+		id: "MW-CASE-006",
+		marker: "AC:MW-CASE-006 ",
+		operation: "teams.initialize",
+		producer: "teamsReader.listImportTemplates (the approved template version) + teamsWriter.initialize",
+		arrange: async () => ({ ids: {} }),
+		facts: async (w) => {
+			const teams = await W.c.rows<{ key: string | null }>(sql`SELECT template_key AS key FROM team
+				WHERE plant_id=${w.P.id} AND archived_at IS NULL ORDER BY sort_order,id`);
+			return {
+				configuredSelectedTeams: teams.length,
+				importedTemplateKey: teams.map((t) => t.key).join(",") || null,
+				filledResponsibilityCount: (await snapshotOf(w)).coverage.filled,
+			};
+		},
+		write: async (w, k) => {
+			const a = args(k);
+			const raw = await once(w, async () => {
+				const { version } = ok(await teamsReader.listImportTemplates(W.db, w.A.actor, {}));
+				const selections = (a.selectedTeamTemplateKeys as string[]).map((teamKey) => ({
+					teamKey,
+					roleKeys: TEMPLATES.find((t) => t.key === teamKey)!.roles.map((role) => role.key),
+				}));
+				return { requestKey: requestKey(k), input: { expectedVersion: version, mode: "import", selections } };
+			});
+			return await asAdmin(w, teamsWriter.initialize, raw);
 		},
 	}),
 	row<Arranged & { roles: Record<string, { id: string; team: string }>; program: string }>({
