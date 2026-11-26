@@ -26,7 +26,7 @@ registerHooks({
 
 const load = async <T,>(file: string) => (await import(pathToFileURL(join(SRC, file)).href)) as T;
 
-test("hidden /discovery is in neither the sitemap nor the robots allow list, and its page asks not to be indexed", async () => {
+test("live /discovery is in the sitemap and the robots allow list with its share images, and its page may be indexed", async () => {
 	const { default: sitemap } = await load<{ default: () => { url: string }[] }>("app/sitemap.ts");
 	const { default: robots } = await load<{ default: () => { rules: { allow: string[]; disallow: string } } }>(
 		"app/robots.ts",
@@ -34,16 +34,12 @@ test("hidden /discovery is in neither the sitemap nor the robots allow list, and
 	const { PAGES, pageMetadata } =
 		await load<typeof import("../../../apps/web/src/marketing/meta.ts")>("marketing/meta.ts");
 
-	assert.equal(
-		sitemap().some((e) => new URL(e.url).pathname.startsWith("/discovery")),
-		false,
-	);
+	assert.equal(sitemap().filter((e) => new URL(e.url).pathname === "/discovery").length, 1);
 	const { allow, disallow } = robots().rules;
-	assert.equal(
-		allow.some((p) => p.startsWith("/discovery")),
-		false,
+	assert.deepEqual(
+		allow.filter((p) => p.startsWith("/discovery")),
+		["/discovery", "/discovery/opengraph-image", "/discovery/twitter-image"],
 	);
 	assert.equal(disallow, "/");
-	assert.deepEqual(pageMetadata(PAGES.discovery).robots, { index: false, follow: false });
-	assert.equal(pageMetadata(PAGES.oversight).robots, undefined);
+	assert.equal(pageMetadata(PAGES.discovery).robots, undefined);
 });

@@ -166,7 +166,8 @@ test("AC:INH-REGRESSION-EVIDENCE-CITATION two agendas are compared from their ow
 
 	const asked = await w.quiet(() => w.ask(P.A, said, [both]));
 	assert.deepEqual(compared(asked.replies), comparison);
-	const cited = asked.cards.flatMap((card) => rowsOf(card.result));
+	const byDocumentNotFinishOrder = (a: { id: string }, b: { id: string }) => name(a.id).localeCompare(name(b.id));
+	const cited = asked.cards.flatMap((card) => rowsOf(card.result)).sort(byDocumentNotFinishOrder);
 	assert.deepEqual(
 		cited.map((r) => [r.kind, r.id, r.fields.link]),
 		[one, two].map(({ id }) => ["document", id, `/documents/written/${id}`]),
@@ -180,7 +181,7 @@ test("AC:INH-REGRESSION-EVIDENCE-CITATION two agendas are compared from their ow
 	);
 	assert.deepEqual(
 		cited.map((r, at) => `${name(r.id)}/v${versions[at]!.v}`),
-		citations,
+		[...citations].sort(),
 	);
 	assert.ok(cited.every((r, at) => versions[at]!.body.includes(r.fields.text)));
 

@@ -8,6 +8,7 @@ export { deletionCookieValue } from "../proofs.ts";
 export { createLifecycleCleanup, deletionOperations } from "./deletion.ts";
 export { authorizeSettingsMail } from "./mail.ts";
 export type { DeletionEffects, DeletionRequest, DeletionSubject, WorkspaceDeletionNotice } from "./deletion.ts";
+export { leadOperations, readLeadPlanter } from "./lead.ts";
 export { sectionOperations } from "./sections.ts";
 export type { Principal, SectionViewer, SettingsEffects } from "./sections.ts";
 export { timezoneOperations } from "./timezones.ts";

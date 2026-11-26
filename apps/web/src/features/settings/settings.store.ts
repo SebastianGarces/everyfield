@@ -8,6 +8,7 @@ import type {
 	BrandReply,
 	BrandView,
 	GetSectionRequest,
+	LeadRead,
 	Locality,
 	OrderRead,
 	RegionRead,
@@ -29,6 +30,7 @@ export type SettingsReads = {
 	brand: Read<[], BrandRead | ReadFailure>;
 	wiki: Read<[], OrderRead | ReadFailure>;
 	region: Read<[], RegionRead | ReadFailure>;
+	lead: Read<[], LeadRead | ReadFailure>;
 	regionMatches: Read<[Locality], RegionSuggestion[] | null>;
 };
 
@@ -91,6 +93,7 @@ export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: 
 		}),
 		wiki: createRead((): Promise<OrderRead | ReadFailure> => port.wiki.read(), { failed: thrownRead, fresh: Infinity }),
 		region: createRead((): Promise<RegionRead | ReadFailure> => port.region.read(), { failed: thrownRead }),
+		lead: createRead((): Promise<LeadRead | ReadFailure> => port.lead.read(), { failed: thrownRead }),
 		regionMatches: createRead((locality: Locality) => port.region.suggest(locality), {
 			failed: () => null,
 			keep: (found) => found !== null,

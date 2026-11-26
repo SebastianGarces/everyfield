@@ -1778,6 +1778,11 @@
 	"settings.setDigestSchedule": {
 		"limit": 6
 	},
+	"settings.setLeadPlanter": {
+		"limit": 7,
+		"retry": 5,
+		"reason": "Above the pattern: the savepoint pair, the write gate, the request-key claim, one locked read for the lead role, its team, the chosen person and the open tenure, then ending the old tenure on its own, because the one open tenure per role index refuses the new tenure in the same statement as the end; one final statement starts the new tenure, moves the team leader, bumps the church revision and writes the audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
+	},
 	"settings.setPersonalTimezone": {
 		"limit": 7,
 		"retry": 5,

@@ -311,7 +311,7 @@ test("AC:CA008 AC:CA019 a withdrawal lowers the count but keeps the growth clock
 	assert.equal(audit.n, 1);
 });
 
-test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-002 AC:B01-020 AC:B01-026 vision, follow-ups, coverage, training and answers", async () => {
+test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-026 vision, follow-ups, coverage, training and answers", async () => {
 	const o = await plant();
 	const people = [];
 	for (let i = 0; i < 10; i++) people.push(await committed(o, `Member ${i + 1}`));

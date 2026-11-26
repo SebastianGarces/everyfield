@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
 	authorizeRead,
 	deny,
+	actorToken,
 	hash,
 	mutation,
 	parse,
@@ -605,7 +606,7 @@ export function auditTaskStatus(
 		id: randomUUID(),
 		tenant_id: owner,
 		actor_id: accountId,
-		actor_token: hash([owner, accountId]),
+		actor_token: actorToken(owner, accountId),
 		action: source === "merge" ? "people.merged" : "people.unmerged",
 		kind: source,
 		subject_type: "task",

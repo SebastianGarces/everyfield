@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { timeZone } from "../common/time.ts";
-import { recordId, revision } from "../common/values.ts";
+import { personId, recordId, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import { profileFields } from "../organizations/requests.ts";
 import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
@@ -80,6 +80,7 @@ export const saveChurchRequest = commandEnvelope(
 		.strictObject({ plant: plantOwner, changes: z.array(plantChange).min(1).max(3) })
 		.refine((v) => new Set(v.changes.map((c) => c.kind)).size === v.changes.length),
 );
+export const setLeadPlanterRequest = commandEnvelope(z.strictObject({ plant: plantOwner, personId }));
 export type GetSectionRequest = z.infer<typeof getSectionRequest>;
 export type SaveSectionRequest = z.infer<typeof saveSectionRequest>;
 export type PlantChange = z.infer<typeof plantChange>;

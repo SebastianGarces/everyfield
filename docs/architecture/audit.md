@@ -61,7 +61,7 @@ Audit investigation or export requires current explicitly bounded operator purpo
 
 ## Deletion and retention
 
-Live actor links are nullable. Personal purge preserves legitimate shared attribution only as an opaque deleted-account token local to the owning scope, clearing unnecessary identity linkage. No universal cross-tenant token map, email or name copy is retained. The token is pseudonymous, not guaranteed anonymous.
+Live actor links are nullable. Personal purge preserves legitimate shared attribution only as an opaque deleted-account token local to the owning scope, clearing unnecessary identity linkage. No universal cross-tenant token map, email or name copy is retained. The token is pseudonymous, not guaranteed anonymous. One recipe, the SHA-256 of the canonical JSON pair of tenant and account, makes it at live writes and at purge, so an account has one token per church or organization.
 
 Account-owned audit details purge with the account; plant-owned history purges with the plant. Counterparts retain only minimum independent relationship evidence. There is no blanket audit retention exception or separately approved retention period. Ordinary writers cannot change or delete history; corrections append evidence, and restricted policy cleanup may scrub or purge. This is not a tamper-proof storage guarantee. Current deletion/access authority overrides restored history before access and cannot reset copy expiry.
 

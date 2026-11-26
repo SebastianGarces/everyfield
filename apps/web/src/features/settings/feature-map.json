@@ -233,6 +233,25 @@
 							]
 						}
 					}
+				},
+				{
+					"id": "lead-planter",
+					"says": "Church profile names the lead planter; the Owner hands the lead role to another live person of the church, and the old holder's tenure ends.",
+					"catalog": ["IDN-014"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "AC:TARGET-IDN-014 the Owner of a church converted from Discovery hands the lead planter role to another live person in Settings"
+							},
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-014 AC:TARGET-IDN-016 converting a Discovery names the planter lead planter, and creating a church directly still asks"
+							}
+						]
+					},
+					"noOperation": "settings.setLeadPlanter is an app-native settings command outside the operation catalog, like settings.saveChurch, and stays out of Evry (D-2943)"
 				}
 			]
 		},

@@ -22,6 +22,7 @@ import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { failingWrite, recorded, untouched } from "../../../support/recorded.mts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
+import { caseOf } from "../../target/sql/core/support.mts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const database = await fixture({ prefix: "wp018", max: 6 });
@@ -246,6 +247,60 @@ test("AC:B01-028 preview stores nothing and one selected line stays the only act
 	assert.equal(quiet.proposedCount, 0);
 	assert.equal(quiet.offer, "accepted");
 	assert.equal(quiet.customizations.length, lines.length);
+	const k = caseOf("intelligence", "B01-028");
+	assert.ok(lines.length >= Number(k.action.arguments.preview_lines));
+	assert.equal(k.action.arguments.selected_lines, 1);
+	assert.equal(k.expected.result.preview_rows, 0);
+	assert.equal(stored.filter((row) => !row.removed).length, k.expected.result.created_responsibilities);
+	assert.equal(
+		(await linesOf(team.id)).filter((row) => !row.removed).length - 1,
+		k.expected.result.other_lines_recreated,
+	);
+});
+
+test("AC:B01-034 a review made before another admin edited and removed a line is stale and adds nothing", async () => {
+	const k = caseOf("intelligence", "B01-034");
+	const groups = await expectedLines("small_groups");
+	const team = await makeTemplateTeam("Stale review", "small_groups");
+	ok(
+		await run(
+			responsibilityWriter.offerResponsibilities,
+			await offerInput(team.id, "accept", [groups[0]!.key, groups[1]!.key], team.revision),
+		),
+	);
+	const revision = (await offerOf(team.id)).revision;
+	const reviewed = await offerInput(team.id, "accept", [groups[2]!.key], revision);
+	const [first, second] = (await linesOf(team.id)).filter((row) => !row.removed);
+	ok(
+		await run(
+			responsibilityWriter.editResponsibility,
+			{
+				requestKey: key(),
+				expectedRevision: first!.revision,
+				input: { responsibilityId: first!.id, text: "Rewritten" },
+			},
+			2,
+		),
+	);
+	ok(
+		await run(
+			responsibilityWriter.deleteResponsibility,
+			{ requestKey: key(), expectedRevision: second!.revision, input: { responsibilityId: second!.id } },
+			2,
+		),
+	);
+	const current = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
+	assert.notEqual(current.reviewDigest, reviewed.input.reviewDigest);
+	assert.equal((await offerOf(team.id)).revision, revision);
+	const stored = await linesOf(team.id);
+	const before = await marks();
+	assert.equal(
+		refused(await run(responsibilityWriter.offerResponsibilities, reviewed), "stale_review").code,
+		k.expected.result.error_code,
+	);
+	assert.equal((await marks()).rows - before.rows, k.expected.result.new_rows);
+	assert.deepEqual(await linesOf(team.id), stored);
+	assert.equal(await audits(reviewed.requestKey), 0);
 });
 
 test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declined lines do not return", async () => {
