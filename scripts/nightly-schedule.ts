@@ -18,7 +18,7 @@ export type PlistInput = {
 	log: string;
 };
 
-const xml = (s: string) =>
+export const xml = (s: string) =>
 	s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
 export function plist({ label, hour, minute, checkout, path, log }: PlistInput): string {
@@ -73,13 +73,13 @@ export const plistPath = (agentsDir: string) => join(agentsDir, `${LABEL}.plist`
 export const jobLog = (home: string) => join(home, "nightly.log");
 const time = `${String(HOUR).padStart(2, "0")}:${String(MINUTE).padStart(2, "0")}`;
 
-const loaded = (d: ScheduleDeps) => d.launchctl(["print", `gui/${d.uid}/${LABEL}`]).status === 0;
+export const loaded = (d: ScheduleDeps, label = LABEL) => d.launchctl(["print", `gui/${d.uid}/${label}`]).status === 0;
 
-function bootout(d: ScheduleDeps): boolean {
-	if (!loaded(d)) return false;
-	d.launchctl(["bootout", `gui/${d.uid}/${LABEL}`]);
-	for (let waited = 0; loaded(d); waited += 100) {
-		if (waited >= 10_000) throw new Error(`launchctl bootout left ${LABEL} loaded after 10 s.`);
+export function bootout(d: ScheduleDeps, label = LABEL): boolean {
+	if (!loaded(d, label)) return false;
+	d.launchctl(["bootout", `gui/${d.uid}/${label}`]);
+	for (let waited = 0; loaded(d, label); waited += 100) {
+		if (waited >= 10_000) throw new Error(`launchctl bootout left ${label} loaded after 10 s.`);
 		d.sleep(100);
 	}
 	return true;
@@ -146,17 +146,22 @@ const which = (command: string) => {
 	return r.status === 0 ? r.stdout.trim() : null;
 };
 
-export function jobPath(found: (command: string) => string | null = which, node = process.execPath): string {
+export function jobPath(
+	found: (command: string) => string | null = which,
+	node = process.execPath,
+	tools = ["pnpm", "corepack", "gh", "portless", "git"],
+	user = "bin/dev nightly",
+): string {
 	const dirs = [dirname(found("node") ?? node)];
-	for (const tool of ["pnpm", "corepack", "gh", "portless", "git"]) {
+	for (const tool of tools) {
 		const at = found(tool);
 		if (at) dirs.push(dirname(at));
-		else throw new Error(`${tool} is not on PATH; bin/dev nightly needs it.`);
+		else throw new Error(`${tool} is not on PATH; ${user} needs it.`);
 	}
 	return [...new Set([...dirs, "/usr/bin", "/bin", "/usr/sbin", "/sbin"])].join(":");
 }
 
-function realDeps(root: string): ScheduleDeps {
+export function agentDeps(root: string, path: () => string = jobPath): ScheduleDeps {
 	const common = spawnSync("git", ["-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"], {
 		encoding: "utf8",
 	});
@@ -167,7 +172,7 @@ function realDeps(root: string): ScheduleDeps {
 		home: ciHome(),
 		checkout: dirname(common.stdout.trim()),
 		get path() {
-			return jobPath();
+			return path();
 		},
 		launchctl: (args) => {
 			const r = spawnSync("launchctl", args, { encoding: "utf8" });
@@ -184,5 +189,5 @@ export function scheduleCommand(args: string[], root: string): number | null {
 	if (name === undefined || rest.length || !Object.hasOwn(actions, name)) return null;
 	const action = actions[name as keyof typeof actions];
 	if (process.platform !== "darwin") throw new Error("The nightly schedule is a launchd agent: macOS only.");
-	return action(realDeps(root));
+	return action(agentDeps(root));
 }
