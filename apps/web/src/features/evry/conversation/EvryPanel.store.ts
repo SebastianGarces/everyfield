@@ -12,6 +12,7 @@ import {
 import {
 	answerText,
 	cursor,
+	DISCOVERY_STAYS,
 	EMPTY,
 	endNotice,
 	merge,
@@ -85,6 +86,7 @@ export type EvryPanelState = {
 		reload: () => void;
 		reloadForChurch: (send?: Send) => void;
 		leaveChurch: (proposalId: string) => void;
+		leaveDiscovery: () => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
@@ -196,6 +198,15 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				announcement: "",
 			});
 
+		const leaveDiscovery = () =>
+			update(
+				(chat) =>
+					chat.conversation
+						? { ...chat, conversation: { ...chat.conversation, discovery: true }, activeTurnId: null, stopping: false }
+						: chat,
+				{ problem: null, stream: "idle", announcement: `${DISCOVERY_STAYS.title}. ${DISCOVERY_STAYS.text}` },
+			);
+
 		const stopped = (error: ProjectedError) => {
 			if (error.outcome !== "refused") return set({ stream: "lost" });
 			if (error.code === "church_changed") return leave(CHURCH.stopped);
@@ -229,6 +240,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 
 		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") => {
 			if (reply.status === "refused" && reply.error.code === "church_changed") leave(null);
+			if (reply.status === "refused" && reply.error.code === "discovery_read_only") leaveDiscovery();
 			patchSend(
 				send.key,
 				reply.status === "refused" ? { state: refused, error: reply.error } : { state: "unconfirmed", error: null },
@@ -520,6 +532,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 					leave(null);
 					set({ churchRefused: proposalId });
 				},
+				leaveDiscovery,
 				cancel: () =>
 					void (async () => {
 						const conversation = get().chat.conversation;
@@ -546,6 +559,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						if (r.status === "lost") return set({ problem: "Not confirmed. Check your connection, then try again." });
 						retryKeys.delete(turnId);
 						if (r.status === "refused" && r.error.code === "church_changed") return leave(CHURCH.retry);
+						if (r.status === "refused" && r.error.code === "discovery_read_only") return leaveDiscovery();
 						if (r.status === "refused")
 							return set({
 								problem:

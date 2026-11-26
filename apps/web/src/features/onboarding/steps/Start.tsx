@@ -1,6 +1,7 @@
 "use client";
 
 import { DISCOVERY_HOME } from "@everyfield/contracts/identity";
+import { DISCOVERY_CHATS_STAY } from "@everyfield/contracts/onboarding";
 import { Checkbox, InlineAlert } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { basicsInput, type Relationship, type State } from "../model";
@@ -163,6 +164,7 @@ export function ConvertDiscovery({ state, actions, names }: Props & { names: Rec
 						})}
 					</fieldset>
 				) : null}
+				<p className="text-sm text-text-2 text-pretty">{DISCOVERY_CHATS_STAY}</p>
 				<p className="text-sm text-text-2 text-pretty">{SEAT_LINE}</p>
 			</BasicsForm>
 		</section>

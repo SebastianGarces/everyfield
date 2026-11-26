@@ -25,6 +25,7 @@ import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { settingsStep } from "./scripted-settings.ts";
+import { peopleStep } from "./scripted-people.ts";
 import { phaseStep, SIGNAL } from "./scripted-phases.ts";
 import { captured, present } from "@everyfield/evry";
 
@@ -1005,6 +1006,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (onboarding) return onboarding;
 	const settings = settingsStep(options, text);
 	if (settings) return settings;
+	const people = peopleStep(options, text);
+	if (people) return people;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
 	const canProposePeople = proposesOn(options, "people");
@@ -1134,7 +1137,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 				text: "Ask me about your own documents, the Wiki or your Discovery space, for example: what documents do I have? People and other church records open when you start your church.",
 			},
 		];
-	return [{ type: "text", text: "Ask me about the people in this church, for example: find Alex." }];
+	return [{ type: "text", text: "I can't answer that question." }];
 }
 
 const usage = (options: LanguageModelV4CallOptions, content: LanguageModelV4Content[]) => {
