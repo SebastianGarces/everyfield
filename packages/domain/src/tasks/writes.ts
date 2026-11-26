@@ -261,7 +261,6 @@ export function carryTasks(
 			afterRevision: row.revision,
 			occurredAt: doneAt ?? undefined,
 		});
-	return rows.map((r) => r.row);
 }
 
 export const audited = (r: TaskRow) => ({
