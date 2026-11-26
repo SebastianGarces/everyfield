@@ -52,7 +52,7 @@ test("AC:ORG55-001 AC:TARGET-IDN-026 exact organization Owner/Admin profile chan
 		assert.deepEqual(events.rows, [{ action: "organization.profile_changed", diff: null, reason: null }]);
 	}
 });
-test("INV-location: correction is plant settings with immutable effective history, no street or phase editing", async () => {
+test("AC:SCHEMA-001 INV-location: correction is plant settings with immutable effective history, no street or phase editing", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
 		org = await S.identity(await S.tenant("sending_church")),
@@ -76,6 +76,8 @@ test("INV-location: correction is plant settings with immutable effective histor
 	});
 	await assert.rejects(S.call("organizations.correctReportingLocation", org, q), /unavailable/);
 	await S.call("organizations.correctReportingLocation", pa, q);
+	const effective = sql`SELECT g::text AS row FROM plant_geography g WHERE plant_id=${sql.param(p.id)} ORDER BY effective_at`;
+	const first = (await S.db.execute(effective)).rows;
 	await S.call(
 		"organizations.correctReportingLocation",
 		pa,
@@ -89,6 +91,13 @@ test("INV-location: correction is plant settings with immutable effective histor
 	assert.equal(history.rows[1]!.city, null);
 	assert.equal(history.rows[1]!.supersedes_id, history.rows[0]!.id);
 	assert.equal(history.rows[0]!.region_item_id, null);
+	assert.deepEqual((await S.db.execute(effective)).rows.slice(0, 1), first, "the earlier effective row is unchanged");
+	await assert.rejects(
+		S.db
+			.execute(sql`INSERT INTO plant_geography(plant_id,city,reference_version_id,committed_at,effective_at,supersedes_id)
+			VALUES(${sql.param(p.id)},'Fork',${sql.param(version)},clock_timestamp(),clock_timestamp(),${sql.param(history.rows[0]!.id)})`),
+		(error: Error) => (error.cause as { code?: string }).code === "23505",
+	);
 	const root = await S.db.execute(sql`SELECT phase,street,revision FROM plant WHERE id=${sql.param(p.id)}`);
 	assert.deepEqual(root.rows, [{ phase: 1, street: "private street", revision: "3" }]);
 	await assert.rejects(

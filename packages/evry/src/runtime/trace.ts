@@ -79,6 +79,18 @@ const batchBytes = (spans: ReadableSpan[]) =>
 		0,
 	);
 
+const ERROR_TEXT = new Set(["exception.message", "exception.stacktrace"]);
+const withoutErrorText = (span: ReadableSpan): ReadableSpan =>
+	Object.create(span, {
+		status: { value: { code: span.status.code } },
+		events: {
+			value: span.events.map((event) => ({
+				...event,
+				attributes: Object.fromEntries(Object.entries(event.attributes ?? {}).filter(([key]) => !ERROR_TEXT.has(key))),
+			})),
+		},
+	});
+
 const exportFailed = (code: "FAILED" | "TOO_LARGE", httpStatus: number | null, error: unknown) =>
 	quietly(() => logFailure({ component: "evry", event: "trace_export_failed", code, httpStatus }, error));
 
@@ -96,8 +108,9 @@ function langfuseExporter(publicKey: string, secretKey: string, baseUrl: string,
 		compression: CompressionAlgorithm.GZIP,
 	});
 	return {
-		export(spans, done) {
-			state.exported += spans.length;
+		export(raw, done) {
+			state.exported += raw.length;
+			const spans = raw.map(withoutErrorText);
 			if (batchBytes(spans) > bytesMax) {
 				const error = new RangeError("span batch over the byte limit");
 				exportFailed("TOO_LARGE", null, error);

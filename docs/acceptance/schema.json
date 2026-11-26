@@ -23,7 +23,10 @@
         "WP-043",
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/rollback.db.mts"
+      ],
       "description": "reference-second-release-failure-rollback",
       "given": {
         "P": {
@@ -159,7 +162,10 @@
         "WP-004",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -288,7 +294,10 @@
         "WP-004",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -395,7 +404,10 @@
         "WP-004",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -525,7 +537,10 @@
         "WP-039",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -631,7 +646,10 @@
         "WP-006",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -734,7 +752,10 @@
         "WP-004",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -853,7 +874,10 @@
         "WP-028",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -981,7 +1005,10 @@
         "WP-094",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/audit-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1084,7 +1111,10 @@
         "WP-005",
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1212,7 +1242,10 @@
       "work_packages": [
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1357,7 +1390,10 @@
         "WP-005",
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1483,7 +1519,10 @@
         "WP-005",
         "WP-006"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1653,7 +1692,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1777,7 +1819,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -1997,7 +2042,10 @@
       "work_packages": [
         "WP-010"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -2124,7 +2172,10 @@
       "work_packages": [
         "WP-005"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/auth-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -2230,7 +2281,11 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts",
+        "tests/integration/reference/sources.test.mjs"
+      ],
       "description": "byte-exact-playbook-not-welcome-article",
       "given": {
         "P": {
@@ -2344,7 +2399,10 @@
         "WP-033",
         "WP-034"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/starter/cases.db.mts"
+      ],
       "description": "global-bootstrap-count-hash-idempotency-boundary",
       "given": {
         "P": {
@@ -2458,7 +2516,10 @@
       "work_packages": [
         "WP-036"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "preserved-base-document-template-ids-formats-merge-contract",
       "given": {
         "P": {
@@ -2566,7 +2627,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "twenty-checklists-nine-launch-milestones-twenty-three-tasks",
       "given": {
         "P": {
@@ -2729,7 +2793,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/releases/package-cases.db.mts"
+      ],
       "description": "ten-team-catalog-eight-areas-separate-prayer",
       "given": {
         "P": {
@@ -2871,7 +2938,10 @@
       "work_packages": [
         "WP-032"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/message-templates.test.mts"
+      ],
       "description": "seven-message-templates-copy-on-write-and-optional-merge",
       "given": {
         "P": {
@@ -3010,7 +3080,10 @@
       "work_packages": [
         "WP-041"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/starter/cases.db.mts"
+      ],
       "description": "complete-corpus-generation-no-stale-trailing-chunks",
       "given": {
         "P": {
@@ -3161,7 +3234,12 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-cases.test.mts",
+        "tests/integration/target/wp-056/schema-affiliation-cases.test.mts",
+        "tests/integration/organizations/profile.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -3321,7 +3399,10 @@
         "WP-006",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-seats-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -3440,7 +3521,10 @@
         "WP-009",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-affiliation-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -3556,7 +3640,11 @@
         "WP-019",
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-training-cases.test.mts",
+        "tests/integration/teams/training/training.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -3774,7 +3862,10 @@
         "WP-046",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-launch-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -3880,7 +3971,10 @@
         "WP-035",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/wiki/reading-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -4103,7 +4197,10 @@
         "WP-010",
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-care-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -4214,7 +4311,10 @@
         "WP-036",
         "WP-037"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-documents-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -4653,7 +4753,10 @@
         "WP-096",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-lifecycle-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -4790,7 +4893,10 @@
         "WP-043",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-material-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -4988,7 +5094,10 @@
         "WP-031",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-jobs-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -5139,7 +5248,10 @@
         "WP-035",
         "WP-041"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/reference/starter/release-cases.db.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -5270,7 +5382,10 @@
         "WP-049",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/schema-feedback-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -5392,7 +5507,10 @@
         "WP-003",
         "WP-048"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/unit/security/server-only-adapters.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -5500,7 +5618,10 @@
         "WP-051",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/security-request-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -5627,7 +5748,11 @@
         "WP-005",
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/identity/invitations.test.mts",
+        "tests/integration/target/wp-056/security-request-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -5751,7 +5876,10 @@
         "WP-047",
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/security-request-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -5868,7 +5996,10 @@
         "WP-034",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/security-request-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -5995,7 +6126,11 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/target/wp-056/security-request-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -6130,7 +6265,11 @@
         "WP-010",
         "WP-042"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/settings/settings.test.mts",
+        "tests/integration/target/wp-056/security-request-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -6283,7 +6422,10 @@
       "work_packages": [
         "WP-054"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/security-files-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -7293,7 +7435,10 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/security-callbacks-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -7414,7 +7559,10 @@
         "WP-004",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/security-callbacks-cases.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -7521,7 +7669,10 @@
       "work_packages": [
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-security.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -7659,7 +7810,10 @@
       "work_packages": [
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-security.test.mts"
+      ],
       "layers": [
         "build",
         "request",
@@ -7787,7 +7941,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -7904,7 +8061,10 @@
         "WP-047",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-reads.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8059,7 +8219,10 @@
       "work_packages": [
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-oversight.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8203,7 +8366,11 @@
         "WP-050",
         "WP-053"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-files.test.mts",
+        "tests/integration/communication/delivery.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8338,7 +8505,10 @@
       "work_packages": [
         "WP-008"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-seats.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8494,7 +8664,10 @@
         "WP-039",
         "WP-055"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-private.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8610,7 +8783,10 @@
       "work_packages": [
         "WP-096"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/lifecycle.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8739,7 +8915,10 @@
         "WP-053",
         "WP-051"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/runtime/cases-tenancy.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8861,7 +9040,10 @@
         "WP-004",
         "WP-050"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/tenancy-cases.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -8965,7 +9147,10 @@
       "work_packages": [
         "WP-002"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/contract-cases.test.mts"
+      ],
       "layers": [
         "build"
       ],
@@ -9022,7 +9207,10 @@
       "work_packages": [
         "WP-002"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/contract-cases.test.mts"
+      ],
       "layers": [
         "build"
       ],
@@ -9078,7 +9266,10 @@
       "work_packages": [
         "WP-002"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/contract-cases.test.mts"
+      ],
       "layers": [
         "build"
       ],
@@ -9133,7 +9324,10 @@
       "work_packages": [
         "WP-002"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/contract-cases.test.mts"
+      ],
       "layers": [
         "build"
       ],
@@ -9213,7 +9407,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-IDN-029",
       "given": {
         "P": {
@@ -9286,7 +9483,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-012",
       "given": {
         "P": {
@@ -9358,7 +9558,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-014",
       "given": {
         "P": {
@@ -9442,7 +9645,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-069",
       "given": {
         "P": {
@@ -9524,7 +9730,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-072",
       "given": {
         "P": {
@@ -9593,7 +9802,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-073",
       "given": {
         "P": {
@@ -9661,7 +9873,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-078",
       "given": {
         "P": {
@@ -9737,7 +9952,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-081",
       "given": {
         "P": {
@@ -9811,7 +10029,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-082",
       "given": {
         "P": {
@@ -9885,7 +10106,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-083",
       "given": {
         "P": {
@@ -9955,7 +10179,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-084",
       "given": {
         "P": {
@@ -10027,7 +10254,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-085",
       "given": {
         "P": {
@@ -10101,7 +10331,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-086",
       "given": {
         "P": {
@@ -10171,7 +10404,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-087",
       "given": {
         "P": {
@@ -10243,7 +10479,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-088",
       "given": {
         "P": {
@@ -10321,7 +10560,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-KNOW-089",
       "given": {
         "P": {
@@ -10401,7 +10643,10 @@
       "work_packages": [
         "WP-004"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/wp-056/baseline-cases.test.mts"
+      ],
       "description": "WP-004 producer baseline: REQ-PPL-024",
       "given": {
         "P": {
