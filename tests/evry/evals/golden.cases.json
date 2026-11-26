@@ -1353,7 +1353,8 @@
 			"names": {
 				"allowed": ["household=none"],
 				"all": "household=none",
-				"orPartial": true
+				"orPartial": true,
+				"pageOf": 66
 			},
 			"require": [
 				"/\\b66\\b/",
