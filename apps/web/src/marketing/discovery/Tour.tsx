@@ -85,19 +85,19 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 								on ? "bg-ink text-mk-cream-90" : "bg-white text-text-2 hover:bg-mk-canvas",
 							)}
 						>
-							<span
-								key={on ? turn.run : "idle"}
-								aria-hidden="true"
-								onAnimationEnd={on ? advance : undefined}
-								className={cn(
-									"absolute inset-x-0 top-0 h-1 origin-left bg-green",
-									on ? "opacity-100" : "opacity-0",
-									on &&
+							{on && (
+								<span
+									key={turn.run}
+									aria-hidden="true"
+									onAnimationEnd={advance}
+									className={cn(
+										"absolute inset-x-0 top-0 h-1 origin-left bg-green",
 										!still &&
-										(turn.picked ? "motion-safe:animate-mk-tab-fill-picked" : "motion-safe:animate-mk-tab-fill"),
-									"group-data-held/tour:[animation-play-state:paused]",
-								)}
-							/>
+											(turn.picked ? "motion-safe:animate-mk-tab-fill-picked" : "motion-safe:animate-mk-tab-fill"),
+										"group-data-held/tour:[animation-play-state:paused]",
+									)}
+								/>
+							)}
 							<span className="mt-0.5">{t.icon}</span>
 							<span
 								className={cn("type-lg leading-[1.4] font-semibold max-mk-cx:type-md", on ? "text-cream" : "text-ink")}
