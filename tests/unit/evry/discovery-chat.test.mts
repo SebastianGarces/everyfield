@@ -55,10 +55,10 @@ test("INV-discovery-chats: a review left pending in a Discovery chat shows it is
 	assert.ok(!text.includes("Revise") && !text.includes("Cancel"), "nor any other change to it");
 });
 
-test("INV-discovery-chats: approving the start of a church tells the panel its chat stays in Discovery; starting one without Discovery does not", async () => {
+test("INV-discovery-chats: approving the start of a church from Discovery tells the panel its chat stays in Discovery instead of leaving the page; starting one without Discovery refreshes as before", async () => {
 	for (const [operation, expected] of [
-		["discovery.convertToPlant", 1],
-		["onboarding.createPlant", 0],
+		["discovery.convertToPlant", { converted: 1, refreshed: 0 }],
+		["onboarding.createPlant", { converted: 0, refreshed: 1 }],
 	] as const) {
 		const done = review(operation, { status: "approved", outcome: "completed", approvedAt: NOW });
 		globalThis.fetch = (async (_url: string, init?: { method?: string }) =>
@@ -78,7 +78,7 @@ test("INV-discovery-chats: approving the start of a church tells the panel its c
 		const off = store.getState().actions.follow(() => {});
 		await store.getState().actions.approve();
 		off();
-		assert.deepEqual(told, { converted: expected, refreshed: 1 }, operation);
+		assert.deepEqual(told, expected, operation);
 	}
 });
 
@@ -119,9 +119,10 @@ test("INV-discovery-chats: after the church starts, the panel says the chat stay
 	store.getState().actions.show(true);
 	await settled();
 	const off = store.getState().actions.followStream(() => {});
-	store.getState().actions.leaveDiscovery();
+	store.getState().actions.leaveDiscovery(true);
 	const state = store.getState();
 	assert.equal(state.chat.conversation?.discovery, true);
+	assert.equal(state.startedChurch, true, "the panel offers church setup");
 	assert.deepEqual([state.churchChanged, state.churchNotice, state.problem], [false, null, null]);
 	assert.equal(
 		state.announcement,

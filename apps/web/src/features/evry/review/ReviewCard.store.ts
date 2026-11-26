@@ -153,8 +153,8 @@ export function createReviewStore(init: {
 			if (phase === "pending" || phase === "running") awaiting = true;
 			else if (phase === "completed" && awaiting && readers > 0) {
 				awaiting = false;
-				if (review.operation === "discovery.convertToPlant") port.church.converted?.();
-				port.refresh();
+				if (review.operation === "discovery.convertToPlant" && port.church.converted) port.church.converted();
+				else port.refresh();
 			}
 		};
 
