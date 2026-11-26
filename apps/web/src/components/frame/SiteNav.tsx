@@ -121,16 +121,12 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, onToggle, onLi
 						key={l.href}
 						href={l.href}
 						aria-current={l.current ? "page" : undefined}
+						aria-label={l.tag ? `${l.label}, ${l.tag}` : undefined}
 						onClick={onLinkClick}
 						className={LINK}
 					>
 						{l.label}
-						{l.tag ? (
-							<>
-								<span className="sr-only">, </span>
-								<span className={TAG}>{l.tag}</span>
-							</>
-						) : null}
+						{l.tag ? <span className={TAG}>{l.tag}</span> : null}
 					</Link>
 				))}
 				{pill ? null : (
