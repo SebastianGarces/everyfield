@@ -88,3 +88,6 @@ export const launchAnswer = z.discriminatedUnion("answer", [
 	z.strictObject({ answer: z.literal("skip") }),
 ]);
 export const declareJourneyRequest = commandEnvelope(z.strictObject({ journey: journeyAnswer, launch: launchAnswer }));
+
+export const DISCOVERY_CHATS_STAY =
+	"Your Evry chats from Discovery stay in Discovery. You can still read them in Evry's History after you start the church.";

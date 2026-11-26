@@ -48,6 +48,7 @@ import * as api from "./api.ts";
 import { Panel } from "./panel.tsx";
 import {
 	churchChanged,
+	DISCOVERY_STAYS,
 	endNotice,
 	MAX_MESSAGE,
 	NOT_AVAILABLE,
@@ -152,6 +153,7 @@ export function EvryPanel({
 	const streaming = chat.activeTurnId !== null && last?.id === chat.activeTurnId;
 	const mood: EvryMood = streaming ? (last.blocks.some((b) => b.kind === "text") ? "talking" : "thinking") : "idle";
 	const focusComposer = () => composer.current?.focus();
+	const fromDiscovery = chat.conversation?.discovery === true;
 
 	const toChat = () => {
 		actions.setView("chat");
@@ -195,7 +197,27 @@ export function EvryPanel({
 				</Tooltip>
 			}
 			footer={
-				view !== "chat" ? undefined : !available ? (
+				view !== "chat" ? undefined : fromDiscovery ? (
+					<div ref={requestFocus} tabIndex={-1} className="flex w-full flex-col items-start gap-3 outline-none">
+						<div className="flex flex-col gap-1">
+							<p className="font-medium text-ink">{DISCOVERY_STAYS.title}</p>
+							<p className="text-pretty text-sm text-text-2">{DISCOVERY_STAYS.text}</p>
+						</div>
+						{available ? (
+							<Button
+								size="sm"
+								variant="primary"
+								icon={Add01Icon}
+								onClick={() => {
+									actions.newChat();
+									toChat();
+								}}
+							>
+								New chat
+							</Button>
+						) : null}
+					</div>
+				) : !available ? (
 					chat.events.length ? (
 						<div ref={requestFocus} tabIndex={-1} className="flex w-full flex-col gap-1 outline-none">
 							<p className="font-medium text-ink">{NOT_AVAILABLE}</p>
@@ -360,7 +382,9 @@ function Chat({
 						turn={turn}
 						active={turn.id === state.activeTurnId}
 						stopping={state.stopping}
-						canRetry={available && turn === lastTurn && !moved && retryable(state, turns)}
+						canRetry={
+							available && turn === lastTurn && !moved && !state.conversation?.discovery && retryable(state, turns)
+						}
 						retrying={retrying}
 						reviews={state.reviews}
 						photos={photos}
@@ -455,6 +479,7 @@ function TurnView({
 		refused: (id) => panel.getState().churchRefused === id,
 		leave: (id) => panel.getState().actions.leaveChurch(id),
 		reload: () => panel.getState().actions.reloadForChurch(),
+		converted: () => panel.getState().actions.leaveDiscovery(),
 	}));
 	const notice = endNotice(turn.end);
 	const waiting = active && !turn.blocks.length;
@@ -834,6 +859,7 @@ function History({
 	const [pause] = useState(() => createDebouncer(250));
 	const [searching, startSearch] = useTransition();
 	const asked = useRef("");
+	const discoveryGroup = useId();
 	const first = useRead(conversations, query, 1);
 	const page = first.value?.status === "ok" ? first.value.value : null;
 	const failed = (first.value !== undefined && page === null) || more?.status === "failed";
@@ -918,24 +944,28 @@ function History({
 							: "No conversations yet."}
 				</p>
 			) : (
-				<ul aria-busy={loading || undefined} className="-mx-2 flex flex-col">
-					{(items ?? []).map((item) => (
-						<li key={item.id}>
-							<RowButton
-								aria-current={item.id === current ? "true" : undefined}
-								data-focus-inset=""
-								onClick={() => onSelect(item.id)}
-								className="min-h-11 items-center gap-3 rounded-md px-2 py-2.5 aria-[current=true]:bg-surface-2"
-							>
-								<span className="min-w-0 flex-1">
-									<span className="block truncate text-sm font-medium text-ink">{item.title}</span>
-									<span className="block text-xs text-text-3">{when(item.updatedAt)}</span>
-								</span>
-								{item.activeTurnId ? <span className="flex-none text-xs text-text-3">Answering</span> : null}
-							</RowButton>
-						</li>
-					))}
-				</ul>
+				<>
+					<Conversations
+						items={items.filter((item) => !item.discovery)}
+						current={current}
+						busy={loading}
+						onSelect={onSelect}
+					/>
+					{items.some((item) => item.discovery) ? (
+						<section aria-labelledby={discoveryGroup} className="flex flex-col gap-1 pt-2">
+							<h4 id={discoveryGroup} className="font-body text-sm font-semibold text-ink">
+								From Discovery
+							</h4>
+							<p className="text-xs text-text-3">Read-only. New chats with Evry don't use them.</p>
+							<Conversations
+								items={items.filter((item) => item.discovery)}
+								current={current}
+								busy={loading}
+								onSelect={onSelect}
+							/>
+						</section>
+					) : null}
+				</>
 			)}
 			{next !== null && !failed ? (
 				<Button
@@ -949,5 +979,39 @@ function History({
 				</Button>
 			) : null}
 		</div>
+	);
+}
+
+function Conversations({
+	items,
+	current,
+	busy,
+	onSelect,
+}: {
+	items: Conversation[];
+	current: string | null;
+	busy: boolean;
+	onSelect: (id: string) => void;
+}) {
+	if (!items.length) return null;
+	return (
+		<ul aria-busy={busy || undefined} className="-mx-2 flex flex-col">
+			{items.map((item) => (
+				<li key={item.id}>
+					<RowButton
+						aria-current={item.id === current ? "true" : undefined}
+						data-focus-inset=""
+						onClick={() => onSelect(item.id)}
+						className="min-h-11 items-center gap-3 rounded-md px-2 py-2.5 aria-[current=true]:bg-surface-2"
+					>
+						<span className="min-w-0 flex-1">
+							<span className="block truncate text-sm font-medium text-ink">{item.title}</span>
+							<span className="block text-xs text-text-3">{when(item.updatedAt)}</span>
+						</span>
+						{item.activeTurnId ? <span className="flex-none text-xs text-text-3">Answering</span> : null}
+					</RowButton>
+				</li>
+			))}
+		</ul>
 	);
 }

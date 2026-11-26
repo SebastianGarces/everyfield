@@ -2,6 +2,7 @@ import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import { discoveryRead, fromDiscovery } from "../context/authority.ts";
 import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
@@ -79,7 +80,9 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(visibleWrites(actor))}::text[])`;
 export const readable = (actor: EvryActor) =>
 	sql`((${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })})
-		OR (${ownSeating(actor)}))`;
+		OR (${ownSeating(actor)}) OR EXISTS(SELECT FROM conversation pc WHERE pc.id=p.conversation_id AND ${discoveryRead(actor, "pc")}))`;
+export const inDiscoveryChat = (alias: string) =>
+	`EXISTS(SELECT FROM conversation pc WHERE pc.id=${alias}.conversation_id AND ${fromDiscovery("pc")})`;
 const SEATING = ["onboarding.createPlant", "discovery.convertToPlant"];
 const ownSeating = (actor: EvryActor) =>
 	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.accountId}::uuid AND p.operation=ANY(${sql.param(SEATING)}::text[])
@@ -127,7 +130,8 @@ export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
 		'stale',${staleCause(alias)},
-		'receipt',${alias}.receipt,'now',clock_timestamp())`)}`;
+		'receipt',${alias}.receipt,'now',clock_timestamp())
+		||CASE WHEN ${alias}.state='pending' AND ${inDiscoveryChat(alias)} THEN '{"closed":true}'::jsonb ELSE '{}'::jsonb END`)}`;
 
 const targetKind = z.enum([
 	"person",
@@ -214,6 +218,7 @@ export const proposalRow = z.strictObject({
 		})
 		.nullable(),
 	now: z.coerce.date(),
+	closed: z.literal(true).optional(),
 });
 export type Proposal = z.infer<typeof proposalRow>;
 

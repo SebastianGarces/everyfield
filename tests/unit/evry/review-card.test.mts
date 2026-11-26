@@ -34,7 +34,7 @@ const reviewed = (operation: string, changes: Change[], over: Record<string, unk
 	now: NOW,
 	...over,
 });
-const church = { changed: () => false, refused: () => false, leave() {}, reload() {} };
+const church = { changed: () => false, refused: () => false, leave() {}, reload() {}, converted() {} };
 const card = (seed: ReturnType<typeof reviewed>) =>
 	mount(ReviewCard, { proposalId: seed.id, target: null, seed, church });
 async function shown(seed: ReturnType<typeof reviewed>) {

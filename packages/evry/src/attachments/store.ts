@@ -15,7 +15,7 @@ import { COMMITMENT_MAX_BYTES } from "@everyfield/contracts/people";
 import { z } from "zod";
 import { accountContext, plantAdmin } from "../adapters/native.ts";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority } from "../context/authority.ts";
+import { currentAuthority, discoveryChat, discoveryHeld } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
 export const ATTACHMENTS = {
@@ -80,7 +80,7 @@ export async function stageAttachment(
 	const key = privateObjectPath(actor.owner.id, id);
 	const r = await db.execute(sql`WITH c AS (
 			SELECT c.id,c.tenant_id FROM conversation c WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid
-				AND c.tenant_id=${actor.owner.id}::uuid AND ${currentAuthority(actor)}
+				AND c.tenant_id=${actor.owner.id}::uuid AND ${currentAuthority(actor)} AND NOT ${discoveryChat("c")}
 		), upload AS (
 			INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
 			SELECT ${id}::uuid,c.tenant_id,${kind.purpose}::text,${key}::text,${kind.mediaType}::text,${input.byteLength}::bigint,'pending',
@@ -94,8 +94,10 @@ export async function stageAttachment(
 			eligibleAt: sql`upload.expires_at`,
 			conflict: "skip",
 		})})
-		SELECT id FROM upload`);
-	if (!r.rows.length) throw new EvryRefusal("not_found");
+		SELECT (SELECT id FROM upload) AS id, ${discoveryHeld(actor, sql`${conversationId}::uuid`)} AS discovery`);
+	const row = r.rows[0] as { id: string | null; discovery: boolean };
+	if (row.discovery) throw new EvryRefusal("discovery_read_only");
+	if (!row.id) throw new EvryRefusal("not_found");
 	const signed = await signPrivatePut(storage, key, kind.mediaType, input.byteLength).catch(() => {
 		throw new EvryRefusal("source_unavailable");
 	});
