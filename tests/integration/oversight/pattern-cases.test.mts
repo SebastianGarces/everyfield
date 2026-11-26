@@ -6,6 +6,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
 	lensLabel,
 	patternText,
+	RUBRIC_VERSION,
 	RULES,
 	type IntelligencePattern,
 	type IntelligenceRow,
@@ -20,10 +21,19 @@ import {
 	suggestRegions,
 } from "../../../packages/domain/src/organizations/index.ts";
 import {
+	activateNetworkReference,
+	claimIntelligenceRefresh,
 	readIntelligence,
 	requestIntelligenceRefresh,
+	runIntelligenceRefresh,
+	scheduleIntelligenceRefresh,
 	submitIntelligenceFeedback,
+	validateNetworkReference,
+	writeNetworkReference,
+	type RefreshConfig,
 } from "../../../packages/domain/src/oversight/index.ts";
+import { NETWORK_LEASE_MS } from "../../../packages/domain/src/oversight/intelligence.ts";
+import { NETWORK_RUBRIC_HASH } from "../../../packages/domain/src/oversight/reference.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { createRelease } from "../../../packages/domain/src/intelligence/index.ts";
 import { church, type Church, type ChurchPlant } from "../intelligence/assessment-church.mts";
@@ -76,8 +86,9 @@ const LEVEL: Record<Group, Level> = {
 	country: "country",
 	whole_portfolio: "portfolio",
 };
-const CONCERN_LENS: Record<string, { lens: "vision"; fact: string }> = {
+const CONCERN_LENS: Record<string, { lens: "vision" | "ownership"; fact: string }> = {
 	cadence_gap: { lens: "vision", fact: "vision.daysSince" },
+	distributed_followup: { lens: "ownership", fact: "followUps.onTime" },
 };
 const THEME: Record<string, string> = { preparation_gap: "near_launch" };
 const REGION: Record<string, { code: string; city: string }> = {
@@ -86,7 +97,7 @@ const REGION: Record<string, { code: string; city: string }> = {
 	"fixture-region-Y": { code: "15380", city: "Buffalo" },
 };
 const CITY: Record<string, string> = { "US:NY": "New York", "US:NJ": "Newark", "CA:ON": "Toronto" };
-const RULE_OF: Record<string, "NIR-01" | "NIR-03" | "NIR-04" | "NIR-05" | "NIR-06"> = {};
+const RULE_OF: Record<string, "NIR-01" | "NIR-02" | "NIR-03" | "NIR-04" | "NIR-05" | "NIR-06"> = { "NEX-008": "NIR-02" };
 for (const n of [1, 2, 3, 4, 5, 6, 7, 19, 20, 21, 22, 23]) RULE_OF[`NEX-${String(n).padStart(3, "0")}`] = "NIR-01";
 for (const n of [9, 10, 11]) RULE_OF[`NEX-0${String(n).padStart(2, "0")}`] = "NIR-03";
 for (const n of [12, 13]) RULE_OF[`NEX-0${n}`] = "NIR-04";
@@ -119,14 +130,16 @@ async function network(name: string) {
 }
 type Network = Awaited<ReturnType<typeof network>>;
 
-async function released(p: ChurchPlant, concerns: Concern[], daysAgo: number) {
+async function released(p: ChurchPlant, concerns: Concern[], daysAgo: number, strengths: Concern[] = []) {
 	const citations: Record<string, unknown> = {};
-	const points = concerns.map((x) => {
+	const point = (urgency: string) => (x: Concern) => {
 		const { fact } = CONCERN_LENS[x.key]!;
-		citations[fact] = { kind: "fact", key: fact, label: "Days since the last Vision meeting", value: 40 };
-		return { urgency: "watch", citations: [fact] };
-	});
-	const result = { draft: { focus: points[0] ?? null, supporting: points.slice(1), positives: [] }, citations };
+		citations[fact] = { kind: "fact", key: fact, label: "A recorded fact", value: 40 };
+		return { urgency, citations: [fact] };
+	};
+	const points = concerns.map(point("watch"));
+	const positives = strengths.map(point("positive"));
+	const result = { draft: { focus: points[0] ?? null, supporting: points.slice(1), positives }, citations };
 	await c0.admin.execute(sql`INSERT INTO assessment_run(id,plant_id,as_of,phase,source_revision,formula_version,
 		rubric_version,rubric_sha256,model,outcome,grounding,facts,model_input,drafts,result,attempts,input_tokens,output_tokens,
 		demand,demand_key,captured_at,deadline_at,settled_at,available_at)
@@ -223,7 +236,8 @@ async function seed(c: Case, x: Input, p: ChurchPlant, repeat: boolean) {
 	const given = c.given[x.id] as { timezone?: string; phase?: string } | undefined;
 	if (!repeat && given?.timezone)
 		await c0.admin.execute(sql`UPDATE plant SET timezone=${given.timezone} WHERE id=${p.id}`);
-	if (x.concerns.length || x.observed_lenses.length) await released(p, x.concerns, repeat ? 6 : 4);
+	if (x.concerns.length || x.strengths.length || x.observed_lenses.length)
+		await released(p, x.concerns, repeat ? 6 : 4, x.strengths);
 	if (repeat) return;
 	await placeAt(p, x);
 	if (x.launch) {
@@ -309,6 +323,7 @@ function findingOf(level: Group, groupKey: string, organization: string, p: Inte
 	const observed = "observed_count" in want ? { observed_count: p.observed } : {};
 	switch (p.theme) {
 		case "shared_concern":
+		case "shared_strength":
 			return { ...base, theme_key: `lens:${p.lens}`, ...observed };
 		case "near_launch":
 		case "slowed":
@@ -345,13 +360,13 @@ function expectedOf(f: Finding) {
 
 function rowState(rule: string, r: IntelligenceRow) {
 	if (r.status === "not_shared") return "not_shared";
-	if (rule === "NIR-01")
+	if (rule === "NIR-01" || rule === "NIR-02")
 		return r.assessment.status === "released" && r.assessment.withheld === 0 ? "shared" : "unknown";
 	return r.results[rule as keyof typeof r.results] === "unknown" ? "unknown" : "shared";
 }
 
 const PATTERN_NAME =
-	"AC:NEX-001 AC:NEX-002 AC:NEX-003 AC:NEX-004 AC:NEX-005 AC:NEX-006 AC:NEX-007 AC:NEX-009 AC:NEX-010 AC:NEX-011 AC:NEX-012 AC:NEX-014 AC:NEX-015 AC:NEX-016 AC:NEX-017 AC:NEX-018 AC:NEX-019 AC:NEX-020 AC:NEX-021 AC:NEX-022 ";
+	"AC:NEX-001 AC:NEX-002 AC:NEX-003 AC:NEX-004 AC:NEX-005 AC:NEX-006 AC:NEX-007 AC:NEX-008 AC:NEX-009 AC:NEX-010 AC:NEX-011 AC:NEX-012 AC:NEX-014 AC:NEX-015 AC:NEX-016 AC:NEX-017 AC:NEX-018 AC:NEX-019 AC:NEX-020 AC:NEX-021 AC:NEX-022 ";
 const PATTERN_CASES = PATTERN_NAME.trim()
 	.split(" ")
 	.map((m) => m.slice(3));
@@ -578,5 +593,189 @@ test("AC:NEX-023 a revoked grant before the run and before the read withholds th
 	assert.deepEqual(
 		(await read(w.A, "portfolio", next)).groups.flatMap((g) => g.patterns),
 		[],
+	);
+});
+
+const patternsAt = async (net: Network, level: Level) => (await read(net, level)).groups.flatMap((g) => g.patterns);
+const runOf = (runId: string) =>
+	c0.one<{ outcome: string; violations: string[] | null; claim_generation: number; lease_owner: string | null }>(
+		sql`SELECT outcome,violations,claim_generation,lease_owner FROM network_intelligence_run WHERE id=${runId}`,
+	);
+
+test("AC:NEX-008 one plant's released strength alone is a named row and no NIR-02 finding", async () => {
+	const c = nex("NEX-008");
+	const args = c.action.arguments as unknown as Args;
+	const single = { ...c, id: "NEX-008-single", action: { ...c.action, arguments: { ...args, plants: [args.plants[0]!] } } };
+	const w = await build(single as Case);
+	await refresh(w.A);
+	for (const level of ["region", "state", "country", "portfolio"] as const)
+		assert.deepEqual(
+			(await patternsAt(w.A, level)).filter((p) => p.rule === "NIR-02"),
+			[],
+			`${level}: one plant is never a pattern`,
+		);
+	const [row] = (await read(w.A, "portfolio")).groups.flatMap((g) => g.rows);
+	assert.ok(row?.status === "shared" && row.assessment.status === "released");
+	assert.deepEqual(
+		row.assessment.strengths.map((s) => s.lens),
+		["ownership"],
+		"the released assessment carries its strength",
+	);
+});
+
+test("AC:NEX-024 an output with an unsupported number, prohibited fields and an invalid citation is rejected before publication with exactly those violations; a valid output still publishes", async () => {
+	const c = nex("NEX-024");
+	assert.deepEqual(c.clock, CLOCK);
+	const args = c.action.arguments as unknown as Args & {
+		candidate_output: { support_count: number; forbidden_field_keys: string[]; citation: string };
+	};
+	const expected = c.expected.result as Expected & { violations: string[] };
+	assert.equal(c.expected.event, null);
+	const w = await build(c);
+	const out = args.candidate_output;
+	const candidate: RefreshConfig = {
+		compose: async ({ findings }) => ({
+			findings: findings.map((f) => ({
+				...f,
+				support: out.support_count,
+				...Object.fromEntries(out.forbidden_field_keys.map((k) => [k, "fixture"])),
+				citation: { ...f.citation, source: out.citation },
+			})),
+		}),
+	};
+	const rejected = randomUUID();
+	assert.deepEqual(await requestIntelligenceRefresh(c0.db, await w.A.admin(), { runId: rejected }, candidate), {
+		status: "ok",
+		value: { runId: rejected, outcome: "changed" },
+	});
+	const run = await runOf(rejected);
+	assert.equal(run.outcome, "failed");
+	assert.equal(expected.publication, "rejected");
+	assert.deepEqual(run.violations, expected.violations, "exactly the three violation codes");
+	const before = await writes();
+	for (const level of ["region", "state", "country", "portfolio"] as const) {
+		const view = await read(w.A, level);
+		assert.equal(view.run, null, `${level}: the rejected run is not published`);
+		assert.deepEqual(await patternsAt(w.A, level), expected.findings, `${level}: no finding is published`);
+	}
+	assert.deepEqual(await writes(), before, "the read writes nothing");
+
+	const valid = await refresh(w.A);
+	assert.equal((await runOf(valid)).outcome, "published");
+	const shown = await read(w.A, "portfolio");
+	assert.equal(shown.run?.runId, valid);
+	assert.deepEqual(
+		(await patternsAt(w.A, "portfolio")).map((p) => [p.rule, p.support]),
+		[["NIR-01", 2]],
+		"the same evidence with a valid output publishes",
+	);
+});
+
+test("AC:NEX-025 AC:NI-021 while the network rubric is only a written candidate the read is reference_not_ready with no findings and no new assessment; a candidate is never a fallback, and once activated the same read publishes", async () => {
+	const c = nex("NEX-025");
+	const ni = caseOf("intelligence", "NI-021") as Case;
+	assert.equal((c.action.arguments as { reference_status: string }).reference_status, "building");
+	assert.equal(
+		(ni.action.arguments as { reference_status: string }).reference_status,
+		"written candidate; not fully validated/activated",
+	);
+	const expected = c.expected.result as Expected;
+	const niExpected = ni.expected.result as { error_code: string; new_assessments: number };
+	const w = await build(c);
+	await c0.admin.execute(sql`UPDATE network_reference SET activation_number=NULL,activated_at=NULL`);
+	const candidate = await writeNetworkReference(c0.db, { rubricVersion: RUBRIC_VERSION, contentHash: NETWORK_RUBRIC_HASH });
+	const counts = () =>
+		c0.one<{ runs: number; assessments: number }>(sql`SELECT
+		(SELECT count(*)::int FROM network_intelligence_run WHERE organization_id=${w.A.id}) AS runs,
+		(SELECT count(*)::int FROM assessment_run) AS assessments`);
+	const notReady = async (label: string) => {
+		const before = await counts();
+		const reply = await requestIntelligenceRefresh(c0.db, await w.A.admin(), { runId: randomUUID() });
+		assert.deepEqual(reply, { status: "refused", refusal: { code: niExpected.error_code } }, `${label}: refused`);
+		for (const level of ["region", "state", "country", "portfolio"] as const) {
+			const view = await read(w.A, level);
+			assert.equal(view.status, expected.status, `${label}: ${level} is not ready`);
+			assert.deepEqual(await patternsAt(w.A, level), expected.findings, `${label}: ${level} has no findings`);
+		}
+		const after = await counts();
+		assert.deepEqual(
+			{ runs: after.runs - before.runs, assessments: after.assessments - before.assessments },
+			{ runs: niExpected.new_assessments, assessments: 0 },
+			`${label}: no new assessment`,
+		);
+	};
+	await notReady("a building candidate");
+	assert.equal(await validateNetworkReference(c0.db, candidate), "validated");
+	await notReady("a validated candidate that is not activated");
+	assert.equal(typeof (await activateNetworkReference(c0.db, candidate)), "number");
+	const runId = await refresh(w.A);
+	const view = await read(w.A, "portfolio");
+	assert.deepEqual([view.status, view.run?.runId], ["ready", runId]);
+	assert.deepEqual(
+		(await patternsAt(w.A, "portfolio")).map((p) => [p.rule, p.support]),
+		[["NIR-01", 2]],
+		"after activation the same read publishes",
+	);
+});
+
+test("AC:NEX-026 a worker whose claim went stale has its valid result refused as refused_stale_claim; nothing of it is published and the prior result survives", async () => {
+	const c = nex("NEX-026");
+	const args = c.action.arguments as unknown as Args & {
+		captured_claim_generation: number;
+		current_claim_generation: number;
+	};
+	const expected = c.expected.result as Expected & { prior_result_survives: boolean };
+	const w = await build(c);
+	const r0 = await refresh(w.A);
+	const prior = await read(w.A, "portfolio");
+	assert.equal(prior.run?.runId, r0);
+	const P = w.plants.get("P")!;
+	await c0.admin.execute(sql`UPDATE affiliation SET share_activity=true,revision=revision+1 WHERE plant_id=${P.id}`);
+	assert.deepEqual(await scheduleIntelligenceRefresh(c0.db), [w.A.id], "a sharing change queues one refresh demand");
+	const { id: pending } = await c0.one<{ id: string }>(sql`SELECT id FROM network_intelligence_run
+		WHERE organization_id=${w.A.id} AND outcome='pending'`);
+
+	const first = (await claimIntelligenceRefresh(c0.db, {}, pending))!;
+	let composing!: () => void;
+	const entered = new Promise<void>((resolve) => (composing = resolve));
+	let release!: () => void;
+	const gate = new Promise<void>((resolve) => (release = resolve));
+	const running = runIntelligenceRefresh(c0.db, first, {
+		compose: async (x) => {
+			composing();
+			await gate;
+			return x;
+		},
+	});
+	await entered;
+	const { lease_until } = await c0.one<{ lease_until: string }>(
+		sql`SELECT lease_until::text FROM network_intelligence_run WHERE id=${pending}`,
+	);
+	const later = { now: () => new Date(Date.parse(lease_until) + 1000).toISOString() as never };
+	const own = c0.database.connect("runtime", { max: 1 });
+	const second = (await claimIntelligenceRefresh(own, { clock: later, leaseMs: NETWORK_LEASE_MS }, pending))!;
+	assert.ok(second, "the second worker takes over the lapsed claim on its own connection");
+	assert.equal(
+		second.generation - first.generation,
+		args.current_claim_generation - args.captured_claim_generation,
+		"the live claim is one generation on",
+	);
+	release();
+	assert.equal(await running, expected.publication, "the stale worker's valid result is refused");
+	const stored = await runOf(pending);
+	assert.deepEqual(
+		[stored.outcome, stored.claim_generation, stored.lease_owner],
+		["pending", second.generation, second.owner],
+		"the run stays with the live claim",
+	);
+	const after = await read(w.A, "portfolio");
+	assert.equal(after.run?.runId, r0, "the prior result survives");
+	assert.equal(expected.prior_result_survives, true);
+	assert.deepEqual(after.groups, prior.groups);
+	assert.ok(!JSON.stringify(after).includes(pending), "nothing of the refused result is published");
+	assert.deepEqual(expected.findings, []);
+	assert.deepEqual(
+		after.history.map((h) => h.runId),
+		[r0],
 	);
 });

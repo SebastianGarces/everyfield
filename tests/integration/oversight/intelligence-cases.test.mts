@@ -26,13 +26,24 @@ import {
 	suggestRegions,
 } from "../../../packages/domain/src/organizations/index.ts";
 import {
+	activateNetworkReference,
+	claimIntelligenceRefresh,
 	getPlant,
 	listPlants,
+	NetworkProviderDeadline,
+	NetworkRetrievalUnavailable,
 	readIntelligence,
 	readPattern,
 	requestIntelligenceRefresh,
+	runIntelligenceRefresh,
+	scheduleIntelligenceRefresh,
 	submitIntelligenceFeedback,
+	validateNetworkReference,
+	writeNetworkReference,
+	type RefreshConfig,
 } from "../../../packages/domain/src/oversight/index.ts";
+import { NETWORK_LEASE_MS } from "../../../packages/domain/src/oversight/intelligence.ts";
+import { NETWORK_RUBRIC_HASH } from "../../../packages/domain/src/oversight/reference.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import {
@@ -1115,7 +1126,15 @@ test("AC:NI-018 a run captured with health on publishes nothing of P once findin
 	}
 });
 
-test("a source correction or a new released plant result gives a new run R2 and leaves R1 as it was", async () => {
+test("AC:NI-025 a source correction, a new released plant result and a new portfolio rubric reference version each give a new run R2 and leave R1 as it was", async () => {
+	const k = caseOf("intelligence", "NI-025");
+	assert.deepEqual(argumentsOf("NI-025").change, [
+		"authorized source correction",
+		"PI result revision",
+		"portfolio reference version",
+	]);
+	assert.deepEqual(expected("NI-025"), { new_assessment: "R2", old_assessment: "R1", R1_rewritten: false });
+	assert.equal(k.expected.event, null);
 	const R = await c0.plant("R Corrected");
 	await publish(R);
 	const o = await org("Correction Network");
@@ -1146,5 +1165,115 @@ test("a source correction or a new released plant result gives a new run R2 and 
 	assert.deepEqual(
 		rowsOf(await view(o.admin, "portfolio", r1)).map((r) => (r.status === "shared" ? r.results : null)),
 		rowsOf(kept.view).map((r) => (r.status === "shared" ? r.results : null)),
+	);
+
+	const activation = async (runId: string) =>
+		(await c0.one<{ n: number }>(sql`SELECT reference_activation AS n FROM network_intelligence_run WHERE id=${runId}`)).n;
+	const snapshotOf = async (runId: string) => {
+		const { history: _, ...shown } = await view(o.admin, "portfolio", runId);
+		return { rows: await stored(runId), shown, activation: await activation(runId) };
+	};
+	const before = await snapshotOf(r2);
+	const reference = await writeNetworkReference(c0.db, { rubricVersion: RUBRIC_VERSION, contentHash: NETWORK_RUBRIC_HASH });
+	assert.equal(await validateNetworkReference(c0.db, reference), "validated");
+	const number = (await activateNetworkReference(c0.db, reference))!;
+	assert.ok((await scheduleIntelligenceRefresh(c0.db)).includes(o.id), "the new reference version is a refresh demand");
+	const { id: due } = await c0.one<{ id: string }>(sql`SELECT id FROM network_intelligence_run
+		WHERE organization_id=${o.id} AND outcome='pending'`);
+	const claim = (await claimIntelligenceRefresh(c0.db, {}, due))!;
+	assert.equal(await runIntelligenceRefresh(c0.db, claim), "published");
+	assert.deepEqual(
+		(await view(o.admin)).history.map((h) => h.runId),
+		[due, r2, r1],
+		"a new run under the new reference version",
+	);
+	assert.equal(await activation(due), number);
+	assert.deepEqual(await snapshotOf(r2), before, "the earlier run is not rewritten");
+});
+
+test("AC:NI-026 a provider deadline is deferred, retrieval unavailable degraded, invalid output failed, and a publication race and an expired lease superseded; none reads as healthy and R0 stays the one shown", async () => {
+	const e = expected("NI-026");
+	assert.deepEqual(argumentsOf("NI-026").failure, [
+		"provider deadline",
+		"retrieval unavailable",
+		"invalid output",
+		"publication race",
+		"expired lease",
+	]);
+	const o = await org("NI-026 Network");
+	const links = [await link(P, o), await link(Q, o)];
+	const r0 = await refresh(o.admin);
+	const shown = await view(o.admin);
+	assert.equal(shown.run?.runId, r0);
+	assert.ok(patternsOf(shown).length > 0, "R0 has a supported pattern");
+	const bump = (affiliation: string) =>
+		c0.admin.execute(sql`UPDATE affiliation SET share_wiki=NOT share_wiki,revision=revision+1 WHERE id=${affiliation}`);
+	await bump(links[0]!);
+	const due = async () => {
+		const queued = await scheduleIntelligenceRefresh(c0.db);
+		const pending = await c0.rows<{ id: string }>(sql`SELECT id FROM network_intelligence_run
+			WHERE organization_id=${o.id} AND outcome IN ('pending','deferred')`);
+		assert.equal(pending.length, 1, "one shared refresh demand");
+		assert.ok(queued.includes(o.id) || queued.length === 0);
+		return pending[0]!.id;
+	};
+	const { t } = await c0.one<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`);
+	let skew = 0;
+	const clock = { now: () => new Date(Date.parse(t) + skew).toISOString() as never };
+	const attempt = async (config: RefreshConfig) => {
+		skew = 0;
+		const run = await due();
+		const claim = (await claimIntelligenceRefresh(c0.db, { ...config, clock }, run))!;
+		assert.ok(claim, "a worker claims the demand");
+		const settled = await runIntelligenceRefresh(c0.db, claim, { ...config, clock });
+		const { outcome } = await c0.one<{ outcome: string }>(
+			sql`SELECT outcome FROM network_intelligence_run WHERE id=${run}`,
+		);
+		assert.equal(outcome, settled === "refused_stale_claim" ? "pending" : settled);
+		const now = await view(o.admin);
+		assert.equal(now.run?.runId, r0, `${settled}: R0 stays the one shown`);
+		assert.deepEqual(now.groups, shown.groups, `${settled}: nothing of the failed run shows`);
+		assert.deepEqual(
+			now.history.map((h) => h.runId),
+			[r0],
+			`${settled}: never read as a healthy or empty run`,
+		);
+		return outcome;
+	};
+	const statuses = [
+		await attempt({
+			compose: async () => {
+				throw new NetworkProviderDeadline();
+			},
+		}),
+		await attempt({
+			retrieve: async () => {
+				throw new NetworkRetrievalUnavailable();
+			},
+		}),
+		await attempt({
+			compose: async ({ findings }) => ({ findings: findings.map((f) => ({ ...f, support: 999 })) }),
+		}),
+		await attempt({
+			compose: async (x) => {
+				await bump(links[1]!);
+				return x;
+			},
+		}),
+		await attempt({
+			compose: async (x) => {
+				skew = NETWORK_LEASE_MS + 1000;
+				return x;
+			},
+		}),
+	];
+	assert.deepEqual(statuses, e.failure_statuses);
+	assert.equal(e.healthy_default, false);
+	assert.equal(e.prior_result, "R0");
+	const violations = await c0.rows<{ v: string[] | null }>(sql`SELECT violations AS v FROM network_intelligence_run
+		WHERE organization_id=${o.id} AND outcome='failed'`);
+	assert.deepEqual(
+		violations.map((r) => r.v),
+		[["unsupported_numeric_value"]],
 	);
 });
