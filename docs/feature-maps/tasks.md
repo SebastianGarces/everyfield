@@ -15,6 +15,7 @@ flowchart LR
   s0 -.- s0_st3(("signed-out"))
   s0 -.- s0_st4(("loading (manual)"))
   s0 -.- s0_st5(("load-failed (manual)"))
+  s0 -.- s0_st6(("locked"))
   s0 --- s0_b0["search<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["create<br/>tests + cases + browser behavior"]
   s0 --- s0_b2["bulk-complete<br/>tests + cases + browser behavior"]
@@ -40,12 +41,12 @@ The church's tasks: yours or everyone's, searched, filtered and changed in bulk.
 
 - Routes: `/tasks`
 - Endpoints: `/tasks/read`
-- Personas: `owner` write, `admin` write, `member` write, `signup` none, `visitor` none
+- Personas: `owner` write, `admin` write, `member` write, `signup` none, `visitor` none, `discovery` read, `resident` read
 - Catalog: TSK-001, TSK-002, TSK-008, TSK-014, TSK-016
 
 Reach:
 
-- Rail "Tasks" for `owner`, `admin`, `member`
+- Rail "Tasks" for `owner`, `admin`, `member`, `discovery`, `resident`
 
 States:
 
@@ -86,6 +87,14 @@ agent-browser wait --url "**/signin?returnTo=%2Ftasks"
 
 - **loading** (`loading.tsx`): text "Loading tasks". Not scripted: shows only while the server renders the list.
 - **load-failed**: heading "We could not load your tasks". Not scripted: renders only when the list read fails on the server.
+- **locked**: heading "Tasks opens when you start your church"; link "Start a church". As `discovery`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/tasks"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Tasks opens when you start your church" --exact
+agent-browser find role link text --name "Start a church" --exact
+```
 
 #### tasks.list#search
 

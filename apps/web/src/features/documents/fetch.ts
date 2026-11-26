@@ -7,6 +7,7 @@ const get = readsFrom<typeof GET>("/documents/read");
 export const resolveDocument = (templateId: string, format: Format) => get("resolved", { templateId, format });
 export const listSavedDocuments = () => get("saved");
 export const loadWrittenDocuments = () => get("written");
+export const loadMyDocuments = () => get("mine");
 export const loadCopySources = () => get("sources");
 export const listChurchTemplates = () => get("templates");
 export const compareWithTemplate = (documentId: string) =>

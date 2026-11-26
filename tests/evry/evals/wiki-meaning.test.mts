@@ -51,7 +51,7 @@ const asked: string[] = [];
 const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const realFetch = globalThis.fetch;
 const env = { EVF_WIKI_EMBEDDINGS: process.env.EVF_WIKI_EMBEDDINGS, OPENAI_API_KEY: process.env.OPENAI_API_KEY };

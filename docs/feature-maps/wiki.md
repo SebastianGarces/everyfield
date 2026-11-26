@@ -35,12 +35,12 @@ The Playbook wiki: a home with what to read next, search, and every article's ad
 
 - Routes: `/wiki/[[...slug]]`
 - Endpoints: `/api/wiki/progress`, `/api/wiki/read`
-- Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` none, `triage` write, `visitor` none
+- Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` none, `triage` write, `visitor` none, `discovery` read
 - Catalog: WIKI-001, WIKI-002, WIKI-003, WIKI-004, WIKI-011
 
 Reach:
 
-- Rail "Wiki" for `owner`, `admin`, `member`, `resident`, `triage`
+- Rail "Wiki" for `owner`, `admin`, `member`, `resident`, `triage`, `discovery`
 - Link `/wiki/{slug}` where `{slug}` is an article's path, as in its link in the wiki's navigation
 
 States:

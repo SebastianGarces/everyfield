@@ -33,9 +33,16 @@ export async function waitingOnLock(
 	{
 		pids,
 		blockedBy,
+		behind,
 		count = 1,
 		signal,
-	}: { pids?: readonly (number | undefined)[]; blockedBy?: number; count?: number; signal?: AbortSignal } = {},
+	}: {
+		pids?: readonly (number | undefined)[];
+		blockedBy?: number;
+		behind?: number;
+		count?: number;
+		signal?: AbortSignal;
+	} = {},
 ) {
 	for (let poll = 0; poll < 50_000; poll++) {
 		if (signal?.aborted) return false;
@@ -47,7 +54,12 @@ export async function waitingOnLock(
 		const waiting =
 			blockedBy === undefined ? sql`a.wait_event_type='Lock'` : sql`${blockedBy}::int=ANY(pg_blocking_pids(a.pid))`;
 		const r = await pool.execute(
-			sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND a.pid<>pg_backend_pid() AND ${watched} AND ${waiting}`,
+			behind === undefined
+				? sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND a.pid<>pg_backend_pid() AND ${watched} AND ${waiting}`
+				: sql`WITH RECURSIVE queue(pid) AS (
+						SELECT ${behind}::int
+						UNION SELECT a.pid FROM pg_stat_activity a JOIN queue q ON q.pid=ANY(pg_blocking_pids(a.pid))
+					) SELECT count(*)::int - 1 AS n FROM queue`,
 		);
 		if ((r.rows[0] as { n: number }).n >= count) return true;
 	}
@@ -60,23 +72,27 @@ export async function raced<const T extends readonly unknown[]>(
 	lock: SQL,
 	contenders: { [K in keyof T]: () => Promise<T[K]> },
 ): Promise<T> {
-	const locked = Promise.withResolvers<void>(),
+	const locked = Promise.withResolvers<number>(),
 		release = Promise.withResolvers<void>();
 	const holder = admin.transaction(async (tx) => {
 		await tx.execute(lock);
-		locked.resolve();
+		const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
+		locked.resolve((r.rows[0] as { pid: number }).pid);
 		await release.promise;
 	});
 	holder.catch(locked.reject);
 	const running: Promise<unknown>[] = [];
 	const settled = new AbortController();
 	try {
-		await locked.promise;
+		const holderPid = await locked.promise;
 		for (const run of contenders) {
 			const started = run();
 			running.push(started);
 			started.finally(() => settled.abort()).catch(() => {});
-			assert.equal(await waitingOnLock(runtime, { count: running.length, signal: settled.signal }), true);
+			assert.equal(
+				await waitingOnLock(runtime, { behind: holderPid, count: running.length, signal: settled.signal }),
+				true,
+			);
 		}
 	} finally {
 		release.resolve();

@@ -1463,7 +1463,7 @@ async function seedMinistries(admin: Database) {
 async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 	const viewer = await readViewer(db, ACTOR_SPECS[who].session as never);
 	if (!viewer?.authority) throw Error(`No live authority for the ${who} actor`);
-	const actor = evryActor(viewer.authority);
+	const actor = evryActor(viewer.authority, viewer.discovery);
 	return { ...actor, selfPersonId: await resolveSelf(db, actor) };
 }
 

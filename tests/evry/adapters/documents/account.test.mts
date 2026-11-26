@@ -66,13 +66,7 @@ const READS = [
 	"documents.listOwned",
 	"documents.read",
 ];
-const WRITES = [
-	"discovery.create",
-	"discovery.convertToPlant",
-	"documents.saveNative",
-	"documents.archive",
-	"documents.importTextOrWord",
-];
+const WRITES = ["discovery.convertToPlant", "documents.saveNative", "documents.archive", "documents.importTextOrWord"];
 
 let w: CaseWorld;
 let church: Church;

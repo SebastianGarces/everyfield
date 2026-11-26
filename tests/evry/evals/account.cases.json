@@ -130,7 +130,10 @@
 			"criterion": 13,
 			"ask": "list the people in our church",
 			"calls": [],
-			"answer": ["Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church"]
+			"answer": [
+				"Not yet: People, meetings, teams, tasks and other church records open when you start your church. I can help you start your church from your Discovery space whenever you're ready."
+			],
+			"absent": ["seat", "set up a Discovery space"]
 		},
 		{
 			"id": "ACC-13",
@@ -144,7 +147,13 @@
 			"criterion": 13,
 			"ask": "What can you do for me?",
 			"calls": [],
-			"answer": ["Find and read your own documents.", "what the public Wiki says", "your own Discovery space"]
+			"answer": [
+				"Find and read your own documents.",
+				"what the public Wiki says",
+				"your own Discovery space",
+				"Prepare turning your Discovery space into a church for your review, with you as its Owner."
+			],
+			"absent": ["Coming later", "Prepare a private Discovery space", "Prepare starting a new church"]
 		}
 	]
 }

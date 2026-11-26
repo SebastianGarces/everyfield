@@ -4,6 +4,7 @@ import {
 	endConnection,
 	inviteAssociation,
 	leaveResidency,
+	saveDiscoverySharing,
 	resendAssociationInvitation,
 	revokeAssociationInvitation,
 	savePipelineConsent,
@@ -22,12 +23,14 @@ import type { ConnectionsData } from "./Connections";
 import { respondRelationshipInvitation } from "./invitation/client.ts";
 import type { ReadHistory } from "./History";
 import { Refusal } from "../../components/intent.ts";
+import { UNKNOWN_ACCOUNT } from "./model";
 import type { EndConnection } from "./EndDialog";
 import type { ReadDisclosure } from "./InviteDialog";
 import type { ReadConsent, SaveConsent } from "./Pipeline";
 import type { NameOf, OperationName, Run, SendInvitation, SendOperation } from "./port";
 import type { ReadResidency, SaveResidency } from "./Residency";
 import type { ReadSharing, SaveSharing } from "./Sharing";
+import type { SaveDiscoverySharing } from "./DiscoverySharing";
 
 type Actions = { [K in OperationName]?: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> };
 const ACTIONS: Actions = {
@@ -39,6 +42,11 @@ const ACTIONS: Actions = {
 export const readResidency: ReadResidency = loadResidency;
 export const saveResidency: SaveResidency = async (command) => {
 	const r = await saveResidencySharing(command);
+	if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+	return r.row;
+};
+export const saveDiscovery: SaveDiscoverySharing = async (command) => {
+	const r = await saveDiscoverySharing(command);
 	if (r.reply.status === "refused") throw new Refusal(r.reply.code);
 	return r.row;
 };
@@ -80,11 +88,17 @@ export function createNames(initial: Record<string, string>) {
 		for (const [id, name] of Object.entries(names)) known.set(id, name);
 	};
 	const nameOf: NameOf = (endpoint) =>
-		known.get(endpoint.id) ?? (endpoint.kind === "account" ? "another account" : "an organization");
+		known.get(endpoint.id) ?? (endpoint.kind === "account" ? UNKNOWN_ACCOUNT : "an organization");
 	const load = async (): Promise<ConnectionsData> => {
 		const r = await loadConnections();
 		learn(r.names);
-		return { history: r.history, pending: r.pending, sharing: r.sharing };
+		return {
+			history: r.history,
+			pending: r.pending,
+			sharing: r.sharing,
+			discovery: r.discovery,
+			foundations: r.foundations,
+		};
 	};
 	const readMore: ReadHistory = async (after) => {
 		const r = await loadHistoryPage(after);

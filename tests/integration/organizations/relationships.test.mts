@@ -420,7 +420,7 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 				onboarding.convertDiscovery(
 					c,
 					{ session: d.session, selected: { kind: "account", id: accountId.parse(d.account) } },
-					S.command({ discoveryId: discovery!.id, name: "New plant", confirmed: true, relationships: [] }),
+					S.command({ discoveryId: discovery!.id, name: "New plant", confirmed: true, relationships: [], ended: [] }),
 				),
 			),
 	);

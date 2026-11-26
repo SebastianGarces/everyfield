@@ -3,7 +3,7 @@
 For the operator of the restricted host, Sebastian's Mac. The contract is `docs/architecture/recovery.md`. The measured
 drill is `docs/runbooks/recovery-drill-2026-11-24.md`. Nothing here closes G-RECOVERY; WP-058 does that.
 
-Every command below is `node ops/maintenance/cli.mts <command> --config <directory>` from a checkout with its
+Every command below is `node --conditions=react-server ops/maintenance/cli.mts <command> --config <directory>` from a checkout with its
 dependencies installed. It prints JSON. It exits 0 when its check passes, 2 when it ran and its check fails, and 1 when it
 refused or could not run. It never prints a key or a connection string.
 
@@ -90,7 +90,7 @@ From the Keychain item made below, one per key, named by the day it was made:
 
 ```sh
 EVERYFIELD_BACKUP_KEY="$(security find-generic-password -s everyfield-backup-key-<date> -w)" \
-  node ops/maintenance/cli.mts backup-daily --config ~/.config/everyfield-backup
+  node --conditions=react-server ops/maintenance/cli.mts backup-daily --config ~/.config/everyfield-backup
 ```
 
 From the password manager: type this, press Return, paste the key and press Return. The paste is not shown, and the
@@ -98,7 +98,7 @@ variable ends with the parentheses. This works in zsh and bash.
 
 ```sh
 ( IFS= read -rs EVERYFIELD_BACKUP_KEY; export EVERYFIELD_BACKUP_KEY
-  node ops/maintenance/cli.mts backup-daily --config ~/.config/everyfield-backup )
+  node --conditions=react-server ops/maintenance/cli.mts backup-daily --config ~/.config/everyfield-backup )
 ```
 
 The shell history holds the command, never the value.
@@ -194,7 +194,7 @@ By hand on the same database:
    ```sh
    bash
    export EVERYFIELD_BACKUP_KEY="$(openssl rand -hex 32)"
-   run() { node ops/maintenance/cli.mts "$@"; }
+   run() { node --conditions=react-server ops/maintenance/cli.mts "$@"; }
    mkdir -m 700 copies
    run backup-capture --config "$B" --out snapshot
    run backup-copy --control "$B/control.json" --snapshot snapshot --out copies
@@ -238,7 +238,7 @@ The schedule is off until go-live. Loading it is a go-live step, only on Sebasti
 no secret. `--load` also loads them into launchd; it is refused from a worktree. `schedule-uninstall --load` unloads and
 removes them. Logs go to `logs/` in the configuration directory. Trust `backup-status`, not the log.
 
-Today's daily plist runs `node cli.mts backup-daily` with no key, so loaded as it is, every run only refuses with
+Today's daily plist runs `node --conditions=react-server cli.mts backup-daily` with no key, so loaded as it is, every run only refuses with
 `backup_key_missing`. Go-live needs one change in `ops/maintenance/schedule.mts`: the daily job reads the key from the
 Keychain and sets it for the backup process alone. Its `ProgramArguments` become `/bin/sh`, `-c` and one line:
 

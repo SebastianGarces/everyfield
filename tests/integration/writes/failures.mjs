@@ -21,6 +21,34 @@ export function behaviorFailure(evidence, log) {
 	return message;
 }
 
+const SLOWEST = 5;
+
+export function limitFailure({ limit, directory, phases, files, rows, now, load }) {
+	const phase = phases.at(-1) ?? { label: "setup", at: now };
+	const started = new Map(rows.filter((row) => row.event === "start").map((row) => [row.file, row.at]));
+	const finished = rows
+		.filter((row) => row.event === "finish")
+		.map((row) => [row.file, row.at - started.get(row.file)])
+		.sort(([, a], [, b]) => b - a);
+	const done = new Set(finished.map(([file]) => file));
+	const running = [...started].filter(([file]) => !done.has(file)).map(([file, at]) => [file, now - at]);
+	const list = (entries) =>
+		entries.length ? entries.map(([file, ms]) => `\n  ${file} (${duration(ms)})`).join("") : " none";
+	const timings = phases.map(({ label, at }, i) => `${label} ${duration((phases[i + 1]?.at ?? now) - at)}`);
+	return [
+		`The census reached its ${duration(limit)} limit in its ${phase.label} phase; evidence: ${directory}`,
+		`Elapsed: ${duration(now - (phases[0]?.at ?? now))} (${timings.join(", ")}); load average ${load.map((n) => n.toFixed(1)).join(" ")}`,
+		`Suite files finished: ${done.size} of ${files.length}`,
+		`Still running:${list(running)}`,
+		`Slowest finished:${list(finished.slice(0, SLOWEST))}`,
+	].join("\n");
+}
+
+function duration(ms) {
+	const seconds = Math.round(ms / 1000);
+	return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+}
+
 function failingBlocks(lines) {
 	const start = lines.lastIndexOf(SUMMARY);
 	if (start < 0) return [];

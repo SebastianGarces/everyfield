@@ -72,10 +72,13 @@ async function importWritten(file: File, params: Record<string, string>): Promis
 	}
 }
 
-const port = {
-	save: saveOwnedDocument,
-	importFile: importWritten,
-	designate: designateOwnedDocument,
+const PORTS = {
+	church: { save: saveOwnedDocument, importFile: importWritten, designate: designateOwnedDocument },
+	account: {
+		save: (raw: unknown) => saveOwnedDocument(raw, true),
+		importFile: (file: File, params: Record<string, string>) => importWritten(file, { ...params, scope: "account" }),
+		designate: (id: string, revision: string) => designateOwnedDocument(id, revision, true),
+	},
 };
 
 export default function NativeEditor({
@@ -95,7 +98,7 @@ export default function NativeEditor({
 			createNativeEditorStore({
 				doc,
 				port: {
-					...port,
+					...PORTS[scope],
 					created: (id, editor, kept) => {
 						const href = `/documents/written/${id}`;
 						if (leaveRequestNow()) return writeAddress(href, { replace: true });
@@ -170,7 +173,7 @@ export default function NativeEditor({
 	async function archive() {
 		const base = store.getState().saved;
 		if (!base.id) return;
-		const result = await archiveOwnedDocument(base.id, base.revision);
+		const result = await archiveOwnedDocument(base.id, base.revision, scope === "account");
 		if (result.status !== "ok")
 			return {
 				refused: documentProblem(
