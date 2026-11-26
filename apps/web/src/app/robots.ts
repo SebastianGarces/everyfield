@@ -9,6 +9,8 @@ const ASSETS = [
 	"/twitter-image",
 	"/oversight/opengraph-image",
 	"/oversight/twitter-image",
+	"/discovery/opengraph-image",
+	"/discovery/twitter-image",
 ];
 
 export default function robots(): MetadataRoute.Robots {
