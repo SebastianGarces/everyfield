@@ -50,3 +50,10 @@ test("both /discovery buttons and the How it works first step use the approved w
 	assert.equal(page.hero.note, page.cta.note);
 	assert.equal(page.how.steps[0], "Sign up free. Choose I'm exploring.");
 });
+
+test("the /discovery Templates tab uses the copy owner's templates line", () => {
+	assert.equal(
+		page.tour.tabs.find((t) => t.id === "templates")?.line,
+		"Start from a template. It opens as a private document with your name already filled in.",
+	);
+});
