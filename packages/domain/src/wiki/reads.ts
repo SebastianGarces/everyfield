@@ -721,28 +721,18 @@ export function recommendForPhase(db: Database | Transaction, authority: Request
 			.object({
 				allowed: z.boolean(),
 				plant_phase: z.number().int().nullable(),
+				discovery_planter: z.boolean(),
 				articles: z.array(z.record(z.string(), z.unknown())).nullable(),
 			})
 			.parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
 		const articles = (row.articles ?? []).map(present);
-		const discovery = input.phase == null && (await discoveryPlanter(db, authority));
+		const discovery = input.phase == null && row.discovery_planter;
 		return {
 			phase: input.phase ?? row.plant_phase,
 			articles: discovery ? discoverySuggestions(articles) : articles,
 		} satisfies z.output<typeof recommendResult>;
 	});
-}
-async function discoveryPlanter(db: Database | Transaction, authority: RequestActor) {
-	if (selectedOwner(authority).kind !== "account") return false;
-	const account = authority.actor.accountId;
-	const result = await db.execute(sql`SELECT
-		EXISTS (SELECT FROM discovery d WHERE d.account_id = ${account}::uuid AND d.converted_at IS NULL)
-		AND NOT EXISTS (
-			SELECT FROM seat s
-			WHERE s.account_id = ${account}::uuid AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-		) AS discovery`);
-	return z.object({ discovery: z.boolean() }).parse(result.rows[0]).discovery;
 }
 function finished(article: WikiArticle) {
 	return article.completed && Number(article.observedFraction) > 0.8;
