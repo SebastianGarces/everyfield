@@ -166,10 +166,8 @@ test("AC:INH-REGRESSION-EVIDENCE-CITATION two agendas are compared from their ow
 
 	const asked = await w.quiet(() => w.ask(P.A, said, [both]));
 	assert.deepEqual(compared(asked.replies), comparison);
-	// Composed reads save their cards as each read finishes, so the cards come in no set order (D-3016).
-	const cited = asked.cards
-		.flatMap((card) => rowsOf(card.result))
-		.sort((a, b) => name(a.id).localeCompare(name(b.id)));
+	const byDocumentNotFinishOrder = (a: { id: string }, b: { id: string }) => name(a.id).localeCompare(name(b.id));
+	const cited = asked.cards.flatMap((card) => rowsOf(card.result)).sort(byDocumentNotFinishOrder);
 	assert.deepEqual(
 		cited.map((r) => [r.kind, r.id, r.fields.link]),
 		[one, two].map(({ id }) => ["document", id, `/documents/written/${id}`]),
