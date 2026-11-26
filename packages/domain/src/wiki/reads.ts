@@ -726,16 +726,16 @@ export function recommendForPhase(db: Database | Transaction, authority: Request
 			.parse(result.rows[0]);
 		if (!row.allowed) deny("access_denied");
 		const articles = (row.articles ?? []).map(present);
-		const discovery = input.phase == null && (await discoveryPlanter(db, access));
+		const discovery = input.phase == null && (await discoveryPlanter(db, authority));
 		return {
 			phase: input.phase ?? row.plant_phase,
 			articles: discovery ? discoverySuggestions(articles) : articles,
 		} satisfies z.output<typeof recommendResult>;
 	});
 }
-async function discoveryPlanter(db: Database | Transaction, access: CorpusAccess) {
-	if (access.owner.kind !== "account") return false;
-	const account = access.authority.actor.accountId;
+async function discoveryPlanter(db: Database | Transaction, authority: RequestActor) {
+	if (selectedOwner(authority).kind !== "account") return false;
+	const account = authority.actor.accountId;
 	const result = await db.execute(sql`SELECT
 		EXISTS (SELECT FROM discovery d WHERE d.account_id = ${account}::uuid AND d.converted_at IS NULL)
 		AND NOT EXISTS (
