@@ -90,14 +90,13 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 	const c = await church(prefix, { clock: new Date(at), max: 8 });
 	await c.release("methodology-2026.11");
 	const { db } = c;
-	// The code clock is the DB's pinned schema clock as last read, moved by `sync` before each step, never the host clock.
-	let pinned = 0;
+	let dbClockAt = 0;
 	const sync = async () => {
-		pinned = Date.parse((await c.one<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`)).t);
+		dbClockAt = Date.parse((await c.one<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`)).t);
 	};
 	await sync();
 	let skew = 0;
-	const clock = { now: () => new Date(pinned + skew).toISOString() as never };
+	const clock = { now: () => new Date(dbClockAt + skew).toISOString() as never };
 	const job = createAssessmentJob({ clock });
 	const assessments = createAssessments({ clock });
 	const scripted = (options: Parameters<typeof scriptedAssessmentDrafter>[0] = {}) =>
