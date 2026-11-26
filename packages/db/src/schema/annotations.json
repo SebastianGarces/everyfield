@@ -20100,7 +20100,7 @@
 			"table": {
 				"name": "assessment_release",
 				"domain": "intelligence",
-				"purpose": "The one persisted release of a published Plant Intelligence assessment to the plant's organizations (REQ-PI-024, REQ-PI-032, REQ-PI-037): written by the first eligible Owner or Admin open, or by the 72-hour release. Oversight getPlant, listPlants, Network Intelligence and the 72-hour rule read only this record.",
+				"purpose": "The one persisted release of a published Plant Intelligence assessment to the plant's organizations (REQ-PI-024, REQ-PI-032, REQ-PI-037): written by the first eligible Owner or Admin open, or by the 72-hour release. The oversight plant view, the plant list, Network Intelligence and the 72-hour rule read only this record.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
