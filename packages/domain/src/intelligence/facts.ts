@@ -162,12 +162,11 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 
 function debriefOf(d: FactInputs["debrief"]): z.input<typeof c.debriefFact> {
 	if (!d) return { submitted: false, submittedAt: null, missingNames: null, missingCount: null };
-	const missing = d.missingNames === "yes";
 	return {
 		submitted: true,
 		submittedAt: d.submittedAt,
-		missingNames: missing,
-		missingCount: missing ? d.missingCount : null,
+		missingNames: d.missingNames === "yes",
+		missingCount: d.missingCount,
 	};
 }
 

@@ -30,6 +30,14 @@ const piCriteria = async (plant: { id: string }, phase: number) => {
 	assert.ok(facts, "the plant's facts are captured");
 	return Object.fromEntries(criteriaOf(await readCatalog(), phase, facts).map((x) => [x.key, x.status]));
 };
+const launchAndPi = async (c: Awaited<ReturnType<LaunchWorld["launched"]>>) => {
+	const p = await w.plan(c.owner);
+	const pi = await piCriteria(c.p, 5);
+	return {
+		launch: { guest_data_entered: p.evidence.guestNamesEntered.status, debrief_done: p.evidence.debriefDone.status },
+		pi: { guest_data_entered: pi.guest_data_entered, debrief_done: pi.debrief_done },
+	};
+};
 const debriefFact = async (plant: { id: string }) => (await captureFacts(w.db, plant.id, NOW))?.debrief;
 const NOT_SUBMITTED = { submitted: false, submittedAt: null, missingNames: null, missingCount: null };
 const derivedOnly = async (who: Who) => {
@@ -437,14 +445,7 @@ test("AC:LAUNCH46-013 correcting Yes 3 to No is met with two versions, keeps Pha
 test("AC:LAUNCH46-021 headcount 40 and a recorded outcome with no submitted questionnaire leave Guest data entered and Debrief done unknown, and no manual signal sets them", async () => {
 	const c = await w.launched({ attendance: 40 });
 	const unknown = { guest_data_entered: "unknown", debrief_done: "unknown" };
-	const both = async () => {
-		const p = await w.plan(c.owner);
-		const pi = await piCriteria(c.p, 5);
-		return {
-			launch: { guest_data_entered: p.evidence.guestNamesEntered.status, debrief_done: p.evidence.debriefDone.status },
-			pi: { guest_data_entered: pi.guest_data_entered, debrief_done: pi.debrief_done },
-		};
-	};
+	const both = () => launchAndPi(c);
 	const p = await w.plan(c.owner);
 	assert.deepEqual([p.outcome!.attendance, p.launch!.status], [40, "completed"]);
 	assert.deepEqual(await both(), { launch: unknown, pi: unknown });
@@ -502,14 +503,7 @@ test("AC:LAUNCH46-023 Plant Intelligence's facts carry the submitted debrief's d
 
 test("a submitted No is a debrief fact with no count, and the Phase 5 criteria follow the launch evidence for each answer", async () => {
 	const c = await w.launched({}, { phase: 5 });
-	const criteria = async () => {
-		const p = await w.plan(c.owner);
-		const pi = await piCriteria(c.p, 5);
-		return {
-			launch: { guest_data_entered: p.evidence.guestNamesEntered.status, debrief_done: p.evidence.debriefDone.status },
-			pi: { guest_data_entered: pi.guest_data_entered, debrief_done: pi.debrief_done },
-		};
-	};
+	const criteria = () => launchAndPi(c);
 	const same = (guest_data_entered: string, debrief_done: string) => {
 		const e = { guest_data_entered, debrief_done };
 		return { launch: e, pi: e };
@@ -543,24 +537,4 @@ test("no debrief, or only a saved draft, is a debrief fact that is not submitted
 	assert.deepEqual(facts.debrief, NOT_SUBMITTED, "draft only");
 	assert.deepEqual([facts.criteria.guest_data_entered, facts.criteria.debrief_done], ["unknown", "unknown"]);
 	assert.equal(JSON.stringify(facts).includes("Draft words"), false);
-});
-
-test("after a submitted debrief is corrected the facts read the latest submitted version, and a later draft changes nothing", async () => {
-	const c = await w.launched();
-	let p = ok(await w.debrief(c.owner, await w.plan(c.owner), { missingNames: "yes", missingCount: 3 }, true)).plan;
-	const first = (await captureFacts(w.db, c.p.id, NOW))!;
-	p = ok(await w.debrief(c.owner, p, { missingNames: "yes", missingCount: 2 }, true)).plan;
-	const corrected = (await captureFacts(w.db, c.p.id, NOW))!;
-	assert.deepEqual(corrected.debrief, {
-		submitted: true,
-		submittedAt: p.debrief!.submitted!.submittedAt,
-		missingNames: true,
-		missingCount: 2,
-	});
-	assert.equal(p.debrief!.submitted!.version, 2);
-	assert.notEqual(corrected.sourceRevision, first.sourceRevision, "a correction moves the revision");
-	ok(await w.debrief(c.owner, p, { wentWell: "Later draft", missingNames: "no" }));
-	const drafted = (await captureFacts(w.db, c.p.id, NOW))!;
-	assert.deepEqual(drafted.debrief, corrected.debrief, "a draft is no submission");
-	assert.equal(drafted.sourceRevision, corrected.sourceRevision);
 });

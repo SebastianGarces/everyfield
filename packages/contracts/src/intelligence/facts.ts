@@ -150,7 +150,6 @@ export const debriefFact = z.discriminatedUnion("submitted", [
 		missingCount: z.int().min(1).nullable(),
 	}),
 ]);
-export type DebriefFact = z.infer<typeof debriefFact>;
 
 const recordPresence = z.strictObject({ count: z.int().min(0), latestOn: localDate.nullable() });
 const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
