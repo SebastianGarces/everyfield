@@ -11,14 +11,16 @@
 			"reach": [
 				{
 					"rail": "Plant Intelligence",
-					"personas": ["owner", "admin"]
+					"personas": ["owner", "admin", "discovery", "resident"]
 				}
 			],
 			"personas": {
 				"owner": "write",
 				"admin": "write",
 				"member": "none",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{
@@ -90,6 +92,24 @@
 					"expect": [
 						{
 							"text": "Loading Plant Intelligence"
+						}
+					]
+				},
+				{
+					"id": "locked",
+					"reach": {
+						"persona": "discovery",
+						"open": "/intelligence",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Plant Intelligence opens when you start your church"
+						},
+						{
+							"role": "link",
+							"name": "Start a church"
 						}
 					]
 				}

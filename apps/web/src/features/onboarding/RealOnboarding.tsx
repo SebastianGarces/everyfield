@@ -15,12 +15,12 @@ export function RealOnboarding({
 	entry,
 	step,
 	articles,
-	residency = null,
+	linkNames = {},
 }: {
 	entry: Entry;
 	step: StepKey | null;
 	articles: Article[];
-	residency?: { organizationName: string } | null;
+	linkNames?: Record<string, string>;
 }) {
 	const [port] = useState(() => createPort({ entry: loadOnboardingEntry, command: runOnboardingCommand }));
 	return (
@@ -29,7 +29,7 @@ export function RealOnboarding({
 			entry={entry}
 			step={step}
 			articles={articles}
-			residency={residency}
+			linkNames={linkNames}
 			signIn={() => loadPage(SIGN_IN)}
 			account={<SessionActions />}
 		/>

@@ -29,3 +29,25 @@ test("a signed-up account without a seat keeps Wiki, which it can read", () => {
 		guide: true,
 	});
 });
+
+test("a Discovery planter has a home, the Wiki and Documents, and sees the church pages that open when they start one", () => {
+	assert.deepEqual(labels({ context: "account", residencyLinked: false, discovery: true }), {
+		links: [
+			"Home",
+			"Wiki",
+			"Documents",
+			"People",
+			"Meetings",
+			"Messages",
+			"Tasks",
+			"Ministries",
+			"Launch",
+			"Plant Intelligence",
+		],
+		guide: true,
+	});
+	assert.equal(
+		shellNav({ context: "account", residencyLinked: false, discovery: true }).main[0]?.href,
+		"/my-discovery",
+	);
+});

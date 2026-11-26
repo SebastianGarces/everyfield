@@ -69,7 +69,7 @@ const reminders = async () => undefined;
 const templates = createTemplateReader();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
-	return viewer?.authority ? evryActor(viewer.authority) : null;
+	return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
 };
 const actorOf = async (who: Who) => (await freshActor(ACTOR_SPECS[who].session))!;
 const authority = (who: Who) => RequestActor.resolve(db, ACTOR_SPECS[who].session as never) as Promise<RequestActor>;

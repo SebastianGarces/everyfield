@@ -130,8 +130,11 @@ test("the restricted CLI refuses a rehearsal without its control with the generi
 		]) {
 			const { code, stdout, stderr } = await new Promise<{ code: number | null; stdout: string; stderr: string }>(
 				(resolve) =>
-					execFile(process.execPath, [cli, ...args], { env: { PATH: process.env.PATH } }, (error, stdout, stderr) =>
-						resolve({ code: error ? (error.code as number) : 0, stdout, stderr }),
+					execFile(
+						process.execPath,
+						["--conditions=react-server", cli, ...args],
+						{ env: { PATH: process.env.PATH } },
+						(error, stdout, stderr) => resolve({ code: error ? (error.code as number) : 0, stdout, stderr }),
 					),
 			);
 			assert.equal(code, 1);

@@ -534,6 +534,78 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "onboarding.discovery-home",
+			"says": "The Discovery home for a planter with no seat: the foundations with what is read, the Wiki, private documents, Evry, the sending church or network by name, and Start a church.",
+			"routes": ["/my-discovery"],
+			"catalog": ["IDN-016"],
+			"reach": [
+				{
+					"rail": "Home",
+					"personas": ["discovery", "resident"]
+				}
+			],
+			"personas": {
+				"discovery": "write",
+				"resident": "read",
+				"owner": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "linked",
+					"reach": {
+						"persona": "discovery",
+						"open": "/my-discovery",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Foundations"
+						},
+						{
+							"role": "link",
+							"name": "Open the Wiki"
+						},
+						{
+							"role": "link",
+							"name": "Start a church"
+						}
+					]
+				},
+				{
+					"id": "seat",
+					"reach": {
+						"persona": "owner",
+						"open": "/my-discovery",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/overview"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "start-church",
+					"says": "Start a church names each sending church or network, keeps every link unless the planter ends it, and says who can cover the seat.",
+					"catalog": ["IDN-016"],
+					"operations": ["discovery.convertToPlant"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-016 INV-conversion: a link ends only when the request names it, and a kept link turns on no sharing"
+							}
+						],
+						"cases": ["TARGET-IDN-016"]
+					}
+				}
+			]
 		}
 	]
 }

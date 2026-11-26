@@ -132,6 +132,9 @@ export const affiliation = pgTable(
 		consent_revision: int64("consent_revision")
 			.notNull()
 			.default(sql`1`),
+		share_foundations: boolean("share_foundations")
+			.notNull()
+			.default(sql`false`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "affiliation_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -170,6 +173,7 @@ export const affiliation = pgTable(
 			sql`((plant_id IS NOT NULL) OR (NOT (share_people OR share_meetings OR share_tasks OR share_ministry_teams OR share_wiki OR share_activity OR shared_findings)))`,
 		),
 		check("affiliation_consent_revision_check", sql`(consent_revision >= 1)`),
+		check("affiliation_ck_3", sql`((account_id IS NOT NULL) OR (NOT share_foundations))`),
 		index("affiliation_ref_3").using("btree", table.organization_id.asc().nullsLast()),
 		index("affiliation_ref_4").using("btree", table.invitation_id.asc().nullsLast()),
 		index("affiliation_ref_5").using("btree", table.recognition_operation_id.asc().nullsLast()),

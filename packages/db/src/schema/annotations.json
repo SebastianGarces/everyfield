@@ -4835,6 +4835,9 @@
 				},
 				"consent_revision": {
 					"note": "Independent exact-pair consent revision; rejoin preserves it."
+				},
+				"share_foundations": {
+					"note": "A Discovery planter's one sharing choice on an ordinary link: the director sees which foundations they completed. Off by default; it never applies to a plant or sending-church link."
 				}
 			},
 			"foreignKeys": {

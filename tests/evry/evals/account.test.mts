@@ -15,6 +15,7 @@ type Case = {
 	calls: string[];
 	file?: { name: string; text: string };
 	answer?: string[];
+	absent?: string[];
 	proposal?: { operation: string; target: string | null; changes: [string, unknown, unknown][] };
 	approve?: true;
 };
@@ -69,6 +70,8 @@ test("INV-evry-account: every case of a person with no church passes on the scri
 		);
 		for (const text of c.answer ?? [])
 			assert.ok(turn.text.includes(text), `${c.id} answer ${JSON.stringify(turn.text)} has ${text}`);
+		for (const text of c.absent ?? [])
+			assert.ok(!turn.text.includes(text), `${c.id} answer ${JSON.stringify(turn.text)} lacks ${text}`);
 		assert.deepEqual(await documents(), held, `${c.id} writes nothing before approval`);
 		assert.deepEqual(
 			turn.proposals.map((p) => ({

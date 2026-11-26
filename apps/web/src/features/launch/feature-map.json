@@ -23,7 +23,7 @@
 			"reach": [
 				{
 					"rail": "Launch",
-					"personas": ["owner", "admin", "member"]
+					"personas": ["owner", "admin", "member", "discovery", "resident"]
 				},
 				{
 					"from": "overview.home",
@@ -47,7 +47,9 @@
 				"owner": "write",
 				"admin": "write",
 				"member": "read",
-				"visitor": "none"
+				"visitor": "none",
+				"discovery": "read",
+				"resident": "read"
 			},
 			"states": [
 				{

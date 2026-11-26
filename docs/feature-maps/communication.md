@@ -16,6 +16,7 @@ flowchart LR
   s0 -.- s0_st2(("no-seat"))
   s0 -.- s0_st3(("signed-out"))
   s0 -.- s0_st4(("address"))
+  s0 -.- s0_st5(("locked"))
   s0 --- s0_b0["open-message<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["search<br/>tests + cases + browser behavior"]
   s0 --- s0_b2["restore-address<br/>tests + cases + browser behavior"]
@@ -45,12 +46,12 @@ flowchart LR
 Messages: the church's sent and draft email, each message's delivery, and your own address.
 
 - Routes: `/communication`
-- Personas: `owner` write, `admin` write, `member` read, `triage` none, `visitor` none
+- Personas: `owner` write, `admin` write, `member` read, `triage` none, `visitor` none, `discovery` read, `resident` read
 - Catalog: COM-001, COM-002, NTF-011
 
 Reach:
 
-- Rail "Messages" for `owner`, `admin`, `member`
+- Rail "Messages" for `owner`, `admin`, `member`, `discovery`, `resident`
 - Link `/communication?message={communicationId}` where `{communicationId}` is the id a message row writes into the address
 
 States:
@@ -97,6 +98,15 @@ agent-browser open "$ORIGIN/communication?view=address"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Your address" --exact
 agent-browser find role button text --name "Restore this address" --exact
+```
+
+- **locked**: heading "Messages opens when you start your church"; link "Start a church". As `discovery`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/communication"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Messages opens when you start your church" --exact
+agent-browser find role link text --name "Start a church" --exact
 ```
 
 #### communication.messages#open-message
