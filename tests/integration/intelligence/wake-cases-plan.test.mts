@@ -36,9 +36,12 @@ import { promotions } from "../../reference/releases/promotions.mts";
 import { CANARY } from "./assessment-church.mts";
 import {
 	listed,
+	row,
+	strip,
 	wakeCase,
 	wakeWorld,
 	type LoadedWakeCase,
+	type Row,
 	type WakeOrg,
 	type WakePlant,
 	type WakeWorld,
@@ -55,20 +58,7 @@ before(async () => {
 after(() => W?.close());
 
 type Json = Record<string, unknown>;
-type Row<T> = {
-	id: string;
-	marker: `AC:${string} `;
-	operation: string;
-	producer: string;
-	arrange: (w: Omit<WakePlant<T>, "r0" | "arranged">, k: LoadedWakeCase) => Promise<T>;
-	facts: (w: WakePlant<T>) => Promise<Json>;
-	write: (w: WakePlant<T>, k: LoadedWakeCase) => Promise<unknown>;
-	action?: string;
-	org?: (o: WakeOrg) => Promise<unknown>;
-};
-const row = <T,>(r: Row<T>) => r as Row<unknown>;
 
-const strip = ({ fixture_type: _, ...rest }: Json) => rest;
 const pick = (all: Json, keys: unknown) => Object.fromEntries(Object.keys(keys as Json).map((key) => [key, all[key]]));
 const iso = (at: string | Date | null) => (at === null ? null : new Date(at).toISOString().replace(".000Z", "Z"));
 const DAY = 86_400_000;

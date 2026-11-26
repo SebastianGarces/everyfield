@@ -20,7 +20,7 @@ type Json = Record<string, unknown>;
 type WakeSubcase = Omit<NonNullable<Case["subcases"]>[number], "expected"> & {
 	expected: Case["expected"] & { event: Json | null };
 };
-export type WakeCase = Omit<Case, "expected" | "subcases"> & {
+type WakeCase = Omit<Case, "expected" | "subcases"> & {
 	clock: { now: string; zone: string };
 	expected: Case["expected"] & { event: Json | null };
 	subcases: WakeSubcase[];
@@ -48,7 +48,7 @@ export function listed(facts: Json, expected: unknown) {
 }
 
 export type WakeOrg = { kind: "organization"; id: string; director: Actor; reader: RequestActor };
-export type WakeAdmin = Actor & {
+type WakeAdmin = Actor & {
 	actor: RequestActor;
 	ctx: { session: Actor["session"]; selected: { kind: "plant"; id: string } };
 };
@@ -62,7 +62,7 @@ export type WakePlant<T = unknown> = {
 	r0: { runId: string; sourceRevision: string };
 	arranged: T;
 };
-export type WakeSnapshot = {
+type WakeSnapshot = {
 	input: string;
 	orgA: unknown;
 	orgB: unknown;
@@ -71,6 +71,20 @@ export type WakeSnapshot = {
 	audits: number;
 	notices: number;
 };
+
+export type Row<T> = {
+	id: string;
+	marker: `AC:${string} `;
+	operation: string;
+	producer: string;
+	arrange: (w: Omit<WakePlant<T>, "r0" | "arranged">, k: LoadedWakeCase) => Promise<T>;
+	facts: (w: WakePlant<T>) => Promise<Json>;
+	write: (w: WakePlant<T>, k: LoadedWakeCase) => Promise<unknown>;
+	action?: string;
+	org?: (o: WakeOrg) => Promise<unknown>;
+};
+export const row = <T,>(r: Row<T>) => r as Row<unknown>;
+export const strip = ({ fixture_type: _, ...rest }: Json) => rest;
 
 export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z") {
 	const c = await church(prefix, { clock: new Date(at), max: 8 });

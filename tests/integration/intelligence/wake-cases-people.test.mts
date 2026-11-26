@@ -17,7 +17,17 @@ import {
 	trainingWriter,
 } from "../../../packages/domain/src/teams/index.ts";
 import { ok } from "../../support/fixture.mts";
-import { listed, wakeCase, wakeWorld, type LoadedWakeCase, type WakePlant, type WakeWorld } from "./wake-world.mts";
+import {
+	listed,
+	row,
+	strip,
+	wakeCase,
+	wakeWorld,
+	type LoadedWakeCase,
+	type Row,
+	type WakePlant,
+	type WakeWorld,
+} from "./wake-world.mts";
 
 let W: WakeWorld;
 before(async () => {
@@ -26,17 +36,6 @@ before(async () => {
 after(() => W?.close());
 
 type Json = Record<string, unknown>;
-type Row<T> = {
-	id: string;
-	marker: `AC:${string} `;
-	operation: string;
-	producer: string;
-	arrange: (w: Omit<WakePlant<T>, "r0" | "arranged">, k: LoadedWakeCase) => Promise<T>;
-	facts: (w: WakePlant<T>) => Promise<Json>;
-	write: (w: WakePlant<T>, k: LoadedWakeCase) => Promise<unknown>;
-	action?: string;
-};
-const row = <T,>(r: Row<T>) => r as Row<unknown>;
 
 const replan: SettingsEffects["replan"] = (tx, input) =>
 	enqueueJob(tx, {
@@ -732,7 +731,3 @@ for (const r of ROWS)
 			action: r.action,
 		});
 	});
-
-function strip({ fixture_type: _, ...rest }: Json) {
-	return rest;
-}
