@@ -139,14 +139,13 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			: null;
 		if (everyone && everyone.status !== "ok") throw new EvryRefusal("source_unavailable");
 		const matches = new Map((page.matches ?? []).map((m) => [m.personId, matchFields(m)]));
-		const rows = page.items.map((p) => {
-			const found = row(actor, p);
-			return { ...found, fields: { ...found.fields, ...matches.get(p.id) } };
-		});
 		return {
 			operation: "people.listPeople",
 			status: "available",
-			rows,
+			rows: page.items.map((p) => {
+				const found = row(actor, p);
+				return { ...found, fields: { ...found.fields, ...matches.get(p.id) } };
+			}),
 			total: page.total,
 			page: request.page,
 			next: page.next,
@@ -160,7 +159,7 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			...(everyone && {
 				facts: {
 					peopleInChurch: everyone.value.total,
-					onThisPage: rows.length,
+					onThisPage: page.items.length,
 					...(page.next !== null && page.total !== null && { pages: Math.ceil(page.total / limit) }),
 					note: [
 						CHURCH_WIDE,
