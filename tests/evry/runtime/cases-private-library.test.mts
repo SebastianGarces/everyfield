@@ -1,37 +1,19 @@
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import fs, { readFileSync } from "node:fs";
 import fsPromises from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import { syncBuiltinESMExports } from "node:module";
-import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
-import { readCatalog, readConversation, submitTurn } from "../../../packages/evry/src/index.ts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedDocument } from "../adapters/documents/seed.mts";
-import { GLOBAL, seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
-import {
-	caseWorld,
-	propose,
-	read,
-	reads,
-	refusal,
-	rowsOf,
-	sql,
-	type CaseWorld,
-	type Play,
-	type Reply,
-	type Step,
-} from "./case-world.mts";
+import { caseWorld, reads, rowsOf, sql, type CaseWorld, type Play, type Reply, type Step } from "./case-world.mts";
 
 type Document = { title: string; body: string };
 type Case = {
 	id: string;
-	operation_ids: string[];
-	given: Record<"agenda-1" | "agenda-2" | "D" | "E" | "W", Document> & {
+	given: Record<"agenda-1" | "agenda-2" | "D", Document> & {
 		D: { title: string; content: string };
-		"care-A": { week: string; note: string };
 	};
 	clock: { now: string };
 	action: { arguments: { utterances: [string] } };
@@ -223,91 +205,4 @@ test("AC:INH-REGRESSION-EVIDENCE-CITATION two agendas are compared from their ow
 		told: (reply) =>
 			reply.results.length === 2 && reply.results.every((r: Reply) => r.error === "source_unavailable" && !r.rows),
 	});
-});
-
-test("INV-privacy: Evry gives a seatless Discovery account only its own Discovery operations: no church, other account, private care or login data, no reading credit and no grant, also from its conversation kept open on a church page", async () => {
-	const c = caseOf("EVRY-ACCOUNT-PRIVATE-DISCOVERY");
-	const { result } = c.expected;
-	const said = saidIn(c);
-	const church = await w.church();
-	const A = await w.actor(null, "owner", { account: { registration_kind: "discovery" } });
-	const B = await w.actor(null, "owner", { account: { registration_kind: "discovery" } });
-	await w.admin.execute(sql`INSERT INTO discovery(account_id) VALUES(${A.id})`);
-	const D = await seedDocument(w.admin, A.id, "native", "My Discovery", c.given.D.body);
-	const E = await seedDocument(w.admin, B.id, "native", "Their Discovery", c.given.E.body);
-	const wikiSet = wikiIds(randomUUID);
-	await seedWiki((query) => w.admin.execute(query), church.P.id, wikiSet);
-	const W = randomUUID();
-	await w.admin.execute(
-		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${W},'article','discovery/foundation',${GLOBAL})`,
-	);
-	await w.admin
-		.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
-		VALUES(${randomUUID()},${W},${GLOBAL},${wikiSet.release},1,'Foundation','discovery/foundation','Foundation',${c.given.W.body},'safe_mdx',0,1,md5('foundation'),
-			clock_timestamp(),true,1,${wikiSet.section},ARRAY[]::text[])`);
-
-	const authority = await w.authorityOf(A);
-	const article = await createWikiProducer().getArticle(w.db, authority, { articleId: W });
-	assert.ok(article.status === "ok", JSON.stringify(article));
-	assert.equal(JSON.stringify(article).includes(String(result.W_body)), true);
-
-	const Aa = await w.actorOf(A);
-	const listed = new Set(c.operation_ids);
-	const offered = [...JSON.stringify(readCatalog(Aa)).matchAll(/"operation":"([^"]+)"/g)].map((m) => m[1]!);
-	assert.deepEqual(
-		offered.filter((operation) => listed.has(operation)),
-		["discovery.getProfile", "discovery.create", "discovery.convertToPlant"],
-	);
-	assert.deepEqual(
-		offered.filter((operation) =>
-			/^(people|teams|meetings|tasks|intelligence|privateCare|auth|identity)\./.test(operation),
-		),
-		[],
-	);
-	await w.admin.execute(sql`UPDATE person SET linked_account_id=${A.id} WHERE id=${church.casey}`);
-	const canary = c.given["care-A"].note;
-	await w.admin.execute(sql`INSERT INTO person_note(tenant_id,person_id,author_id,body,occurred_at,recorded_at)
-		VALUES(${church.P.id},${church.casey},${church.A.id},${canary},clock_timestamp(),clock_timestamp())`);
-	const C = await w.converse(Aa);
-	const { token } = await w.one<{ token: string }>(sql`SELECT token FROM auth_session WHERE id=${A.session}`);
-	const grants = () =>
-		w.one(sql`SELECT (SELECT count(*)::int FROM seat WHERE account_id=${A.id}) AS plant_grants,
-			(SELECT count(*)::int FROM affiliation WHERE account_id=${A.id}) AS organization_grants,
-			(SELECT count(*)::int FROM reading WHERE account_id=${A.id}) AS new_reading_credit`);
-	const { plant_grants, organization_grants, new_reading_credit } = result;
-	const own = await w.quiet(() => w.ask(A, said, [reads("discovery.getProfile")], { conversation: C }));
-	assert.equal(own.replies[0].operation, "discovery.getProfile", JSON.stringify(own.replies));
-	assert.equal(own.replies[0].facts.foundationsRead, new_reading_credit);
-	const page = [{ kind: "person" as const, id: church.casey }];
-	for (const call of [
-		read("documents.read", { documentId: E.id }),
-		read("documents.listOwned"),
-		read("people.listPeople"),
-		read("people.getPerson", { personId: church.casey }),
-		read("teams.list"),
-		read("meetings.list"),
-		read("tasks.count"),
-		{ tool: "auth_read", input: { operation: "auth.readSecrets", input: {} } },
-		{ tool: "private_care_read", input: { operation: "privateCare.read", input: {} } },
-		propose("documents.archive", { documentId: E.id }),
-		propose("documents.useForChurch", { documentId: D.id, plantId: church.P.id }),
-	]) {
-		const asked = await w.quiet(() => w.ask(A, said, [() => call], { conversation: C, references: page }));
-		assert.deepEqual([asked.replies[0].error, asked.cards, asked.proposals], ["not_offered", [], []], call.tool);
-		const told = JSON.stringify([asked.prompts, asked.saved, asked.text]);
-		for (const secret of [c.given.E.body, canary, "Casey Reed", "Harvest Network", "Their Discovery", token])
-			assert.equal(told.includes(secret), false, secret);
-	}
-	assert.deepEqual(await grants(), { plant_grants, organization_grants, new_reading_credit });
-
-	const stranger = await w.actorOf(church.F);
-	const held = await w.eventsOf(Aa, C);
-	assert.equal(await refusal(readConversation(w.db, stranger, C)), "not_found");
-	assert.equal(await refusal(submitTurn(w.db, stranger, C, { requestKey: randomUUID(), text: said })), "not_found");
-	await church.foreign(said, [() => read("documents.read", { documentId: D.id })], {
-		secrets: [c.given.D.body, c.given.E.body, canary],
-	});
-	assert.deepEqual(await w.eventsOf(Aa, C), held);
-	await church.outage(said, [reads("discovery.getProfile")], "discovery", { as: A, conversation: C });
-	assert.deepEqual(await grants(), { plant_grants, organization_grants, new_reading_credit });
 });

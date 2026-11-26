@@ -81,6 +81,8 @@ const NEEDS_A_CHURCH =
 	"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
 const OWN_SPACE_ONLY =
 	"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed.";
+const OWN_DOCUMENTS_ONLY =
+	"I can only work with your own documents. I can't see or change another person's documents, so nothing changed.";
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
 const LEAD_RULE =
 	"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you.";
@@ -222,13 +224,19 @@ function placeRules() {
 	return `Network Intelligence by place and over time comes from organizationIntelligence.readHistory (one level or every level, one named place, an earlier run, or what changed since the run before), organizationIntelligence.readLocations (where each plant is placed now) and organizationIntelligence.readLocationHistory (a plant's saved locations and the runs that used each). Quote groups and patterns as they come, say why a group has no pattern, link each plant you name with its plantLinks or href and link the page view with href. A plant with No Region set still counts at its state, its country and the whole portfolio. ${OVERSIGHT_RULES.earlierRunLocation} Never give a street address or coordinates. When asked which plant or place is doing best, or to rank or score them, reply: ${OVERSIGHT_RULES.noPlaceRanking}`;
 }
 
+const ACCOUNT_DOCUMENTS = [
+	"Documents here are the user's own private documents: nobody else, and no church, sending church or network, sees them. Find one with documents.listOwned and give its title as a markdown link to its link. One that isn't there doesn't exist for this user.",
+	"Their documents aren't church records: list, read, write, import and archive them without a church.",
+	"To make a document from a file attached here, propose documents.importTextOrWord with its attachmentId. Only Word (.docx) and text (.txt) files can be attached here. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation.",
+].join(" ");
+
 const REGION_RULE =
 	"To correct this church's reporting Region, read geography.listReportingRegionCandidates, with the place the user states or none for the saved one. With one candidate propose organizations.correctReportingLocation; with more than one ask which; with none say the official Region list has no Region for that place and prepare nothing.";
 
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
-			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's Discovery space or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}`
+			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's Discovery space or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}\nWhen the user asks about or for a change to another person's document, prepare nothing and reply: ${OWN_DOCUMENTS_ONLY}\n${ACCOUNT_DOCUMENTS}\n${ACCOUNT_WIKI}`
 			: "";
 	const scope =
 		actor.contextKind === "plant"
@@ -397,14 +405,49 @@ const COMING_LATER: { domain: string; text: string }[] = [
 	{ domain: "documents", text: "Documents and the wiki: finding church documents and wiki articles." },
 	{ domain: "launch", text: "Launch planning: the launch date, phases, milestones and launch readiness." },
 ];
+const ACCOUNT_READ_AREAS: Record<string, string> = {
+	onboarding: "See your own Discovery space.",
+	wiki: "Find and browse what the public Wiki says.",
+	documents: "Find and read your own documents.",
+	connections: "Read your pending link invitations and the history of your links.",
+	settings: "Read your settings and your own account name and photo.",
+};
+const ACCOUNT_WRITE_AREAS: typeof WRITE_AREAS = [
+	{
+		prefix: "documents.saveNative",
+		text: "Write a document of your own, or change the words of one you have, for your review.",
+	},
+	{
+		prefix: "documents.importTextOrWord",
+		text: "Make a document of your own from a Word or text file you attach here, for your review.",
+	},
+	{ prefix: "documents.archive", text: "Archive one of your documents for your review." },
+	{ prefix: "settings.", text: "Change your account name, or remove your account photo, for your review." },
+	{
+		prefix: "associations.revokeInvitation",
+		text: "Resend or withdraw a pending link invitation for your review.",
+	},
+	{ prefix: "onboarding.createPlant", text: "Prepare starting a new church for your review, with you as its Owner." },
+	{
+		prefix: "discovery.create",
+		text: "Prepare a private Discovery space for your review, to explore church planting first.",
+	},
+	{
+		prefix: "discovery.convertToPlant",
+		text: "Prepare turning your Discovery space into a church for your review, with you as its Owner.",
+	},
+];
 const comingLater = (catalog: Catalog) =>
-	COMING_LATER.filter((c) => !catalog.domains.some((d) => d.domain === c.domain));
+	catalog.context === "account" ? [] : COMING_LATER.filter((c) => !catalog.domains.some((d) => d.domain === c.domain));
 const ROLE_NAME = { owner: "an Owner", admin: "an Admin", member: "a Member" } as const;
 
 export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "role">) {
-	const reads = catalog.domains.map((d) => READ_AREAS[d.domain]).filter((t): t is string => !!t);
+	const own = catalog.context === "account";
+	const reads = catalog.domains
+		.map((d) => (own ? ACCOUNT_READ_AREAS : READ_AREAS)[d.domain])
+		.filter((t): t is string => !!t);
 	const ops = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
-	if (ops.has("wiki.navigation"))
+	if (ops.has("wiki.contextGuide"))
 		reads.splice(
 			reads.findIndex((text) => text === READ_AREAS.wiki),
 			1,
@@ -412,7 +455,7 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 		);
 	if (ops.has("people.previewImport"))
 		reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
-	const writes = WRITE_AREAS.filter((a) =>
+	const writes = (own ? ACCOUNT_WRITE_AREAS : WRITE_AREAS).filter((a) =>
 		catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix) && w.operation !== a.except),
 	);
 	const lines = reads.length
@@ -509,15 +552,26 @@ function recordedJudgments(catalog: Catalog) {
 			].join(" ");
 }
 
-const WIKI_RULE = [
+const WIKI_ANSWERS = [
 	"When the user asks what the Wiki says, answer only from Wiki tool results: quote the excerpt as the Wiki's words, with the article's title as a markdown link to its href.",
 	"When no Wiki article matches, say the Wiki has nothing on it. Never answer from general knowledge as if it were the Wiki.",
+];
+const WIKI_RULE = [
+	...WIKI_ANSWERS,
 	"No tool writes or edits Wiki content: the Wiki is shared reading. When asked to edit the Wiki or add the church's own writing to it, say churches keep their own writing in Church Documents, and offer no change.",
 ].join(" ");
 
-const PAGE_GUIDE_RULE = [
+const WIKI_SECTIONS = [
 	"For what is in the Wiki use wiki.navigation, and for the articles of a section or phase wiki.articles.list: never search for them. When a section has no articles or doesn't exist, say so and name no other article as its own.",
 	"To quote one section of an article, read wiki.tableOfContents and pass its heading to wiki.referenceExcerpt exactly as listed. When the article has no such section, say so and never quote its start in its place.",
+];
+const ACCOUNT_WIKI = [
+	...WIKI_ANSWERS,
+	...WIKI_SECTIONS,
+	"This is the public Wiki: no organization's own articles are in it. No tool here edits the Wiki or reads or changes the user's reading progress, bookmarks or feedback.",
+].join(" ");
+const PAGE_GUIDE_RULE = [
+	...WIKI_SECTIONS,
 	"For the guide to a page, call wiki.contextGuide with the page the user names, or else the page reference. With neither, ask which page. When that page has no guide, say it has none; wiki.recommendForPhase suggestions are not a page's guide.",
 	"The user's reading, bookmarks and feedback are only their own; you never see another reader's.",
 ].join(" ");

@@ -7,7 +7,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { present } from "../../../runtime/captured.ts";
-import { articleRow, inPlant, read, shown, value, wiki } from "../shared.ts";
+import { articleRow, inPlant, read, reader, shown, value, wiki } from "../shared.ts";
 import { BROWSE_READS } from "./browse.ts";
 
 const pdfHref = (articleId: string) => `/api/wiki/pdf?article=${articleId}`;
@@ -30,8 +30,12 @@ export const search: ReadAdapter<z.infer<typeof searchInput>> = {
 	operation: "wiki.search",
 	description:
 		"Search this church's Wiki by key words. Each row is an article as the church's Wiki page shows it: its title, link and a matching snippet. No row means the Wiki has nothing on it.",
+	account: {
+		description:
+			"Search the public Wiki by key words. Each row is a published article: its title, link and a matching snippet. No row means the Wiki has nothing on it.",
+	},
 	input: searchInput,
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const found = value(await wiki.search(tx, actor.authority, { query: input.query }));
 		if (found.status === "unavailable") throw new EvryRefusal("source_unavailable");
@@ -52,7 +56,7 @@ export const referenceExcerpt: ReadAdapter<z.infer<typeof excerptInput>> = {
 	description:
 		"Read a short excerpt of one Wiki article, by an articleId from an earlier result: the start of the article or of one section. Quote it as the Wiki's words with the article's title and link.",
 	input: excerptInput,
-	allowed: inPlant,
+	allowed: reader,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const article = await shown(tx, actor, input.articleId);
 		if (!article) return listed("wiki.referenceExcerpt", [], ["the rest of the article"]);

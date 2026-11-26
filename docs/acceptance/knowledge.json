@@ -7493,7 +7493,10 @@
         "wiki.setSourceOrder",
         "wiki.tableOfContents"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/evry/adapters/documents/account.test.mts"
+      ],
       "description": "Discovery A has no seat, a self-owned native document D, an unsaved Word import H and one currently public global Wiki article W. B owns private document E; plant P and organization O have no grant to A. Conversation C belongs to A in account context.",
       "given": {
         "P": {

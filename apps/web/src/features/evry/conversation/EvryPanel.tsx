@@ -68,7 +68,7 @@ import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, PhotoChip } from "./PhotoAttach.tsx";
-import { ATTACH, fileSize, isCsv, isPdf, type Picked } from "./attachments.ts";
+import { ATTACH, fileSize, isCsv, isPdf, type Attaches, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
 import type { Church } from "../review/ReviewCard.store.ts";
 
@@ -120,12 +120,12 @@ function followEnd() {
 
 export function EvryPanel({
 	inPlant,
-	canAttach,
+	attaches,
 	context,
 	available,
 }: {
 	inPlant: boolean;
-	canAttach: boolean;
+	attaches: Attaches;
 	context: string;
 	available: boolean;
 }) {
@@ -212,7 +212,7 @@ export function EvryPanel({
 						disabled={load !== "ready" || moved}
 						conversationId={chat.conversation?.id ?? null}
 						inPlant={inPlant}
-						canAttach={canAttach}
+						attaches={attaches}
 						onSend={(text, references) => {
 							stick();
 							actions.send(text, references, context);
@@ -588,7 +588,7 @@ function Composer({
 	disabled,
 	conversationId,
 	inPlant,
-	canAttach,
+	attaches,
 	onSend,
 	onStop,
 	suggestions,
@@ -599,7 +599,7 @@ function Composer({
 	disabled: boolean;
 	conversationId: string | null;
 	inPlant: boolean;
-	canAttach: boolean;
+	attaches: Attaches;
 	onSend: (text: string, references: Reference[]) => void;
 	onStop: () => void;
 	suggestions: string[];
@@ -680,12 +680,12 @@ function Composer({
 			) : null}
 			<div
 				onDragOver={(e) => {
-					if (canAttach && !disabled && !busy && e.dataTransfer.types.includes("Files")) e.preventDefault();
+					if (attaches !== "photo" && !disabled && !busy && e.dataTransfer.types.includes("Files")) e.preventDefault();
 				}}
 				onDrop={(e) => {
-					if (!canAttach || disabled || busy || !e.dataTransfer.files.length) return;
+					if (attaches === "photo" || disabled || busy || !e.dataTransfer.files.length) return;
 					e.preventDefault();
-					actions.addFiles([...e.dataTransfer.files], canAttach);
+					actions.addFiles([...e.dataTransfer.files], attaches);
 				}}
 				className={cn(
 					"rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150",
@@ -740,8 +740,8 @@ function Composer({
 					<div className="flex flex-none items-center gap-1">
 						<AttachButton
 							disabled={disabled || busy}
-							church={canAttach}
-							onFiles={(picked) => actions.addFiles(picked, canAttach)}
+							attaches={attaches}
+							onFiles={(picked) => actions.addFiles(picked, attaches)}
 						/>
 						{busy ? (
 							<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
