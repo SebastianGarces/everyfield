@@ -72,7 +72,7 @@ A church that started mid-journey declares where it was, once; two Admins at onc
 - Catalog: PHASE-001
 - Cases: PHASE-CASE-001
 - Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration records where the church was, once, and creation retry keeps it`
-- Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-001 two Admins declaring at the same moment leave exactly one declaration`
+- Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-001 two Admins declaring at the same moment leave one creation entry and exactly one declaration`
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state current:
 
 ```bash
@@ -102,8 +102,8 @@ Change phase moves the church to another phase with a reason; the journey shows 
 - Catalog: PHASE-002, PHASE-007
 - Cases: PHASE-CASE-007, PHASE-CASE-002, PHASE-CASE-003
 - Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, actor and time; the history only grows`
-- Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-002 two moves from the same reviewed revision: one wins from Phase 1, the other sees the change`
-- Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothing else`
+- Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-002 two moves from the same reviewed revision: one wins from Phase 1, the other sees the change, and Unknown readiness blocks neither`
+- Test: `tests/integration/phases/phases.test.mts`: `AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothing else: no phase, fact input or offer`
 - Browser, behavior proof (acts and checks the result), from state current:
 
 ```bash
