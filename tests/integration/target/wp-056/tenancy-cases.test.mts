@@ -226,7 +226,7 @@ test("AC:TEN-001 every same-owner reference refuses a foreign plant, a foreign o
 		FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace
 		WHERE c.contype IN ('p','u') AND n.nspname=current_schema()`)) as { t: string; cols: string[] }[];
 	const ROOT_OWNERS = ["account", "plant", "organization"];
-	const ownersOf = (table: string) => {
+	const directOwners = (table: string) => {
 		if (ROOT_OWNERS.includes(table)) return new Set(["id"]);
 		const columns = new Set<string>();
 		if (
@@ -242,6 +242,19 @@ test("AC:TEN-001 every same-owner reference refuses a foreign plant, a foreign o
 				for (const col of k.cols) if (isOwner(col)) columns.add(col);
 		return columns;
 	};
+	const owners = new Map(fks.flatMap((f) => [f.child, f.parent]).map((t) => [t, directOwners(t)]));
+	for (let changed = true; changed; ) {
+		changed = false;
+		for (const f of fks.filter((f) => f.cols.length > 1))
+			f.cols.forEach((col, i) => {
+				const mine = owners.get(f.child)!;
+				if (isOwner(col) && owners.get(f.parent)!.has(f.rcols[i]!) && !mine.has(col)) {
+					mine.add(col);
+					changed = true;
+				}
+			});
+	}
+	const ownersOf = (table: string) => owners.get(table)!;
 	const notes = JSON.parse(
 		readFileSync(new URL("../../../../packages/db/src/schema/annotations.json", import.meta.url), "utf8"),
 	) as { tables: Record<string, { foreignKeys?: Record<string, { scope_exception?: string }> }> };
@@ -251,7 +264,7 @@ test("AC:TEN-001 every same-owner reference refuses a foreign plant, a foreign o
 			theirs = ownersOf(f.parent);
 		return mine.size > 0 && theirs.size > 0 && !f.cols.some((col, i) => mine.has(col) && theirs.has(f.rcols[i]!));
 	});
-	assert.ok(crossing.length >= 30, String(crossing.length));
+	assert.ok(crossing.length >= 36, String(crossing.length));
 	assert.deepEqual(
 		crossing
 			.map((f) => [f.child, `${f.cols.join(",")}->${f.parent}(${f.rcols.join(",")})`] as const)
