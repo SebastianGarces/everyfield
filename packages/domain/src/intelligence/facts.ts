@@ -1,6 +1,7 @@
 import { addDays, daysBetween, instant, type Clock, type Instant } from "@everyfield/contracts/common";
 import { measure } from "@everyfield/contracts/followups";
 import * as c from "@everyfield/contracts/intelligence";
+import { evidenceOf } from "@everyfield/contracts/launch";
 import type { CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -74,6 +75,24 @@ export const factInputs = z.strictObject({
 			reachedName: z.string().nullable(),
 		})
 		.nullable(),
+	debrief: z
+		.strictObject({
+			submittedAt: instant,
+			missingNames: z.enum(["yes", "no"]),
+			missingCount: z.int().nullable(),
+		})
+		.nullable(),
+	readiness: z
+		.array(
+			z.strictObject({
+				key: c.readinessKey,
+				kind: z.enum(["answered", "corrected", "retracted"]),
+				asOf: z.string(),
+				named: z.string().nullable(),
+			}),
+		)
+		.min(1)
+		.optional(),
 });
 export type FactInputs = z.infer<typeof factInputs>;
 
@@ -150,6 +169,21 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	}
 	const heldOn = l?.status === "completed" ? held(l.actual) : null;
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
+}
+
+function debriefOf(d: FactInputs["debrief"]): z.input<typeof c.debriefFact> {
+	if (!d) return { submitted: false, submittedAt: null, missingNames: null, missingCount: null };
+	return {
+		submitted: true,
+		submittedAt: d.submittedAt,
+		missingNames: d.missingNames === "yes",
+		missingCount: d.missingCount,
+	};
+}
+
+function debriefCriteria(d: FactInputs["debrief"]): Partial<Record<CriterionKey, CriterionStatus>> {
+	const e = evidenceOf(d && { answers: d, submittedAt: d.submittedAt });
+	return { guest_data_entered: e.guestNamesEntered.status, debrief_done: e.debriefDone.status };
 }
 
 const revisionOf = (inputs: FactInputs | (Omit<FactInputs, "phase"> & { phase: undefined })) =>
@@ -322,18 +356,30 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		return a.value === "yes" ? "met" : a.value === "not_yet" ? "not_met" : "unknown";
 	};
 
+	const readiness = inputs.readiness?.map((r) => ({
+		key: r.key,
+		state: r.kind === "retracted" ? ("retracted" as const) : ("answered" as const),
+		asOf: r.asOf,
+		named: r.named,
+	}));
+	const attested = (key: c.ReadinessKey) =>
+		readiness?.some((r) => r.key === key && r.state === "answered" && r.named !== null) ?? false;
+
 	const launch = launchCountdown(inputs.launch, today);
 	const firstService = firstServiceOf(inputs.launch, today);
 	const criteria: Partial<Record<CriterionKey, CriterionStatus>> = {
 		committed_adults: committedAdults.status,
 		growth_trajectory: growth.status === "unknown" ? "unknown" : growth.status === "stalled" ? "not_met" : "met",
 		financial_base: answer("financial_base_established"),
-		worship_leader: worshipCovered(coverage.responsibilities) ? "met" : "unknown",
+		worship_leader: worshipCovered(coverage.responsibilities) || attested("worship_agreement") ? "met" : "unknown",
 		all_team_leaders: coverage.status,
 		training_complete: training.status,
 		systems_tested: answer("systems_tested"),
 		...c.launchCriteria(launch),
 		first_service_complete: firstService.status,
+		...debriefCriteria(inputs.debrief),
+		...(attested("relationship") ? { coach_assigned: "met" as const } : {}),
+		...(attested("community") ? { geographic_area: "met" as const } : {}),
 	};
 
 	return c.plantFacts.parse({
@@ -352,13 +398,19 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
 		launch,
 		firstService,
+		debrief: debriefOf(inputs.debrief),
 		criteria,
+		...(readiness ? { readiness } : {}),
 	});
 }
 
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const MANUAL = sql.join(
 	c.SIGNAL_KEYS.map((k) => sql`${k}`),
+	sql`,`,
+);
+const READINESS = sql.join(
+	c.readinessKey.options.map((k) => sql`${k}`),
 	sql`,`,
 );
 
@@ -440,8 +492,17 @@ function inputsSql() {
   FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant),
  'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status,
   'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
-  FROM launch l WHERE l.plant_id=x.plant)
- )`;
+  FROM launch l WHERE l.plant_id=x.plant),
+ 'debrief',(SELECT jsonb_build_object('submittedAt',${iso(sql`d.submitted_at`)},'missingNames',d.missing_names,
+  'missingCount',d.missing_count) FROM launch_debrief d WHERE d.plant_id=x.plant AND d.submitted_at IS NOT NULL
+  ORDER BY d.version DESC LIMIT 1)
+ )||coalesce((SELECT jsonb_build_object('readiness',jsonb_agg(jsonb_build_object('key',a.key,'kind',r.kind,
+   'asOf',r.as_of::text,'named',CASE WHEN a.key='worship_agreement'
+    THEN (SELECT p.display_name FROM person p WHERE p.id=a.person_id AND p.tenant_id=a.plant_id AND p.state='live')
+    ELSE r.detail END) ORDER BY a.key))
+  FROM attestation a JOIN LATERAL (SELECT v.kind,v.as_of,v.detail FROM attestation_revision v WHERE v.attestation_id=a.id
+   ORDER BY v.revision DESC LIMIT 1) r ON true
+  WHERE a.plant_id=x.plant AND a.key IN (${READINESS}) HAVING count(*)>0),'{}'::jsonb)`;
 }
 
 const moment = (at: SQL, until: SQL) => sql`pl.id AS plant,pl.timezone AS zone,${at} AS at,${until} AS until,

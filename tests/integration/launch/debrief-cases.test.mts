@@ -3,10 +3,17 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { GUEST_QUESTION, WRITTEN_AREAS } from "../../../packages/contracts/src/launch/index.ts";
-import { captureFacts, createSignals, criteriaOf } from "../../../packages/domain/src/intelligence/index.ts";
+import { factCatalog } from "../../../packages/contracts/src/intelligence/index.ts";
+import {
+	captureFacts,
+	createFacts,
+	createPrivateCare,
+	createSignals,
+	criteriaOf,
+} from "../../../packages/domain/src/intelligence/index.ts";
 import { readCatalog } from "../../../packages/domain/src/phases/catalog.ts";
 import { ok, refused } from "../../support/fixture.mts";
-import { launchWorld, NOW, type LaunchWorld, type Who } from "./debrief-world.mts";
+import { CLOCK, launchWorld, NOW, type LaunchWorld, type Who } from "./debrief-world.mts";
 
 let w: LaunchWorld;
 before(async () => {
@@ -23,6 +30,16 @@ const piCriteria = async (plant: { id: string }, phase: number) => {
 	assert.ok(facts, "the plant's facts are captured");
 	return Object.fromEntries(criteriaOf(await readCatalog(), phase, facts).map((x) => [x.key, x.status]));
 };
+const launchAndPi = async (c: Awaited<ReturnType<LaunchWorld["launched"]>>) => {
+	const p = await w.plan(c.owner);
+	const pi = await piCriteria(c.p, 5);
+	return {
+		launch: { guest_data_entered: p.evidence.guestNamesEntered.status, debrief_done: p.evidence.debriefDone.status },
+		pi: { guest_data_entered: pi.guest_data_entered, debrief_done: pi.debrief_done },
+	};
+};
+const debriefFact = async (plant: { id: string }) => (await captureFacts(w.db, plant.id, NOW))?.debrief;
+const NOT_SUBMITTED = { submitted: false, submittedAt: null, missingNames: null, missingCount: null };
 const derivedOnly = async (who: Who) => {
 	for (const milestoneId of ["guest_data_entered", "debrief_done"]) {
 		refused(
@@ -398,10 +415,22 @@ test("AC:LAUNCH46-013 correcting Yes 3 to No is met with two versions, keeps Pha
 		],
 	);
 	assert.deepEqual((await w.versions(c.p))[0], first[0], "the earlier reading is kept as it was");
+	const corrected = (await captureFacts(w.db, c.p.id, NOW))!;
+	const submittedAt = fixed.plan.debrief!.submitted!.submittedAt;
 	assert.deepEqual(
-		without((await captureFacts(w.db, c.p.id, NOW))!, "sourceRevision"),
-		without(facts!, "sourceRevision"),
-		"the Plant Intelligence snapshot reads the same",
+		[facts!.debrief, corrected.debrief],
+		[
+			{ submitted: true, submittedAt: reviewed.debrief!.submitted!.submittedAt, missingNames: true, missingCount: 3 },
+			{ submitted: true, submittedAt, missingNames: false, missingCount: null },
+		],
+		"the earlier snapshot keeps Yes 3 and a new one reads the correction",
+	);
+	assert.deepEqual([facts!.criteria.guest_data_entered, corrected.criteria.guest_data_entered], ["not_met", "met"]);
+	assert.notEqual(corrected.sourceRevision, facts!.sourceRevision, "the correction moves the revision");
+	assert.deepEqual(
+		without(corrected, "sourceRevision", "debrief", "criteria"),
+		without(facts!, "sourceRevision", "debrief", "criteria"),
+		"nothing else in the Plant Intelligence snapshot moves",
 	);
 	assert.equal(settled.phase, 5, "the advanced phase stays");
 	assert.deepEqual(
@@ -416,14 +445,7 @@ test("AC:LAUNCH46-013 correcting Yes 3 to No is met with two versions, keeps Pha
 test("AC:LAUNCH46-021 headcount 40 and a recorded outcome with no submitted questionnaire leave Guest data entered and Debrief done unknown, and no manual signal sets them", async () => {
 	const c = await w.launched({ attendance: 40 });
 	const unknown = { guest_data_entered: "unknown", debrief_done: "unknown" };
-	const both = async () => {
-		const p = await w.plan(c.owner);
-		const pi = await piCriteria(c.p, 5);
-		return {
-			launch: { guest_data_entered: p.evidence.guestNamesEntered.status, debrief_done: p.evidence.debriefDone.status },
-			pi: { guest_data_entered: pi.guest_data_entered, debrief_done: pi.debrief_done },
-		};
-	};
+	const both = () => launchAndPi(c);
 	const p = await w.plan(c.owner);
 	assert.deepEqual([p.outcome!.attendance, p.launch!.status], [40, "completed"]);
 	assert.deepEqual(await both(), { launch: unknown, pi: unknown });
@@ -441,4 +463,78 @@ test("AC:LAUNCH46-021 headcount 40 and a recorded outcome with no submitted ques
 	assert.deepEqual(await w.footprint(c.p), before, "nothing was written");
 	ok(await w.debrief(c.owner, p, { missingNames: "no", wentWell: "Draft only" }));
 	assert.deepEqual(await both(), { launch: unknown, pi: unknown }, "a draft is no submission");
+});
+
+test("AC:LAUNCH46-023 Plant Intelligence's facts carry the submitted debrief's date, Yes and 3 missing names, never its reflection or private care", async () => {
+	const c = await w.launched({}, { phase: 5 });
+	const SUBMITTED_AT = "2026-10-12T16:00:00.000Z";
+	await w.admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${c.admin.id}`);
+	const care = createPrivateCare();
+	ok(
+		await care.save(w.db, c.admin.actor, {
+			requestKey: w.key(),
+			expectedRevision: ok(await care.readCurrent(w.db, c.admin.actor, {})).revision,
+			input: {
+				answers: { spiritual: "struggling", family: "struggling", financial: "struggling", pace: "struggling" },
+				note: "CARE-CANARY",
+			},
+		}),
+	);
+	const reflection = Object.fromEntries(WRITTEN_AREAS.map((k) => [k, "PRIVATE-REFLECTION"]));
+	ok(await w.debrief(c.admin, await w.plan(c.admin), { ...reflection, missingNames: "yes", missingCount: 3 }, true));
+	await w.admin.execute(sql`UPDATE launch_debrief SET submitted_at=${SUBMITTED_AT} WHERE plant_id=${c.p.id}`);
+	const facts = ok(await createFacts({ clock: CLOCK }).readFacts(w.db, c.admin.actor, {}));
+	assert.deepEqual(
+		facts.debrief,
+		{ submitted: true, submittedAt: SUBMITTED_AT, missingNames: true, missingCount: 3 },
+		"fact",
+	);
+	assert.deepEqual((await w.plan(c.admin)).debrief!.submitted!.submittedAt, SUBMITTED_AT, "the stored submission");
+	const read = JSON.stringify([
+		facts,
+		factCatalog(facts),
+		criteriaOf(await readCatalog(), 5, facts),
+		await captureFacts(w.db, c.p.id, NOW),
+	]);
+	assert.equal(read.includes("PRIVATE-REFLECTION"), false, "raw reflection: null");
+	assert.equal(read.includes("CARE-CANARY"), false, "private care: null");
+	assert.equal(read.includes("struggling"), false, "private care answers: null");
+});
+
+test("a submitted No is a debrief fact with no count, and the Phase 5 criteria follow the launch evidence for each answer", async () => {
+	const c = await w.launched({}, { phase: 5 });
+	const criteria = () => launchAndPi(c);
+	const same = (guest_data_entered: string, debrief_done: string) => {
+		const e = { guest_data_entered, debrief_done };
+		return { launch: e, pi: e };
+	};
+	assert.deepEqual(await criteria(), same("unknown", "unknown"), "no submission");
+	let p = ok(await w.debrief(c.owner, await w.plan(c.owner), { missingNames: "no" }, true)).plan;
+	assert.deepEqual(await debriefFact(c.p), {
+		submitted: true,
+		submittedAt: p.debrief!.submitted!.submittedAt,
+		missingNames: false,
+		missingCount: null,
+	});
+	assert.deepEqual(await criteria(), same("met", "met"), "No");
+	p = ok(await w.debrief(c.owner, p, { missingNames: "yes", missingCount: 3 }, true)).plan;
+	assert.deepEqual(await debriefFact(c.p), {
+		submitted: true,
+		submittedAt: p.debrief!.submitted!.submittedAt,
+		missingNames: true,
+		missingCount: 3,
+	});
+	assert.deepEqual(await criteria(), same("not_met", "met"), "Yes 3");
+});
+
+test("no debrief, or only a saved draft, is a debrief fact that is not submitted, and the draft's answers never appear", async () => {
+	const c = await w.launched();
+	assert.deepEqual(await debriefFact(c.p), NOT_SUBMITTED, "no debrief");
+	ok(
+		await w.debrief(c.owner, await w.plan(c.owner), { wentWell: "Draft words", missingNames: "yes", missingCount: 7 }),
+	);
+	const facts = (await captureFacts(w.db, c.p.id, NOW))!;
+	assert.deepEqual(facts.debrief, NOT_SUBMITTED, "draft only");
+	assert.deepEqual([facts.criteria.guest_data_entered, facts.criteria.debrief_done], ["unknown", "unknown"]);
+	assert.equal(JSON.stringify(facts).includes("Draft words"), false);
 });

@@ -25,7 +25,7 @@ flowchart LR
   s2 -.- s2_st0(("visitor"))
   s3["app.discovery-page<br/>/discovery"]
   s3_link0 --> s3
-  s1 -- "link #quot;Discovery#quot;" --> s3
+  s1 -- "link containing #quot;Discovery#quot;" --> s3
   s1 -- "link #quot;Start with Discovery, free.#quot;" --> s3
   s2 -- "link #quot;Send them to Discovery, free.#quot;" --> s3
   s3 -.- s3_st0(("visitor"))
@@ -159,7 +159,7 @@ Reach:
 - From app.home as `visitor`:
 
 ```bash
-agent-browser find role link click --name "Discovery" --exact
+agent-browser find role link click --name "Discovery"
 agent-browser wait --load networkidle
 ```
 

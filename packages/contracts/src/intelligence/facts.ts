@@ -2,10 +2,10 @@ import { z } from "zod";
 import { defineSafeError, recordId, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 import { criterionKey, criterionStatus } from "../phases/index.ts";
-import { renewal, signalKey, signalValue } from "./signals.ts";
+import { readinessKey, renewal, signalKey, signalValue } from "./signals.ts";
 
-export const FACTS_FORMULA_VERSION = "plant-facts/2";
-const formulaVersion = z.enum(["plant-facts/1", FACTS_FORMULA_VERSION]);
+export const FACTS_FORMULA_VERSION = "plant-facts/3";
+const formulaVersion = z.enum(["plant-facts/1", "plant-facts/2", FACTS_FORMULA_VERSION]);
 export const ADULT_TARGET = 30;
 export const GROWTH_SLOWED_DAYS = 21;
 export const GROWTH_STALLED_DAYS = 28;
@@ -122,6 +122,13 @@ const attestationFact = z.strictObject({
 	renewal,
 });
 
+const readinessFact = z.strictObject({
+	key: readinessKey,
+	state: z.enum(["answered", "retracted"]),
+	asOf: localDate,
+	named: z.string().nullable(),
+});
+
 export const firstService = z.discriminatedUnion("path", [
 	z.strictObject({
 		path: z.literal("milestone"),
@@ -133,6 +140,21 @@ export const firstService = z.discriminatedUnion("path", [
 		path: z.literal("launch_sunday"),
 		status: z.enum(["met", "unknown"]),
 		heldOn: localDate.nullable(),
+	}),
+]);
+
+export const debriefFact = z.discriminatedUnion("submitted", [
+	z.strictObject({
+		submitted: z.literal(false),
+		submittedAt: z.null(),
+		missingNames: z.null(),
+		missingCount: z.null(),
+	}),
+	z.strictObject({
+		submitted: z.literal(true),
+		submittedAt: instant,
+		missingNames: z.boolean(),
+		missingCount: z.int().min(1).nullable(),
 	}),
 ]);
 
@@ -155,7 +177,9 @@ export const plantFacts = z.strictObject({
 	humanRecords,
 	launch: z.strictObject({ targetOn: localDate.nullable(), daysToLaunch: z.int().nullable() }),
 	firstService: firstService.optional(),
+	debrief: debriefFact.optional(),
 	criteria: z.partialRecord(criterionKey, criterionStatus),
+	readiness: z.array(readinessFact).min(1).optional(),
 });
 export type PlantFacts = z.infer<typeof plantFacts>;
 

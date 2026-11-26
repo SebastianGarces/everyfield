@@ -160,7 +160,7 @@
 				{
 					"from": "app.home",
 					"persona": "visitor",
-					"path": [{ "click": { "role": "link", "name": "Discovery" } }]
+					"path": [{ "click": { "role": "link", "name": "Discovery", "match": "contains" } }]
 				},
 				{
 					"from": "app.home",

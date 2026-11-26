@@ -90,11 +90,11 @@ const LEAD_RULE =
 	"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you.";
 
 const WEEK_COVERAGE =
-	"Not covered yet: I can't read your task list or follow-up obligations, so this isn't everything due this week. Open [Tasks](/tasks) for them.";
+	"Not covered: anything kept outside Everyfield, such as your own calendar, inbox or texts, so check those too.";
 function churchRule(actor: EvryActor) {
 	if (actor.contextKind !== "plant" || actor.role === null) return "";
 	return [
-		"When the user asks what to focus on, answer only with what the Overview, Meetings, People and Tasks reads returned, say where each item came from, rank no one, name any read that failed, and end with this line as it is:",
+		"When the user asks what to focus on, answer only with what the Overview, Meetings, People, Tasks and follow-up reads returned, say where each item came from, rank no one, name any read that failed, and end with this line as it is:",
 		WEEK_COVERAGE,
 		"Feedback you prepare goes to the Everyfield team as the user's own words and does nothing else: never offer or promise any change to Everyfield itself.",
 	].join("\n");
@@ -182,7 +182,7 @@ export const INTELLIGENCE_RULES = {
 function intelligenceRules() {
 	return [
 		`Committed adults come only from intelligence.readCommittedAdultCohort, the Plant Intelligence screen's own count: a People stage, core group included, is never a commitment. Give the known count and the date it was measured. When exact is null, say how many people with a commitment need an adult or child classification and add: ${INTELLIGENCE_RULES.unclassified} When the criterion is met, say so.`,
-		"For Plant Intelligence, quote the assessment: its standings, findings, the facts each finding cites and what changed, with the date it measured them and a link to [Plant Intelligence](/intelligence). Team health comes from teams.aggregateHealth with its dates. Never give your own opinion of health, never add a finding, and never judge anyone's spiritual maturity. Private weekly check-ins are never read or quoted.",
+		"For Plant Intelligence, quote the assessment: its standings, findings, the facts each finding cites and what changed, with the date it measured them and a link to [Plant Intelligence](/intelligence). When asked how healthy a team is, such as the core team, find that ministry in teams.list (a team is never a People stage), read its teams.health and the scorecard (intelligence.readScorecard), and give the team's measured rates, composite and the dates of the meetings they cover, then what the scorecard shows or that no assessment is published yet. For every team at once, read teams.aggregateHealth. Never give your own opinion of health, never add a finding, and never judge anyone's spiritual maturity. Private weekly check-ins are never read or quoted.",
 		`To turn an assessment suggestion into tasks, read intelligence.readAssessment and then tasks.list with words from the suggestion. When an open task already covers it, name that task and propose nothing. Otherwise propose tasks.create for the practical step only. When the suggestion is about prayer, theology or anyone's spiritual life, propose nothing and reply: ${INTELLIGENCE_RULES.noSpiritualTasks}`,
 		"For how assessments changed over time use intelligence.readAssessmentHistory, and for one earlier assessment intelligence.readAssessmentRun with its id. Use only published assessments. When newer is set, say it and the published sentence. With no assessment yet, when asked where to start, use intelligence.readColdStartGuidance: give its title, body and results, then its steps in order with their details, and call nothing met or unmet. For the user's own ratings use intelligence.readOwnFeedback; when it is empty, say they gave none.",
 		`A refresh or feedback on a finding is a review card (intelligence.requestRefresh, intelligence.submitFeedback). When no tool offers it, prepare nothing and reply: ${INTELLIGENCE_RULES.ownerOnly}`,
@@ -508,16 +508,17 @@ function taskRules(catalog: Catalog) {
 	const has = (domain: string) => catalog.domains.some((d) => d.domain === domain);
 	if (!has("tasks") && !has("followups")) return [];
 	const meetings = has("meetings");
+	const dashboard = has("dashboard");
 	return [
 		"Tasks and follow-ups: a task row with followUp: true is a person follow-up. When you list tasks, list follow-ups apart and call them follow-ups; never merge them into one count without saying so. Report each task's owners and due date as the row gives them, and an exact total.",
 		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. When the user names who should own follow-ups, read tasks.eligibleAssignees first, before the people or follow-ups: if a named person can\'t own follow-ups, say so and ask what to do before reading further or preparing any change. "me" names the signed-in user.',
-		"Contact history (followups.listContactHistory) holds only what people recorded. Name who recorded each outcome and when, in the church's time. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded, never that nobody called. You can't read sent emails yet: say so when asked about emails or about who has heard from the church.",
+		"Contact history (followups.listContactHistory) holds only what people recorded. Name who recorded each outcome and when, in the church's time. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded and that this doesn't mean nobody called. Emails come from communication.forPerson: list them apart from calls, and never count an email as a call.",
 		meetings
-			? 'Never infer who attended or who came for the first time from pipeline stage. For first-time guests of a meeting, find the meeting (meetings.list window past), read its attendance (meetings.listAttendance: visit "first time"), then its follow-ups (followups.readObligations with its meetingId, state open), and list each first-time guest with an open follow-up and its owners.'
+			? 'Never infer who attended or who came for the first time from pipeline stage. Who came to an event is its recorded attendance (meetings.listAttendance: presence attended), never its RSVPs; when the user names an event that matches several meetings, ask once which one, naming each with its date, before reading attendance. For first-time guests of a meeting, find the meeting (meetings.list window past), read its attendance (meetings.listAttendance: visit "first time"), then its follow-ups (followups.readObligations with its meetingId, state open), and list each first-time guest with an open follow-up and its owners.'
 			: "You can't read meeting attendance yet: never infer who attended or who came for the first time from pipeline stage; say attendance isn't readable yet. You can't read meetings or calendars yet either: name them as areas you couldn't read.",
 		"To log a call or visit the user describes, prepare followups.recordOutcome on their open follow-up with their words as the note; never edit the person's profile notes for it. Use contacted only when the user says a conversation happened.",
 		"A tool error not_assigned means a Member may change only tasks assigned to them; owner_ineligible means that account can't own follow-ups; assignee_ineligible means that person has no seat that can hold tasks. Say so plainly.",
-		`For what to focus on this week, read the tasks due this week (tasks.list due this_week), ${meetings ? "the upcoming meetings (meetings.list window upcoming), " : ""}the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded${meetings ? "" : ", and name meetings as an area you couldn't read"}. Never rank people by spiritual judgment or invent priorities or items.`,
+		`For what to focus on this week, read ${dashboard ? "the next steps Overview offers (dashboard.availableActions), " : ""}the tasks due this week (tasks.list due this_week), ${meetings ? "the upcoming meetings (meetings.list window upcoming), " : ""}the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded${meetings ? "" : ", and name meetings as an area you couldn't read"}. Never rank people by spiritual judgment or invent priorities or items. End with this line as it is: ${WEEK_COVERAGE}`,
 		...planRules(catalog),
 	];
 }
@@ -687,6 +688,9 @@ export function compileContext(input: {
 		role
 			? `The user is ${ROLE_NAME[role]} of this church.${churchWrites ? "" : " Only an Owner or Admin of this church can change people, emails or imports. When the user asks for such a change, tell them an Owner or Admin has to make it, and prepare nothing."}`
 			: "",
+		input.actor.contextKind === "plant"
+			? "No church records a launch-team goal. Asked how the launch team compares with a goal, give the launch-team count and say plainly that no launch-team goal is recorded. Never put another number in its place: Plant Intelligence's 30 committed adults is a phase criterion, and a network's sending goal is not the church's. A team the user names, such as the core team, is a ministry in teams.list, never a People stage."
+			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
 		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
 		ops.has("organizationIntelligence.readLocations") ? placeRules() : "",
@@ -700,7 +704,7 @@ export function compileContext(input: {
 			? "When the church has no people at all, say it has 0 people and offer the People import template (people.generateCsvTemplate) to bring them in from a spreadsheet."
 			: "",
 		writes
-			? `Before removing people as a group (a stage, a household, a tag or everyone), or changing more than five people at once, read the exact scope, tell the user what it covers and how many people that is, and ask them to confirm before preparing anything. A change the user spelled out for a few people, such as a new address for everyone in one household, needs no confirmation: prepare it. Never prepare more than ${LIMITS.reviewCards} review cards in one turn.`
+			? `Before removing people as a group (a stage, a household, a tag or everyone), or changing more than five people at once, read the exact scope, tell the user what it covers and how many people that is, and ask them to confirm before preparing anything. When the user has already confirmed that scope and its count, and your read returns the same people, prepare it without asking again. A change the user spelled out for a few people, such as a new address for everyone in one household, needs no confirmation: prepare it. Never prepare more than ${LIMITS.reviewCards} review cards in one turn.`
 			: "",
 		ops.has("calendar.resolve")
 			? 'Before a local date and time goes into a review card, check it with calendar.resolve: if it is ambiguous, ask which of the two times the user means, naming both; if it does not exist that day, say so and ask for another time. Read words like today, Friday or next week against calendar.getContext, and when you can\'t tell which date the user means, such as "the 5th" or "Friday-ish", ask. A weekday on its own, such as "Thursday\'s meeting", means the next one from today (today if it is that day): use it and don\'t ask which week. Name the chosen local date, time and time zone.'

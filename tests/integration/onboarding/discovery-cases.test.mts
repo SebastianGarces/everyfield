@@ -6,7 +6,16 @@ import { accountId } from "../../../packages/contracts/src/common/index.ts";
 import { nativeFromText, readNative } from "../../../packages/contracts/src/documents/native.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
-import { captureFacts, createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
+import {
+	captureFacts,
+	createFacts,
+	createPrivateCare,
+	createSignals,
+	criteriaOf,
+	readingOf,
+} from "../../../packages/domain/src/intelligence/index.ts";
+import { readCatalog } from "../../../packages/domain/src/phases/index.ts";
+import { caseOf, type Case } from "../target/sql/core/support.mts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
@@ -736,3 +745,110 @@ test("AC:DC-025 a private care check-in reaches no document and no model input",
 	assert.equal(JSON.stringify(snapshot).includes("care-canary"), false, "private_care_in_model null");
 	assert.equal(JSON.stringify(snapshot).includes("struggling"), false);
 });
+
+const DC = (id: string) => caseOf("intelligence", id) as Case & { clock: { now: string } };
+function relationshipReads(now: string) {
+	const clock = { now: () => now as never };
+	const signals = createSignals({ clock });
+	const facts = createFacts({ clock });
+	const { f, db, admin, me, church } = files;
+	const roots = async (P: Plant) =>
+		(
+			await admin.execute<Record<string, number | string>>(sql`SELECT (SELECT count(*)::int FROM plant) plants,
+			(SELECT count(*)::int FROM affiliation) affiliations,(SELECT count(*)::int FROM platform_grant) grants,
+			(SELECT count(*)::int FROM invitation) invitations,
+			(SELECT string_agg(role,',' ORDER BY role) FROM seat WHERE plant_id=${P.id}) roles`)
+		).rows[0]!;
+	const coach = async (c: Church) => {
+		const read = ok(await facts.readFacts(db, await me(c.A), {}));
+		const row = criteriaOf(await readCatalog(), 0, read).find((x) => x.key === "coach_assigned")!;
+		return { ...row, reading: readingOf(row) };
+	};
+	const attest = async (c: Church, input: { organization: string; mentor?: string; asOf?: string }) =>
+		ok(
+			await signals.attestReadiness(db, await me(c.A), {
+				requestKey: randomUUID(),
+				expectedRevision: "0",
+				input: { key: "relationship", ...input },
+			}),
+		).attestation;
+	async function requested(c: Church, name: string) {
+		const network = await f.organization("sending_network", { name });
+		const invitation = randomUUID();
+		await admin.execute(sql`INSERT INTO record(id,kind,tenant_id) VALUES(${invitation},'invitation',${c.P.id})`);
+		await admin.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,token_hash,state,
+			created_at,inviter_description) VALUES(${invitation},${c.P.id},'plant_network',${`network-${network.id}@example.test`},
+			${c.A.id},${randomUUID().replaceAll("-", "").repeat(2)},'pending',clock_timestamp(),${name})`);
+		return network;
+	}
+	const createdOn = async (c: Church) =>
+		(
+			await admin.execute<{ on: string }>(
+				sql`SELECT (s.accepted_at AT TIME ZONE p.timezone)::date::text AS on FROM seat s
+				JOIN plant p ON p.id=s.plant_id WHERE s.plant_id=${c.P.id} AND s.role='owner'`,
+			)
+		).rows[0]!.on;
+	return { roots, coach, attest, requested, createdOn, church };
+}
+
+test("AC:DC-019 an attested relationship with an optional mentor meets the coach criterion and gives the mentor no role", async () => {
+	const k = DC("DC-019");
+	const r = relationshipReads(k.clock.now);
+	const c = await r.church();
+	assert.deepEqual([(await r.coach(c)).status, (await r.coach(c)).reading], ["unknown", null]);
+	assert.deepEqual(
+		[arg(k, "real_relationship_attested"), arg(k, "optional_mentor"), arg(k, "app_role_grant")],
+		[true, true, false],
+	);
+	const before = await r.roots(c.P);
+	const saved = await r.attest(c, {
+		organization: "Hill Country Network",
+		mentor: "Morgan Mentor",
+		asOf: "2026-10-01",
+	});
+	assert.equal(saved.reference, "Morgan Mentor");
+	const after = await r.roots(c.P);
+	const row = await r.coach(c);
+	assert.equal(row.status, k.expected.result.criterion);
+	assert.equal(row.reading, "Relationship with Hill Country Network attested as of 2026-10-01");
+	assert.deepEqual(after, before, "no plant, affiliation, grant, invitation or seat role is added");
+	const coachRole = after.roles === before.roles ? null : after.roles;
+	assert.equal(coachRole, k.expected.result.coach_role);
+});
+
+test("AC:DC-020 an attested relationship qualifies before creation or beside a pending application; a name or a request alone does not", async () => {
+	const k = DC("DC-020");
+	const r = relationshipReads(k.clock.now);
+	const variants = arg<string[]>(k, "variants");
+	const arrange: Record<string, (c: Church) => Promise<void>> = {
+		real_attested_before_creation: async (c) => {
+			const asOf = "2026-09-15";
+			assert.ok(asOf < (await r.createdOn(c)), "dated before the plant was created");
+			await r.attest(c, { organization: "Founding Sending Church", asOf });
+		},
+		real_attested_pending_app: async (c) => {
+			await r.requested(c, "Pending Network");
+			await r.attest(c, { organization: "Pending Network" });
+		},
+		name_only: async () => {
+			await files.f.organization("sending_church", { name: "Named Church Only" });
+		},
+		request_only: async (c) => {
+			await r.requested(c, "Requested Network Only");
+		},
+	};
+	assert.deepEqual(variants, Object.keys(arrange));
+	const qualifies: boolean[] = [];
+	for (const variant of variants) {
+		const c = await r.church();
+		await arrange[variant]!(c);
+		const row = await r.coach(c);
+		assert.ok(row.status === "met" || row.status === "unknown", `${variant}: ${row.status}`);
+		qualifies.push(row.status === "met");
+	}
+	assert.deepEqual(qualifies, k.expected.result.qualifies);
+});
+
+function arg<T = unknown>(k: Case, name: string) {
+	return k.action.arguments[name] as T;
+}

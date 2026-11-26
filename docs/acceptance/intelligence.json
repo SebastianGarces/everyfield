@@ -1659,7 +1659,10 @@
         "WP-040",
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/ministry-cases.test.mts"
+      ],
       "description": "b01-005-current-target",
       "given": {
         "P": {
@@ -1829,7 +1832,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/ministry-cases.test.mts"
+      ],
       "description": "b01-007-current-target",
       "given": {
         "P": {
@@ -1912,7 +1918,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/ministry-cases.test.mts"
+      ],
       "description": "b01-008-current-target",
       "given": {
         "P": {
@@ -3155,7 +3164,10 @@
       "work_packages": [
         "WP-044"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/ministry-cases.test.mts"
+      ],
       "description": "b01-022-current-target",
       "given": {
         "P": {
@@ -12680,7 +12692,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/discovery-cases.test.mts"
+      ],
       "description": "dc-019-current-target",
       "given": {
         "P": {
@@ -12784,7 +12799,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/onboarding/discovery-cases.test.mts"
+      ],
       "description": "dc-020-current-target",
       "given": {
         "P": {
@@ -32359,11 +32377,13 @@
             "publishedSummary": null
           },
           "current_assessment": "R0",
-          "assessment_input_state": "fixture-state-11",
+          "assessment_input_state": {
+            "different_from": "fixture-state-11"
+          },
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": false,
+          "sweep_discovers_change": true,
           "replay_new_effects": 0
         },
         "event": {
@@ -55639,7 +55659,10 @@
       "work_packages": [
         "WP-040"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/adult-cases.test.mts"
+      ],
       "description": "48-hour-eligibility-maturity-effective-time-history",
       "given": {
         "P": {
