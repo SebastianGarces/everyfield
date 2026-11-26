@@ -1,0 +1,141 @@
+[
+	{
+		"case_id": "PPL-01",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "anyone with sound or tech skills?",
+		"eval": {
+			"church": "people",
+			"calls": [{ "operation": "people.listPeople", "input": { "skillCategories": ["tech"] } }],
+			"only": ["people.listPeople"],
+			"maxCalls": { "people.getPersonSkills": 0, "people.listPeople": 1 },
+			"names": { "allowed": ["skill=Tech"], "all": "skill=Tech" },
+			"require": [
+				"/Mark Thompson \\(Sound engineering, advanced\\)/",
+				"/Alex Rivera \\(Video production, intermediate\\)/",
+				"/\\b2 of the 84 people\\b/",
+				"/all 84 people in this church/"
+			],
+			"forbid": ["/Jen Thompson|Vocals/i"],
+			"derivation": "TEAM-06 on the scripted model: the People list's Tech filter covers all 84 live people. Mark Thompson (Sound engineering, advanced) and Alex Rivera (Video production, intermediate) hold the Tech skills; Jen Thompson's Vocals is worship."
+		}
+	},
+	{
+		"case_id": "PPL-02",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "who doesn't have a photo?",
+		"eval": {
+			"church": "people",
+			"as": "admin",
+			"calls": [{ "operation": "people.listPeople", "input": { "hasPhoto": false } }],
+			"only": ["people.listPeople"],
+			"maxCalls": { "people.getPersonPhoto": 0, "people.listPeople": 1 },
+			"names": { "allowed": ["photo=none&slice=0:24"], "all": "photo=none&slice=0:24" },
+			"require": [
+				"/\\b79 of the 84 people in this church have no photo\\b/",
+				"/These are the first 24\\b/",
+				"/next page \\(page 2 of 4\\)/"
+			],
+			"derivation": "CLN-09 on the scripted model: 79 of the 84 live people have no photo. The read pages them 24 at a time, so this page names the first 24 and offers page 2 of 4."
+		}
+	},
+	{
+		"case_id": "PPL-03",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "who isn't in any household yet",
+		"eval": {
+			"church": "people",
+			"as": "admin",
+			"calls": [{ "operation": "people.listPeople", "input": { "inHousehold": false } }],
+			"only": ["people.listPeople"],
+			"maxCalls": { "people.listPeople": 1 },
+			"names": { "allowed": ["household=none&slice=0:24"], "all": "household=none&slice=0:24" },
+			"require": [
+				"/\\b66 of the 84 people in this church are in no household\\b/",
+				"/These are the first 24\\b/",
+				"/next page \\(page 2 of 3\\)/"
+			],
+			"derivation": "HH-08 on the scripted model: 18 of the 84 live people are in a household, so 66 are not. The read pages them 24 at a time, so this page names the first 24 and offers page 2 of 3."
+		}
+	},
+	{
+		"case_id": "PPL-04",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "which households have kids?",
+		"eval": {
+			"church": "people",
+			"calls": [{ "operation": "people.listPeople", "input": { "adultClassification": "child" } }],
+			"only": ["people.listPeople", "people.listHouseholds"],
+			"maxCalls": { "people.listPeople": 1, "people.listHouseholds": 1 },
+			"names": { "allowed": ["Mateo Rivera", "Bao Nguyen"], "all": ["Mateo Rivera", "Bao Nguyen"] },
+			"require": [
+				"/\\b2 households\\b/",
+				"/Rivera household \\(Mateo Rivera\\)/",
+				"/Nguyen household \\(Bao Nguyen\\)/",
+				"/People with no adult or child recorded aren't counted/"
+			],
+			"forbid": ["/\\bThao\\b/i", "/\\b(Thompson|Okafor|Martinez|Garcia|Johnson|Lee)\\b[^.\\n]{0,20}household/i"],
+			"derivation": "PIP-08 on the scripted model: Mateo Rivera and Bao Nguyen are the only people recorded as children. Thao Nguyen has the household role child and nothing recorded, so a role never counts."
+		}
+	},
+	{
+		"case_id": "PPL-05",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "how many people moved into core group this month",
+		"eval": {
+			"church": "people",
+			"calls": [
+				{ "operation": "people.listPeople", "input": { "movedInto": { "stage": "core_group", "from": "2026-11-01" } } }
+			],
+			"only": ["people.listPeople"],
+			"maxCalls": { "people.getActivities": 0, "people.listPeople": 1 },
+			"names": { "allowed": ["Priya Shah", "Mike Brennan"], "all": ["Priya Shah", "Mike Brennan"] },
+			"require": [
+				"/\\b2 people moved into core group this month\\b/",
+				"/Priya Shah on Nov 2\\b/",
+				"/Mike Brennan on Nov 5\\b/"
+			],
+			"forbid": ["/Sam Patel|Oct 28|\\b84\\b/"],
+			"derivation": "PIP-04 on the scripted model: the recorded moves into core group are Sam Patel Oct 28, Priya Shah Nov 2 and Mike Brennan Nov 5; this month is November in America/Chicago, so the answer is 2."
+		}
+	},
+	{
+		"case_id": "PPL-06",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "anyone with sound or tech skills?",
+		"eval": {
+			"church": "assessed",
+			"calls": [{ "operation": "people.listPeople", "input": { "skillCategories": ["tech"] } }],
+			"only": ["people.listPeople"],
+			"maxCalls": { "people.getPersonSkills": 0, "people.listPeople": 1 },
+			"require": [
+				"/^No one in this church has a Tech skill recorded\\. That covers all \\d+ people in this church\\.$/"
+			],
+			"forbid": ["/:\\s*\\./", "/\\b0 of the\\b/"],
+			"derivation": "Zero matches on the scripted model: the assessed church (intelligence-church.mts) records no skills, so the Tech filter finds no one and the reply says so plainly, with no empty list."
+		}
+	}
+]

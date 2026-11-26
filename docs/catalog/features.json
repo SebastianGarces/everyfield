@@ -581,7 +581,7 @@
     "id": "IDN-016",
     "title": "Discovery identity, associations and conversion to plant",
     "module": "identity",
-    "behavior": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner validates current account/profile state, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and keeps every live relationship unless the request ends it by name, in one all-or-nothing domain change. A live relationship left out of the request refuses the conversion as stale, and a kept relationship turns on no sharing that was off, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account eligibility and one-active-seat rules. Discovery is free for as long as the planter keeps it: no payment, trial, countdown or time-based lock.",
+    "behavior": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner validates current account/profile state, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and keeps every live relationship unless the request ends it by name, in one all-or-nothing domain change. A live relationship left out of the request refuses the conversion as stale, and a kept relationship turns on no sharing that was off, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account eligibility and one-active-seat rules. Discovery is free for as long as the planter keeps it: no payment, trial, countdown or time-based lock. A Discovery planter has a starter list of the six Phase 0 checklist steps, stored by catalog key and catalog version, that only they read and check off; no sending church or network sees the steps or their progress. Conversion carries every step into the new plant in the same all-or-nothing change as an ordinary task assigned to the planter: a checked-off step arrives complete with its completion time and the planter in its status history, an open step arrives open with no due date, and the Discovery list then closes.",
     "spec_file": "docs/product/identity-access.md#req-idn-016",
     "requirement_ids": [
       "REQ-IDN-016",
@@ -590,7 +590,9 @@
     "operations": [
       "discovery.convertToPlant",
       "discovery.create",
-      "discovery.getProfile"
+      "discovery.getProfile",
+      "discovery.getSteps",
+      "discovery.setStep"
     ],
     "acceptance_ids": [
       "AC-IDN-016--IDN-016"

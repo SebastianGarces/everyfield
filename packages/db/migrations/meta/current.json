@@ -6997,6 +6997,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "1"
+        },
+        "steps": {
+          "name": "steps",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "steps_revision": {
+          "name": "steps_revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
         }
       },
       "indexes": {
@@ -7133,6 +7147,14 @@
         "discovery_ck_4": {
           "name": "discovery_ck_4",
           "value": "(launch_answer = ANY (ARRAY['planned'::text, 'no_date'::text, 'skip'::text]))"
+        },
+        "discovery_ck_5": {
+          "name": "discovery_ck_5",
+          "value": "(jsonb_typeof(steps) = 'array'::text)"
+        },
+        "discovery_ck_6": {
+          "name": "discovery_ck_6",
+          "value": "(steps_revision >= 1)"
         }
       },
       "isRLSEnabled": false

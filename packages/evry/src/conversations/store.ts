@@ -6,7 +6,16 @@ import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority, liveAuthority, movedChurch, refusedFor } from "../context/authority.ts";
+import {
+	currentAuthority,
+	discoveryChat,
+	discoveryHeld,
+	discoveryRead,
+	fromDiscovery,
+	liveAuthority,
+	movedChurch,
+	refusedFor,
+} from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
@@ -61,6 +70,11 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 const owned = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${sql.raw(alias)}.tenant_id=${actor.owner.id}::uuid`;
 
+const own = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
+	sql`${owned(actor, alias)} AND NOT ${discoveryChat(alias)}`;
+const visible = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
+	sql`((${own(actor, alias)} AND ${liveAuthority(actor)}) OR ${discoveryRead(actor, alias)})`;
+
 const conversationRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string(),
@@ -68,11 +82,12 @@ const conversationRow = z.strictObject({
 	lastSequence: z.coerce.number(),
 	activeTurnId: z.uuid().nullable(),
 	updatedAt: z.coerce.date(),
+	discovery: z.boolean(),
 });
 export type Conversation = z.infer<typeof conversationRow>;
 const conversationJson = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql.raw(
-		`jsonb_build_object('id',${alias}.id,'title',${alias}.title,'context',${alias}.context_kind,'lastSequence',${alias}.last_sequence,'activeTurnId',${alias}.active_turn_id,'updatedAt',${alias}.updated_at)`,
+		`jsonb_build_object('id',${alias}.id,'title',${alias}.title,'context',${alias}.context_kind,'lastSequence',${alias}.last_sequence,'activeTurnId',${alias}.active_turn_id,'updatedAt',${alias}.updated_at,'discovery',${fromDiscovery(alias)})`,
 	);
 
 export const eventRow = z.strictObject({
@@ -117,13 +132,13 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 	const pattern = input.search ? "%" + input.search.replace(/[\\%_]/g, (c) => "\\" + c) + "%" : null;
 	const r = await db.execute(sql`
 		WITH matched AS (
-			SELECT c.* FROM conversation c
-			WHERE ${owned(actor, "c")} AND ${liveAuthority(actor)} AND (${pattern}::text IS NULL OR c.title ILIKE ${pattern} OR EXISTS(
+			SELECT c.*,${discoveryChat("c")} AS from_discovery FROM conversation c
+			WHERE ${visible(actor, "c")} AND (${pattern}::text IS NULL OR c.title ILIKE ${pattern} OR EXISTS(
 				SELECT FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' AND e.body->>'text' ILIKE ${pattern}))
 		)
 		SELECT (SELECT count(*)::int FROM matched) AS total,
-			coalesce((SELECT jsonb_agg(${conversationJson("p")} ORDER BY p.updated_at DESC, p.id DESC) FROM (
-				SELECT * FROM matched ORDER BY updated_at DESC, id DESC LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
+			coalesce((SELECT jsonb_agg(${conversationJson("p")} ORDER BY p.from_discovery, p.updated_at DESC, p.id DESC) FROM (
+				SELECT * FROM matched ORDER BY from_discovery, updated_at DESC, id DESC LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
 			) p), '[]'::jsonb) AS items`);
 	const row = z.strictObject({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
 	return {
@@ -145,7 +160,7 @@ export async function openLatestConversation(db: Database, actor: EvryActor) {
 	return conversationPage(
 		db,
 		actor,
-		sql`(SELECT l.id FROM conversation l WHERE ${owned(actor, "l")} ORDER BY l.updated_at DESC, l.id DESC LIMIT 1)`,
+		sql`(SELECT l.id FROM conversation l WHERE ${own(actor, "l")} ORDER BY l.updated_at DESC, l.id DESC LIMIT 1)`,
 		0,
 	);
 }
@@ -158,7 +173,7 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
 				FROM (${retainedEvents(page)}) e), '[]'::jsonb) AS events,
 			${reviewsOf(actor, sql`SELECT DISTINCT (e.body->'result'->>'proposalId')::uuid FROM (${page}) e WHERE e.kind='tool_result' AND e.body->'result'->>'proposalId' IS NOT NULL`)} AS reviews
-		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+		FROM conversation c WHERE c.id=${id} AND ${visible(actor, "c")}`);
 	if (!r.rows.length) return null;
 	const row = z
 		.strictObject({
@@ -207,7 +222,7 @@ export async function submitTurn(
 		), conv AS (
 			UPDATE conversation c SET last_sequence=c.last_sequence+1,active_turn_id=${turnId}::uuid,active_session_id=${actor.session}::uuid,
 				updated_at=clock_timestamp(),title=CASE WHEN c.last_sequence=0 THEN ${titleOf(input.text)} ELSE c.title END
-			WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND NOT EXISTS(SELECT FROM known)
+			WHERE c.id=${id}::uuid AND ${own(actor, "c")} AND NOT EXISTS(SELECT FROM known)
 				AND NOT ${liveRun("c")}
 				AND ${currentAuthority(actor)}
 				AND (SELECT count(*) FROM file_object f WHERE f.id=ANY(${sql.param(attached)}::uuid[]) AND f.tenant_id=c.tenant_id
@@ -233,10 +248,18 @@ export async function submitTurn(
 		SELECT (SELECT jsonb_build_object('turnId',${turnId}::uuid,'sequence',last_sequence) FROM conv) AS submitted,
 			(SELECT to_jsonb(known) FROM known) AS known,
 			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active,
-			${movedChurch(actor, sql`${id}::uuid`)} AS moved`);
-	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null; moved: boolean };
+			${movedChurch(actor, sql`${id}::uuid`)} AS moved,
+			${discoveryHeld(actor, sql`${id}::uuid`)} AS discovery`);
+	const row = r.rows[0] as {
+		submitted: unknown;
+		known: unknown;
+		active: boolean | null;
+		moved: boolean;
+		discovery: boolean;
+	};
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
+	if (row.discovery) throw new EvryRefusal("discovery_read_only");
 	if (row.moved) throw new EvryRefusal("church_changed");
 	if (row.active === null) throw new EvryRefusal("not_found");
 	if (!row.active && attached.length) throw new EvryRefusal("attachment_gone");
@@ -299,7 +322,7 @@ export async function cancelTurn(db: Database, actor: EvryActor, conversationId:
 	const r = await db.execute(sql`
 		WITH conv AS (
 			SELECT c.id,c.active_turn_id FROM conversation c
-			WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND c.active_turn_id IS NOT NULL AND ${currentAuthority(actor)} FOR UPDATE
+			WHERE c.id=${id}::uuid AND ${own(actor, "c")} AND c.active_turn_id IS NOT NULL AND ${currentAuthority(actor)} FOR UPDATE
 		), run AS (
 			UPDATE job j SET state='cancelled',lease_owner=NULL,lease_until=NULL,error_code='cancelled',finished_at=clock_timestamp(),revision=j.revision+1
 			FROM conv WHERE j.id=conv.active_turn_id AND j.state NOT IN ${TERMINAL_JOB}
@@ -314,8 +337,10 @@ export async function cancelTurn(db: Database, actor: EvryActor, conversationId:
 			SELECT tenant_id,account_id,'evry.turn_cancelled','supersede','conversation',id,jsonb_build_object('turnId',turn_id) FROM updated
 		)
 		SELECT (SELECT turn_id FROM updated) AS cancelled,
-			EXISTS(SELECT FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS owned`);
-	const row = r.rows[0] as { cancelled: string | null; owned: boolean };
+			EXISTS(SELECT FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS owned,
+			${discoveryHeld(actor, sql`${id}::uuid`)} AS discovery`);
+	const row = r.rows[0] as { cancelled: string | null; owned: boolean; discovery: boolean };
+	if (row.discovery) throw new EvryRefusal("discovery_read_only");
 	if (!row.owned) throw new EvryRefusal("not_found");
 	return { cancelled: row.cancelled !== null, turnId: row.cancelled };
 }
@@ -329,7 +354,7 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 			(SELECT jsonb_build_object('turnId',k.turn_id,'sequence',k.sequence) FROM conversation_event k WHERE k.conversation_id=c.id AND k.request_key=${key}) AS known
 		FROM conversation c
 		JOIN LATERAL (SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' ORDER BY e.sequence DESC LIMIT 1) m ON true
-		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+		WHERE c.id=${id}::uuid AND ${own(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) throw await refusedFor(db, actor, sql`${id}::uuid`);
 	const last = z
 		.strictObject({

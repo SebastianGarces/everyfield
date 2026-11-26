@@ -37,10 +37,15 @@ async function up(origin: string) {
 				...(body === undefined ? {} : { body: JSON.stringify(body) }),
 			}),
 		);
-	async function account(name: string, email: string, state: "active" | "pending_domain") {
+	async function account(
+		name: string,
+		email: string,
+		state: "active" | "pending_domain",
+		kind: "plant_precreation" | "discovery" = "discovery",
+	) {
 		ip++;
 		const r = await call("register", {
-			kind: "discovery",
+			kind,
 			name,
 			email,
 			password: PASSWORD,
@@ -82,8 +87,14 @@ async function up(origin: string) {
 	await admin.execute(sql`UPDATE plant SET onboarding_completed_at=clock_timestamp() WHERE id=${finishedPlant.id}`);
 	const unfinished = await account("Ulrich Unfinished", "unfinished@landing.example.test", "active");
 	await churchOf(unfinished, "Unfinished Church");
-	const fresh = await account("Nina New", "new@landing.example.test", "pending_domain");
-	const landing = { finished: finished.email, unfinished: unfinished.email, pending: fresh.email };
+	const fresh = await account("Nina New", "new@landing.example.test", "pending_domain", "plant_precreation");
+	const exploring = await account("Dara Discovery", "discovery@landing.example.test", "pending_domain");
+	const landing = {
+		finished: finished.email,
+		unfinished: unfinished.email,
+		pending: fresh.email,
+		discovery: exploring.email,
+	};
 
 	const links: string[] = [];
 	const invitations = createInvitationService({

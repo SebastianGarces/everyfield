@@ -32,6 +32,7 @@ export type Church = {
 	refused: (proposalId: string) => boolean;
 	leave: (proposalId: string) => void;
 	reload: () => void;
+	converted?: () => void;
 };
 
 export type ReviewPort = Pick<
@@ -152,7 +153,8 @@ export function createReviewStore(init: {
 			if (phase === "pending" || phase === "running") awaiting = true;
 			else if (phase === "completed" && awaiting && readers > 0) {
 				awaiting = false;
-				port.refresh();
+				if (review.operation === "discovery.convertToPlant" && port.church.converted) port.church.converted();
+				else port.refresh();
 			}
 		};
 

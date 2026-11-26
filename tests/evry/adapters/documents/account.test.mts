@@ -647,7 +647,7 @@ test("INV-account-privacy: a linked sending church, its network or a church Owne
 	}
 });
 
-test("INV-account-conversion: once an account gains a church, its plant context carries neither the account conversation nor its documents, and an earlier account review can't be approved there", async () => {
+test("INV-account-conversion: once an account gains a church, its plant Evry carries neither the Discovery conversation nor its documents; the conversation stays readable, read-only, and an earlier account review can't be approved there", async () => {
 	const A = await person();
 	const Aa = await w.actorOf(A);
 	const C = await w.converse(Aa);
@@ -669,17 +669,20 @@ test("INV-account-conversion: once an account gains a church, its plant context 
 	const seated = await w.actorOf(A);
 	assert.equal(seated.contextKind, "plant");
 	const before = await documentsOf(A);
+	assert.equal((await readConversation(w.db, seated, C)).conversation.discovery, true);
+	assert.equal((await readReview(w.db, seated, waiting.id)).closed, true);
 	assert.deepEqual(
 		[
-			await refusal(readConversation(w.db, seated, C)),
 			await refusal(submitTurn(w.db, seated, C, { requestKey: randomUUID(), text: "go on" })),
-			await refusal(readReview(w.db, seated, waiting.id)),
 			await refusal(approveProposal(w.db, seated, waiting.id, w.witness(waiting), null)),
 		],
-		["not_found", "not_found", "not_found", "not_found"],
+		["discovery_read_only", "review_closed"],
 	);
 	assert.equal(await w.effect(), null);
-	assert.equal((await listConversations(w.db, seated, {})).total, 0);
+	assert.deepEqual(
+		(await listConversations(w.db, seated, {})).items.map((c) => [c.id, c.discovery]),
+		[[C, true]],
+	);
 	const asked = await w.ask(
 		A,
 		"What documents are there?",
@@ -695,4 +698,42 @@ test("INV-account-conversion: once an account gains a church, its plant context 
 	);
 	assert.equal(JSON.stringify([asked.prompts, asked.saved]).includes(c.given.D.body), false);
 	assert.deepEqual(await documentsOf(A), before);
+});
+
+test("AC:TARGET-IDN-016 INV-discovery-steps: a church started through Evry carries the planter's starter steps as tasks, the done ones complete", async () => {
+	const A = await person("Sam Starter");
+	const doneAt = "2026-11-20T15:00:00.000Z";
+	await w.admin.execute(
+		sql`UPDATE discovery SET steps=${JSON.stringify([
+			{ key: "vision-summary", catalog_version: 3, done_at: doneAt },
+			{ key: "meet-a-coach", catalog_version: 3, done_at: doneAt },
+		])}::jsonb, steps_revision=3 WHERE account_id=${A.id}`,
+	);
+	const turned = only(
+		await w.ask(A, "Turn my Discovery space into a church", [
+			proposes("discovery.convertToPlant", { name: "New Hope" }),
+		]),
+	);
+	assert.equal((await w.approve(A, turned)).review.outcome, "completed");
+	const carried = await w.admin.execute(sql`SELECT t.title, t.status, t.due_kind,
+		to_char(t.completed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS completed_at,
+		(SELECT array_agg(a.account_id::text) FROM task_assignee a WHERE a.task_id=t.id) AS assignees
+		FROM task t JOIN discovery d ON d.converted_plant_id=t.plant_id WHERE d.account_id=${A.id} ORDER BY t.title`);
+	assert.deepEqual(
+		carried.rows,
+		[
+			["Agree the commitments this plant will ask of your family", null],
+			["Draft a budget for the first year", null],
+			["List the people already praying for this plant", null],
+			["Meet a potential coach", doneAt],
+			["Walk the neighbourhood and write down what you see", null],
+			["Write a one-page vision summary", doneAt],
+		].map(([title, at]) => ({
+			title,
+			status: at ? "complete" : "not_started",
+			due_kind: "undated",
+			completed_at: at,
+			assignees: [A.id],
+		})),
+	);
 });

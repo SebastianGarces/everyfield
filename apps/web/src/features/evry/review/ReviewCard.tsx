@@ -204,6 +204,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	expired: { icon: Clock01Icon, title: "Expired", tone: "gray" },
 	cancelled: { icon: Cancel01Icon, title: "Cancelled", tone: "gray" },
 	withheld: { icon: SquareLock02Icon, title: "No longer available", tone: "gray" },
+	closed: { icon: SquareLock02Icon, title: "No longer open", tone: "gray" },
 	unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
@@ -286,6 +287,10 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				: "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
+		case "closed":
+			return `This chat stays in Discovery, so this review is no longer open. Nothing was changed.${
+				review && isDocument(review.operation) ? " You can edit the document directly in Documents." : ""
+			}`;
 		case "withheld": {
 			const what = review && isWiki(review.operation) ? "The article" : `The ${record}`;
 			return review?.status === "approved"
@@ -629,6 +634,15 @@ function Footer({
 				{cancel}
 			</>
 		);
+	else if (view === "closed")
+		body = isDocument(review.operation) ? (
+			<Button size="sm" variant="ghost" asChild>
+				<IntentLink href={who?.href ?? "/documents"}>
+					Open in Documents
+					<Icon icon={ArrowRight02Icon} size={16} />
+				</IntentLink>
+			</Button>
+		) : null;
 	else if (view === "running")
 		body = (
 			<>

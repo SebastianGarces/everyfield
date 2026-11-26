@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 126,
-  "column_count": 1419,
+  "column_count": 1421,
   "foreign_key_count": 412,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -18657,7 +18657,13 @@
       "domain": "tenancy",
       "purpose": "Explicit account-owned preplant profile and conversion lineage.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "steps": [
+          "key: a step key of the Phase 0 checklist in the tasks catalog",
+          "catalog_version: the tasks catalog version the step was checked off under",
+          "done_at: when the planter checked it off"
+        ]
+      },
       "capabilities": [
         "CAP-A-008"
       ],
@@ -18749,6 +18755,20 @@
         {
           "note": "",
           "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        },
+        {
+          "note": "The starter steps the planter checked off, one entry per done step; an open step has no entry. Conversion carries them into the church as tasks.",
+          "name": "steps",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "note": "Fences step changes on their own, so checking a step off never makes a pending conversion stale.",
+          "name": "steps_revision",
           "type": "bigint",
           "nullable": false,
           "default": "1"
@@ -18844,7 +18864,9 @@
         "((converted_at IS NULL) = (converted_plant_id IS NULL))",
         "lead_answer in ('yes', 'no', 'skip')",
         "journey_answer in ('existing', 'unsure', 'discerning', 'skip')",
-        "launch_answer in ('planned', 'no_date', 'skip')"
+        "launch_answer in ('planned', 'no_date', 'skip')",
+        "(jsonb_typeof(steps) = 'array'::text)",
+        "(steps_revision >= 1)"
       ],
       "indexes": {
         "discovery_ref_1": {
@@ -18897,7 +18919,9 @@
           "discovery_ck_1",
           "discovery_ck_2",
           "discovery_ck_3",
-          "discovery_ck_4"
+          "discovery_ck_4",
+          "discovery_ck_5",
+          "discovery_ck_6"
         ]
       },
       "policies": {},

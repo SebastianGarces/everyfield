@@ -169,3 +169,5 @@ model = "claude-opus-5-5"
 effort = "medium"
 prompt_file = ".agents/role-prompts/verifier.md"
 read_only = true
+
+[formal_gate]

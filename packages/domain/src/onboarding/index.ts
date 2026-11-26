@@ -8,12 +8,14 @@ import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server
 import { actor, deny, parse, readReply, seatless, type Tx } from "./core.ts";
 import { creation, profile, type OnboardingEffects } from "./creation.ts";
 import { setup } from "./setup.ts";
+import { discoveryStepOperations } from "./steps.ts";
 export type { OnboardingEffects };
 
 export function createOnboardingProducer(effects: OnboardingEffects): OnboardingProducer<Tx> {
 	return {
 		...creation(effects),
 		...setup,
+		...discoveryStepOperations,
 		async getDiscoveryProfile(tx, ctx, raw) {
 			return readReply(async () => {
 				parse(c.getDiscoveryProfileRequest, raw);
@@ -43,6 +45,6 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 	};
 }
 
-export { readOnboardingEntry } from "./reads.ts";
+export { readDiscoverySteps, readOnboardingEntry } from "./reads.ts";
 
 export { withOnboardingWrite } from "./core.ts";
