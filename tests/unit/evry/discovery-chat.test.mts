@@ -119,10 +119,9 @@ test("INV-discovery-chats: after the church starts, the panel says the chat stay
 	store.getState().actions.show(true);
 	await settled();
 	const off = store.getState().actions.followStream(() => {});
-	store.getState().actions.leaveDiscovery(true);
+	store.getState().actions.leaveDiscovery();
 	const state = store.getState();
 	assert.equal(state.chat.conversation?.discovery, true);
-	assert.equal(state.startedChurch, true, "the panel offers church setup");
 	assert.deepEqual([state.churchChanged, state.churchNotice, state.problem], [false, null, null]);
 	assert.equal(
 		state.announcement,

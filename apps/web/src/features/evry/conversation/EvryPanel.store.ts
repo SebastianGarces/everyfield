@@ -71,7 +71,6 @@ export type EvryPanelState = {
 	churchChanged: boolean;
 	churchNotice: string | null;
 	churchRefused: string | null;
-	startedChurch: boolean;
 	announcement: string;
 	actions: {
 		show: (open: boolean) => void;
@@ -87,7 +86,7 @@ export type EvryPanelState = {
 		reload: () => void;
 		reloadForChurch: (send?: Send) => void;
 		leaveChurch: (proposalId: string) => void;
-		leaveDiscovery: (startedChurch?: boolean) => void;
+		leaveDiscovery: () => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
@@ -199,18 +198,13 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				announcement: "",
 			});
 
-		const leaveDiscovery = (startedChurch = false) =>
+		const leaveDiscovery = () =>
 			update(
 				(chat) =>
 					chat.conversation
 						? { ...chat, conversation: { ...chat.conversation, discovery: true }, activeTurnId: null, stopping: false }
 						: chat,
-				{
-					problem: null,
-					stream: "idle",
-					startedChurch: startedChurch || get().startedChurch,
-					announcement: `${DISCOVERY_STAYS.title}. ${DISCOVERY_STAYS.text}`,
-				},
+				{ problem: null, stream: "idle", announcement: `${DISCOVERY_STAYS.title}. ${DISCOVERY_STAYS.text}` },
 			);
 
 		const stopped = (error: ProjectedError) => {
@@ -452,7 +446,6 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			churchChanged: false,
 			churchNotice: null,
 			churchRefused: null,
-			startedChurch: false,
 			announcement: "",
 			actions: {
 				show,

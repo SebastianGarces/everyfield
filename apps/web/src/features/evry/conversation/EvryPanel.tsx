@@ -19,7 +19,6 @@ import {
 	Alert,
 	Button,
 	IconButton,
-	IntentLink,
 	ProblemText,
 	RowButton,
 	SearchInput,
@@ -30,7 +29,6 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, createDebouncer, EvryBot, Icon, useFocusRequest, type EvryMood } from "@everyfield/ui/foundations";
-import { ONBOARDING_HOME } from "@everyfield/contracts/identity";
 import { usePathname } from "next/navigation";
 import {
 	useCallback,
@@ -139,7 +137,6 @@ export function EvryPanel({
 	const load = Panel.useSelect((s) => s.load);
 	const pipeline = Panel.useSelect((s) => s.pipeline);
 	const moved = Panel.useSelect((s) => s.churchChanged);
-	const startedChurch = Panel.useSelect((s) => s.startedChurch);
 	const [chatVisits, setChatVisits] = useState(0);
 	const [{ box, content, stick }] = useState(followEnd);
 	const composer = useRef<HTMLTextAreaElement>(null);
@@ -206,26 +203,19 @@ export function EvryPanel({
 							<p className="font-medium text-ink">{DISCOVERY_STAYS.title}</p>
 							<p className="text-pretty text-sm text-text-2">{DISCOVERY_STAYS.text}</p>
 						</div>
-						<div className="flex flex-wrap gap-2">
-							{available ? (
-								<Button
-									size="sm"
-									variant="primary"
-									icon={Add01Icon}
-									onClick={() => {
-										actions.newChat();
-										toChat();
-									}}
-								>
-									New chat
-								</Button>
-							) : null}
-							{startedChurch ? (
-								<Button size="sm" variant="secondary" asChild>
-									<IntentLink href={ONBOARDING_HOME}>Set up your church</IntentLink>
-								</Button>
-							) : null}
-						</div>
+						{available ? (
+							<Button
+								size="sm"
+								variant="primary"
+								icon={Add01Icon}
+								onClick={() => {
+									actions.newChat();
+									toChat();
+								}}
+							>
+								New chat
+							</Button>
+						) : null}
 					</div>
 				) : !available ? (
 					chat.events.length ? (
@@ -489,7 +479,7 @@ function TurnView({
 		refused: (id) => panel.getState().churchRefused === id,
 		leave: (id) => panel.getState().actions.leaveChurch(id),
 		reload: () => panel.getState().actions.reloadForChurch(),
-		converted: () => panel.getState().actions.leaveDiscovery(true),
+		converted: () => panel.getState().actions.leaveDiscovery(),
 	}));
 	const notice = endNotice(turn.end);
 	const waiting = active && !turn.blocks.length;
