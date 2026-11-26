@@ -30,15 +30,15 @@ type Db = Pick<Database, "execute">;
 export const NETWORK_LEASE_MS = 120_000;
 export class NetworkProviderDeadline extends Error {}
 export class NetworkRetrievalUnavailable extends Error {}
-export type NetworkFinding = {
+type NetworkFinding = {
 	level: C.Level;
 	group: string;
 	rule: C.PatternRuleId;
 	key: string;
 	citation: { rubric: string; rule: string; source: string };
 } & Record<string, unknown>;
-export type NetworkOutput = { findings: Record<string, unknown>[] };
-export type NetworkReference = { activation: number; citations: string[] };
+type NetworkOutput = { findings: Record<string, unknown>[] };
+type NetworkReference = { activation: number; citations: string[] };
 export type RefreshConfig = {
 	compose?: (input: { findings: NetworkFinding[] }) => Promise<NetworkOutput>;
 	retrieve?: (db: Db) => Promise<NetworkReference | null>;
@@ -47,8 +47,8 @@ export type RefreshConfig = {
 };
 export type RefreshClaim = { runId: string; organization: string; generation: number; owner: string };
 
-export const VIOLATIONS = ["unsupported_numeric_value", "prohibited_fields", "invalid_reference_citation"] as const;
-export type Violation = (typeof VIOLATIONS)[number];
+const VIOLATIONS = ["unsupported_numeric_value", "prohibited_fields", "invalid_reference_citation"] as const;
+type Violation = (typeof VIOLATIONS)[number];
 const PROHIBITED_KEYS = new Set([
 	"person",
 	"person_id",
