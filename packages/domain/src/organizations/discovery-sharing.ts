@@ -1,7 +1,7 @@
 import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import { eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { z } from "zod";
 import { liveAccess, liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
@@ -12,11 +12,11 @@ import {
 	appendEvent,
 	beginCommand,
 	checkRevision,
-	discoveryAuthority,
+	discoveryOpen,
 	finishCommand,
 	invalidate,
 	linkActive,
-	loadAffiliation,
+	loadAffiliations,
 	pairOf,
 	refuse,
 	seatless,
@@ -25,7 +25,7 @@ import {
 	type Reader,
 } from "./core.ts";
 
-const ordinaryLink = (id: ReturnType<typeof sql>) =>
+const ordinaryLink = (id: SQLWrapper) =>
 	sql<boolean>`NOT EXISTS(SELECT FROM residency_link r WHERE r.affiliation_id=${id})`;
 
 export function discoverySharingOperations(
@@ -35,24 +35,22 @@ export function discoverySharingOperations(
 		async "discovery.setSharing"(tx, session: z.infer<typeof sessionId>, selected: Owner, raw) {
 			return auditSavepoint(tx, async () => {
 				const q = Q.setDiscoverySharingRequest.parse(raw),
-					actor = await writeActor(tx, session, selected),
-					a = await loadAffiliation(tx, q.input.relationshipId, true);
-				if (
-					!a ||
-					actor.status !== "active" ||
-					actor.context.kind !== "account" ||
-					selected.kind !== "account" ||
-					a.account_id !== actor.accountId ||
-					!active(a)
-				)
-					refuse();
+					actor = await writeActor(tx, session, selected);
+				if (actor.status !== "active" || actor.context.kind !== "account" || selected.kind !== "account") refuse();
+				const own = sql`${actor.accountId}::uuid`;
+				const [a] = await loadAffiliations(
+					tx,
+					and(
+						eq(tables.affiliation.id, q.input.relationshipId),
+						eq(tables.affiliation.account_id, actor.accountId),
+						ordinaryLink(tables.affiliation.id),
+						discoveryOpen(own),
+						seatless(own),
+					)!,
+					true,
+				);
+				if (!a || !active(a)) refuse();
 				const pair = pairOf(a);
-				const [facts] = (
-					await tx.execute<{ ordinary: boolean; open: boolean }>(
-						sql`SELECT ${ordinaryLink(sql`${a.id}::uuid`)} AS ordinary, ${discoveryAuthority(pair)} AS open`,
-					)
-				).rows;
-				if (!facts?.ordinary || !facts.open) refuse();
 				const c = await beginCommand(tx, actor, selected, "discovery.setSharing", q);
 				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 				checkRevision(q.expectedRevision, a.revision);

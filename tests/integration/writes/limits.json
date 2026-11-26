@@ -561,7 +561,7 @@
 		"limit": 1
 	},
 	"documents.createMineFromTemplate": {
-		"limit": 3
+		"limit": 2
 	},
 	"documents.designateMine": {
 		"limit": 1
@@ -1318,7 +1318,7 @@
 		"limit": 3
 	},
 	"organizations.discovery.setSharing": {
-		"limit": 5
+		"limit": 3
 	},
 	"organizations.organizations.correctReportingLocation": {
 		"limit": 8,
