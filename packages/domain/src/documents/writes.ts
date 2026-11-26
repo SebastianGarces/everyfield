@@ -966,6 +966,14 @@ async function appendNative(
 	);
 }
 
+const designationReplay = (
+	scope: Scope,
+	expected: string,
+) => sql`(SELECT x.kind = 'core_values' AND x.revision <> ${expected}
+	AND EXISTS (SELECT FROM audit_event e WHERE e.tenant_id = ${scope.tenantId}::uuid
+		AND e.actor_id = ${scope.accountId}::uuid AND e.action = 'documents.designated' AND e.subject_id = x.id
+		AND e.after_revision::text = x.revision AND e.after_revision = ${expected}::bigint + 1) FROM existing x)`;
+
 async function mutateOwned(
 	db: Database | Transaction,
 	scope: Scope,
@@ -1031,9 +1039,7 @@ async function mutateOwned(
 			(SELECT id FROM updated) AS stored, (SELECT revision FROM updated) AS next_revision,
 			(SELECT kind FROM updated) AS kind, (SELECT archived_at IS NOT NULL FROM updated) AS next_archived,
 			(SELECT count(*) FROM aud) AS audited,
-			EXISTS (SELECT FROM audit_event e, existing x WHERE e.tenant_id = ${scope.tenantId}::uuid
-				AND e.actor_id = ${scope.accountId}::uuid AND e.action = 'documents.designated' AND e.subject_id = x.id
-				AND e.after_revision::text = x.revision AND e.after_revision = ${expected}::bigint + 1) AS retried`,
+			${action === "designate" ? designationReplay(scope, expected) : sql`false`} AS retried`,
 	);
 	const row = found[0];
 	if (!row?.ok || !row.found || !row.prior_revision) return "deny" as const;

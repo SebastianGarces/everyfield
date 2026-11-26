@@ -20,7 +20,7 @@ const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable(
 
 export const factInputs = z.strictObject({
 	zone: z.string(),
-	phase: z.int().optional(),
+	phase: z.int(),
 	people: z.array(
 		z.strictObject({
 			id: z.uuid(),
@@ -152,7 +152,14 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
 }
 
-const revisionOf = (inputs: FactInputs) => createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
+const revisionOf = (inputs: FactInputs | Omit<FactInputs, "phase">) =>
+	createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
+const withoutPhase = (inputs: FactInputs): Omit<FactInputs, "phase"> =>
+	Object.fromEntries(Object.entries(inputs).filter(([key]) => key !== "phase")) as Omit<FactInputs, "phase">;
+
+export function revisionMatches(inputs: FactInputs, stored: string) {
+	return revisionOf(inputs) === stored || revisionOf(withoutPhase(inputs)) === stored;
+}
 
 export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.PlantFacts {
 	const windowStart = addDays(today, -(c.WINDOW_DAYS - 1));
@@ -472,12 +479,21 @@ const sinceRunRow = factsRow.extend({
 const refusals = defineRefusals(c.factsError);
 const deny: Deny<typeof c.factsError> = refusals.deny;
 
-export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
+async function measureInputs(db: Pick<Database, "execute">, plant: string, at: string | null) {
 	const when = at === null ? sql`statement_timestamp()` : sql`${instant.parse(at)}::timestamptz`;
 	const { rows } = await db.execute(statement(plant, sql`true`, when));
 	const r = factsRow.parse(rows[0]);
 	if (!r.ok || !r.today || !r.at) return null;
-	return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+	return { inputs: factInputs.parse(r.inputs), at: r.at, today: r.today };
+}
+
+export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
+	const m = await measureInputs(db, plant, at);
+	return m && buildFacts(m.inputs, m.at, m.today);
+}
+
+export async function captureInputs(db: Pick<Database, "execute">, plant: string, at: string) {
+	return (await measureInputs(db, plant, at))?.inputs ?? null;
 }
 
 export function createFacts(config: { clock?: Clock } = {}) {
@@ -517,7 +533,7 @@ export function createFacts(config: { clock?: Clock } = {}) {
 				const r = sinceRunRow.parse(rows[0]);
 				const facts = factsOf(r);
 				const { run } = r;
-				const changed = run && revisionOf(factInputs.parse(run.inputs)) !== run.revision;
+				const changed = run && !revisionMatches(factInputs.parse(run.inputs), run.revision);
 				return { facts, outOfDateRunId: changed ? run.id : null };
 			});
 		},
