@@ -257,6 +257,8 @@ flowchart LR
   links -.-> f25s0
   links -.-> f25s1
   f25s1 --> f25s2
+  f25s1 --> f25s3
+  f25s2 --> f25s3
   links -.-> f25s3
   f25s1 --> f25s4
   f25s2 --> f25s4

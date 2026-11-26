@@ -17,12 +17,12 @@
     "brand": "Everyfield",
     "nav": [
       {
-        "label": "Planters",
-        "href": "/"
-      },
-      {
         "label": "Discovery",
         "href": "/discovery"
+      },
+      {
+        "label": "Planters",
+        "href": "/"
       },
       {
         "label": "Churches & Networks",
