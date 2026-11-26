@@ -19,7 +19,7 @@
 				"**Meetings this week** (from Meetings):\n- [Newcomer orientation](/meetings/{MEETING:Newcomer orientation}), Thu, Oct 15, 2026, 6:30 PM CDT\n\n",
 				"**People to follow up with** (from People: the pipeline marks them for inactivity):\n- [Ben Carter](/people/{PERSON:Ben Carter}), no activity for a long while\n- [Chloe Diaz](/people/{PERSON:Chloe Diaz}), no activity for a long while\n- [David Kim](/people/{PERSON:David Kim}), no recent activity\n- [Nina Patel](/people/{PERSON:Nina Patel}), no activity for a long while\n\n",
 				"**Overdue tasks** (from Tasks): you have 1 overdue task. [Open My tasks](/tasks?view=my)",
-				"Not covered yet: I can't read your task list or follow-up obligations, so this isn't everything due this week. Open [Tasks](/tasks) for them."
+				"Not covered: anything kept outside Everyfield, such as your own calendar, inbox or texts, so check those too."
 			],
 			"forbid": [
 				"/spiritual|mature|godly/i",
@@ -38,7 +38,7 @@
 				"**Next steps** (from Overview):",
 				"**People to follow up with** (from People",
 				"I couldn't read this week's meetings (Meetings) just now, so this answer doesn't cover it. Ask again in a moment.",
-				"Not covered yet: I can't read your task list or follow-up obligations"
+				"Not covered: anything kept outside Everyfield"
 			],
 			"forbid": ["/Meetings this week|Newcomer orientation|No meeting is scheduled/"]
 		},
@@ -97,7 +97,7 @@
 				"Overview offers your seat no next steps: an Owner or Admin takes those (from Overview).",
 				"**Meetings this week** (from Meetings):\n- [Newcomer orientation]",
 				"You have no overdue tasks (from Tasks).",
-				"Not covered yet: I can't read your task list or follow-up obligations"
+				"Not covered: anything kept outside Everyfield"
 			],
 			"forbid": [
 				"/spiritual|mature|godly/i",

@@ -114,7 +114,7 @@ type Eval = Checks & {
 		futureCapability?: string;
 		proposalsAll?: { operation: string; targets: string };
 	};
-	targetProbe?: { history: Turn[]; text: string; require: string[] };
+	targetProbe?: Checks & { history: Turn[]; text: string };
 	setup?: {
 		followUp?: string;
 		task?: string;
@@ -726,10 +726,9 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		if (spec.targetProbe) {
 			const probe = await converse(at, as, spec.targetProbe.text, spec.targetProbe.history);
 			row.keys.push(...probe.keys);
-			const checks = spec.targetProbe.require.map((p) => ({
-				name: `after "${spec.targetProbe!.text}", says ${p}`,
-				ok: pattern(p).test(probe.answer),
-				detail: `answer: ${show(probe.answer)}`,
+			const checks = score(spec.targetProbe, probe, { area, given }).map((x) => ({
+				...x,
+				name: `after "${spec.targetProbe!.text}", ${x.name}`,
 			}));
 			row.target = {
 				checks: [...(row.target?.checks ?? []), ...checks],
