@@ -720,6 +720,7 @@ test("INV-tool-schemas: the Evry catalog's model-facing JSON schemas stay within
 		as("sending_church", "owner"),
 		as("sending_network", "owner"),
 		as("account", null),
+		{ ...as("account", null), discovery: true },
 	])
 		for (const [name, tool] of Object.entries(modelTools(actor, idle))) {
 			const schema = (await asSchema(tool.inputSchema as Parameters<typeof asSchema>[0]).jsonSchema) as {

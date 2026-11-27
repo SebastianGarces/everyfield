@@ -38889,6 +38889,7 @@
       "own_operation_ids": [
         "documents.archive",
         "documents.createFromTemplate",
+        "documents.createMineFromTemplate",
         "documents.designateCoreValues",
         "documents.exportNative",
         "documents.generate",
@@ -39127,7 +39128,6 @@
         "wiki.reading.updateProgress"
       ],
       "shared_operation_ids": [
-        "documents.createMineFromTemplate",
         "documents.deleteExport",
         "documents.download",
         "documents.getAuthorized",

@@ -1,7 +1,7 @@
 {
 	"suite": "account",
 	"model": "scripted",
-	"note": "T-659: a person with no church reads, writes, imports and archives their own documents and reads the public Wiki, on the scripted model with the real adapters and approvals. Cases run in this order for one person; each later case sees the earlier approved changes.",
+	"note": "T-659: a person with no church reads, writes, imports and archives their own documents and reads the public Wiki, on the scripted model with the real adapters and approvals. Cases run in this order for one person; each later case sees the earlier approved changes. T-667: a Discovery planter lists, reads and starts a document from the five Discovery templates and fills its blanks, while linked to a sending church that has documents of its own.",
 	"cases": [
 		{
 			"id": "ACC-01",
@@ -95,7 +95,10 @@
 			"criterion": 6,
 			"ask": "make this a document",
 			"operation": "documents.importTextOrWord",
-			"file": { "name": "My call.txt", "text": "I want to serve Austin." },
+			"file": {
+				"name": "My call.txt",
+				"text": "I want to serve Austin."
+			},
 			"calls": [],
 			"answer": ["Nothing is added to Documents until you approve it."],
 			"proposal": {
@@ -151,7 +154,8 @@
 				"Find and read your own documents.",
 				"what the public Wiki says",
 				"your own Discovery space",
-				"Prepare turning your Discovery space into a church for your review, with you as its Owner."
+				"Prepare turning your Discovery space into a church for your review, with you as its Owner.",
+				"Start a document of your own from one of five templates (member expectations, launch team commitment, follow-up letter, bylaws or prayer letter), for your review."
 			],
 			"absent": ["Coming later", "Prepare a private Discovery space", "Prepare starting a new church"]
 		},
@@ -165,6 +169,199 @@
 				"People and other church records open when you start your church."
 			],
 			"absent": ["people in this church", "find Alex"]
+		},
+		{
+			"id": "ACC-16",
+			"criterion": "T-667 1",
+			"ask": "which templates can I start from?",
+			"calls": ["documents.templates.list"],
+			"answer": [
+				"Expectations of a Core Group Member",
+				"Launch Team Commitment",
+				"Vision Meeting Follow-up Letter",
+				"Bylaws",
+				"Prayer Letter",
+				"Bylaws is a formal/legal template.",
+				"not legal advice"
+			],
+			"absent": [
+				"Church Document",
+				"your church's details",
+				"Budget",
+				"Commitment Card",
+				"Guest Sign-In",
+				"email",
+				"Financial Controls",
+				"Sending Church",
+				"SENDING-CHURCH-CANARY"
+			]
+		},
+		{
+			"id": "ACC-17",
+			"criterion": "T-667 2",
+			"ask": "what does the prayer letter template hold?",
+			"calls": ["documents.templates.list", "documents.templates.get"],
+			"answer": [
+				"Sections: A Letter to Those Who Pray for Us · What we are thankful for · How to pray this month.",
+				"Your name, Jo Rivera, is filled in.",
+				"Left blank for you to fill in: Date: ____, [church name], [Name one thing that went well this month.]",
+				"[Name a request for the next step toward Launch Sunday.]"
+			],
+			"absent": ["Sending Church", "SENDING-CHURCH-CANARY", "legal"]
+		},
+		{
+			"id": "ACC-18",
+			"criterion": "T-667 2",
+			"ask": "what is in the bylaws template?",
+			"calls": ["documents.templates.list", "documents.templates.get"],
+			"answer": [
+				"Sections: Name and purpose · Statement of faith · Members · Board · What the board does · How a board member serves · Meetings · Money and accountability · Changes to these bylaws · If the church closes.",
+				"It doesn't fill in your name.",
+				"Left blank for you to fill in: [church name], [Statement of faith], [number].",
+				"It is a formal/legal template and starts with \"Template, not legal advice\"."
+			],
+			"absent": ["Sending Church", "SENDING-CHURCH-CANARY"]
+		},
+		{
+			"id": "ACC-19",
+			"criterion": "T-667 3",
+			"ask": "start a document from the commitment card template",
+			"calls": ["documents.templates.list"],
+			"answer": [
+				"The commitment card template isn't available in Discovery, so I prepared nothing.",
+				"Expectations of a Core Group Member",
+				"Launch Team Commitment",
+				"Vision Meeting Follow-up Letter",
+				"Bylaws",
+				"Prayer Letter"
+			]
+		},
+		{
+			"id": "ACC-20",
+			"criterion": "T-667 3",
+			"ask": "what does the welcome email template hold?",
+			"calls": ["documents.templates.list"],
+			"answer": [
+				"The welcome email template isn't available in Discovery, so I prepared nothing.",
+				"Expectations of a Core Group Member",
+				"Launch Team Commitment",
+				"Vision Meeting Follow-up Letter",
+				"Bylaws",
+				"Prayer Letter"
+			]
+		},
+		{
+			"id": "ACC-21",
+			"criterion": "T-667 3",
+			"ask": "start a document from the Sunrise Vision template",
+			"calls": ["documents.templates.list"],
+			"answer": [
+				"The Sunrise Vision template isn't available in Discovery, so I prepared nothing.",
+				"Expectations of a Core Group Member",
+				"Launch Team Commitment",
+				"Vision Meeting Follow-up Letter",
+				"Bylaws",
+				"Prayer Letter"
+			]
+		},
+		{
+			"id": "ACC-22",
+			"criterion": "T-667 3",
+			"ask": "start a document from our church's own template",
+			"calls": ["documents.templates.list"],
+			"answer": [
+				"The church's own template isn't available in Discovery, so I prepared nothing.",
+				"Expectations of a Core Group Member",
+				"Launch Team Commitment",
+				"Vision Meeting Follow-up Letter",
+				"Bylaws",
+				"Prayer Letter"
+			]
+		},
+		{
+			"id": "ACC-23",
+			"criterion": "T-667 4",
+			"ask": "start a document from the prayer letter template",
+			"calls": ["documents.templates.list"],
+			"answer": ["Nothing is saved until you approve it."],
+			"proposal": {
+				"operation": "documents.createMineFromTemplate",
+				"target": "Prayer Letter",
+				"changes": [
+					["template", null, "Prayer Letter"],
+					["title", null, "Prayer Letter"]
+				]
+			},
+			"cancel": true
+		},
+		{
+			"id": "ACC-24",
+			"criterion": "T-667 4",
+			"ask": "start a document from the bylaws template",
+			"calls": ["documents.templates.list"],
+			"answer": ["Nothing is saved until you approve it."],
+			"proposal": {
+				"operation": "documents.createMineFromTemplate",
+				"target": "Bylaws",
+				"changes": [
+					["template", null, "Bylaws"],
+					["title", null, "Bylaws"],
+					["notice", null, "Template, not legal advice"]
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "ACC-25",
+			"criterion": "T-667 6",
+			"ask": "in my Bylaws document, put Grace Austin as the church name",
+			"calls": ["documents.listOwned", "documents.read"],
+			"proposal": {
+				"operation": "documents.saveNative",
+				"target": "Bylaws",
+				"changes": [
+					[
+						"text",
+						"These bylaws say how [church name], a church plant, is governed. Read each article with your board and a lawyer in your state. Then change the words to fit your church plant.",
+						"These bylaws say how Grace Austin, a church plant, is governed. Read each article with your board and a lawyer in your state. Then change the words to fit your church plant."
+					],
+					[
+						"text",
+						"The name of this church is [church name]. It exists to gather people for worship, to help them grow together and to serve its neighbors.",
+						"The name of this church is Grace Austin. It exists to gather people for worship, to help them grow together and to serve its neighbors."
+					],
+					[
+						"text",
+						"A board leads [church name]. It has no fewer than three members. Change this number if your state sets a different minimum.",
+						"A board leads Grace Austin. It has no fewer than three members. Change this number if your state sets a different minimum."
+					],
+					[
+						"text",
+						"The members of [church name] meet once each year. The board may call a special meeting when it needs one.",
+						"The members of Grace Austin meet once each year. The board may call a special meeting when it needs one."
+					],
+					[
+						"text",
+						"If [church name] closes, the board pays its debts. It gives what remains to a tax-exempt organization that shares its purpose. No board member or member receives any of it.",
+						"If Grace Austin closes, the board pays its debts. It gives what remains to a tax-exempt organization that shares its purpose. No board member or member receives any of it."
+					],
+					[
+						"text",
+						"The board of [church name] adopted these bylaws. Each board member signs and dates below.",
+						"The board of Grace Austin adopted these bylaws. Each board member signs and dates below."
+					]
+				]
+			},
+			"approve": true,
+			"answer": ["Nothing is saved until you approve it."]
+		},
+		{
+			"id": "ACC-26",
+			"criterion": "T-667 6",
+			"ask": "fill in the blanks in my Bylaws document",
+			"calls": ["documents.listOwned", "documents.read"],
+			"answer": ["[Statement of faith]", "[number]", "I won't fill one in without your value."],
+			"absent": ["[church name]"]
 		}
 	]
 }

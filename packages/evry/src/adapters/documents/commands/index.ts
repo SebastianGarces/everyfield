@@ -2,7 +2,13 @@ import type { WriteTx } from "@everyfield/domain/access";
 import { sql, type SQL } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import { liveRead, RequestActor } from "@everyfield/domain/access";
-import { docTemplateSummaries, templateFill, type TemplateFill } from "@everyfield/domain/documents/fill";
+import {
+	DISCOVERY_TEMPLATE_IDS,
+	discoveryTemplate,
+	docTemplateSummaries,
+	templateFill,
+	type TemplateFill,
+} from "@everyfield/domain/documents/fill";
 import {
 	docDocument,
 	LEGAL_NOTICE,
@@ -20,7 +26,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { attachedFile, extensionOf, stagedBytes } from "../../../attachments/store.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { accountContext, plantSeat, rowId } from "../../native.ts";
+import { accountContext, discoveryPlanter, plantSeat, rowId } from "../../native.ts";
 import { applyEdits, draftBody, fieldText, plainField, shownText, type Passage } from "../draft.ts";
 import { FIELD_SOURCE, FILE_FORMAT, fillInput, fillRefusal, fillRequest, type FillInput } from "../fill.ts";
 
@@ -114,6 +120,42 @@ export const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 			templateId: saved.input.templateId,
 			requestKey: effectKey,
 		});
+		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
+	},
+};
+
+const ownTemplateInput = z.strictObject({
+	templateId: z.enum(DISCOVERY_TEMPLATE_IDS).describe("A template id from documents.templates.list"),
+});
+const ownTemplateArgs = z.strictObject({ input: ownTemplateInput });
+export const createMineFromTemplate: ReviewedWrite<z.infer<typeof ownTemplateInput>> = {
+	operation: "documents.createMineFromTemplate",
+	description:
+		"Propose making a new private document of the user's own from one of the Discovery templates in documents.templates.list, the same document their Documents page makes: their own name filled in where the template takes it, every church field, such as the church name, left as a blank to fill in. The review names the template and the new document's title. Say the template is not legal advice. Nothing is saved until the user approves the exact review. To fill a blank afterwards, read the document and propose documents.saveNative kind edit with only the value the user gave; when they gave none for a blank, ask for it and never make one up.",
+	input: ownTemplateInput,
+	allowed: discoveryPlanter,
+	async review(actor, value) {
+		const template = discoveryTemplate(value.templateId);
+		if (!template) return null;
+		const changes = [
+			{ field: "template", before: null, after: template.title },
+			{ field: "title", before: null, after: template.title },
+			...(template.class === "formal/legal" ? [{ field: "notice", before: null, after: LEGAL_NOTICE }] : []),
+		];
+		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','template','id',${template.id}::text,'label',${template.title}::text),
+				'changes',${JSON.stringify(changes)}::jsonb)${privateReview(actor)} AS review,
+			${JSON.stringify({ input: value })}::jsonb AS args
+			FROM account a WHERE a.id=${actor.accountId}::uuid
+				AND ${liveRead({ session: actor.session, owner: actor.owner })}
+				AND EXISTS(SELECT FROM discovery x WHERE x.account_id=a.id AND x.converted_at IS NULL)`;
+	},
+	async execute(tx, context, args, effectKey) {
+		const saved = ownTemplateArgs.parse(args).input;
+		const authority = await authorityIn(tx, context);
+		if (!authority) return { refused: "access_denied" };
+		const reply = await (
+			await writer()
+		).createMineFromTemplate(tx, authority, { templateId: saved.templateId, requestKey: effectKey });
 		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
 	},
 };
@@ -527,6 +569,7 @@ export const DOCUMENTS_COMMANDS = {
 	"documents.saveNative": saveNative,
 	"documents.generate": generate,
 	"documents.createFromTemplate": createFromTemplate,
+	"documents.createMineFromTemplate": createMineFromTemplate,
 	"documents.exportNative": exportNative,
 	"documents.archive": archive,
 	"documents.designateCoreValues": designateCoreValues,

@@ -2,7 +2,9 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { stageAttachment } from "../../../packages/evry/src/index.ts";
+import { cancelProposal, stageAttachment } from "../../../packages/evry/src/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { seedDocument } from "../adapters/documents/seed.mts";
 import { seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
@@ -18,6 +20,7 @@ type Case = {
 	absent?: string[];
 	proposal?: { operation: string; target: string | null; changes: [string, unknown, unknown][] };
 	approve?: true;
+	cancel?: true;
 };
 const { cases } = JSON.parse(readFileSync(new URL("./account.cases.json", import.meta.url), "utf8")) as {
 	cases: Case[];
@@ -34,9 +37,44 @@ before(async () => {
 after(() => w?.close());
 
 test("INV-evry-account: every case of a person with no church passes on the scripted model: the card shows what is saved and nothing is written before approval", async () => {
-	const a = await w.actor(null, "owner", { account: { registration_kind: "discovery" } });
-	await w.admin.execute(sql`INSERT INTO discovery(account_id) VALUES(${a.id})`);
+	const discovery = async () => {
+		const who = await w.actor(null, "owner", {
+			account: { registration_kind: "discovery" },
+			user: { name: "Jo Rivera" },
+		});
+		await w.admin.execute(sql`INSERT INTO discovery(account_id) VALUES(${who.id})`);
+		return who;
+	};
+	const a = await discovery();
 	await seedDocument(w.admin, a.id, "native", "My Discovery", "My Discovery values.");
+	const sending = await w.organization("sending_church");
+	await w.admin
+		.execute(sql`INSERT INTO affiliation(account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${a.id},${sending.id},clock_timestamp(),false,false,false,false,false,false,false)`);
+	const home = await w.plant({ name: "Sending Church" });
+	await w.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${home.id},${sending.id},clock_timestamp(),false,false,false,false,false,false,false)`);
+	const covenant = await seedDocument(w.admin, home.id, "church_document", "Sending Church Covenant", null);
+	await seedDocument(w.admin, home.id, "native", "Sending Church Budget Notes", "SENDING-CHURCH-CANARY");
+	const director = await w.authorityOf(await w.seated(home, "owner"));
+	const template = await documentsWriter.saveChurchTemplate(w.db, director, {
+		documentId: covenant.id,
+		revision: 1,
+		name: "Sending Church Template",
+		requestKey: randomUUID(),
+	});
+	assert.equal(template.status, "ok");
+	const mirror = await discovery();
+	const madeByDocuments = async (templateId: string) => {
+		const authority = await RequestActor.resolve(w.db, mirror.session);
+		assert.ok(authority instanceof RequestActor);
+		const made = await documentsWriter.createMineFromTemplate(w.db, authority, {
+			templateId,
+			requestKey: randomUUID(),
+		});
+		assert.equal(made.status, "ok");
+		return made.status === "ok" ? JSON.stringify(made.value.body) : null;
+	};
 	const documents = () =>
 		w.rows(sql`SELECT d.id,d.title,d.revision::text AS revision,d.archived_at IS NOT NULL AS archived,r.body
 			FROM document d JOIN document_revision r ON r.id=d.current_revision_id WHERE d.tenant_id=${a.id} ORDER BY d.id`);
@@ -83,13 +121,26 @@ test("INV-evry-account: every case of a person with no church passes on the scri
 			`${c.id} ${turn.text}`,
 		);
 		const [proposal] = turn.proposals;
+		if (c.cancel && proposal) {
+			await cancelProposal(w.db, await w.actorOf(a), proposal.id);
+			assert.deepEqual(await documents(), held, `${c.id} cancelled saves nothing`);
+		}
 		if (!c.approve || !proposal) continue;
-		assert.equal((await w.approve(a, proposal)).review.outcome, "completed", c.id);
-		assert.notDeepEqual(await documents(), held, `${c.id} saves what was approved`);
+		const approved = await w.approve(a, proposal);
+		assert.equal(approved.review.outcome, "completed", c.id);
+		const now = (await documents()) as { id: string; body: string }[];
+		assert.notDeepEqual(now, held, `${c.id} saves what was approved`);
+		if (proposal.operation !== "documents.createMineFromTemplate") continue;
+		const made = now.filter((d) => !(held as { id: string }[]).some((h) => h.id === d.id));
+		assert.equal(made.length, 1, `${c.id} makes exactly one document`);
+		const input = proposal.review.target?.id ?? assert.fail("a template");
+		assert.equal(made[0]!.body, await madeByDocuments(input), `${c.id} makes what Documents makes`);
 	}
 	const saved = (await documents()) as { title: string; body: string; archived: boolean }[];
 	const of = (title: string) => saved.find((d) => d.title === title)!;
-	assert.equal(saved.length, 3);
+	assert.equal(saved.length, 4);
+	assert.ok(of("Bylaws").body.includes("Grace Austin"));
+	assert.equal(of("Bylaws").body.includes("[church name]"), false);
 	assert.deepEqual(
 		[of("My Discovery").archived, of("My Discovery").body.includes("My Discovery hopes.")],
 		[true, true],

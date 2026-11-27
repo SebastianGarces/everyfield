@@ -2,9 +2,15 @@ import type { Transaction } from "@everyfield/db/client";
 import { privateStorage } from "@everyfield/db/schema";
 import { sql } from "@everyfield/db/query";
 import { liveRead, type WriteTx } from "@everyfield/domain/access";
-import { docTemplateSummaries } from "@everyfield/domain/documents/fill";
+import {
+	DISCOVERY_TEMPLATE_IDS,
+	discoveryTemplate,
+	docTemplateSummaries,
+	ownTemplateBody,
+} from "@everyfield/domain/documents/fill";
 import {
 	docDocument,
+	type DocTemplate,
 	LEGAL_NOTICE,
 	nativeText,
 	readNative,
@@ -16,10 +22,12 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { FIELD_SOURCE, FILE_FORMAT, fillInput, fillRefusal, fillRequest, type FillInput } from "../fill.ts";
-import { accountContext, rowId } from "../../native.ts";
+import { accountContext, discoveryPlanter, rowId } from "../../native.ts";
+import { EvryRefusal } from "../../../context/errors.ts";
 import { documentText } from "./text.ts";
 
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
+const templateReader = (actor: EvryActor) => inPlant(actor) || discoveryPlanter(actor);
 const reader = (actor: EvryActor) => inPlant(actor) || accountContext(actor);
 const ownFacts = (actor: EvryActor) => (accountContext(actor) ? { facts: { own: true } } : {});
 const live = (actor: EvryActor) =>
@@ -201,6 +209,67 @@ export const coreValues: ReadAdapter<Record<string, never>> = {
 	},
 };
 
+const OWN_TEMPLATES = DISCOVERY_TEMPLATE_IDS.length;
+const NOT_IN_DISCOVERY = [
+	"fixed-layout, budget and email templates",
+	"church templates",
+	"any template not listed here (none of them is available in Discovery)",
+];
+const ownTemplates = () =>
+	DISCOVERY_TEMPLATE_IDS.flatMap((id) => {
+		const t = discoveryTemplate(id);
+		return t ? [t] : [];
+	});
+const ownTemplateRow = (t: DocTemplate, extra: SourceRow["fields"] = {}): SourceRow => ({
+	kind: "template",
+	id: t.id,
+	label: t.title,
+	fields: {
+		about: t.description ?? t.title,
+		class: t.class,
+		notice: t.class === "formal/legal" ? LEGAL_NOTICE : null,
+		...extra,
+	},
+});
+
+async function planterName(tx: Pick<Transaction, "execute">, actor: EvryActor) {
+	const found = await tx.execute(sql`SELECT n.display_name AS name FROM seat_identity(${actor.accountId}::uuid) n
+		WHERE ${live(actor)} AND EXISTS(SELECT FROM discovery x WHERE x.account_id=${actor.accountId}::uuid AND x.converted_at IS NULL)`);
+	const row = z.strictObject({ name: z.string().nullable() }).safeParse(found.rows[0]);
+	if (!row.success) throw new EvryRefusal("access_denied");
+	return row.data.name;
+}
+
+const BLANK = /\[[^\]\n]+\]|^[^\n:]{1,40}: _{4,}/gm;
+const words = (nodes: readonly { type: string; text?: string }[] | undefined) =>
+	(nodes ?? []).map((n) => n.text ?? "").join("");
+
+function ownTemplate(name: string | null, templateId: string): SourceResult {
+	const template = discoveryTemplate(templateId);
+	if (!template)
+		return reply("documents.templates.get", { rows: [], exclusions: NOT_IN_DISCOVERY, facts: { own: true } });
+	const body = ownTemplateBody(template, name);
+	const named = name !== null && nativeText(ownTemplateBody(template, null)).includes("[pastor name]");
+	const sections = (body.content ?? [])
+		.flatMap((node) => (node.type === "heading" ? [words(node.content)] : []))
+		.filter((heading) => heading && heading !== template.title);
+	const blanks = [...new Set((nativeText(body).match(BLANK) ?? []).map((b) => b.replace(/_{4,}$/, "____")))];
+	return reply("documents.templates.get", {
+		rows: [
+			ownTemplateRow(template, { sections: sections.join(" · "), yourName: named ? name : null }),
+			...blanks.map((blank, i): SourceRow => ({
+				kind: "item",
+				id: `blank-${i + 1}`,
+				label: blank,
+				fields: { blank: true, filledBy: "the user" },
+			})),
+		],
+		total: 1,
+		exclusions: ["the template's full text (start a document from it to read and edit it)"],
+		facts: { own: true },
+	});
+}
+
 const templatesInput = z.strictObject({
 	title: z.string().trim().min(1).max(200).optional().describe("Words from the template's title, like policy"),
 });
@@ -208,9 +277,18 @@ export const templatesList: ReadAdapter<z.infer<typeof templatesInput>> = {
 	operation: "documents.templates.list",
 	description:
 		"List the built-in templates a new Church Document can be made from: each id, title, version, what it is for and whether it is a formal or legal template. A template is starting text the church edits; it is not legal advice. A policy or legal document always comes from a template, never from text Evry writes.",
+	account: {
+		description: `List the ${OWN_TEMPLATES} templates a private document of the user's own can start from in Discovery: each id, title, what it is for and whether it is a formal or legal template. Only these templates are available in Discovery: for any other, such as a fixed-layout, budget or email template, a church's own template or one not listed, say it isn't available in Discovery, name these, and prepare nothing. A template is starting text the user edits; it is not legal advice.`,
+		input: z.strictObject({}),
+	},
 	input: templatesInput,
-	allowed: inPlant,
+	allowed: templateReader,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
+		if (accountContext(actor)) {
+			await planterName(tx, actor);
+			const rows = ownTemplates().map((t) => ownTemplateRow(t));
+			return reply("documents.templates.list", { rows, exclusions: NOT_IN_DISCOVERY });
+		}
 		const r = await tx.execute(sql`SELECT ${live(actor)} AS ok`);
 		const open = (r.rows[0] as { ok?: unknown } | undefined)?.ok === true;
 		const words = input.title?.toLowerCase().split(/\s+/) ?? [];
@@ -298,9 +376,17 @@ export const templatesGet: ReadAdapter<z.infer<typeof templateInput>> = {
 	operation: "documents.templates.get",
 	description:
 		"Show one library template: what it is for, its formats, its outline and each field it fills, with which are required and which the church's details fill",
+	account: {
+		description:
+			"Show what one Discovery template holds: what it is for, its sections, whether the user's own name is filled in, and each blank left for the user to fill in, such as the church name. Answer only from this result. Not found means the template isn't available in Discovery: say so and name the templates documents.templates.list returns.",
+		input: z.strictObject({
+			templateId: z.string().trim().min(1).max(80).describe("A template id from documents.templates.list"),
+		}),
+	},
 	input: templateInput,
-	allowed: inPlant,
+	allowed: templateReader,
 	async invoke(tx, actor, input): Promise<SourceResult> {
+		if (accountContext(actor)) return ownTemplate(await planterName(tx, actor), input.templateId);
 		actor.authority.observe(tx);
 		const found = await (await library())["templates.get"](tx, actor.authority, input);
 		if (found.status !== "ok") return reply("documents.templates.get", { rows: [] });

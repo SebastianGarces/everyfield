@@ -110,7 +110,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 3 | 0 | 1.5 |
 | WP-078 | Evry wiki draft/propose/execute adapters | 0 | 9 | 0 | 0 | 1.5 |
 | WP-079 | Evry documents reads/helper adapters | 2 | 14 | 7 | 0 | 1.5 |
-| WP-080 | Evry documents draft/propose/execute adapters | 0 | 12 | 4 | 0 | 1.5 |
+| WP-080 | Evry documents draft/propose/execute adapters | 0 | 13 | 4 | 0 | 1.5 |
 | WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
 | WP-082 | Evry notifications draft/propose/execute adapters | 2 | 26 | 3 | 0 | 1.5 |
 | WP-083 | Evry platform reads/helper adapters | 0 | 39 | 0 | 0 | 2 |

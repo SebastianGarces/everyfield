@@ -7270,6 +7270,7 @@
         "DOC-013",
         "DOC-014",
         "DOC-016",
+        "DOC-022",
         "EVR-001",
         "EVR-003",
         "EVR-005",
@@ -7327,6 +7328,7 @@
         "AC-DOC-013--DOC-013",
         "AC-DOC-014--DOC-014",
         "AC-DOC-016--DOC-016",
+        "AC-DOC-022--DOC-022",
         "AC-EVR-001--EVR-001",
         "AC-EVR-003--EVR-003",
         "AC-EVR-005--EVR-005",
@@ -7412,6 +7414,7 @@
         "discovery.create",
         "discovery.getProfile",
         "documents.archive",
+        "documents.createMineFromTemplate",
         "documents.designateCoreValues",
         "documents.download",
         "documents.generate",
@@ -7497,7 +7500,7 @@
       "run_by": [
         "tests/evry/adapters/documents/account.test.mts"
       ],
-      "description": "Discovery A has no seat, a self-owned native document D, an unsaved Word import H and one currently public global Wiki article W. B owns private document E; plant P and organization O have no grant to A. Conversation C belongs to A in account context.",
+      "description": "Discovery A has no seat, a self-owned native document D, an unsaved Word import H and one currently public global Wiki article W. B owns private document E; plant P and organization O have no grant to A. Conversation C belongs to A in account context. As a Discovery planter, A also lists the five Discovery templates, reads what one holds and starts a private document from one only on approval; another seatless account is offered no template tool.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7642,6 +7645,7 @@
             "discovery.create",
             "discovery.getProfile",
             "documents.archive",
+            "documents.createMineFromTemplate",
             "documents.designateCoreValues",
             "documents.download",
             "documents.generate",
@@ -7786,6 +7790,7 @@
                 "discovery.create",
                 "discovery.getProfile",
                 "documents.archive",
+                "documents.createMineFromTemplate",
                 "documents.designateCoreValues",
                 "documents.download",
                 "documents.generate",
@@ -7915,6 +7920,7 @@
                 "discovery.create",
                 "discovery.getProfile",
                 "documents.archive",
+                "documents.createMineFromTemplate",
                 "documents.designateCoreValues",
                 "documents.download",
                 "documents.generate",
