@@ -147,7 +147,7 @@ agent-browser find role link text --name "Talk to us about your network" --exact
 
 ### app.discovery-page
 
-The public page for planters still discerning a call: Discovery is always free, a six-tab tour of sample Discovery screens (Wiki, Documents, Templates, Tasks, Evry, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.
+The public page for planters still discerning a call: Discovery is always free, a five-tab tour of sample Discovery screens (Wiki, Documents, Templates, Tasks, When you're ready, plus Evry before When you're ready once production Evry is on), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.
 
 - Routes: `/discovery`
 - Personas: `visitor` read

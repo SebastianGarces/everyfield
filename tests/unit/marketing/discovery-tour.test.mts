@@ -25,7 +25,7 @@ Object.assign(document, {
 
 const { Tour } = await import("../../../apps/web/src/marketing/discovery/Tour.tsx");
 
-const TABS = ["Wiki", "Documents", "Templates", "When you're ready"].map((label) => ({
+const TABS = ["Wiki", "Documents", "Templates", "Tasks", "When you're ready"].map((label) => ({
 	id: label.split(" ")[0]!.toLowerCase(),
 	label,
 	line: `${label} line`,
@@ -70,11 +70,11 @@ async function tour() {
 	};
 }
 
-test("with no interaction the tour walks Wiki, Documents, Templates, When you're ready every 7 s and loops", async () => {
+test("with no interaction the tour walks Wiki, Documents, Templates, Tasks, When you're ready every 7 s and loops", async () => {
 	reduced = false;
 	const t = await tour();
 	const seen = [t.label()];
-	for (let i = 0; i < 8; i++) {
+	for (let i = 0; i < 2 * TABS.length; i++) {
 		assert.match(t.lineClass(), /animate-mk-tab-fill\b(?!-)/);
 		assert.doesNotMatch(t.lineClass(), /animate-mk-tab-fill-picked/);
 		await t.timeRunsOut();
@@ -90,8 +90,8 @@ test("with no interaction the tour walks Wiki, Documents, Templates, When you're
 test("a clicked or keyed tab is shown at once with a 15 s line, then the walk resumes at 7 s", async () => {
 	reduced = false;
 	const t = await tour();
-	await t.click("Templates");
-	assert.equal(t.label(), "Templates");
+	await t.click("Tasks");
+	assert.equal(t.label(), "Tasks");
 	assert.match(t.lineClass(), /animate-mk-tab-fill-picked/);
 	await t.timeRunsOut();
 	assert.equal(t.label(), "When you're ready");
@@ -128,7 +128,7 @@ test("keyboard focus inside the tour holds the walk until focus leaves; mouse fo
 	await t.focus(false);
 	assert.equal(t.held(), false);
 	await t.timeRunsOut();
-	assert.equal(t.label(), "When you're ready");
+	assert.equal(t.label(), "Tasks");
 	await t.page.unmount();
 });
 

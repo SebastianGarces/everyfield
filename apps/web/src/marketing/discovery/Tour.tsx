@@ -1,7 +1,7 @@
 "use client";
 
 import { cn, useDocumentHidden, useReducedMotion } from "@everyfield/ui/foundations";
-import { useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 
 type Tab = { id: string; label: string; line: string; icon: ReactNode };
 
@@ -64,7 +64,8 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 			<div
 				role="tablist"
 				aria-label={label}
-				className="grid grid-cols-6 bg-white shadow-[var(--ui-ring),0_0_0_1px_var(--color-mk-line)] max-mk-cx:grid-cols-2"
+				style={{ "--tabs": tabs.length } as CSSProperties}
+				className="grid grid-cols-[repeat(var(--tabs),minmax(0,1fr))] bg-white shadow-[var(--ui-ring),0_0_0_1px_var(--color-mk-line)] max-mk-cx:grid-cols-2"
 			>
 				{tabs.map((t, i) => {
 					const on = i === current;
