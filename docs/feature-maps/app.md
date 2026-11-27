@@ -179,14 +179,14 @@ agent-browser wait --load networkidle
 
 States:
 
-- **visitor**: heading "Still discerning a call to plant? Start here, free."; tab "Wiki"; link "Start exploring free". As `visitor`, on the QA seed:
+- **visitor**: heading "Still discerning a call to plant? Start here, free."; tab "Wiki"; link "Request free access". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/discovery"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Still discerning a call to plant? Start here, free." --exact
 agent-browser find role tab text --name "Wiki" --exact
-agent-browser find role link text --name "Start exploring free" --exact
+agent-browser find role link text --name "Request free access" --exact
 ```
 
 ### app.access-request
