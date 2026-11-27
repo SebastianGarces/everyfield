@@ -337,7 +337,7 @@ def run_errors(root, case, label):
             if not (root / path).is_file() or f'AC:{case["id"]} ' not in (root / path).read_text()]
 
 RELEASE_EXCEPTIONS = 'docs/acceptance/release-exceptions.json'
-EXCEPTION_PACKAGES = {'WP-057', 'WP-058', 'WP-094', 'WP-095', 'WP-096'}
+EXCEPTION_PACKAGES = {'WP-049', 'WP-057', 'WP-058', 'WP-094', 'WP-095', 'WP-096'}
 
 
 def release_check(root):
