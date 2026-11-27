@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-const phase = z.int().min(1).nullable();
+const journeyPhase = z.int().min(0).max(6);
+const phase = journeyPhase.nullable();
 export const methodologyCandidates = z.object({
-	phase: z.int().min(1),
+	phase: journeyPhase,
 	dense_candidates: z.array(z.object({ passage: z.string().min(1), phase })),
 	sparse_candidates: z.array(z.object({ passage: z.string().min(1), phase, fts_rank: z.int().min(1) })),
 	candidate_source: z.literal("activated-global-generation"),
@@ -32,4 +33,13 @@ export function pickMethodologyCandidates(input: MethodologyCandidates): PickedC
 		source: given.candidate_source,
 		ended_org_body: null,
 	};
+}
+
+const FUSION_K = 60;
+
+export function fuseCandidates(picked: PickedCandidates): string[] {
+	const score = new Map<string, number>();
+	for (const ids of [picked.dense_ids, picked.sparse_ids])
+		ids.forEach((id, at) => score.set(id, (score.get(id) ?? 0) + 1 / (FUSION_K + at + 1)));
+	return [...score.keys()].sort((a, b) => (score.get(b) ?? 0) - (score.get(a) ?? 0));
 }

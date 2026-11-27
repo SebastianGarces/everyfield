@@ -2,6 +2,7 @@ import type { Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
+import { wikiQueryEmbedder, type WikiQueryEmbedder } from "@everyfield/reference/wiki-embedding";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -21,7 +22,7 @@ import {
 	type DraftProgress,
 } from "./assessment.ts";
 import { captureFacts } from "./facts.ts";
-import { retrieveMethodology, type Retrieved } from "./retrieval.ts";
+import { embedTopics, retrieveMethodology, type Meanings, type Retrieved } from "./retrieval.ts";
 
 export const ASSESSMENT_TIMING = {
 	staleDays: 7,
@@ -72,7 +73,8 @@ const progressOf = (run: NonNullable<Claim["run"]>): DraftProgress => ({
 const counters = (p: DraftProgress) => sql`drafts=${json(p.drafts)},attempts=${p.usage.attempts},
 	input_tokens=${p.usage.inputTokens},output_tokens=${p.usage.outputTokens},pending_attempts=${p.pendingAttempts}`;
 
-export function createAssessmentJob(config: { clock?: Clock } = {}) {
+export function createAssessmentJob(config: { clock?: Clock; embedder?: WikiQueryEmbedder | null } = {}) {
+	const embedder = config.embedder === undefined ? wikiQueryEmbedder(process.env) : config.embedder;
 	const nowMs = () => (config.clock ? Date.parse(config.clock.now()) : Date.now());
 	const now = () => (config.clock ? sql`${config.clock.now()}::timestamptz` : sql`clock_timestamp()`);
 	const later = (ms: number) =>
@@ -116,12 +118,16 @@ FROM up`);
 ${finish(state, code)} SELECT 1`);
 	}
 
-	async function capture(db: Database, j: Claim, model: string): Promise<Run | "none"> {
+	async function capture(db: Database, j: Claim, model: string, meanings: Meanings | null): Promise<Run | "none"> {
 		const runId = randomUUID();
 		const demand = demandOf(j.key);
 		return db.transaction(
 			async (tx) => {
-				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
+				await tx.execute(
+					meanings
+						? sql`SELECT set_config('lock_timeout','1s',true), set_config('hnsw.iterative_scan','relaxed_order',true)`
+						: sql`SELECT set_config('lock_timeout','1s',true)`,
+				);
 				const f = await captureFacts(tx, j.plant, config.clock ? config.clock.now() : null);
 				if (!f) {
 					await close(tx, j, "cancelled", "plant_removed");
@@ -129,7 +135,7 @@ ${finish(state, code)} SELECT 1`);
 				}
 				let retrieved: Retrieved;
 				try {
-					retrieved = await tx.transaction((t) => retrieveMethodology(t, j.plant));
+					retrieved = await tx.transaction((t) => retrieveMethodology(t, j.plant, meanings));
 				} catch (error) {
 					const code = pgCode(error);
 					if (code !== "55P03" && code !== "57014") throw error;
@@ -186,9 +192,10 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 		);
 	}
 	async function captureAgain(db: Database, j: Claim, model: string) {
+		const meanings = await embedTopics(db, embedder);
 		for (let tries = 1; ; tries++)
 			try {
-				return await capture(db, j, model);
+				return await capture(db, j, model, meanings);
 			} catch (error) {
 				if (tries === CAPTURE_TRIES || pgCode(error) !== "40001") throw error;
 			}
