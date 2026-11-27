@@ -52,7 +52,8 @@ test("INV-evry-account: every case of a person with no church passes on the scri
 		.execute(sql`INSERT INTO affiliation(account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${a.id},${sending.id},clock_timestamp(),false,false,false,false,false,false,false)`);
 	const home = await w.plant({ name: "Sending Church" });
-	await w.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+	await w.admin
+		.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${home.id},${sending.id},clock_timestamp(),false,false,false,false,false,false,false)`);
 	const covenant = await seedDocument(w.admin, home.id, "church_document", "Sending Church Covenant", null);
 	await seedDocument(w.admin, home.id, "native", "Sending Church Budget Notes", "SENDING-CHURCH-CANARY");
