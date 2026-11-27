@@ -110,11 +110,7 @@ const probeRow = z.object({
 });
 
 function denseSkipped(reason: string): null {
-	try {
-		logLine({ component: "intelligence", outcome: "dense-skipped", reason: asLogWord(reason) });
-	} catch {
-		return null;
-	}
+	logLine({ component: "intelligence", outcome: "dense-skipped", reason: asLogWord(reason) });
 	return null;
 }
 
@@ -222,7 +218,7 @@ export async function retrieveMethodology(
 		const fused = fuseCandidates(
 			pickMethodologyCandidates({
 				phase: phaseNow,
-				dense_candidates: leg("dense").map(({ passage, phase }) => ({ passage, phase })),
+				dense_candidates: leg("dense"),
 				sparse_candidates: leg("sparse"),
 				candidate_source: "activated-global-generation",
 				ended_org_body: null,
