@@ -136,23 +136,27 @@ export async function embedTopics(db: Database, embedder: WikiQueryEmbedder | nu
 		embedder.dimensions !== DIMENSIONS
 	)
 		return denseSkipped("profile_mismatch");
-	let spent = probe.spent;
+	let used = 0;
+	let skipped: string | null = null;
 	const meanings: Partial<Meanings> = {};
 	for (const topic of TOPICS) {
-		if (spent >= tokensFor(DAILY_QUERY_CAP_USD)) return denseSkipped("daily_limit");
-		let embedded: Awaited<ReturnType<WikiQueryEmbedder["embed"]>>;
-		try {
-			embedded = await embedder.embed(MEANINGS[topic]);
-		} catch (error) {
-			if (!(error instanceof EmbeddingRefusal)) return denseSkipped("embedding_failed");
-			await recordSpend(db, "query", error.usageTokens);
-			return denseSkipped(error.code);
+		if (probe.spent + used >= tokensFor(DAILY_QUERY_CAP_USD)) {
+			skipped = "daily_limit";
+			break;
 		}
-		await recordSpend(db, "query", embedded.tokens);
-		spent += embedded.tokens;
-		meanings[topic] = `[${embedded.vector.join(",")}]`;
+		try {
+			const embedded = await embedder.embed(MEANINGS[topic]);
+			used += embedded.tokens;
+			meanings[topic] = `[${embedded.vector.join(",")}]`;
+		} catch (error) {
+			const refused = error instanceof EmbeddingRefusal;
+			used += refused ? error.usageTokens : 0;
+			skipped = refused ? error.code : "embedding_failed";
+			break;
+		}
 	}
-	return meanings as Meanings;
+	await recordSpend(db, "query", used);
+	return skipped ? denseSkipped(skipped) : (meanings as Meanings);
 }
 
 function denseSql(meanings: Meanings | null) {
@@ -181,7 +185,6 @@ export async function retrieveMethodology(
 ): Promise<Retrieved> {
 	const owner = { kind: "plant" as const, id: tenantId.parse(plant) };
 	const access = { job: "assessment" as const, owner };
-	if (meanings) await db.execute(sql`SELECT set_config('hnsw.iterative_scan','relaxed_order',true)`);
 	const { rows } = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })},
 	ph AS (SELECT pl.phase FROM plant pl WHERE pl.id=${owner.id}::uuid AND EXISTS(SELECT FROM me)),
 	act AS (SELECT a.activation_number, r.release_key FROM reference_activation a

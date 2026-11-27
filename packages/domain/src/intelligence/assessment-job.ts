@@ -123,7 +123,11 @@ ${finish(state, code)} SELECT 1`);
 		const demand = demandOf(j.key);
 		return db.transaction(
 			async (tx) => {
-				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
+				await tx.execute(
+					meanings
+						? sql`SELECT set_config('lock_timeout','1s',true), set_config('hnsw.iterative_scan','relaxed_order',true)`
+						: sql`SELECT set_config('lock_timeout','1s',true)`,
+				);
 				const f = await captureFacts(tx, j.plant, config.clock ? config.clock.now() : null);
 				if (!f) {
 					await close(tx, j, "cancelled", "plant_removed");
