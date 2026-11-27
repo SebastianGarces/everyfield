@@ -13,6 +13,12 @@ export type QualifiedModel =
 
 const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5, longContextAbove: 272_000 } };
 const DEFAULT_CAP_USD = 20;
+const DEFAULT_DISCOVERY_DAILY_QUESTIONS = 30;
+
+export function discoveryDailyQuestions(env: Record<string, string | undefined> = process.env) {
+	const limit = Number(env.EVRY_DISCOVERY_DAILY_QUESTIONS || DEFAULT_DISCOVERY_DAILY_QUESTIONS);
+	return Number.isSafeInteger(limit) && limit >= 0 ? limit : DEFAULT_DISCOVERY_DAILY_QUESTIONS;
+}
 
 export function selectQualifiedModel(env: Record<string, string | undefined> = process.env): QualifiedModel {
 	const paid = paidModel(env);

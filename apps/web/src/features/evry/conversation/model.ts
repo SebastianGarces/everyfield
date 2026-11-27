@@ -34,6 +34,7 @@ type ErrorCode =
 	| "not_assigned"
 	| "assignee_ineligible"
 	| "owner_ineligible"
+	| "question_limit"
 	| "unknown";
 
 export type ProjectedError = {
@@ -396,6 +397,8 @@ function startNotice(code: ErrorCode | undefined, churchName: string | null): st
 			return `${NOT_AVAILABLE}, so nothing was saved. Your message is still here.`;
 		case "model_paused":
 			return "Evry is paused for now, so no conversation was started and nothing was saved. Your message is still here. Send it again later.";
+		case "question_limit":
+			return QUESTION_LIMIT;
 		default:
 			return "Evry can't start a new conversation right now. Please try again in a moment.";
 	}
@@ -419,11 +422,15 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 			return "Not sent. You no longer have access to this conversation.";
 		case "discovery_read_only":
 			return `Not sent. ${DISCOVERY_READ_ONLY}`;
+		case "question_limit":
+			return QUESTION_LIMIT;
 		default:
 			return "Not sent. Send it again.";
 	}
 }
 
+export const QUESTION_LIMIT =
+	"You've reached today's Evry questions. They'll be back tomorrow. Everything else in Discovery stays open.";
 export const DISCOVERY_READ_ONLY = "This chat stays in Discovery, so it is read-only. Start a new chat to ask Evry.";
 export const DISCOVERY_STAYS = {
 	title: "This chat stays in Discovery",
@@ -434,7 +441,7 @@ export const churchChanged = (send: Send) => send.state === "refused" && send.er
 
 export const resendable = (send: Send) =>
 	send.state === "unconfirmed" ||
-	send.state === "unstarted" ||
+	(send.state === "unstarted" && send.error?.code !== "question_limit") ||
 	(send.state === "refused" && send.error?.retry !== "never");
 
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;

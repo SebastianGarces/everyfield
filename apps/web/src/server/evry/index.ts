@@ -29,6 +29,7 @@ const status = {
 	photo_unavailable: 409,
 	attachment_gone: 409,
 	attachment_elsewhere: 404,
+	question_limit: 429,
 } as const;
 export function errorResponse(error: unknown) {
 	const projected = projectError(error);

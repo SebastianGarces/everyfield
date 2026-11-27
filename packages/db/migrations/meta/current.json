@@ -8233,6 +8233,72 @@
       },
       "isRLSEnabled": false
     },
+    "public.evry_question_day": {
+      "name": "evry_question_day",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "questions": {
+          "name": "questions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "evry_question_day_account_id_account_id_fk": {
+          "name": "evry_question_day_account_id_account_id_fk",
+          "tableFrom": "evry_question_day",
+          "tableTo": "account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "evry_question_day_key": {
+          "name": "evry_question_day_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "account_id",
+            "day"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "evry_question_day_questions": {
+          "name": "evry_question_day_questions",
+          "value": "\"evry_question_day\".\"questions\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.feature_flag": {
       "name": "feature_flag",
       "schema": "",

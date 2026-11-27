@@ -154,3 +154,23 @@ test("a lost start still reads as not confirmed, not as a refusal", async () => 
 	await send("Who visited last Sunday?");
 	assert.equal(sendNotice(only()), "Not confirmed. Check your connection, then send it again.");
 });
+
+const QUESTION_LIMIT =
+	"You've reached today's Evry questions. They'll be back tomorrow. Everything else in Discovery stays open.";
+test("a Discovery planter over today's Evry questions reads Maya's line with no send-again, on a new chat or an open one", async () => {
+	const start = await panel({ create: [refused("question_limit")] });
+	await start.send("How do I build a launch team?");
+	assert.equal(start.notice(), QUESTION_LIMIT);
+	assert.equal(resendable(start.only()), false);
+	assert.deepEqual(start.calls, ["create"]);
+
+	const open = await panel({
+		create: [{ status: "ok", value: conversation }],
+		submit: [refused("question_limit")],
+	});
+	await open.send("How do I build a launch team?");
+	assert.equal(open.notice(), QUESTION_LIMIT);
+	assert.equal(open.only().state, "refused");
+	assert.equal(resendable(open.only()), false);
+	assert.deepEqual(open.calls, ["create", "submit"]);
+});
