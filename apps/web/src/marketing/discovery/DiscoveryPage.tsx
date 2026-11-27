@@ -2,7 +2,7 @@ import { File02Icon } from "@hugeicons/core-free-icons";
 import type { Metadata } from "next";
 import { Icon } from "@/components/Icon";
 import { COPY } from "@/marketing/copy";
-import { DocumentsScreen, LockedScreen, TasksScreen, TemplateScreen, WikiScreen } from "./screens";
+import { DocumentsScreen, EvryScreen, LockedScreen, TasksScreen, TemplateScreen, WikiScreen } from "./screens";
 import { Free, How, Privacy, Ready, Senders } from "./sections";
 import { Tour } from "./Tour";
 import { HeroPanel } from "@/marketing/hero/HeroPanel";
@@ -20,6 +20,7 @@ const TAB_ICONS = {
 	documents: ICONS.edit,
 	templates: File02Icon,
 	tasks: ICONS.task,
+	evry: ICONS.chat,
 	ready: ICONS.flag,
 };
 const SCREENS = [
@@ -27,6 +28,7 @@ const SCREENS = [
 	<DocumentsScreen key="documents" />,
 	<TemplateScreen key="templates" />,
 	<TasksScreen key="tasks" />,
+	<EvryScreen key="evry" />,
 	<LockedScreen key="ready" page="Launch" />,
 ];
 
@@ -52,7 +54,7 @@ export function DiscoveryPage() {
 			<How h={D.how} />
 			<Ready r={D.ready} />
 			<Senders s={D.senders} />
-			<Faq f={{ ...D.faq, items: D.faq.items.filter((i) => i.shown !== false) }} />
+			<Faq f={D.faq} />
 			<CtaSection c={D.cta} href={{ primary: start }} />
 		</Site>
 	);

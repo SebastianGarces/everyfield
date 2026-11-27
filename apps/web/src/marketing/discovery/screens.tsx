@@ -1,10 +1,14 @@
+import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import {
 	ArrowDown01Icon,
 	ArrowRight01Icon,
 	ArrowUp01Icon,
+	Attachment01Icon,
 	Bookmark01Icon,
+	Cancel01Icon,
 	ChurchIcon,
+	Clock01Icon,
 	Delete02Icon,
 	Download04Icon,
 	File02Icon,
@@ -17,6 +21,7 @@ import {
 	QuoteDownIcon,
 	RedoIcon,
 	Search01Icon,
+	SentIcon,
 	SeparatorHorizontalIcon,
 	TextBoldIcon,
 	TextItalicIcon,
@@ -30,6 +35,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
+import { EvryBot } from "@/components/kit/EvryBot";
 import { LockedNote, PageHead, Shell } from "./Shell";
 
 const SQ = "grid size-[46px] place-items-center text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]";
@@ -503,6 +509,91 @@ export function SenderScreen() {
 						<p className="mt-3 border-t border-line pt-3 type-sm text-text-3">Documents are never shared.</p>
 					</div>
 					<span className="flex-none px-3 type-md text-ink @max-[639px]:hidden">End connection</span>
+				</div>
+			</div>
+		</Shell>
+	);
+}
+
+export function EvryScreen() {
+	return (
+		<Shell
+			nav="Documents"
+			evry
+			label="Evry in Discovery: next to your private document What I'm learning about our city, you ask Evry how your notes fit what the wiki says about a first vision meeting, and Evry answers from both."
+		>
+			<div className="grid flex-1 grid-cols-[minmax(0,1fr)_440px] items-stretch gap-6 @max-[1000px]:grid-cols-[minmax(0,1fr)]">
+				<div className="flex min-w-0 flex-col @max-[1000px]:hidden">
+					<PageHead title="What I'm learning about our city" crumb={["Documents"]} sub="Your documents" />
+					<div className="flex-1 bg-white px-14 py-10 type-lg leading-[1.6] text-ink shadow-raised">
+						<p>
+							The east side keeps coming up. New apartments along the river, two schools, and almost no churches within
+							walking distance.
+						</p>
+						<p className="mt-3">
+							The families I meet at the park are new to the city. Most of them say they don&rsquo;t know anyone here
+							yet.
+						</p>
+						<p className="mt-3">Questions to keep praying about: who is already here, and who is missing?</p>
+					</div>
+				</div>
+				<div className={cn("flex min-w-0 flex-col", CARD)}>
+					<div className="flex items-start gap-3 border-b border-line px-6 pt-5 pb-4 @max-[639px]:px-4 @max-[639px]:pt-4">
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center gap-3 font-title type-title-sm leading-[1.2] tracking-[-0.02em] text-ink">
+								<EvryBot size="sm" />
+								Evry
+							</div>
+							<p className="mt-1 type-sm text-text-3">Reads and drafts. You approve every change.</p>
+						</div>
+						<span className="grid size-9 place-items-center text-ink-2">
+							<Icon icon={Clock01Icon} size={18} stroke={1.5} />
+						</span>
+						<span className="grid size-9 place-items-center text-ink-2">
+							<Icon icon={Cancel01Icon} size={18} stroke={1.5} />
+						</span>
+					</div>
+					<div className="flex flex-1 flex-col gap-4 px-6 py-5 @max-[639px]:px-4">
+						<p className="max-w-[85%] self-end rounded-card bg-ink px-[15px] py-[11px] text-on-ink">
+							How do my notes on the east side fit what the wiki says about a first vision meeting?
+						</p>
+						<div className="flex gap-2.5">
+							<span className="grid size-[30px] flex-none place-items-center">
+								<EvryBot size="sm" />
+							</span>
+							<div className="flex min-w-0 flex-1 flex-col gap-3 pt-1 leading-[1.55] text-ink-2">
+								<p>
+									The wiki&rsquo;s <b className="font-semibold text-ink">What is a Vision Meeting?</b> says to start by
+									connecting with the people in the room, then cast a clear vision.
+								</p>
+								<p>
+									Your notes already hold that vision: families on the east side who are new to the city and don&rsquo;t
+									know anyone yet. You could open with what you&rsquo;ve seen at the park.
+								</p>
+							</div>
+						</div>
+					</div>
+					<div className="flex flex-col gap-2.5 border-t border-line px-6 py-3.5 @max-[639px]:px-4">
+						<span className="flex">
+							<Tag tone="green" icon={Link01Icon}>
+								Using this page
+							</Tag>
+						</span>
+						<div className="rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)]">
+							<p className="min-h-12 text-text-3">Ask Evry&hellip;</p>
+							<div className="mt-1 flex items-center justify-between gap-3">
+								<p className="type-xs text-text-3">Enter sends. Shift+Enter adds a line.</p>
+								<span className="flex flex-none items-center gap-1">
+									<span className="grid size-[34px] place-items-center text-ink-2">
+										<Icon icon={Attachment01Icon} size={18} stroke={1.5} />
+									</span>
+									<span className="grid size-[34px] place-items-center bg-ink text-on-ink opacity-45">
+										<Icon icon={SentIcon} size={16} stroke={1.5} />
+									</span>
+								</span>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</Shell>

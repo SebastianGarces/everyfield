@@ -232,13 +232,19 @@ const ACCOUNT_DOCUMENTS = [
 	"To make a document from a file attached here, propose documents.importTextOrWord with its attachmentId. Only Word (.docx) and text (.txt) files can be attached here. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation.",
 ].join(" ");
 
+const DISCOVERY_TEMPLATES = [
+	"Templates here are only the ones documents.templates.list returns. When the user asks for any other, such as a fixed-layout, budget or email template, a church's own template or one not listed, prepare nothing: say it isn't available in Discovery and name the ones they can use.",
+	"To say what a template holds, read documents.templates.get and answer from it: its sections, whether their name is filled in, and the blanks left for them. A template uses no church's details and no one else's.",
+	"To start a document from one, propose documents.createMineFromTemplate. To fill a blank in a document they made, read it with documents.read and propose documents.saveNative kind edit that changes only that blank to the value they gave. When they gave no value for a blank, prepare nothing and ask for it; never make one up.",
+].join(" ");
+
 const REGION_RULE =
 	"To correct this church's reporting Region, read geography.listReportingRegionCandidates, with the place the user states or none for the saved one. With one candidate propose organizations.correctReportingLocation; with more than one ask which; with none say the official Region list has no Region for that place and prepare nothing.";
 
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
-			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${actor.discovery ? DISCOVERY_NEEDS_A_CHURCH : NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's Discovery space or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}\nWhen the user asks about or for a change to another person's document, prepare nothing and reply: ${OWN_DOCUMENTS_ONLY}\n${ACCOUNT_DOCUMENTS}\n${ACCOUNT_WIKI}`
+			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${actor.discovery ? DISCOVERY_NEEDS_A_CHURCH : NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's Discovery space or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}\nWhen the user asks about or for a change to another person's document, prepare nothing and reply: ${OWN_DOCUMENTS_ONLY}\n${ACCOUNT_DOCUMENTS}${actor.discovery ? `\n${DISCOVERY_TEMPLATES}` : ""}\n${ACCOUNT_WIKI}`
 			: "";
 	const scope =
 		actor.contextKind === "plant"
@@ -422,6 +428,10 @@ const ACCOUNT_WRITE_AREAS: typeof WRITE_AREAS = [
 	{
 		prefix: "documents.importTextOrWord",
 		text: "Make a document of your own from a Word or text file you attach here, for your review.",
+	},
+	{
+		prefix: "documents.createMineFromTemplate",
+		text: "Start a document of your own from one of five templates (member expectations, launch team commitment, follow-up letter, bylaws or prayer letter), for your review.",
 	},
 	{ prefix: "documents.archive", text: "Archive one of your documents for your review." },
 	{ prefix: "settings.", text: "Change your account name, or remove your account photo, for your review." },

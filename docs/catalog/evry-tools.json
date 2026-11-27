@@ -71,6 +71,7 @@
     "discovery.getProfile",
     "documents.archive",
     "documents.createFromTemplate",
+    "documents.createMineFromTemplate",
     "documents.designateCoreValues",
     "documents.download",
     "documents.exportNative",

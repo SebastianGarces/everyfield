@@ -14,6 +14,7 @@ export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 export const plantOwner = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role === "owner";
 export const accountContext = (actor: EvryActor) => actor.owner.kind === "account" && actor.role === null;
+export const discoveryPlanter = (actor: EvryActor) => accountContext(actor) && actor.discovery === true;
 export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 export const organizationAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");

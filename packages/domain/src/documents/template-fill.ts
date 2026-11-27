@@ -67,3 +67,4 @@ export async function templateFill(db: Pick<Database, "execute">, authority: Req
 }
 
 export { docTemplateSummaries } from "./doc-templates.ts";
+export { DISCOVERY_TEMPLATE_IDS, discoveryTemplate, ownTemplateBody } from "./own-templates.ts";

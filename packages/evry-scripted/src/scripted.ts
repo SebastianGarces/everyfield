@@ -56,9 +56,14 @@ const toolCall = (toolName: string, input: unknown): LanguageModelV4Content => (
 const pageSize = (text: string) =>
 	Number(/\b(\d{1,3}) at a time\b/.exec(text)?.[1] ?? (/\b(?:every|all)\b/i.test(text) ? 100 : 24));
 
+const PRAYER_LETTER = /\bprayer letter\b/i;
 function classify(text: string) {
 	if (SIGNAL.test(text)) return "application";
-	if (!TASK_DATA.test(text) && /\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text))
+	if (
+		!TASK_DATA.test(text) &&
+		!PRAYER_LETTER.test(text) &&
+		/\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text)
+	)
 		return "pastoral_boundary";
 	if (/\b(do you think|would you say|in your opinion)\b.*\b(qualified|ready|mature|called)\b/i.test(text))
 		return "pastoral_boundary";
