@@ -104,7 +104,7 @@ test("AC:PI-CASE-018 every citation of a Phase 1 assessment opens the exact fact
 		const opened = await cite(H, runId, key);
 		assert.equal(opened.status, "verified", key);
 		if (opened.kind === "fact") {
-			assert.deepEqual([opened.measuredOn, opened.formulaVersion], [today, "plant-facts/2"]);
+			assert.deepEqual([opened.measuredOn, opened.formulaVersion], [today, "plant-facts/3"]);
 			assert.equal(opened.asOf, a.asOf);
 		} else {
 			assert.ok([1, null].includes(opened.phase), `${key} is Phase 1 or general guidance`);
@@ -126,7 +126,7 @@ test("AC:PI-CASE-018 every citation of a Phase 1 assessment opens the exact fact
 		people: { shown: holders, hidden: 0 },
 		asOf: a.asOf,
 		measuredOn: today,
-		formulaVersion: "plant-facts/2",
+		formulaVersion: "plant-facts/3",
 	});
 	const missing = await assessments.resolveCitation(c.db, H.actor, { runId, key: "nothing.here" });
 	assert.equal(missing.status === "refused" && missing.error.code, "not_found");

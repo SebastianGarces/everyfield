@@ -57,3 +57,14 @@ test("the /discovery Templates tab uses the copy owner's templates line", () => 
 		"Start from a template. It opens as a private document with your name already filled in.",
 	);
 });
+
+test("the /discovery tour shows Tasks after Templates with the real /tasks wording", () => {
+	assert.deepEqual(
+		page.tour.tabs.map((t) => t.id),
+		["wiki", "documents", "templates", "tasks", "ready"],
+	);
+	assert.equal(
+		page.tour.tabs.find((t) => t.id === "tasks")?.line,
+		"Your starter steps for the discovery season. Check each one off as you go.",
+	);
+});

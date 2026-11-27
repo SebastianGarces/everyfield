@@ -288,7 +288,7 @@ flowchart LR
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 5 | 13 | 12 | 6 | 2 |
-| [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
+| [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 5 | 1 | 3 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
 | [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 9 | 5 | 2 |
 | [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 4 | 6 | 0 | 0 | 0 |

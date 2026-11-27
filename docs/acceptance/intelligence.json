@@ -32377,11 +32377,13 @@
             "publishedSummary": null
           },
           "current_assessment": "R0",
-          "assessment_input_state": "fixture-state-11",
+          "assessment_input_state": {
+            "different_from": "fixture-state-11"
+          },
           "organization_A_state": "fixture-state-21",
           "organization_B_state": "fixture-state-31",
           "wake_delivery": "paused",
-          "sweep_discovers_change": false,
+          "sweep_discovers_change": true,
           "replay_new_effects": 0
         },
         "event": {

@@ -64,7 +64,7 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 			<div
 				role="tablist"
 				aria-label={label}
-				className="grid grid-cols-4 bg-white shadow-[var(--ui-ring),0_0_0_1px_var(--color-mk-line)] max-mk-cx:grid-cols-2"
+				className="grid grid-cols-5 bg-white shadow-[var(--ui-ring),0_0_0_1px_var(--color-mk-line)] max-mk-cx:grid-cols-2"
 			>
 				{tabs.map((t, i) => {
 					const on = i === current;
@@ -84,7 +84,8 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 								"focus-visible:z-2 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-green-700",
 								"max-mk-cx:content-center max-mk-cx:gap-x-[9px] max-mk-cx:px-3 max-mk-cx:py-3.5",
 								i > 0 && "shadow-[inset_1px_0_0_var(--color-mk-line)]",
-								i === 2 && "max-mk-cx:shadow-none",
+								i % 2 === 0 && "max-mk-cx:shadow-none",
+								i === tabs.length - 1 && i % 2 === 0 && "max-mk-cx:col-span-2",
 								i > 1 && "max-mk-cx:border-t max-mk-cx:border-mk-line",
 								on ? "bg-ink text-mk-cream-90" : "bg-white text-text-2 hover:bg-mk-canvas",
 							)}
