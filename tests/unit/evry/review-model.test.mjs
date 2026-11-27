@@ -569,6 +569,7 @@ test("a Discovery template review is a private document of the planter's own, an
 		"The new document opens in Documents. It's private: only you can open it. Fill in the blanks there. A template is starting text, not legal advice.",
 	);
 	assert.equal(documentResult(made), null);
+	assert.equal(savedText(made), "Saved. Bylaws is in your Documents.");
 	assert.deepEqual(documentResult({ ...made, receipt: { receiptId: "d1", revision: "1" } }), {
 		href: "/documents/written/d1",
 		label: "Open the new document",

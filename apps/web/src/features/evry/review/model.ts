@@ -958,6 +958,8 @@ export function savedText(review: Review): string {
 	const own = OWN_SAVED[review.operation];
 	if (own) return `Saved. ${own(who ?? "This person", review.review.changes)}`;
 	if (review.operation === "documents.generate") return `Saved. The ${who ?? "template"} file is made.`;
+	if (review.operation === "documents.createMineFromTemplate")
+		return `Saved. ${who ?? "The new document"} is in your Documents.`;
 	if (review.operation === "people.restorePerson") return `Saved. ${who ?? "This person"} is back in People.`;
 	if (review.operation === "launch.saveDebriefDraft" || review.operation === "launch.saveDebriefSummaryDraft")
 		return "Saved as a draft. Nothing is submitted, published or shared.";
