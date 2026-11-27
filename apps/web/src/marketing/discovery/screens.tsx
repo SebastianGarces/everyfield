@@ -414,7 +414,7 @@ const STARTER_STEPS = [
 		"Who this church is for, what it will be like, and why here. One page — it has to survive being read aloud.",
 	],
 	[
-		"List the people already praying for this plant",
+		"List the people already praying for this church plant",
 		"Names, not a vague sense of support. Ask each one if they will pray weekly and hear a short update.",
 	],
 	[
@@ -422,11 +422,11 @@ const STARTER_STEPS = [
 		"Someone who has planted before and will tell you the truth. Meet before you need them, not after.",
 	],
 	[
-		"Walk the neighbourhood and write down what you see",
+		"Walk the neighborhood and write down what you see",
 		"Walk it at different times of day. Note the schools, the shops, the empty buildings and who is out on the street.",
 	],
 	[
-		"Agree the commitments this plant will ask of your family",
+		"Agree the commitments this church plant will ask of your family",
 		"Time, money, Sundays and the home. Agree them out loud now so nobody discovers them in month six.",
 	],
 	[
