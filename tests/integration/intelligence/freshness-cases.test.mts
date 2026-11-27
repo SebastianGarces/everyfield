@@ -733,46 +733,68 @@ test("AC:ASMT-009 INV-freshness: two connections commit people, attendance and t
 	assert.equal(k.expected.event, null);
 });
 
-test("AC:ASMT-012 saving or correcting a private check-in leaves P's assessment input state as it was, queues no assessment demand and writes no audit row", async () => {
+test("AC:ASMT-012 saving, correcting and raising the support question on a private check-in leave P's assessment input state as it was, queue no assessment demand and write no audit row", async () => {
 	const k = K("ASMT-012");
 	const e = k.expected.result as Record<string, unknown>;
 	assert.equal(k.action.operation, "privateCare.save");
+	const legs = (k.action.arguments as { native_private_actions: string[] }).native_private_actions;
+	assert.deepEqual(legs, ["save", "correct", "nudge"]);
 	clockMs = NOW;
 	const p = await assessed("Willow Park");
-	const care = createPrivateCare();
+	const seat = await c0.database.actor(p, "admin", { account: { personal_timezone: "America/Chicago" } });
+	const author = (await RequestActor.resolve(c0.db, seat.session)) as RequestActor;
+	let at = "2026-09-30T18:00:00.000Z";
+	const care = createPrivateCare({ clock: { now: () => at as never } });
+	const everyAudit = async () => (await c0.one<{ n: number }>(sql`SELECT count(*)::int AS n FROM audit_event`)).n;
 	const before = {
 		input: await inputState(p),
 		runs: await runs(p),
 		jobs: await jobs(p),
 		audits: await audits(p),
+		everyAudit: await everyAudit(),
 	};
-	const answers = { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" };
-	const current = ok(await care.readCurrent(c0.db, p.actor, {}));
+	const hard = { spiritual: "steady", family: "strained", financial: "steady", pace: "struggling" };
+	const saveNow = async (answers: typeof hard, note: string) =>
+		ok(
+			await care.save(c0.db, author, {
+				requestKey: randomUUID(),
+				expectedRevision: ok(await care.readCurrent(c0.db, author, {})).revision,
+				input: { answers, note },
+			}),
+		);
 	const actions: Record<string, () => Promise<unknown>> = {
-		save: async () =>
-			ok(
-				await care.save(c0.db, p.actor, {
-					requestKey: randomUUID(),
-					expectedRevision: current.revision,
-					input: { answers, note: "a private note" },
-				}),
-			),
+		save: async () => {
+			await saveNow(hard, "a private note");
+			at = "2026-10-07T18:00:00.000Z";
+			await saveNow({ ...hard, pace: "strained" }, "");
+			at = iso(k.clock.now);
+			return saveNow(hard, "this week");
+		},
 		correct: async () => {
-			const again = ok(await care.readCurrent(c0.db, p.actor, {}));
+			const again = ok(await care.readCurrent(c0.db, author, {}));
 			return ok(
-				await care.correct(c0.db, p.actor, {
+				await care.correct(c0.db, author, {
 					requestKey: randomUUID(),
 					expectedRevision: again.revision,
-					input: { weekId: again.week.id, answers: { ...answers, pace: "steady" }, note: "corrected" },
+					input: { weekId: again.week.id, answers: { ...hard, family: "struggling" }, note: "corrected" },
 				}),
 			);
 		},
+		nudge: async () => {
+			const { support } = ok(await care.readTrends(c0.db, author, {}));
+			assert.deepEqual(
+				[support.question, support.endsOn, support.streaks.pace, support.streaks.family],
+				[true, "2026-10-12", 3, 3],
+			);
+		},
 	};
+	assert.deepEqual(Object.keys(actions), legs);
 	for (const [action, run] of Object.entries(actions)) {
 		await run();
 		assert.equal(await inputState(p), before.input, `${action}: the input state is as before`);
 		assert.equal(e.assessment_input_state, k.action.arguments.before_assessment_input_state);
 		assert.equal((await audits(p)) - before.audits, e.broad_audit_rows, `${action}: no audit row`);
+		assert.equal((await everyAudit()) - before.everyAudit, e.broad_audit_rows, `${action}: no audit row anywhere`);
 		await isolate(p);
 		await job.scheduleAssessments(c0.db, 500);
 		assert.equal((await jobs(p)).length - before.jobs.length, e.PI_demands, `${action}: no assessment demand`);
