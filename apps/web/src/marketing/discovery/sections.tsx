@@ -110,7 +110,7 @@ export function Ready({ r }: { r: D["ready"] }) {
 				</Reveal>
 				<Reveal delay={120}>
 					<Stage tone="g-field">
-						<LockedScreen page="Tasks" />
+						<LockedScreen page="People" />
 					</Stage>
 				</Reveal>
 			</div>

@@ -450,6 +450,14 @@ test(`${PATTERN_NAME}each pattern rule's findings name their rule, theme and gro
 	}
 });
 
+const GENERATED = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{4}-\d{2}-\d{2}T[\d:.]+Z)$/i;
+function said(value: unknown): string[] {
+	if (typeof value === "string") return GENERATED.test(value) ? [] : [value];
+	if (Array.isArray(value)) return value.flatMap(said);
+	if (value && typeof value === "object") return Object.entries(value).flatMap(([k, v]) => [k, ...said(v)]);
+	return [String(value)];
+}
+
 async function omitted(
 	id: string,
 	key: string,
@@ -534,7 +542,8 @@ async function omitted(
 		case "no_100_percent_claim": {
 			assert.deepEqual(await saved("required_training"), { P: null, Q: null });
 			assert.ok(whole.groups.every((g) => g.patterns.length === 0));
-			assert.doesNotMatch(JSON.stringify(whole), /100|complete/i);
+			const claims = said(whole).filter((x) => /100|complete/i.test(x));
+			assert.deepEqual(claims, [], `${id}: no key or value claims 100 percent or completion`);
 			return;
 		}
 		default:

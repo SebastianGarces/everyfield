@@ -34,9 +34,10 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import { FactsSection } from "../intelligence/FactsSection.tsx";
+import { ReadinessSection } from "../intelligence/ReadinessSection.tsx";
 import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
 import { declarePhase, movePhase } from "./actions.ts";
 import {
@@ -67,6 +68,7 @@ type Props = {
 	readiness: Readiness[];
 	facts: PlantFacts;
 	launchDates: HistoryEntry[];
+	attested: ComponentProps<typeof ReadinessSection>["initial"];
 	viewer: Viewer;
 };
 
@@ -77,7 +79,7 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
 	not_tracked: { status: "unknown", label: "Not tracked" },
 };
 
-export function JourneyScreen({ history, catalog, readiness, facts, launchDates, viewer }: Props) {
+export function JourneyScreen({ history, catalog, readiness, facts, launchDates, attested, viewer }: Props) {
 	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
 	const [dialog, setDialog] = useState<JourneyDialog>(null);
 	const [receipt, setReceipt] = useState<string | null>(null);
@@ -181,6 +183,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 				</Card>
 				<Timeline entries={journey.entries} launchDates={launchDates} timeZone={history.timeZone} />
 			</div>
+			<ReadinessSection initial={attested} viewerName={viewer.name} timeZone={history.timeZone} />
 			<FactsSection facts={facts} />
 			<Phases catalog={catalog} current={journey.state.phase} />
 			{dialog?.kind === "move" ? (
