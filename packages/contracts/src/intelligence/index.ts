@@ -74,7 +74,7 @@ function runsOf(weeks: readonly CareWeek[], area: CareArea) {
 	let start = -1;
 	weeks.forEach((w, i) => {
 		const level = hard(w.answer?.answers[area]);
-		if (level && start >= 0 && w.ordinal === weeks[i - 1]!.ordinal - 1) return;
+		if (level && start >= 0 && w.ordinal === (weeks[i - 1]?.ordinal ?? 0) - 1) return;
 		if (start >= 0) runs.push({ start, length: i - start });
 		start = level ? i : -1;
 	});
@@ -95,8 +95,8 @@ export function supportOf(weeks: readonly CareWeek[]) {
 		question,
 		text: question ? SUPPORT_QUESTION : null,
 		ordinal: weeks[0]?.ordinal ?? null,
-		endsOn: question ? weeks[0]!.startsOn : null,
-		historicalEndsOn: older.length ? weeks[Math.min(...older)]!.startsOn : null,
+		endsOn: question ? (weeks[0]?.startsOn ?? null) : null,
+		historicalEndsOn: older.length ? (weeks[Math.min(...older)]?.startsOn ?? null) : null,
 		missingWeeks: weeks.slice(1).flatMap((w) => (w.answer ? [] : [w.startsOn])),
 		streaks,
 	};
