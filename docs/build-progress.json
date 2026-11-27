@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 168,
-  "updated_at": "2026-11-14T00:00:00.000Z",
+  "revision": 170,
+  "updated_at": "2026-11-27T00:00:00.000Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -2584,12 +2584,223 @@
       "updated_at": null
     },
     "WP-056": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "done",
+      "evidence": [
+        {
+          "path": "tests/integration/target/wp-056/link-end.test.mts",
+          "commit": "d7f25e820d26c695817fbcc66a98b7ff4485271a",
+          "test": "the WP-056 world tests in tests/integration/target/wp-056/ (roles, private items, collisions, corrections, link end), for example tests/integration/target/wp-056/link-end.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-629: The release check (check.py --release), its exception list and the cross-area WP-056 tests."
+        },
+        {
+          "path": "tests/integration/settings/settings.test.mts",
+          "commit": "ece462dba2196504c51ae3a7ebe523263160580a",
+          "test": "AC: markers for the 121 identity-access.json cases, for example tests/integration/settings/settings.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-636: Every selected identity and access case runs."
+        },
+        {
+          "path": "tests/integration/people/people.test.mts",
+          "commit": "5f592900fe70b8db3ebbdcdf66632269b50b8a01",
+          "test": "AC: markers for 112 cases in people.json, meetings-follow-up.json, tasks.json and teams-training.json, for example tests/integration/people/people.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-637: People, meetings, tasks and teams cases run."
+        },
+        {
+          "path": "tests/evry/runtime/cases-tasks.test.mts",
+          "commit": "3d57e76a845ed4b372f81ddf3d61e62670004835",
+          "test": "AC: markers for 74 evry.json cases in tests/evry/runtime/, for example tests/evry/runtime/cases-tasks.test.mts (CI Evry runtime suite)",
+          "result": "passed",
+          "note": "T-638: Evry cases run against the scripted runtime."
+        },
+        {
+          "path": "tests/integration/documents/library-cases.test.mts",
+          "commit": "4f61a433d21813818896a5a2fa2a3184237549d3",
+          "test": "AC: markers for 141 knowledge.json cases, for example tests/integration/documents/library-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-639: Library and Wiki cases run."
+        },
+        {
+          "path": "tests/integration/jobs/execution-cases.test.mts",
+          "commit": "b5a47e2353dc8676f68e51c4dc2c79d9f6782736",
+          "test": "AC: markers for 122 cases in communications-notifications, execution, operations, recovery and reference-release, for example tests/integration/jobs/execution-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-640: Communication, operations, execution and recovery cases run; CASE-ADM-007 left for T-351."
+        },
+        {
+          "path": "tests/integration/target/wp-056/security-request-cases.test.mts",
+          "commit": "a91284af5da3f864f3190d36ff93b94c86255e55",
+          "test": "AC: markers for 147 cases in schema.json and launch.json, for example tests/integration/target/wp-056/security-request-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-641: Schema and Launch cases run."
+        },
+        {
+          "path": "tests/integration/oversight/intelligence-cases.test.mts",
+          "commit": "9f861c12b968b47e81f8a97986d69bee5568f55f",
+          "test": "AC: markers for 129 intelligence.json cases (NI, MW-CASE, NEX, LI, PI-CASE, PI-CARE, PI-GROW, PI-DISC), for example tests/integration/oversight/intelligence-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-642: Intelligence part 1; 21 cases deferred to T-686 (D-2905)."
+        },
+        {
+          "path": "tests/integration/intelligence/adult-cases.test.mts",
+          "commit": "95856d7dfd9a77843258f254791714a403378625",
+          "test": "AC: markers for 134 intelligence.json cases (DC, B01-B03, GEO and the rest), for example tests/integration/intelligence/adult-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-643: Intelligence part 2; 6 cases deferred to T-693 (D-2986)."
+        },
+        {
+          "path": "tests/evry/evals/golden.recorded.json",
+          "commit": "2b73dbba0bf0c830557d49d00f721e55bdb71c64",
+          "test": "golden Evry eval replay (EVRY_EVAL_REPORT) for the 10 Partially cases of #1276, for example tests/evry/evals/golden.recorded.json (CI golden replay, no model call)",
+          "result": "passed",
+          "note": "T-644: The 10 alpha-blocking Partially cases pass their full target after one batched re-record."
+        },
+        {
+          "path": "tests/integration/organizations/pipeline-cases.test.mts",
+          "commit": "5cb6ae1f85b33f54d07cb73108e152c63108192e",
+          "test": "AC: markers for the 24 residency and sending-pipeline cases in people.json, for example tests/integration/organizations/pipeline-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-654: Residency and sending pipeline cases run."
+        },
+        {
+          "path": "tests/evry/runtime/cases-family-runtime.test.mts",
+          "commit": "98c1a2b8c7523b1a1485e55ae47c718a8f964830",
+          "test": "AC: markers for the 18 EVRY-FAMILY cases and EVRY-EVALUATION-RELEASE, for example tests/evry/runtime/cases-family-runtime.test.mts (CI Evry runtime suite)",
+          "result": "passed",
+          "note": "T-655: Evry family cases run."
+        },
+        {
+          "path": "tests/evry/runtime/cases-provider-privacy.test.mts",
+          "commit": "9df689616c3aa1b356e9add4a15156b922ab6262",
+          "test": "AC: markers for AI44-002 to AI44-007, for example tests/evry/runtime/cases-provider-privacy.test.mts (CI Evry runtime suite)",
+          "result": "passed",
+          "note": "T-656: Provider privacy cases run; AI44-001 excepted under WP-058."
+        },
+        {
+          "path": "tests/evry/runtime/cases-private-library.test.mts",
+          "commit": "1d0a560e3c7ce3f43b77f6e90780ac282e7bc429",
+          "test": "AC:EVRY-ACCOUNT-PRIVATE-DISCOVERY, for example tests/evry/runtime/cases-private-library.test.mts (CI Evry runtime suite)",
+          "result": "passed",
+          "note": "T-659: Evry reads own documents and the public Wiki for an account with no church."
+        },
+        {
+          "path": "tests/evry/runtime/cases-family-insight.test.mts",
+          "commit": "0220165a8bd672d77bdef50b14a9faf5bad470bd",
+          "test": "AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE, for example tests/evry/runtime/cases-family-insight.test.mts (CI Evry runtime suite)",
+          "result": "passed",
+          "note": "T-660: Network Members rate Network Intelligence findings."
+        },
+        {
+          "path": "tests/integration/launch/debrief-cases.test.mts",
+          "commit": "d75fad9938aa8ae31972c48f7d95b99e67725176",
+          "test": "AC:LAUNCH46-023, for example tests/integration/launch/debrief-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-668: PI debrief facts so LAUNCH46-023 runs."
+        },
+        {
+          "path": "tests/unit/security/server-only-adapters.test.mts",
+          "commit": "40b883ec39fc9fed7908f6ccf586f27a4fcbeaf4",
+          "test": "server-only guard on protected server modules, for example tests/unit/security/server-only-adapters.test.mts (CI unit suite)",
+          "result": "passed",
+          "note": "T-671: Follow-up found by a WP-056 case."
+        },
+        {
+          "path": "tests/integration/people/audit-values.test.mts",
+          "commit": "d50ae6726f277ec3277caf818e3276fb2dad8382",
+          "test": "people.created/updated audit values, for example tests/integration/people/audit-values.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-672: Audit rows drop the fields audit.md excludes."
+        },
+        {
+          "path": "tests/integration/access/plant-geography.test.mts",
+          "commit": "5ed0645bb777cb45233011093fc48f97fd09eb15",
+          "test": "plant_geography append-only for the runtime role, for example tests/integration/access/plant-geography.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-673: Follow-up found by a WP-056 case."
+        },
+        {
+          "path": "tests/integration/target/wp-056/tenancy-cases.test.mts",
+          "commit": "58a31e12a6ddfc5700cf977880dd3f73d190984f",
+          "test": "scope_exception for 3 cross-owner references, for example tests/integration/target/wp-056/tenancy-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-674: Follow-up found by a WP-056 case."
+        },
+        {
+          "path": "tests/integration/jobs/mail.test.mts",
+          "commit": "98e18912bad81ec6f4908338f0d24dd8a057a78c",
+          "test": "the Resend webhook answers 400 to a signed malformed body, for example tests/integration/jobs/mail.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-675: Follow-up found by a WP-056 case."
+        },
+        {
+          "path": "tests/integration/settings/actor-token.test.mts",
+          "commit": "59cb9d1871e0809c825832e54b83343c2447d6d8",
+          "test": "one pseudonym token per deleted account within a church, for example tests/integration/settings/actor-token.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-676: Follow-up found by a WP-056 case."
+        },
+        {
+          "path": "tests/integration/people/audit-scrub.test.mts",
+          "commit": "da859747ac7fc5803ec31c89a852fbb5289ec064",
+          "test": "scrub of existing people.created/updated audit rows, for example tests/integration/people/audit-scrub.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-677: A migration removes Person row values from existing audit rows."
+        },
+        {
+          "path": "tests/evry/runtime/cases-provider-privacy.test.mts",
+          "commit": "2a6e003abdc0ec654971d8ce579918648a92599d",
+          "test": "AC:AI44-007 review expiry, for example tests/evry/runtime/cases-provider-privacy.test.mts (CI Evry runtime suite)",
+          "result": "passed",
+          "note": "T-678: Fixes the two-clock-read flake when a proposal is prepared."
+        },
+        {
+          "path": "tests/integration/oversight/pattern-cases.test.mts",
+          "commit": "b26323fce258fd2d1394f08687c1b13eed2315bc",
+          "test": "AC: markers for 20 of the 21 intelligence cases T-642 deferred, for example tests/integration/oversight/pattern-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-686: NEX, NI, PI-CASE, PI-CARE, PI-DISC, MW-CASE-022 and MW-CASE-024 producers; PI-CASE-011 stayed future-not-run (D-2956)."
+        },
+        {
+          "path": "tests/integration/intelligence/care.test.mts",
+          "commit": "78ad2b043169347f315cfb49df9636c0d7a731a1",
+          "test": "AC: markers for B03-027 to B03-034 and ASMT-012, for example tests/integration/intelligence/care.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-689: Private support question cases run (D-2984)."
+        },
+        {
+          "path": "tests/integration/intelligence/signals.test.mts",
+          "commit": "650f27f589cd6f9e1c20aef503dd49b07ba3a780",
+          "test": "AC: markers for the 6 cases T-643 deferred, for example tests/integration/intelligence/signals.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-693: Intelligence part 2 producers."
+        },
+        {
+          "path": "tests/integration/oversight/pattern-cases.test.mts",
+          "commit": "c0e4f92df48f812cbffda638b1553d4742e0e924",
+          "test": "AC:NEX-013 and AC:PI-METRIC-001, for example tests/integration/oversight/pattern-cases.test.mts (CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-701: Observed zero vs Unknown for follow-ups (D-2897) and the missing-completion exclusion (D-2990)."
+        },
+        {
+          "path": "tests/unit/intelligence/retrieval-cases.test.mts",
+          "commit": "aa7d7e03ee80c27a73c4631ed6864d70e77a39f5",
+          "test": "AC:PI-CASE-011 in tests/unit/intelligence/retrieval-cases.test.mts (CI unit suite)",
+          "result": "passed",
+          "note": "T-705: the case runs fixture-only against the pure candidate picker (D-3085, D-3087). Open gap owned by T-707: live methodology retrieval does not yet take the dense and all-phase sparse legs (D-3093)."
+        },
+        {
+          "path": "docs/acceptance/check.py",
+          "commit": "aa7d7e03ee80c27a73c4631ed6864d70e77a39f5",
+          "test": "python3 docs/acceptance/check.py --release, run by python3 docs/check-all.py",
+          "result": "passed",
+          "note": "T-645 release check on origin/main aa7d7e03e: 1180 selected, 1180 run, 0 not run, 3 excepted (AI44-001, UI45-005, CASE-ADM-007)."
+        }
+      ],
+      "notes": "T-645 gate (D-3061, D-3062, D-3085): every selected case runs. docs/check-all.py runs python3 docs/acceptance/check.py --release, which fails on any selected case that is not run. AI44-001 (WP-058), UI45-005 (WP-094) and CASE-ADM-007 (WP-049, T-351) are the release exceptions. G-RUNTIME and G-RECOVERY are not claimed here. Open gap: PI-CASE-011 runs fixture-only; T-707 wires it into live methodology retrieval and does not block this gate (D-3087, D-3093).",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-27T00:00:00.000Z"
     },
     "WP-057": {
       "status": "not_started",
