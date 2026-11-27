@@ -355,7 +355,7 @@
         "eyebrow": "Discovery",
         "headline": "Still discerning a call to plant? Start here, free.",
         "subhead": "Read the whole Everyfield wiki, keep private notes and work from real templates while you discern. No trial clock and no card.",
-        "cta_primary": "Start exploring free",
+        "cta_primary": "Request free access",
         "note": "Early access is coming soon. Join the list and we'll let you know when it opens."
       },
       "tour": {
@@ -405,7 +405,7 @@
       "how": {
         "headline": "How it works",
         "steps": [
-          "Sign up free. Choose I'm exploring.",
+          "Request free access. We'll invite you when early access opens.",
           "Read, write and plan at your own pace. There's no clock.",
           "When you're ready, start your church plant in Everyfield."
         ]
@@ -415,7 +415,7 @@
         "body": "Start your church plant in Everyfield and the rest opens up: your people, meetings, tasks, your launch journey toward Launch Sunday, and Evry with your church's context.",
         "carry": "Everything you wrote in Discovery comes with you and stays private to you.",
         "seat": {
-          "headline": "Starting a church plant is when a seat comes in.",
+          "headline": "Once early access opens, starting a church plant is when a seat comes in.",
           "items": [
             "We'll encourage you to ask your sending church or network to cover it, since that's how Everyfield is meant to work.",
             "If you're planting independently, you can pay for your own seat."
@@ -425,7 +425,7 @@
       "senders": {
         "eyebrow": "For sending churches and networks",
         "headline": "Know someone discerning a call? Send them here.",
-        "body": "Discovery is free for them, and you don't need to set anything up. When they're ready to start their church plant, you can cover their seat.",
+        "body": "Discovery is free for them, and you don't need to set anything up. Once early access opens, when they're ready to start their church plant, you can cover their seat.",
         "link": "See Everyfield for sending churches and networks"
       },
       "faq": {
@@ -439,7 +439,7 @@
           {
             "id": "time",
             "q": "Is there a time limit?",
-            "a": "No. Discovery is always free."
+            "a": "No. Stay in Discovery as long as you're discerning."
           },
           {
             "id": "card",
@@ -449,7 +449,7 @@
           {
             "id": "sending",
             "q": "Do I need a sending church or network?",
-            "a": "No. You can sign up on your own. Linking one is optional."
+            "a": "No. You can request access on your own. Linking one is optional."
           },
           {
             "id": "seat",
@@ -465,7 +465,7 @@
       },
       "cta": {
         "headline": "Take the time the call deserves.",
-        "cta_primary": "Start exploring free",
+        "cta_primary": "Request free access",
         "note": "Early access is coming soon. Join the list and we'll let you know when it opens."
       }
     },
