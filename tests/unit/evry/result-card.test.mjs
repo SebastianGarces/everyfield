@@ -1038,3 +1038,20 @@ test("an account's empty document results speak of its own documents, a church's
 	assert.doesNotMatch(summary({ own: true }), /church/);
 	assert.match(summary(null), /No document in this church matches/);
 });
+
+test("a Discovery template's blanks read as left for the planter, and a church template's fields keep their source", () => {
+	const lines = (fields) =>
+		cardView(
+			"documents.templates.get",
+			result("documents.templates.get", [
+				{ kind: "template", id: "bylaws", label: "Bylaws", fields: { about: "How the church plant is governed." } },
+				{ kind: "item", id: "f", label: "[church name]", fields },
+			]),
+			null,
+		).rows.map((r) => r.line);
+	assert.equal(lines({ blank: true, filledBy: "the user" }).at(-1), "Left blank for you to fill in");
+	assert.equal(
+		lines({ key: "church_name", required: true, filledFrom: "church details" }).at(-1),
+		"Required · Filled from church details",
+	);
+});
