@@ -1189,7 +1189,10 @@
         "WP-043",
         "WP-093"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/freshness-cases.test.mts"
+      ],
       "description": "private-care-no-invalidation",
       "given": {
         "P": {
@@ -5295,7 +5298,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Same author/dimension three adjacent ordinals: Strained, Struggling, Strained.",
       "given": {
         "P": {
@@ -5389,7 +5395,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Two concern weeks, mixed three, same week across authors/dimensions.",
       "given": {
         "P": {
@@ -5498,7 +5507,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Saved concern rows in weeks 1, 2, 4; no week 3 answer; attempt correction to fake missing row.",
       "given": {
         "P": {
@@ -5592,7 +5604,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Concern weeks 1, 2, 3 then correct week 2 to Steady and inspect old revisions/current display.",
       "given": {
         "P": {
@@ -5697,7 +5712,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Old three-week run ends September 14; current October week missing or Steady.",
       "given": {
         "P": {
@@ -5793,7 +5811,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Show the private deterministic support question; attempt model-generated prayer/counsel/pastoral judgment.",
       "given": {
         "P": {
@@ -5894,7 +5915,10 @@
         "WP-073",
         "WP-074"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Original author asks Evry read/draft/propose/execute private care; canaries in context/log/eval.",
       "given": {
         "P": {
@@ -5986,7 +6010,10 @@
       "work_packages": [
         "WP-039"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/intelligence/care.test.mts"
+      ],
       "description": "Support run triggers with no other material changes; inspect notification/task/PI freshness and retention.",
       "given": {
         "P": {
