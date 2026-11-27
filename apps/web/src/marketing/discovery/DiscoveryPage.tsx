@@ -26,12 +26,12 @@ const TAB_ICONS = {
 	ready: ICONS.flag,
 };
 const SCREENS = {
-	wiki: <WikiScreen />,
-	documents: <DocumentsScreen />,
-	templates: <TemplateScreen />,
-	tasks: <TasksScreen />,
-	evry: <EvryScreen />,
-	ready: <LockedScreen page="Launch" />,
+	wiki: <WikiScreen key="wiki" />,
+	documents: <DocumentsScreen key="documents" />,
+	templates: <TemplateScreen key="templates" />,
+	tasks: <TasksScreen key="tasks" />,
+	evry: <EvryScreen key="evry" />,
+	ready: <LockedScreen key="ready" page="Launch" />,
 };
 
 export function DiscoveryPage() {
