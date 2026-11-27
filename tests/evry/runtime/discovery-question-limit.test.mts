@@ -20,8 +20,6 @@ import { actor, admin, counts, db, freshActor, setup, sql, teardown, work } from
 before(setup);
 after(teardown);
 
-const LIMIT_COPY =
-	"You've reached today's Evry questions. They'll be back tomorrow. Everything else in Discovery stays open.";
 const price = { input: 0.1, output: 0.5, longContextAbove: 272_000 };
 
 const refused = async (body: () => Promise<unknown>, code: string) =>
