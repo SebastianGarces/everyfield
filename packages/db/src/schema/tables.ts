@@ -5822,6 +5822,22 @@ export const model_spend = pgTable(
 	],
 );
 
+export const evry_question_day = pgTable(
+	"evry_question_day",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id, { onDelete: "cascade" }),
+		day: date("day", { mode: "string" }).notNull(),
+		questions: integer("questions").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		unique("evry_question_day_key").on(t.account_id, t.day),
+		check("evry_question_day_questions", sql`${t.questions} >= 0`),
+	],
+);
+
 export const embedding_spend = pgTable(
 	"embedding_spend",
 	{

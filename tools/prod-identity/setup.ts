@@ -68,6 +68,7 @@ export const BY_HAND: Readonly<Record<string, string>> = {
 	EVRY_MODEL: "the approved paid Evry model",
 	OPENAI_API_KEY: "the paid Evry model's key",
 	EVRY_MONTHLY_CAP_USD: "optional Evry monthly spend cap (default 20)",
+	EVRY_DISCOVERY_DAILY_QUESTIONS: "optional Evry questions a Discovery account may ask per day (default 30)",
 	LANGFUSE_PUBLIC_KEY: "optional Evry tracing",
 	LANGFUSE_SECRET_KEY: "optional Evry tracing",
 	LANGFUSE_BASE_URL: "optional Evry tracing",

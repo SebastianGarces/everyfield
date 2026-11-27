@@ -19,6 +19,7 @@ import {
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
+import { discoveryDailyQuestions } from "../runtime/model.ts";
 import { projection, proposalRow, readable, reviewMap, reviewsOf } from "../proposals/review.ts";
 import { attachment, attachmentsOf, attachmentState, ATTACHMENTS, stagedIn } from "../attachments/store.ts";
 
@@ -75,6 +76,34 @@ const own = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<Alias
 const visible = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
 	sql`((${own(actor, alias)} AND ${liveAuthority(actor)}) OR ${discoveryRead(actor, alias)})`;
 
+const today = sql`(clock_timestamp() AT TIME ZONE coalesce(qa.personal_timezone,'UTC'))::date`;
+const openDiscovery = (account: SQL) =>
+	sql`EXISTS(SELECT FROM discovery qd WHERE qd.account_id=${account} AND qd.converted_at IS NULL)`;
+
+async function reserveQuestion(db: Database, actor: EvryActor, conversationId: string, requestKey: string) {
+	const limit = discoveryDailyQuestions();
+	const r = await db.execute(sql`
+		WITH asked AS (
+			SELECT c.account_id,${today} AS day FROM conversation c JOIN account qa ON qa.id=c.account_id
+			WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND c.context_kind='account' AND c.tenant_id=c.account_id
+				AND ${openDiscovery(sql`c.account_id`)}
+				AND NOT EXISTS(SELECT FROM conversation_event e WHERE e.conversation_id=c.id AND e.request_key=${requestKey})
+		), reserved AS (
+			INSERT INTO evry_question_day(account_id,day,questions)
+			SELECT account_id,day,1 FROM asked WHERE ${limit}::int>0
+			ON CONFLICT (account_id,day) DO UPDATE SET questions=evry_question_day.questions+1
+				WHERE evry_question_day.questions<${limit}::int
+			RETURNING id
+		)
+		SELECT EXISTS(SELECT FROM asked) AS counted,(SELECT id FROM reserved) AS reserved`);
+	const row = z.strictObject({ counted: z.boolean(), reserved: z.uuid().nullable() }).parse(r.rows[0]);
+	if (row.counted && !row.reserved) throw new EvryRefusal("question_limit");
+	return row.reserved;
+}
+
+const returnQuestion = (db: Database, reserved: string) =>
+	db.execute(sql`UPDATE evry_question_day SET questions=questions-1 WHERE id=${reserved}::uuid AND questions>0`);
+
 const conversationRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string(),
@@ -111,20 +140,25 @@ export async function createConversation(db: Database, actor: EvryActor, raw: un
 		WITH known AS (
 			SELECT a.subject_id FROM audit_event a
 			WHERE a.tenant_id=${actor.owner.id}::uuid AND a.request_key=${input.requestKey} AND a.actor_id=${actor.accountId}::uuid AND a.action='evry.conversation_created'
+		), limited AS (
+			SELECT FROM account qa WHERE qa.id=${actor.accountId}::uuid AND ${actor.contextKind === "account"}::boolean
+				AND qa.id=${actor.owner.id}::uuid AND ${openDiscovery(sql`qa.id`)}
+				AND coalesce((SELECT q.questions FROM evry_question_day q WHERE q.account_id=qa.id AND q.day=${today}),0)>=${discoveryDailyQuestions()}::int
 		), c AS (
 			INSERT INTO conversation(tenant_id,account_id,context_kind,title)
 			SELECT ${actor.owner.id}::uuid,${actor.accountId}::uuid,${actor.contextKind},${input.title ?? "New conversation"}
-			WHERE NOT EXISTS(SELECT FROM known) AND ${currentAuthority(actor)}
+			WHERE NOT EXISTS(SELECT FROM known) AND NOT EXISTS(SELECT FROM limited) AND ${currentAuthority(actor)}
 			RETURNING *
 		), audit AS (
 			INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,request_key)
 			SELECT tenant_id,account_id,'evry.conversation_created','create','conversation',id,${input.requestKey} FROM c
 		)
 		SELECT coalesce((SELECT ${conversationJson("c")} FROM c),
-			(SELECT ${conversationJson("k")} FROM conversation k JOIN known ON known.subject_id=k.id WHERE ${owned(actor, "k")})) AS conversation`);
-	const row = r.rows[0]?.conversation;
-	if (!row) throw new EvryRefusal("access_denied");
-	return conversationRow.parse(row);
+			(SELECT ${conversationJson("k")} FROM conversation k JOIN known ON known.subject_id=k.id WHERE ${owned(actor, "k")})) AS conversation,
+			EXISTS(SELECT FROM limited) AS limited`);
+	const row = r.rows[0];
+	if (!row?.conversation) throw new EvryRefusal(row?.limited === true ? "question_limit" : "access_denied");
+	return conversationRow.parse(row.conversation);
 }
 
 export async function listConversations(db: Database, actor: EvryActor, raw: unknown) {
@@ -207,6 +241,24 @@ export async function submitTurn(
 	const id = parse(uuid, conversationId);
 	const input = parse(submitInput, raw);
 	await admitTurn(db, retryOf ? "evry.retryTurn" : "evry.submitTurn");
+	const reserved = actor.discovery && !retryOf ? await reserveQuestion(db, actor, id, input.requestKey) : null;
+	try {
+		const sent = await submitStatement(db, actor, id, input, retryOf);
+		if (sent.replayed && reserved) await returnQuestion(db, reserved);
+		return sent;
+	} catch (error) {
+		if (reserved) await returnQuestion(db, reserved);
+		throw error;
+	}
+}
+
+async function submitStatement(
+	db: Database,
+	actor: EvryActor,
+	id: string,
+	input: z.output<typeof submitInput>,
+	retryOf: number | undefined,
+): Promise<Submitted> {
 	const turnId = randomUUID();
 	const body = {
 		text: input.text,

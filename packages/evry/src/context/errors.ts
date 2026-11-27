@@ -29,6 +29,7 @@ export type EvryErrorCode =
 	| "invalid_subject"
 	| "dependency_cycle"
 	| "protected_owner"
+	| "question_limit"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -70,6 +71,7 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	invalid_subject: "never",
 	dependency_cycle: "never",
 	protected_owner: "never",
+	question_limit: "never",
 	unknown: "new_turn",
 };
 

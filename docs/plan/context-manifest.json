@@ -2690,6 +2690,7 @@
         "early_access_request",
         "embedding_spend",
         "enrollment_milestone",
+        "evry_question_day",
         "feature_flag",
         "feedback",
         "generated_document",
@@ -19004,6 +19005,7 @@
       "producer_table_names": [
         "conversation",
         "conversation_event",
+        "evry_question_day",
         "model_spend"
       ],
       "consumer_table_names": [
@@ -20393,6 +20395,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "evry_question_day",
         "model_spend",
         "proposal",
         "record",
@@ -26502,6 +26505,7 @@
         "early_access_request",
         "embedding_spend",
         "enrollment_milestone",
+        "evry_question_day",
         "feature_flag",
         "feedback",
         "file_object",
@@ -32688,6 +32692,7 @@
         "early_access_request",
         "embedding_spend",
         "enrollment_milestone",
+        "evry_question_day",
         "feature_flag",
         "feedback",
         "file_object",

@@ -437,7 +437,7 @@ export async function caseWorld(
 		);
 	}
 
-	const OWN = new Set(["audit_event", "conversation", "conversation_event", "job", "record"]);
+	const OWN = new Set(["audit_event", "conversation", "conversation_event", "evry_question_day", "job", "record"]);
 	async function quiet<T>(body: () => Promise<T>, changes: string[] = []) {
 		const kinds = () =>
 			rows(

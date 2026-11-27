@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 128,
-  "column_count": 1442,
-  "foreign_key_count": 415,
+  "table_count": 129,
+  "column_count": 1446,
+  "foreign_key_count": 416,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -20599,6 +20599,118 @@
         "checks": [
           "enrollment_milestone_source",
           "enrollment_milestone_confirmed"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "evry_question_day",
+      "domain": "assistant",
+      "purpose": "Evry questions each open Discovery account asked per day, the day starting at 00:00 in the account's personal time zone (00:00 UTC without one), checked against EVRY_DISCOVERY_DAILY_QUESTIONS before a question is accepted (T-710, D-3098, D-3099, D-3100).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-035"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-051"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-051"
+        ],
+        "rule": "T-710 Discovery daily Evry question limit through Drizzle Kit."
+      },
+      "feature_ids": [
+        "EVR-004",
+        "EVR-019",
+        "EVR-027",
+        "EVR-030"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "assistant",
+      "invariants": [
+        "A question reserves its count in one conditional upsert before its turn is queued; the count never passes the configured daily limit.",
+        "A replay, a retry and a message refused for any reason leave the count unchanged."
+      ],
+      "revision": "One row per account and day; each accepted question adds one in a single statement, and a refused submit gives its reservation back in one statement.",
+      "idempotency": "A repeated request key is a replay and reserves nothing.",
+      "deletion": "Holds counts only, no message content; goes with its account row, and account purges leave it for spend measurement.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "day",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "questions",
+          "type": "integer",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "account_id",
+            "day"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Usage counts go with their account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "\"evry_question_day\".\"questions\" >= 0"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [
+          "evry_question_day_key"
+        ],
+        "foreign": [
+          "evry_question_day_account_id_account_id_fk"
+        ],
+        "checks": [
+          "evry_question_day_questions"
         ]
       },
       "policies": {},
