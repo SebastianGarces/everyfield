@@ -555,6 +555,17 @@ async function omitted(
 			assert.deepEqual(results, ["clear", "unknown"], `${id}: P has follow-ups and none overdue, Q has none`);
 			assert.deepEqual(await saved("overdue_followups"), { P: 0, Q: null }, `${id}: Q's zero is not observed`);
 			assert.deepEqual(await saved("unowned_followups"), { P: 0, Q: null });
+			const q = w.plants.get("Q")!;
+			const gone = await person(q, "Private Retired");
+			await followUp(q, gone, -2, null);
+			await c0.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${gone}`);
+			const again = await refresh(w.A);
+			const [stored] = await c0.rows<{ overdue: number | null; unowned: number | null }>(sql`SELECT
+				overdue_followups AS overdue, unowned_followups AS unowned FROM network_intelligence_plant
+				WHERE run_id=${again} AND plant_id=${q.id}`);
+			assert.deepEqual(stored, { overdue: null, unowned: null }, `${id}: a retired person's follow-up is not observed`);
+			const r = (await read(w.A, "portfolio", again)).groups.flatMap((g) => g.rows).find((x) => x.plantId === q.id)!;
+			assert.ok(r.status === "shared" && r.results["NIR-04"] === "unknown", `${id}: Q still reads Unknown`);
 			return;
 		}
 		default:
