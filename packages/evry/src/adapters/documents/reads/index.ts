@@ -209,17 +209,11 @@ export const coreValues: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-const OWN_TEMPLATES = DISCOVERY_TEMPLATE_IDS.length;
 const NOT_IN_DISCOVERY = [
 	"fixed-layout, budget and email templates",
 	"church templates",
 	"any template not listed here (none of them is available in Discovery)",
 ];
-const ownTemplates = () =>
-	DISCOVERY_TEMPLATE_IDS.flatMap((id) => {
-		const t = discoveryTemplate(id);
-		return t ? [t] : [];
-	});
 const ownTemplateRow = (t: DocTemplate, extra: SourceRow["fields"] = {}): SourceRow => ({
 	kind: "template",
 	id: t.id,
@@ -278,7 +272,7 @@ export const templatesList: ReadAdapter<z.infer<typeof templatesInput>> = {
 	description:
 		"List the built-in templates a new Church Document can be made from: each id, title, version, what it is for and whether it is a formal or legal template. A template is starting text the church edits; it is not legal advice. A policy or legal document always comes from a template, never from text Evry writes.",
 	account: {
-		description: `List the ${OWN_TEMPLATES} templates a private document of the user's own can start from in Discovery: each id, title, what it is for and whether it is a formal or legal template. Only these templates are available in Discovery: for any other, such as a fixed-layout, budget or email template, a church's own template or one not listed, say it isn't available in Discovery, name these, and prepare nothing. A template is starting text the user edits; it is not legal advice.`,
+		description: `List the ${DISCOVERY_TEMPLATE_IDS.length} templates a private document of the user's own can start from in Discovery: each id, title, what it is for and whether it is a formal or legal template. Only these templates are available in Discovery: for any other, such as a fixed-layout, budget or email template, a church's own template or one not listed, say it isn't available in Discovery, name these, and prepare nothing. A template is starting text the user edits; it is not legal advice.`,
 		input: z.strictObject({}),
 	},
 	input: templatesInput,
@@ -286,7 +280,10 @@ export const templatesList: ReadAdapter<z.infer<typeof templatesInput>> = {
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
 		if (accountContext(actor)) {
 			await planterName(tx, actor);
-			const rows = ownTemplates().map((t) => ownTemplateRow(t));
+			const rows = DISCOVERY_TEMPLATE_IDS.flatMap((id) => {
+				const t = discoveryTemplate(id);
+				return t ? [ownTemplateRow(t)] : [];
+			});
 			return reply("documents.templates.list", { rows, exclusions: NOT_IN_DISCOVERY });
 		}
 		const r = await tx.execute(sql`SELECT ${live(actor)} AS ok`);
