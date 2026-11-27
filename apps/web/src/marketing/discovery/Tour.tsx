@@ -64,7 +64,7 @@ export function Tour({ label, tabs, panels }: { label: string; tabs: readonly Ta
 			<div
 				role="tablist"
 				aria-label={label}
-				className="grid grid-cols-5 bg-white shadow-[var(--ui-ring),0_0_0_1px_var(--color-mk-line)] max-mk-cx:grid-cols-2"
+				className="grid auto-cols-[minmax(0,1fr)] grid-flow-col bg-white shadow-[var(--ui-ring),0_0_0_1px_var(--color-mk-line)] max-mk-cx:grid-flow-row max-mk-cx:grid-cols-2"
 			>
 				{tabs.map((t, i) => {
 					const on = i === current;

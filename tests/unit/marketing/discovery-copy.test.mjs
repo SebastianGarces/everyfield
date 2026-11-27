@@ -9,29 +9,24 @@ const page = shared.discovery_page;
 const strings = (value) =>
 	typeof value === "string" ? [value] : value && typeof value === "object" ? Object.values(value).flatMap(strings) : [];
 
-const held = ({ shown, line }) => (shown ? line : "");
-const shown = strings({
-	...page,
-	free: { ...page.free, evry: held(page.free.evry) },
-	ready: { ...page.ready, carry: held(page.ready.carry) },
-	faq: { ...page.faq, items: page.faq.items.filter((i) => i.shown !== false) },
-});
+const shown = strings(page);
 
-test("the /discovery copy keeps its Evry claim off until Evry in Discovery passes QA", () => {
-	assert.equal(page.free.evry.shown, false);
+test("the /discovery copy shows Maya's Evry and carry-over lines in their exact words", () => {
 	assert.equal(
-		shown.some((s) => /\bEvry\b/.test(s) && !s.includes("Evry with your church's context")),
-		false,
+		page.tour.tabs.find((t) => t.id === "evry")?.line,
+		"Ask Evry, Everyfield's assistant, questions about the wiki and your own documents.",
 	);
-});
-
-test("the /discovery copy keeps its notes-carry-over claims off until documents after starting a church pass QA", () => {
-	assert.equal(page.ready.carry.shown, false);
-	assert.equal(page.faq.items.find((i) => i.id === "notes")?.shown, false);
 	assert.equal(
-		shown.some((s) => /comes? with you/i.test(s)),
-		false,
+		page.ready.body,
+		"Start your church plant in Everyfield and the rest opens up: your people, meetings, tasks, your launch journey toward Launch Sunday, and Evry with your church's context.",
 	);
+	assert.equal(page.ready.carry, "Everything you wrote in Discovery comes with you and stays private to you.");
+	assert.deepEqual(page.faq.items.at(-1), {
+		id: "notes",
+		q: "What happens to my notes when I start my church plant?",
+		a: "They come with you and stay private to you.",
+	});
+	assert.equal(shown.filter((s) => s.includes("questions about the wiki and your own documents")).length, 1);
 });
 
 test("the /discovery copy carries no draft marker, price or banned claim, and says 'trial' only in 'No trial clock'", () => {
@@ -58,10 +53,10 @@ test("the /discovery Templates tab uses the copy owner's templates line", () => 
 	);
 });
 
-test("the /discovery tour shows Tasks after Templates with the real /tasks wording", () => {
+test("the /discovery tour shows Tasks after Templates with the real /tasks wording, then Evry before When you're ready", () => {
 	assert.deepEqual(
 		page.tour.tabs.map((t) => t.id),
-		["wiki", "documents", "templates", "tasks", "ready"],
+		["wiki", "documents", "templates", "tasks", "evry", "ready"],
 	);
 	assert.equal(
 		page.tour.tabs.find((t) => t.id === "tasks")?.line,
