@@ -367,7 +367,7 @@ function rowState(rule: string, r: IntelligenceRow) {
 }
 
 const PATTERN_NAME =
-	"AC:NEX-001 AC:NEX-002 AC:NEX-003 AC:NEX-004 AC:NEX-005 AC:NEX-006 AC:NEX-007 AC:NEX-008 AC:NEX-009 AC:NEX-010 AC:NEX-011 AC:NEX-012 AC:NEX-014 AC:NEX-015 AC:NEX-016 AC:NEX-017 AC:NEX-018 AC:NEX-019 AC:NEX-020 AC:NEX-021 AC:NEX-022 ";
+	"AC:NEX-001 AC:NEX-002 AC:NEX-003 AC:NEX-004 AC:NEX-005 AC:NEX-006 AC:NEX-007 AC:NEX-008 AC:NEX-009 AC:NEX-010 AC:NEX-011 AC:NEX-012 AC:NEX-013 AC:NEX-014 AC:NEX-015 AC:NEX-016 AC:NEX-017 AC:NEX-018 AC:NEX-019 AC:NEX-020 AC:NEX-021 AC:NEX-022 ";
 const PATTERN_CASES = PATTERN_NAME.trim()
 	.split(" ")
 	.map((m) => m.slice(3));
@@ -544,6 +544,17 @@ async function omitted(
 			assert.ok(whole.groups.every((g) => g.patterns.length === 0));
 			const claims = said(whole).filter((x) => /100|complete/i.test(x));
 			assert.deepEqual(claims, [], `${id}: no key or value claims 100 percent or completion`);
+			return;
+		}
+		case "zero_is_observed": {
+			const results = ["P", "Q"].map((x) => {
+				const r = row(x)!;
+				assert.ok(r.status === "shared");
+				return r.results["NIR-04"];
+			});
+			assert.deepEqual(results, ["clear", "unknown"], `${id}: P has follow-ups and none overdue, Q has none`);
+			assert.deepEqual(await saved("overdue_followups"), { P: 0, Q: null }, `${id}: Q's zero is not observed`);
+			assert.deepEqual(await saved("unowned_followups"), { P: 0, Q: null });
 			return;
 		}
 		default:

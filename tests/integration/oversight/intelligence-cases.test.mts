@@ -741,6 +741,9 @@ test("AC:NI-014 AC:NI-015 a missing result or fact is Unknown, a non-sharing pla
 	await link(Q, o, ["shared_findings"]);
 	await link(P, o);
 	await link(V, o, ["share_tasks"]);
+	await c0.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+		person_id) SELECT ${randomUUID()},${P.id},'Call back','follow_up','medium','not_started',clock_timestamp(),'date_only',
+		(clock_timestamp() AT TIME ZONE ${ZONE})::date + 3,id FROM person WHERE plant_id=${P.id} AND display_name='Pat P Private'`);
 	const run = await refresh(o.admin);
 	const v = await view(o.admin);
 	const u = rowOf(v, "U Missing Result")!;
@@ -764,14 +767,14 @@ test("AC:NI-014 AC:NI-015 a missing result or fact is Unknown, a non-sharing pla
 	assert.equal(expected("NI-014").healthy_default, false);
 	assert.equal(argumentsOf("NI-015").authorized_observed_value, 0);
 	const counts = Object.fromEntries((await stored(run)).map((r) => [r.plant_id, r.overdue_followups]));
-	assert.deepEqual(counts, { [U.id]: 0, [P.id]: 0, [V.id]: null });
+	assert.deepEqual(counts, { [U.id]: null, [P.id]: 0, [V.id]: null }, "U has no follow-up task: not observed");
 	const e15 = expected("NI-015");
 	assert.equal(counts[P.id], e15.observed_zero);
 	assert.equal(counts[V.id], e15.unknown);
 	const results = Object.fromEntries(
 		rowsOf(v).flatMap((r) => (r.status === "shared" ? [[r.name, r.results["NIR-04"]]] : [])),
 	);
-	assert.deepEqual(results, { P: "clear", "U Missing Result": "clear", "V No Tasks Shared": "unknown" });
+	assert.deepEqual(results, { P: "clear", "U Missing Result": "unknown", "V No Tasks Shared": "unknown" });
 	assert.ok(
 		patternsOf(v).every((x) => x.rule !== "NIR-04"),
 		"zero overdue is no gap pattern",

@@ -180,6 +180,10 @@ test("AC:EVRY-FAMILY-ORGANIZATION-INTELLIGENCE an organization reads patterns of
 	);
 	await w.admin.execute(sql`UPDATE affiliation SET share_meetings=false,share_tasks=false WHERE id=${Q.affiliation}`);
 	await w.admin.execute(sql`UPDATE plant SET street='12 Private Lane' WHERE id IN(${P.id},${Q.id},${R.id})`);
+	await w.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+		person_id) SELECT ${randomUUID()},${P.id},'Call back','follow_up','medium','not_started',clock_timestamp(),'date_only',
+		(clock_timestamp() AT TIME ZONE pl.timezone)::date + 3,p.id FROM person p JOIN plant pl ON pl.id=p.plant_id
+		WHERE p.plant_id=${P.id} AND p.state='live' ORDER BY p.id LIMIT 1`);
 	await ch.churchLinked();
 	const { id: grace } = await w.one<{ id: string }>(sql`SELECT id FROM organization WHERE name='Grace Austin'`);
 	await leadOf(P.id, P.owner.id, "Alex Leadname");

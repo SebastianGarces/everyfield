@@ -39241,7 +39241,10 @@
         "WP-044",
         "WP-047"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/oversight/pattern-cases.test.mts"
+      ],
       "description": "Observed zero and Unknown stay distinct",
       "given": {
         "P": {

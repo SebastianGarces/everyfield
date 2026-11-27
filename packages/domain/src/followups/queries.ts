@@ -49,8 +49,9 @@ const duties = (plant: SQL, where: SQL = sql`true`) => sql`SELECT d.*,
 	FROM task t JOIN plant pl ON pl.id=t.plant_id
 	JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
 	WHERE t.plant_id=${plant} AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}) d`;
-export const overdueFollowUpsJson = (plant: SQL) => sql`(SELECT json_build_object('overdue', count(*)::int,
-	'unowned', (count(*) FILTER (WHERE cardinality(d.owner_ids)=0))::int) FROM (${duties(plant)}) d
+export const overdueFollowUpsJson = (plant: SQL) => sql`(SELECT CASE WHEN EXISTS(SELECT FROM task t
+	WHERE t.plant_id=${plant} AND ${followUpTask(sql`t`)}) THEN json_build_object('overdue', count(*)::int,
+	'unowned', (count(*) FILTER (WHERE cardinality(d.owner_ids)=0))::int) END FROM (${duties(plant)}) d
 	WHERE CASE d.due_kind WHEN 'timed' THEN clock_timestamp() > d.due_at
 		WHEN 'date_only' THEN clock_timestamp() >= d.due_key ELSE false END)`;
 const dutyJson = (d: SQL) => sql`to_jsonb(${d})`;
