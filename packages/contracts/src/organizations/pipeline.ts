@@ -266,6 +266,7 @@ export const pipelineRefusal = z.discriminatedUnion("code", [
 	z.strictObject({ code: z.literal("unavailable") }),
 	z.strictObject({ code: z.literal("invalid_input"), field: z.string().optional() }),
 	z.strictObject({ code: z.literal("conflict") }),
+	z.strictObject({ code: z.literal("reference_not_ready") }),
 	z.strictObject({ code: z.literal("stage_occupied"), stageId: recordId, people: z.int().min(1) }),
 ]);
 export type PipelineRefusal = z.infer<typeof pipelineRefusal>;

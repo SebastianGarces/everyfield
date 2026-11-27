@@ -71,6 +71,12 @@ const refresh = async (p: ChurchPlant, drafter = scripted(), limit = 1) => {
 const inputState = async (p: { id: string }) => (await captureFacts(c0.db, p.id, clock.now()))!.sourceRevision;
 const audits = async (p: { id: string }) =>
 	(await c0.one<{ n: number }>(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${p.id}`)).n;
+const releases = async (p: { id: string }) =>
+	(
+		await c0.one<{ n: number }>(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${p.id} AND action='intelligence.released'`,
+		)
+	).n;
 async function tick(p: { id: string }, drafter = scripted()) {
 	await isolate(p);
 	const response = await scheduledJobs({
@@ -143,7 +149,8 @@ test("AC:ASMT-001 with no write after R1 the scheduler owes nothing for six days
 	assert.equal(iso(r2.as_of), iso(e.new_run_as_of as string), "the new run's as-of is the day-eight tick's instant");
 	assert.equal(r2.source_revision, r1.source_revision, "the unchanged source revision");
 	assert.equal(Number(r2.reference_activation), Number(r1.reference_activation), "the unchanged reference activation");
-	assert.equal(await audits(p), writes + 1, "only the new run's audit: no write in between");
+	assert.equal(await releases(p), 1, "R1's one 72-hour release to oversight");
+	assert.equal(await audits(p), writes + 1 + 1, "only R1's release and the new run's audit: no write in between");
 	const v = await view(p);
 	assert.deepEqual([v.current!.runId, v.current!.asOf, v.current!.ageDays], [r2.id, iso(quietUntil), 0]);
 	await tick(p);
@@ -590,6 +597,11 @@ test("AC:ASMT-008 when contributor Q turns findings off, turns a category off or
 		const onQ = (v: typeof before) =>
 			v.groups.flatMap((g) => g.patterns).filter((x) => x.plants.some((pl) => pl.plantId === Q.id));
 		assert.ok(onQ(before).length > 0, `${what}: with both shared a pattern is built on P and Q`);
+		if (what === "category_OFF")
+			assert.ok(
+				onQ(before).some((x) => "lens" in x && x.lens === "leadership"),
+				"with both shared a ministry-team pattern is built on P and Q",
+			);
 		assert.ok(onQ(before).every((x) => x.plants.some((pl) => pl.plantId === P.id)));
 
 		const raced = await refresh(
@@ -604,7 +616,16 @@ test("AC:ASMT-008 when contributor Q turns findings off, turns a category off or
 		const latest = randomUUID();
 		ok(await requestIntelligenceRefresh(c0.db, director, { runId: latest }));
 		for (const v of [await read(latest), await read(earlier)]) {
-			assert.equal(onQ(v).length > 0, e.invalid_pattern_visible, `${what}: no pattern built on Q`);
+			const ministry = (x: ReturnType<typeof onQ>[number]) =>
+				"lens" in x && x.lens
+					? (c.LENSES.find((l) => l.key === x.lens)?.facts ?? []).some((f) => f === "coverage" || f === "training")
+					: x.rule === "NIR-03" || x.rule === "NIR-06";
+			const invalid = onQ(v).filter((x) => what !== "category_OFF" || ministry(x));
+			assert.equal(
+				invalid.length > 0,
+				e.invalid_pattern_visible,
+				`${what}: no pattern built on Q's withdrawn evidence`,
+			);
 			const rows = v.groups.flatMap((g) => g.rows).filter((r) => r.plantId === Q.id);
 			if (what === "ended_affiliation") assert.equal(rows.length > 0, e.ended_row_visible, "an ended Q has no row");
 			else assert.equal(rows.length, 1);

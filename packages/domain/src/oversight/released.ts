@@ -3,13 +3,30 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { iso } from "../intelligence/assessment.ts";
-import { concernOf, concernsSql, releasedRun, storedConcern } from "../intelligence/views.ts";
+import {
+	concernOf,
+	concernsSql,
+	releasedRun,
+	storedConcern,
+	storedStrength,
+	strengthOf,
+	strengthsSql,
+} from "../intelligence/views.ts";
 
+const releasedObject = sql`json_build_object('runId',rr.id,'asOf',${iso("rr.as_of")},'phase',rr.phase,
+	'concerns',${concernsSql("rr")},'strengths',${strengthsSql("rr")})`;
 export const releasedJson = (plant: SQL, now: SQL) =>
-	sql`(SELECT json_build_object('runId',rr.id,'asOf',${iso("rr.as_of")},'phase',rr.phase,'concerns',${concernsSql("rr")})
-	FROM ${releasedRun(plant, now)} rr)`;
+	sql`(SELECT ${releasedObject} FROM ${releasedRun(plant, now)} rr)`;
+export const capturedReleasedJson = (run: SQL) =>
+	sql`(SELECT ${releasedObject} FROM assessment_run rr WHERE rr.id=${run} AND rr.outcome='published')`;
 export const released = z
-	.object({ runId: z.string(), asOf: z.string(), phase: z.int(), concerns: z.array(storedConcern) })
+	.object({
+		runId: z.string(),
+		asOf: z.string(),
+		phase: z.int(),
+		concerns: z.array(storedConcern),
+		strengths: z.array(storedStrength),
+	})
 	.nullable();
 
 export type Shares = { people: boolean; meetings: boolean; tasks: boolean; ministry: boolean };
@@ -26,7 +43,7 @@ const CATEGORIES: Record<string, readonly (keyof Shares)[]> = {
 export function releasedOf(sharedFindings: boolean, shares: Shares, r: z.infer<typeof released>): C.ReleasedAssessment {
 	if (!sharedFindings) return { status: "withheld" };
 	if (!r) return { status: "not_assessed" };
-	const visible = (x: z.infer<typeof storedConcern>) =>
+	const visible = (x: { keys: string[] }) =>
 		x.keys.every((k) => (CATEGORIES[k.split(".")[0] ?? ""] ?? []).every((category) => shares[category]));
 	return C.releasedAssessment.parse({
 		status: "released",
@@ -34,6 +51,7 @@ export function releasedOf(sharedFindings: boolean, shares: Shares, r: z.infer<t
 		asOf: r.asOf,
 		phase: r.phase,
 		concerns: r.concerns.filter(visible).map((x) => concernOf(r.runId, x)),
+		strengths: r.strengths.filter(visible).map((x) => strengthOf(r.runId, x)),
 		withheld: r.concerns.filter((x) => !visible(x)).length,
 	});
 }

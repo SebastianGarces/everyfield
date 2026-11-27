@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 126 tables, 1421 columns, 412 declared FKs and 36 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 128 tables, 1442 columns, 415 declared FKs and 37 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -41,6 +41,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `answer_review` | WP-102 (T-385) sends chosen kept answers for review. | WP-102 |
 | `assessment_feedback` | WP-044 writes it from intelligence.submitFeedback. | WP-044 |
 | `assessment_insight` | WP-043 writes each published assessment's insights with its run. | WP-043 |
+| `assessment_release` | WP-044 writes it from intelligence.markAssessmentSeen and intelligence.releaseAssessmentToOversight. | WP-044 |
 | `assessment_run` | WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result. | WP-041, WP-042, WP-043 |
 | `assessment_seen` | WP-044 writes it from intelligence.markAssessmentSeen. | WP-044 |
 | `assignment_feedback` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
@@ -77,6 +78,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `network_intelligence_feedback` | WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating. | WP-047 |
 | `network_intelligence_plant` | WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating. | WP-047 |
 | `network_intelligence_run` | WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating. | WP-047 |
+| `network_reference` | WP-041 writes, validates and activates the network rubric reference. | WP-041 |
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
@@ -417,6 +419,7 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `discovery(conversion_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `network_intelligence_feedback(run_id) -> network_intelligence_run(id)`: A rating belongs to its author's account inside the run's organization. Reads and writes check the author's current seat in that organization; the relation grants no plant access.
 - `network_intelligence_plant(region_item_id) -> reference_item(id)`: The Region is a global official reference item (OMB 23-01), not a tenant body; it grants nothing.
+- `network_intelligence_plant(released_run_id) -> assessment_run(id)`: The released result a run captured belongs to the plant; each read rechecks the plant's current link and sharing, so the relation grants no plant access.
 - `network_intelligence_plant(run_id) -> network_intelligence_run(id)`: A run's plant rows and ratings belong to the run's organization. Each read joins the run on its organization and rechecks the plant's current link and sharing; the relation grants no plant access.
 - `onboarding_setup(creation_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `phase_transition(operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.

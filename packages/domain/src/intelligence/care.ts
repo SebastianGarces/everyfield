@@ -181,7 +181,8 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
 				parse(c.readTrendsRequest, raw);
-				return readPage(db, s, 1);
+				const page = await readPage(db, s, 1);
+				return c.careTrends.parse({ ...page, support: c.supportOf(page.weeks) });
 			});
 		},
 

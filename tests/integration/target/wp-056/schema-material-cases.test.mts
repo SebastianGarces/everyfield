@@ -170,6 +170,9 @@ async function enrich(p: ChurchPlant) {
 	await c0.admin.execute(sql`INSERT INTO commitment_change(id,plant_id,person_id,kind,effective_on)
 		VALUES(${randomUUID()},${p.id},${leaving},'withdrawn',${day(-1)})`);
 	await c0.admin.execute(sql`INSERT INTO launch(plant_id,status,target_date) VALUES(${p.id},'scheduled',${day(90)})`);
+	await c0.admin
+		.execute(sql`INSERT INTO launch_debrief(plant_id,version,missing_names,missing_count,saved_at,submitted_at)
+		VALUES(${p.id},1,'yes',3,clock_timestamp(),clock_timestamp())`);
 }
 
 test("AC:SCHEMA-012 every assessment input table changes the source revision, no other table does, private care stays out, and a run claimed before a change never publishes", async () => {
@@ -182,7 +185,9 @@ test("AC:SCHEMA-012 every assessment input table changes the source revision, no
 	});
 	const p = await assessed("Material Point", enrich);
 	await lateMeeting(p);
-	const { text, tables: inputs } = await builderTables(p.id, p.actor);
+	const { text, tables: read } = await builderTables(p.id, p.actor);
+	assert.ok(read.includes("reading"), "Foundational modules complete reads Discovery progress beside the inputs");
+	const inputs = read.filter((t) => t !== "reading");
 	assert.ok(inputs.length >= 15, inputs.join());
 	const baseline = await state(c0.admin, p.id, p.actor);
 	assert.notEqual(JSON.parse(baseline)[1], null, "the late, touched meeting puts the published run out of date");

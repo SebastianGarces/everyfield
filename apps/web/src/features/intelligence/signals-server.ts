@@ -11,6 +11,7 @@ import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createSignals, type Signals } from "@everyfield/domain/intelligence";
 import "server-only";
+import type { ReadinessWriteResult } from "./readiness-model.ts";
 import type { SignalOutcome } from "./signals-model.ts";
 import { plantSeat, type PlantSeat } from "@/server/request-context";
 import { LOST, transient } from "../../server/platform/transient.ts";
@@ -22,7 +23,9 @@ export async function loadAttestations(viewer: PlantSeat): Promise<SignalOutcome
 	return readDb("signals", async (db) => withError(await signals.readAttestations(db, viewer.authority, {})));
 }
 
-export async function runSignals<T extends SignalWriteResult | CandidateWriteResult | AttestationsPage>(
+export async function runSignals<
+	T extends SignalWriteResult | CandidateWriteResult | ReadinessWriteResult | AttestationsPage,
+>(
 	body: (signals: Signals, db: Database, authority: RequestActor) => Promise<SignalReply<T>>,
 ): Promise<SignalOutcome<T>> {
 	const viewer = await plantSeat();

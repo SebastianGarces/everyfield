@@ -4314,25 +4314,57 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": { "note": "Feedback identity, bound to a record of kind feedback owned by the author's account." },
-				"account_id": { "note": "The author's account, from the session; never changes." },
-				"request_key": { "note": "The dialog's send key; a resend with the same key returns the saved row." },
-				"category": { "note": "bug, suggestion, question or other." },
-				"description": { "note": "The author's words, trimmed, 1 to 5,000 characters. Private." },
-				"page_label": { "note": "The page name the author saw. Private." },
-				"page_address": { "note": "The internal path with query, fragment and tokens removed. Private." },
+				"id": {
+					"note": "Feedback identity, bound to a record of kind feedback owned by the author's account."
+				},
+				"account_id": {
+					"note": "The author's account, from the session; never changes."
+				},
+				"request_key": {
+					"note": "The dialog's send key; a resend with the same key returns the saved row."
+				},
+				"category": {
+					"note": "bug, suggestion, question or other."
+				},
+				"description": {
+					"note": "The author's words, trimmed, 1 to 5,000 characters. Private."
+				},
+				"page_label": {
+					"note": "The page name the author saw. Private."
+				},
+				"page_address": {
+					"note": "The internal path with query, fragment and tokens removed. Private."
+				},
 				"church_label": {
 					"note": "The church or organization of the author's seat when sent, from the server. Private."
 				},
-				"role_label": { "note": "The author's seat role when sent, from the server. Private." },
-				"browser": { "note": "Browser and system as the browser reports them, or null. Private." },
-				"screen_width": { "note": "Viewport width in CSS pixels, or null. Private." },
-				"screen_height": { "note": "Viewport height in CSS pixels, or null. Private." },
-				"theme": { "note": "light or dark, or null when the page did not say. Private." },
-				"app_version": { "note": "The deployed app version from the server, or null. Private." },
-				"submitted_at": { "note": "When the server saved it." },
-				"status": { "note": "new, reviewed, resolved or dismissed; only a triager changes it." },
-				"revision": { "note": "Rises with each status change." },
+				"role_label": {
+					"note": "The author's seat role when sent, from the server. Private."
+				},
+				"browser": {
+					"note": "Browser and system as the browser reports them, or null. Private."
+				},
+				"screen_width": {
+					"note": "Viewport width in CSS pixels, or null. Private."
+				},
+				"screen_height": {
+					"note": "Viewport height in CSS pixels, or null. Private."
+				},
+				"theme": {
+					"note": "light or dark, or null when the page did not say. Private."
+				},
+				"app_version": {
+					"note": "The deployed app version from the server, or null. Private."
+				},
+				"submitted_at": {
+					"note": "When the server saved it."
+				},
+				"status": {
+					"note": "new, reviewed, resolved or dismissed; only a triager changes it."
+				},
+				"revision": {
+					"note": "Rises with each status change."
+				},
 				"reference": {
 					"note": "The opaque public marker the issue and the operator email carry (FB- and 12 random hex digits); never the feedback id."
 				},
@@ -4342,15 +4374,27 @@
 				"held_reason": {
 					"note": "Why it is held: unsafe_fields, github_refused, search_failed, ambiguous or unresolved; null unless held."
 				},
-				"publication_payload": { "note": "The frozen public title and body, saved before the first GitHub call." },
-				"publication_hash": { "note": "SHA-256 of the frozen payload." },
-				"repository_id": { "note": "The numeric id of the repository the intent targets, frozen with the payload." },
+				"publication_payload": {
+					"note": "The frozen public title and body, saved before the first GitHub call."
+				},
+				"publication_hash": {
+					"note": "SHA-256 of the frozen payload."
+				},
+				"repository_id": {
+					"note": "The numeric id of the repository the intent targets, frozen with the payload."
+				},
 				"repository_name": {
 					"note": "That repository's owner/name when the intent was saved; reconciliation searches it, never today's configuration."
 				},
-				"issue_number": { "note": "The public issue's number, once published." },
-				"issue_url": { "note": "The public issue's address as GitHub returned it; links never rebuild it." },
-				"published_at": { "note": "When the issue was created or found." }
+				"issue_number": {
+					"note": "The public issue's number, once published."
+				},
+				"issue_url": {
+					"note": "The public issue's address as GitHub returned it; links never rebuild it."
+				},
+				"published_at": {
+					"note": "When the issue was created or found."
+				}
 			},
 			"foreignKeys": {
 				"account_id->account(id)": {
@@ -8178,9 +8222,15 @@
 				"revision": {
 					"note": ""
 				},
-				"outcome_note": { "note": "The planter's note on what happened on Launch Sunday, at most 10,000 characters." },
-				"outcome_recorded_at": { "note": "When the actual Launch Sunday was first recorded; a correction keeps it." },
-				"outcome_recorded_by": { "note": "The account that first recorded the actual Launch Sunday." },
+				"outcome_note": {
+					"note": "The planter's note on what happened on Launch Sunday, at most 10,000 characters."
+				},
+				"outcome_recorded_at": {
+					"note": "When the actual Launch Sunday was first recorded; a correction keeps it."
+				},
+				"outcome_recorded_by": {
+					"note": "The account that first recorded the actual Launch Sunday."
+				},
 				"gathering_path": {
 					"note": "How the church ends its gathering phase (T-296): launch_sunday, or milestone, a milestone an organization it is affiliated with offers. Choosing never changes the date, readiness, tasks or phase."
 				},
@@ -8193,7 +8243,9 @@
 				"gathering_reached_name": {
 					"note": "The milestone's name when it was reached, at most 120 characters. A later rename by the organization never changes it."
 				},
-				"gathering_note": { "note": "The planter's note on reaching the milestone, at most 2,000 characters." }
+				"gathering_note": {
+					"note": "The planter's note on reaching the milestone, at most 2,000 characters."
+				}
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
@@ -10623,24 +10675,54 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": { "note": "" },
-				"tenant_id": { "note": "Plant owner. A generated row is never account-owned." },
-				"creator_account_id": { "note": "Attribution only. Account deletion nulls it and keeps the plant file." },
-				"template_id": { "note": "Catalog template id frozen at generation." },
-				"template_version": { "note": "Catalog version frozen at generation." },
-				"saved_template_name": { "note": "Template name frozen so a retired catalog entry still has a label." },
-				"renderer_version": { "note": "Render engine version that produced the bytes." },
-				"format": { "note": "" },
-				"object_id": { "note": "Ready private file that holds the exact bytes." },
-				"inputs": { "note": "Frozen merge fields. Each entry has key, value and source." },
-				"download_name": { "note": "" },
-				"generated_at": { "note": "" },
-				"request_key": { "note": "Repeat of the same key returns this row." },
-				"revision": { "note": "" },
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": "Plant owner. A generated row is never account-owned."
+				},
+				"creator_account_id": {
+					"note": "Attribution only. Account deletion nulls it and keeps the plant file."
+				},
+				"template_id": {
+					"note": "Catalog template id frozen at generation."
+				},
+				"template_version": {
+					"note": "Catalog version frozen at generation."
+				},
+				"saved_template_name": {
+					"note": "Template name frozen so a retired catalog entry still has a label."
+				},
+				"renderer_version": {
+					"note": "Render engine version that produced the bytes."
+				},
+				"format": {
+					"note": ""
+				},
+				"object_id": {
+					"note": "Ready private file that holds the exact bytes."
+				},
+				"inputs": {
+					"note": "Frozen merge fields. Each entry has key, value and source."
+				},
+				"download_name": {
+					"note": ""
+				},
+				"generated_at": {
+					"note": ""
+				},
+				"request_key": {
+					"note": "Repeat of the same key returns this row."
+				},
+				"revision": {
+					"note": ""
+				},
 				"source_document_id": {
 					"note": "Church Document exports only. The document this export was made from, frozen with the row."
 				},
-				"source_revision_id": { "note": "Church Document exports only. The exact revision that was exported." },
+				"source_revision_id": {
+					"note": "Church Document exports only. The exact revision that was exported."
+				},
 				"theme_kind": {
 					"note": "Church Document exports only. church or everyfield-neutral: the theme that painted the saved bytes."
 				},
@@ -18992,14 +19074,30 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": { "note": "" },
-				"plant_id": { "note": "" },
-				"team_id": { "note": "Null means churchwide. Archiving the team does not null this." },
-				"name": { "note": "" },
-				"required": { "note": "Required programs count only people with a saved active assignment." },
-				"version": { "note": "Content generation. A credit names the version it was earned against." },
-				"revision": { "note": "" },
-				"archived_at": { "note": "" }
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"team_id": {
+					"note": "Null means churchwide. Archiving the team does not null this."
+				},
+				"name": {
+					"note": ""
+				},
+				"required": {
+					"note": "Required programs count only people with a saved active assignment."
+				},
+				"version": {
+					"note": "Content generation. A credit names the version it was earned against."
+				},
+				"revision": {
+					"note": ""
+				},
+				"archived_at": {
+					"note": ""
+				}
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
@@ -19046,22 +19144,46 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": { "note": "" },
-				"plant_id": { "note": "" },
-				"program_id": { "note": "" },
-				"person_id": { "note": "Moves to the survivor on merge." },
-				"version": { "note": "Program version when the episode was saved." },
-				"state": { "note": "" },
-				"effective_on": { "note": "" },
-				"ended_on": { "note": "Null exactly while the episode is active." },
-				"revision": { "note": "" }
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"program_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Moves to the survivor on merge."
+				},
+				"version": {
+					"note": "Program version when the episode was saved."
+				},
+				"state": {
+					"note": ""
+				},
+				"effective_on": {
+					"note": ""
+				},
+				"ended_on": {
+					"note": "Null exactly while the episode is active."
+				},
+				"revision": {
+					"note": ""
+				}
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
-					"deletion": { "action": "restrict", "policy": "Church purge deletes assignments before programs." }
+					"deletion": {
+						"action": "restrict",
+						"policy": "Church purge deletes assignments before programs."
+					}
 				},
 				"program_id,plant_id->training_program(id,plant_id)": {
-					"deletion": { "action": "restrict", "policy": "Delete assignments before the program." }
+					"deletion": {
+						"action": "restrict",
+						"policy": "Delete assignments before the program."
+					}
 				},
 				"person_id,plant_id->person(id,tenant_id)": {
 					"deletion": {
@@ -19101,24 +19223,49 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": { "note": "" },
-				"plant_id": { "note": "" },
-				"person_id": { "note": "Stays on the source person through merge and unmerge." },
-				"program_id": { "note": "Null for a service span." },
-				"kind": { "note": "" },
-				"version": { "note": "Program version for earned and revoked rows. Null for service." },
-				"earned_on": { "note": "Set on earned rows only. The original date is not rewritten." },
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Stays on the source person through merge and unmerge."
+				},
+				"program_id": {
+					"note": "Null for a service span."
+				},
+				"kind": {
+					"note": ""
+				},
+				"version": {
+					"note": "Program version for earned and revoked rows. Null for service."
+				},
+				"earned_on": {
+					"note": "Set on earned rows only. The original date is not rewritten."
+				},
 				"verifier_account_id": {
 					"note": "The session account that recorded the row. Null after that account is deleted."
 				},
-				"attendance_days": { "note": "Service spans only." },
-				"volunteer_days": { "note": "Service spans only." },
-				"recorded_at": { "note": "" },
-				"revision": { "note": "" }
+				"attendance_days": {
+					"note": "Service spans only."
+				},
+				"volunteer_days": {
+					"note": "Service spans only."
+				},
+				"recorded_at": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
-					"deletion": { "action": "restrict", "policy": "Church purge deletes credits first." }
+					"deletion": {
+						"action": "restrict",
+						"policy": "Church purge deletes credits first."
+					}
 				},
 				"person_id,plant_id->person(id,tenant_id)": {
 					"deletion": {
@@ -19133,7 +19280,10 @@
 					}
 				},
 				"verifier_account_id->account(id)": {
-					"deletion": { "action": "set_null", "policy": "Account deletion keeps the credit and clears the verifier." }
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account deletion keeps the credit and clears the verifier."
+					}
 				}
 			}
 		},
@@ -19141,9 +19291,13 @@
 			"table": {
 				"name": "network_intelligence_run",
 				"domain": "intelligence",
-				"purpose": "One Network Intelligence run of a sending church or network (REQ-PI-043): when an Owner or Admin pressed Refresh and under which rubric. Patterns are recomputed at read time from its plant rows that still share with the organization.",
+				"purpose": "One Network Intelligence run of a sending church or network (REQ-PI-043): a claimed, leased refresh that captures its plant contributions and settles once as published, deferred, degraded, failed or superseded under the active network reference. Patterns are recomputed at read time from its plant rows that still share with the organization; reads show the latest published run.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"violations": [
+						"an array of violation codes: unsupported_numeric_value, prohibited_fields or invalid_reference_citation"
+					]
+				},
 				"capabilities": ["CAP-C-024"],
 				"replaces": [],
 				"producer_work_packages": ["WP-047"],
@@ -19157,10 +19311,10 @@
 				"future_case_ids": ["NEX-019", "NI-041", "NI-044"],
 				"scope": "intelligence",
 				"invariants": [
-					"Written once, never changed; earlier runs stay in history.",
+					"Its captured plant rows never change; only its outcome, claim and lease move, and a settled run never changes again.",
 					"Holds no person, note, assessment text, street or coordinate."
 				],
-				"revision": "Immutable; no revision.",
+				"revision": "claim_generation fences each claim; outcome settles once.",
 				"idempotency": "Each refresh names its run id and its audit row's request key, so a repeated press records one run.",
 				"deletion": "Organization-owned derived facts. A plant's rows go with the plant in the church purge; a run goes only with its organization. Account deletion clears who requested a run and removes that account's own ratings.",
 				"physical_verified": false
@@ -19180,6 +19334,27 @@
 				},
 				"rubric_version": {
 					"note": "The network rubric the run applies (everyfield-network/v1)."
+				},
+				"outcome": {
+					"note": "pending while claimed, then published, deferred, degraded, failed or superseded."
+				},
+				"claim_generation": {
+					"note": "The live claim; a publication from an older claim is refused."
+				},
+				"lease_owner": {
+					"note": "The worker holding the claim."
+				},
+				"lease_until": {
+					"note": "When the claim's lease ends."
+				},
+				"reference_activation": {
+					"note": "The network reference activation the run applies."
+				},
+				"violations": {
+					"note": "The publication validator's violation codes for a failed run."
+				},
+				"settled_at": {
+					"note": "When the run settled."
 				}
 			},
 			"foreignKeys": {
@@ -19265,6 +19440,12 @@
 				},
 				"required_training": {
 					"note": "Saved required-training obligations (NIR-06); null when none is assigned or Ministry teams was not shared."
+				},
+				"affiliation_revision": {
+					"note": "The plant's affiliation revision when captured: its sharing contributor revision."
+				},
+				"released_run_id": {
+					"note": "The plant's assessment released to oversight when captured, if any."
 				}
 			},
 			"foreignKeys": {
@@ -19286,6 +19467,13 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Official reference rows are never removed while a run cites them."
+					}
+				},
+				"released_run_id->assessment_run(id)": {
+					"scope_exception": "The released result a run captured belongs to the plant; each read rechecks the plant's current link and sharing, so the relation grants no plant access.",
+					"deletion": {
+						"action": "set_null",
+						"policy": "A purged run clears the captured release; the network run stays."
 					}
 				}
 			}
@@ -19919,6 +20107,159 @@
 					}
 				}
 			}
+		},
+		"assessment_release": {
+			"table": {
+				"name": "assessment_release",
+				"domain": "intelligence",
+				"purpose": "The one persisted release of a published Plant Intelligence assessment to the plant's organizations (REQ-PI-024, REQ-PI-032, REQ-PI-037): written by the first eligible Owner or Admin open, or by the 72-hour release. The oversight plant view, the plant list, Network Intelligence and the 72-hour rule read only this record.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-044"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-044"],
+					"rule": "WP-044 writes it from intelligence.markAssessmentSeen and intelligence.releaseAssessmentToOversight."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": [],
+				"scope": "intelligence",
+				"invariants": [
+					"Written once per run, by an eligible open or by the 72-hour release, never by rendering or by an organization seat.",
+					"Never changed after it is written."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "One row per run; a repeated open or release writes nothing and replays the recorded release.",
+				"deletion": "Goes with its run or plant.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The released run."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"released_at": {
+					"note": "When the run was released to oversight."
+				},
+				"cause": {
+					"note": "opened (an eligible first open) or elapsed_72_hours (the 72-hour release)."
+				},
+				"request_key": {
+					"note": "The release write's request key; null for a release by an open."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				}
+			}
+		},
+		"network_reference": {
+			"table": {
+				"name": "network_reference",
+				"domain": "reference",
+				"purpose": "A written Network Intelligence rubric reference (REQ-PI-043) and its activation. Network Intelligence publishes only under the highest activated, validated reference; a building or failed candidate is never a fallback.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-024"],
+				"replaces": [],
+				"producer_work_packages": ["WP-041"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-041"],
+					"rule": "WP-041 writes, validates and activates the network rubric reference."
+				},
+				"feature_ids": ["PI-043"],
+				"acceptance_ids": ["AC-PI-043--PI-043"],
+				"future_case_ids": [],
+				"scope": "reference",
+				"invariants": [
+					"Only a validated reference is activated; activation numbers only grow.",
+					"The active reference is the one with the highest activation number."
+				],
+				"revision": "State moves building to validated or failed once; activation is set once.",
+				"idempotency": "Activation takes the next number; a candidate is activated at most once.",
+				"deletion": "Global reference rows are never deleted.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Reference identity."
+				},
+				"rubric_version": {
+					"note": "The network rubric the reference holds (everyfield-network/v1)."
+				},
+				"content_hash": {
+					"note": "SHA-256 of the rubric's canonical JSON."
+				},
+				"state": {
+					"note": "building, validated or failed."
+				},
+				"written_at": {
+					"note": "When the candidate was written."
+				},
+				"activation_number": {
+					"note": "Its activation number once activated; null for a candidate."
+				},
+				"activated_at": {
+					"note": "When it was activated."
+				}
+			},
+			"foreignKeys": {}
 		}
 	}
 }

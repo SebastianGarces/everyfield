@@ -1,14 +1,14 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-25T11:01:07.933Z",
+	"recordedAt": "2026-11-26T19:21:59.506Z",
 	"spend": {
 		"newCalls": 4,
-		"newMicroUsd": 25977,
+		"newMicroUsd": 26130,
 		"allCalls": 5,
-		"allMicroUsd": 26006
+		"allMicroUsd": 26159
 	},
 	"calls": {
-		"0ff2c24a72f86fe5": {
+		"06f4526bd05ba6e7": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -23,50 +23,32 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_0e5de602cf047e69006b06bfe9257087d2beecce9aea365fee",
-					"timestamp": "2026-11-25T11:00:57.000Z",
+					"id": "resp_0b3ca49bead31993016b0886cca85087d2a1a5c36e2571f5f3",
+					"timestamp": "2026-11-26T19:21:48.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
-					"type": "reasoning-start",
-					"id": "rs_0e5de602cf047e69006b06bfeb2fb887d2885c09add0a6210b:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0e5de602cf047e69006b06bfeb2fb887d2885c09add0a6210b"
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_0e5de602cf047e69006b06bfeb2fb887d2885c09add0a6210b:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0e5de602cf047e69006b06bfeb2fb887d2885c09add0a6210b"
-						}
-					}
-				},
-				{
 					"type": "tool-input-start",
-					"id": "call_pUx7FyivRGdbwwN91wn2Oa7f",
-					"toolName": "calendar_read"
+					"id": "call_2c8c6c16550f423eb41df6f5fb546ffa",
+					"toolName": "propose_change"
 				},
 				{
 					"type": "tool-input-delta",
-					"id": "call_pUx7FyivRGdbwwN91wn2Oa7f",
-					"delta": "{\"operation\":\"calendar.resolve\",\"input\":{\"date\":\"2026-11-13\",\"time\":\"09:00\"}}"
+					"id": "call_2c8c6c16550f423eb41df6f5fb546ffa",
+					"delta": "{\"operation\":\"communication.scheduleReviewed\",\"input\":{\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"2026-11-13T09:00\"}}"
 				},
 				{
 					"type": "tool-input-end",
-					"id": "call_pUx7FyivRGdbwwN91wn2Oa7f"
+					"id": "call_2c8c6c16550f423eb41df6f5fb546ffa"
 				},
 				{
 					"type": "tool-call",
-					"toolCallId": "call_pUx7FyivRGdbwwN91wn2Oa7f",
-					"toolName": "calendar_read",
-					"input": "{\"operation\":\"calendar.resolve\",\"input\":{\"date\":\"2026-11-13\",\"time\":\"09:00\"}}",
+					"toolCallId": "call_2c8c6c16550f423eb41df6f5fb546ffa",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"communication.scheduleReviewed\",\"input\":{\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"2026-11-13T09:00\"}}",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "fc_0e5de602cf047e69006b06bfeb8b8c87d2b049ad95a3463ec2"
+							"itemId": "fc_0b3ca49bead31993016b0886cd260887d2ab848554756d3a4f"
 						}
 					}
 				},
@@ -77,36 +59,36 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 64441,
+							"total": 65117,
 							"noCache": 3,
-							"cacheRead": 64058,
-							"cacheWrite": 380
+							"cacheRead": 64880,
+							"cacheWrite": 234
 						},
 						"outputTokens": {
-							"total": 74,
-							"text": 38,
-							"reasoning": 36
+							"total": 64,
+							"text": 64,
+							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 64441,
+							"input_tokens": 65117,
 							"input_tokens_details": {
-								"cache_write_tokens": 380,
+								"cached_tokens": 64880,
+								"cache_write_tokens": 234,
 								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 380
-								},
-								"cached_tokens": 64058
+									"ttl_30m_tokens": 234,
+									"ttl_12h_tokens": 0
+								}
 							},
-							"output_tokens": 74,
+							"output_tokens": 64,
 							"output_tokens_details": {
-								"reasoning_tokens": 36
+								"reasoning_tokens": 0
 							},
-							"total_tokens": 64515
+							"total_tokens": 65181
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_0e5de602cf047e69006b06bfe9257087d2beecce9aea365fee",
+							"responseId": "resp_0b3ca49bead31993016b0886cca85087d2a1a5c36e2571f5f3",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -114,11 +96,11 @@
 				}
 			],
 			"usage": {
-				"input": 64441,
-				"output": 74
+				"input": 65117,
+				"output": 64
 			}
 		},
-		"7c1394fe7781be5c": {
+		"07c0104fcb51c40e": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -133,31 +115,251 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_0e5de602cf047e69006b06bff101d887d2b981aca2587ab4fd",
-					"timestamp": "2026-11-25T11:01:05.000Z",
+					"id": "resp_0b3ca49bead31993016b0886b7423887d2b9caff367673c3b9",
+					"timestamp": "2026-11-26T19:21:27.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0b3ca49bead31993016b0886b8080c87d2b09bd41c8c95f38f:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0b3ca49bead31993016b0886b8080c87d2b09bd41c8c95f38f"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0b3ca49bead31993016b0886b8080c87d2b09bd41c8c95f38f:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0b3ca49bead31993016b0886b8080c87d2b09bd41c8c95f38f"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_f1460b06cef74327804eb160fd0b5a9c",
+					"toolName": "compose_reads"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_f1460b06cef74327804eb160fd0b5a9c",
+					"delta": "{\"reads\":[{\"operation\":\"calendar.getContext\",\"input\":{}},{\"operation\":\"communication.list\",\"input\":{\"subject\":\"interest meeting\",\"state\":\"draft\"}}]}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_f1460b06cef74327804eb160fd0b5a9c"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_f1460b06cef74327804eb160fd0b5a9c",
+					"toolName": "compose_reads",
+					"input": "{\"reads\":[{\"operation\":\"calendar.getContext\",\"input\":{}},{\"operation\":\"communication.list\",\"input\":{\"subject\":\"interest meeting\",\"state\":\"draft\"}}]}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0b3ca49bead31993016b0886b81eac87d294f027cd5eeab97f"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64563,
+							"noCache": 3,
+							"cacheRead": 64489,
+							"cacheWrite": 71
+						},
+						"outputTokens": {
+							"total": 91,
+							"text": 46,
+							"reasoning": 45
+						},
+						"raw": {
+							"input_tokens": 64563,
+							"input_tokens_details": {
+								"cached_tokens": 64489,
+								"cache_write_tokens": 71,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 71,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 91,
+							"output_tokens_details": {
+								"reasoning_tokens": 45
+							},
+							"total_tokens": 64654
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0b3ca49bead31993016b0886b7423887d2b9caff367673c3b9",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64563,
+				"output": 91
+			}
+		},
+		"1258b836c6943727": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0b3ca49bead31993016b0886c2e6dc87d29e9843262f5f25ee",
+					"timestamp": "2026-11-26T19:21:39.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0b3ca49bead31993016b0886c3996887d28c42e96b671f0241:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0b3ca49bead31993016b0886c3996887d28c42e96b671f0241"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0b3ca49bead31993016b0886c3996887d28c42e96b671f0241:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0b3ca49bead31993016b0886c3996887d28c42e96b671f0241"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_cfbcfb0708c64ce4bc996cb975b8337c",
+					"toolName": "calendar_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_cfbcfb0708c64ce4bc996cb975b8337c",
+					"delta": "{\"operation\":\"calendar.resolve\",\"input\":{\"date\":\"2026-11-13\",\"time\":\"09:00\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_cfbcfb0708c64ce4bc996cb975b8337c"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_cfbcfb0708c64ce4bc996cb975b8337c",
+					"toolName": "calendar_read",
+					"input": "{\"operation\":\"calendar.resolve\",\"input\":{\"date\":\"2026-11-13\",\"time\":\"09:00\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0b3ca49bead31993016b0886c3a66087d28976acc9afe2dd30"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 64883,
+							"noCache": 3,
+							"cacheRead": 64560,
+							"cacheWrite": 320
+						},
+						"outputTokens": {
+							"total": 83,
+							"text": 38,
+							"reasoning": 45
+						},
+						"raw": {
+							"input_tokens": 64883,
+							"input_tokens_details": {
+								"cached_tokens": 64560,
+								"cache_write_tokens": 320,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 320,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 83,
+							"output_tokens_details": {
+								"reasoning_tokens": 45
+							},
+							"total_tokens": 64966
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0b3ca49bead31993016b0886c2e6dc87d29e9843262f5f25ee",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 64883,
+				"output": 83
+			}
+		},
+		"2853cda1f46512ce": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0b3ca49bead31993016b0886d6891c87d29f359f3318d1e2a3",
+					"timestamp": "2026-11-26T19:21:58.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
 					"type": "text-start",
-					"id": "msg_0e5de602cf047e69006b06bff2f80c87d2ab93d1491c4afdec",
+					"id": "msg_0b3ca49bead31993016b0886d6fd9c87d29248dce83500d006",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0e5de602cf047e69006b06bff2f80c87d2ab93d1491c4afdec",
+							"itemId": "msg_0b3ca49bead31993016b0886d6fd9c87d29248dce83500d006",
 							"phase": "final_answer"
 						}
 					}
 				},
 				{
 					"type": "text-delta",
-					"id": "msg_0e5de602cf047e69006b06bff2f80c87d2ab93d1491c4afdec",
-					"delta": "Email sending is paused right now, so I couldn’t prepare the schedule and nothing was scheduled or sent. Friday is November 13, 2026, at 9:00 AM CST (America/Chicago). You can ask me to schedule it again later."
+					"id": "msg_0b3ca49bead31993016b0886d6fd9c87d29248dce83500d006",
+					"delta": "Email sending is paused for everyone right now, so I couldn’t prepare the schedule review. Nothing was scheduled or sent. The requested time was Friday, November 13, 2026 at 9:00 AM CST (America/Chicago). You can ask again later."
 				},
 				{
 					"type": "text-end",
-					"id": "msg_0e5de602cf047e69006b06bff2f80c87d2ab93d1491c4afdec",
+					"id": "msg_0b3ca49bead31993016b0886d6fd9c87d29248dce83500d006",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0e5de602cf047e69006b06bff2f80c87d2ab93d1491c4afdec",
+							"itemId": "msg_0b3ca49bead31993016b0886d6fd9c87d29248dce83500d006",
 							"phase": "final_answer"
 						}
 					}
@@ -169,256 +371,36 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 64801,
+							"total": 65242,
 							"noCache": 3,
-							"cacheRead": 64663,
-							"cacheWrite": 135
+							"cacheRead": 65114,
+							"cacheWrite": 125
 						},
 						"outputTokens": {
-							"total": 57,
-							"text": 57,
+							"total": 59,
+							"text": 59,
 							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 64801,
+							"input_tokens": 65242,
 							"input_tokens_details": {
-								"cache_write_tokens": 135,
+								"cached_tokens": 65114,
+								"cache_write_tokens": 125,
 								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 135
-								},
-								"cached_tokens": 64663
-							},
-							"output_tokens": 57,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 64858
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0e5de602cf047e69006b06bff101d887d2b981aca2587ab4fd",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 64801,
-				"output": 57
-			}
-		},
-		"8ace9f6c3580fd0f": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": [
-						{
-							"type": "compatibility",
-							"feature": "JSON Schema propertyNames",
-							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
-						}
-					]
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0e5de602cf047e69006b06bfec57ec87d29dfa7abf483a3e7e",
-					"timestamp": "2026-11-25T11:01:01.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_0e5de602cf047e69006b06bfef8c1887d291586863e0754562:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0e5de602cf047e69006b06bfef8c1887d291586863e0754562"
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_0e5de602cf047e69006b06bfef8c1887d291586863e0754562:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0e5de602cf047e69006b06bfef8c1887d291586863e0754562"
-						}
-					}
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_iarStz6E94Igl7UdMR4YimY4",
-					"toolName": "propose_change"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_iarStz6E94Igl7UdMR4YimY4",
-					"delta": "{\"operation\":\"communication.scheduleReviewed\",\"input\":{\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"2026-11-13T09:00\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_iarStz6E94Igl7UdMR4YimY4"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_iarStz6E94Igl7UdMR4YimY4",
-					"toolName": "propose_change",
-					"input": "{\"operation\":\"communication.scheduleReviewed\",\"input\":{\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"2026-11-13T09:00\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0e5de602cf047e69006b06bfefb07887d2bfc7dcc1e426b8bd"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 64666,
-							"noCache": 3,
-							"cacheRead": 64438,
-							"cacheWrite": 225
-						},
-						"outputTokens": {
-							"total": 74,
-							"text": 66,
-							"reasoning": 8
-						},
-						"raw": {
-							"input_tokens": 64666,
-							"input_tokens_details": {
-								"cache_write_tokens": 225,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 225
-								},
-								"cached_tokens": 64438
-							},
-							"output_tokens": 74,
-							"output_tokens_details": {
-								"reasoning_tokens": 8
-							},
-							"total_tokens": 64740
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0e5de602cf047e69006b06bfec57ec87d29dfa7abf483a3e7e",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 64666,
-				"output": 74
-			}
-		},
-		"9c34582175437e23": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": [
-						{
-							"type": "compatibility",
-							"feature": "JSON Schema propertyNames",
-							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
-						}
-					]
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0e5de602cf047e69006b06bfe6c44c87d282492079b46812fb",
-					"timestamp": "2026-11-25T11:00:55.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_0e5de602cf047e69006b06bfe83d3887d284439e6f23b7ff45:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0e5de602cf047e69006b06bfe83d3887d284439e6f23b7ff45"
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_0e5de602cf047e69006b06bfe83d3887d284439e6f23b7ff45:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0e5de602cf047e69006b06bfe83d3887d284439e6f23b7ff45"
-						}
-					}
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_7bf05349ef6f49a0abac453a890b970f",
-					"toolName": "compose_reads"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_7bf05349ef6f49a0abac453a890b970f",
-					"delta": "{\"reads\":[{\"operation\":\"calendar.getContext\",\"input\":{}},{\"operation\":\"communication.list\",\"input\":{\"subject\":\"interest meeting\",\"state\":\"draft\",\"limit\":50}}]}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_7bf05349ef6f49a0abac453a890b970f"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_7bf05349ef6f49a0abac453a890b970f",
-					"toolName": "compose_reads",
-					"input": "{\"reads\":[{\"operation\":\"calendar.getContext\",\"input\":{}},{\"operation\":\"communication.list\",\"input\":{\"subject\":\"interest meeting\",\"state\":\"draft\",\"limit\":50}}]}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0e5de602cf047e69006b06bfe8522887d290a5bafa77371ffd"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 64061,
-							"noCache": 3,
-							"cacheRead": 63987,
-							"cacheWrite": 71
-						},
-						"outputTokens": {
-							"total": 151,
-							"text": 50,
-							"reasoning": 101
-						},
-						"raw": {
-							"input_tokens": 64061,
-							"input_tokens_details": {
-								"cached_tokens": 63987,
-								"cache_write_tokens": 71,
-								"cache_write_tokens_details": {
-									"ttl_30m_tokens": 71,
+									"ttl_30m_tokens": 125,
 									"ttl_12h_tokens": 0
 								}
 							},
-							"output_tokens": 151,
+							"output_tokens": 59,
 							"output_tokens_details": {
-								"reasoning_tokens": 101
+								"reasoning_tokens": 0
 							},
-							"total_tokens": 64212
+							"total_tokens": 65301
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_0e5de602cf047e69006b06bfe6c44c87d282492079b46812fb",
+							"responseId": "resp_0b3ca49bead31993016b0886d6891c87d29f359f3318d1e2a3",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -426,8 +408,8 @@
 				}
 			],
 			"usage": {
-				"input": 64061,
-				"output": 151
+				"input": 65242,
+				"output": 59
 			}
 		},
 		"e452cfbc97d54f25": {

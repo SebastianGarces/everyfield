@@ -434,6 +434,10 @@ export const attestation = pgTable(
 			"attestation_ck_5",
 			sql`((key <> ALL (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text])) OR (((state = 'answered'::text) AND (answer IS NOT NULL)) OR ((state = ANY (ARRAY['unanswered'::text, 'retracted'::text])) AND (answer IS NULL))))`,
 		),
+		check(
+			"attestation_ck_6",
+			sql`(((key <> 'worship_agreement'::text) OR (person_id IS NOT NULL)) AND ((key <> ALL (ARRAY['community'::text, 'relationship'::text])) OR ((person_id IS NULL) AND (statement IS NOT NULL))))`,
+		),
 		index("attestation_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
 		index("attestation_ref_2").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		uniqueIndex("attestation_uq_1")
@@ -514,7 +518,7 @@ export const attestation_revision = pgTable(
 		),
 		check(
 			"attestation_revision_ck_5",
-			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text]))`,
+			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text, 'worship_agreement'::text, 'community'::text, 'relationship'::text]))`,
 		),
 		check(
 			"attestation_revision_ck_6",
@@ -5942,7 +5946,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.enrollment_updated','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','flags.changed','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.enrollment_updated','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','flags.changed','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','intelligence.released','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -6592,9 +6596,28 @@ export const network_intelligence_run = pgTable(
 			.notNull()
 			.default(sql`clock_timestamp()`),
 		rubric_version: text("rubric_version").notNull(),
+		outcome: text("outcome")
+			.notNull()
+			.default(sql`'published'::text`),
+		claim_generation: integer("claim_generation")
+			.notNull()
+			.default(sql`1`),
+		lease_owner: text("lease_owner"),
+		lease_until: timestamp("lease_until", { withTimezone: true, mode: "date" }),
+		reference_activation: integer("reference_activation"),
+		violations: jsonb("violations"),
+		settled_at: timestamp("settled_at", { withTimezone: true, mode: "date" }),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "network_intelligence_run_pkey", columns: [t.id] }),
+		check(
+			"network_intelligence_run_outcome",
+			sql`(outcome = ANY (ARRAY['pending'::text, 'deferred'::text, 'published'::text, 'failed'::text, 'degraded'::text, 'superseded'::text]))`,
+		),
+		check(
+			"network_intelligence_run_claim",
+			sql`((claim_generation >= 1) AND ((lease_owner IS NULL) = (lease_until IS NULL)))`,
+		),
 		foreignKey({
 			name: "network_intelligence_run_organization",
 			columns: [t.organization_id],
@@ -6626,6 +6649,8 @@ export const network_intelligence_plant = pgTable(
 		unowned_followups: integer("unowned_followups"),
 		growth_days: integer("growth_days"),
 		required_training: integer("required_training"),
+		affiliation_revision: int64("affiliation_revision"),
+		released_run_id: uuid("released_run_id"),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "network_intelligence_plant_pkey", columns: [t.run_id, t.plant_id] }),
@@ -6635,6 +6660,13 @@ export const network_intelligence_plant = pgTable(
 			foreignColumns: [network_intelligence_run.id],
 		})
 			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "network_intelligence_plant_released",
+			columns: [t.released_run_id],
+			foreignColumns: [assessment_run.id],
+		})
+			.onDelete("set null")
 			.onUpdate("no action"),
 		foreignKey({ name: "network_intelligence_plant_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
 			.onDelete("cascade")
@@ -6822,6 +6854,56 @@ export const assessment_feedback = pgTable(
 		),
 		index("assessment_feedback_plant_idx").on(t.plant_id),
 		index("assessment_feedback_account_idx").on(t.account_id),
+	],
+);
+export const assessment_release = pgTable(
+	"assessment_release",
+	{
+		run_id: uuid("run_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		released_at: timestamp("released_at", { withTimezone: true, mode: "date" }).notNull(),
+		cause: text("cause").notNull(),
+		request_key: uuid("request_key"),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "assessment_release_pkey", columns: [t.run_id] }),
+		foreignKey({
+			name: "assessment_release_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_release_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		check("assessment_release_cause", sql`(cause = ANY (ARRAY['opened'::text, 'elapsed_72_hours'::text]))`),
+		index("assessment_release_plant_idx").on(t.plant_id, t.released_at),
+	],
+);
+export const network_reference = pgTable(
+	"network_reference",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		rubric_version: text("rubric_version").notNull(),
+		content_hash: text("content_hash").notNull(),
+		state: text("state").notNull(),
+		written_at: timestamp("written_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		activation_number: integer("activation_number"),
+		activated_at: timestamp("activated_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_reference_pkey", columns: [t.id] }),
+		unique("network_reference_activation").on(t.activation_number),
+		check("network_reference_state", sql`(state = ANY (ARRAY['building'::text, 'validated'::text, 'failed'::text]))`),
+		check(
+			"network_reference_activated",
+			sql`(((activation_number IS NULL) = (activated_at IS NULL)) AND ((activation_number IS NULL) OR ((activation_number >= 1) AND (state = 'validated'::text))))`,
+		),
 	],
 );
 export const assessment_seen = pgTable(

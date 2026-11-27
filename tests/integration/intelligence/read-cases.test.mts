@@ -9,11 +9,13 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createFacts,
+	createRelease,
 	createSignals,
 	runAssessmentBatch,
 	type Drafter,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { getPlant, listPlants } from "../../../packages/domain/src/oversight/index.ts";
+import { peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { QUALITY, STANDING } from "../../../apps/web/src/features/intelligence/assessment-model.ts";
 import { ok } from "../../support/fixture.mts";
@@ -260,7 +262,15 @@ test("AC:PI-CASE-019 eight lens tiles: Vision measured with no insight is Not ra
 	assert.ok(org.assessment.status === "released");
 	assert.equal(org.assessment.concerns.find((x) => x.id === leadership.id) ?? null, null);
 	assert.ok(org.assessment.withheld >= 1);
-	assert.deepEqual(Object.keys(org.assessment).sort(), ["asOf", "concerns", "phase", "runId", "status", "withheld"]);
+	assert.deepEqual(Object.keys(org.assessment).sort(), [
+		"asOf",
+		"concerns",
+		"phase",
+		"runId",
+		"status",
+		"strengths",
+		"withheld",
+	]);
 	const reason = (org.assessment as Record<string, unknown>).reason ?? null;
 	assert.equal(reason, k.expected.result.withheld_leadership_reason);
 	assert.doesNotMatch(JSON.stringify(org), /leadership|ministry responsibilities/i);
@@ -350,6 +360,7 @@ test("AC:PI-CASE-023 the network sees the prior released R0 at 71h59m59s after t
 	const earlier = new Date(Date.parse(available) - 7 * DAY).toISOString();
 	await replica(sql`UPDATE assessment_run SET available_at=${earlier}::timestamptz WHERE id=${r0.id}`);
 	await replica(sql`UPDATE assessment_seen SET seen_at=${earlier}::timestamptz WHERE run_id=${r0.id}`);
+	await replica(sql`UPDATE assessment_release SET released_at=${earlier}::timestamptz WHERE run_id=${r0.id}`);
 	await replica(sql`UPDATE assessment_run SET available_at=${available}::timestamptz WHERE id=${r1.id}`);
 	assert.equal(given(k, "eligible_opened"), false);
 	assert.equal(
@@ -363,6 +374,7 @@ test("AC:PI-CASE-023 the network sees the prior released R0 at 71h59m59s after t
 	assert.equal(Date.parse(atBoundary!) - Date.parse(available), 72 * HOUR, "72h");
 	const released = async (at: string) => {
 		clockMs = Date.parse(at);
+		await createRelease({ clock }).releaseDueAssessments(c0.db);
 		return (await getPlant(c0.db, director, p.id, () => {}, clock))!.assessment;
 	};
 	const label = { [r0.id]: given<string>(k, "prior_released"), [r1.id]: "eligible_new_result" };
@@ -566,4 +578,187 @@ test("AC:PI-CASE-026 a trace sink that throws on every write leaves R1 complete 
 	]);
 	assert.deepEqual(leaked(JSON.stringify(audit.metadata)), []);
 	assert.doesNotMatch(JSON.stringify(audit.metadata) + JSON.stringify(row.model_input), new RegExp(CANARY));
+});
+
+const cloneRun = (from: string, id: string, patch: ReturnType<typeof sql>) =>
+	c0.admin.execute(sql`INSERT INTO assessment_run SELECT (jsonb_populate_record(NULL::assessment_run,
+		to_jsonb(r)||jsonb_build_object('id',${id}::uuid,'demand_key',${"case/" + id}::text)||${patch})).*
+		FROM assessment_run r WHERE r.id=${from}`);
+
+test("AC:PI-CASE-020 history reads the last 12 complete runs, 4 to 15, from their original snapshots: run 4 keeps its committed 17 and has no contact metric, and run 15 reads a 48-hour task rate of 1 and an actual-contact rate of 0.5", async () => {
+	const k = K("PI-CASE-020");
+	clockMs = Date.parse(k.clock.now);
+	const p = await c0.plant("Case 020 Church");
+	const current = given<number>(k, "current_corrected_count");
+	for (let i = 0; i < current; i++) await c0.committed(p, `History ${i + 1}`);
+	const base = await publish(p);
+	const ids = given<number[]>(k, "complete_run_ids");
+	await replica(sql`UPDATE assessment_run SET facts=jsonb_set(facts,'{followUps}',facts->'followUps'||
+		'{"status":"measured","onTime":1,"measured":1,"contacted":1,"total":2}'::jsonb) WHERE id=${base.id}`);
+	const label = new Map<string, number>([[base.id, ids.at(-1)!]]);
+	const hour = (n: number) =>
+		sql`(SELECT available_at FROM assessment_run WHERE id=${base.id})-make_interval(hours=>${n})`;
+	for (const n of ids.slice(0, -1)) {
+		const id = randomUUID();
+		label.set(id, n);
+		const old = n === 4;
+		await cloneRun(
+			base.id,
+			id,
+			sql`jsonb_build_object('available_at',${hour(ids.length - n)},'captured_at',${hour(ids.length - n)},
+			'facts',(SELECT CASE WHEN ${old} THEN jsonb_set(r.facts #- '{followUps,contacted}','{committedAdults,known}',
+				${given<number>(k, "run4_stored_committed_count")}::text::jsonb) ELSE r.facts END
+				FROM assessment_run r WHERE r.id=${base.id}))`,
+		);
+	}
+	assert.equal(given<boolean>(k, "run4_has_contact_metric"), false);
+	await cloneRun(
+		base.id,
+		randomUUID(),
+		sql`jsonb_build_object('outcome','failed','reason','invalid_drafts','result',null,'available_at',null,
+		'captured_at',clock_timestamp())`,
+	);
+	const before = calls;
+	const h = ok(await assessments.readHistory(c0.db, p.actor, {}));
+	assert.equal(calls, before);
+	const run = (n: number) => h.runs.find((r) => label.get(r.runId) === n)!;
+	const committed = TREND_INDEX("committedAdults.known");
+	const value = (v: c.TrendValue) => (v.state === "measured" ? v.value : null);
+	assert.deepEqual(
+		{
+			run_ids: h.runs.map((r) => label.get(r.runId)!).reverse(),
+			run4_committed: value(run(4).values[committed]!),
+			run4_contact: run(4).rates.actualContact,
+			run15_task48h_rate: run(15).rates.followUpWithin48Hours,
+			run15_contact_rate: run(15).rates.actualContact,
+		},
+		k.expected.result,
+	);
+	assert.equal(given<number>(k, "run15_task48h_rate"), 1);
+	assert.equal(given<number>(k, "run15_actual_contact_rate"), 0.5);
+	assert.equal(value(run(5).values[committed]!), current);
+	assert.deepEqual(run(5).rates, { followUpWithin48Hours: 1, actualContact: 0.5 });
+	assert.equal(ok(await createFacts({ clock }).readFacts(c0.db, p.actor, {})).committedAdults.known, current);
+});
+const TREND_INDEX = (key: string) => c.TREND_FACTS.findIndex((t) => t.key === key);
+
+test("AC:PI-CASE-008 a profile edit is never fresh contact: the last confirmed contact on 2026-09-20 is not recent at 2026-10-13 12:00, and a legacy snapshot keeps its legacy-profile-proxy formula label", async () => {
+	const k = K("PI-CASE-008");
+	clockMs = Date.parse(k.clock.now);
+	const p = await c0.plant("Case 008 Church");
+	const who = await c0.committed(p, "Proxy Person");
+	const base = await publish(p);
+	const legacy = given<{ formula: string; person_updated_at: string }>(k, "snapshot_legacy");
+	const legacyId = randomUUID();
+	await cloneRun(
+		base.id,
+		legacyId,
+		sql`jsonb_build_object('formula_version',${legacy.formula}::text,
+		'available_at',(SELECT available_at-interval '1 day' FROM assessment_run WHERE id=${base.id}),
+		'facts',(SELECT jsonb_set(r.facts,'{followUps,personUpdatedAt}',to_jsonb(${legacy.person_updated_at}::text))
+			FROM assessment_run r WHERE r.id=${base.id}))`,
+	);
+	const stored = () =>
+		c0.one<{ facts: unknown; formula_version: string }>(
+			sql`SELECT facts,formula_version FROM assessment_run WHERE id=${legacyId}`,
+		);
+	const snapshot = await stored();
+	const contact = randomUUID();
+	await c0.admin.execute(sql`INSERT INTO record(id,kind,tenant_id) VALUES(${contact},'contact_outcome',${p.id})`);
+	const last = given<string>(k, "last_confirmed_contact");
+	await c0.admin.execute(sql`INSERT INTO contact_outcome(id,plant_id,person_id,outcome,occurred_at,recorded_at)
+		VALUES(${contact},${p.id},${who.id},'contacted',${last + "T15:00:00Z"}::timestamptz,${last + "T15:00:00Z"}::timestamptz)`);
+	const factsAt = createFacts({ clock: { now: () => given<string>(k, "as_of") as never } });
+	const beforeEdit = ok(await factsAt.readFacts(c0.db, p.actor, {}));
+	assert.equal(given<string>(k, "current_person_updated_at"), "2026-10-13");
+	const { r } = await c0.one<{ r: string }>(sql`SELECT revision::text AS r FROM person WHERE id=${who.id}`);
+	ok(
+		await withPeopleWrite(c0.db, p.actor, (t, ctx) =>
+			peopleWriter.updatePerson(t, ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: r,
+				input: { personId: who.id, patch: { email: "proxy.person@example.test" } },
+			}),
+		),
+	);
+	const facts = ok(await factsAt.readFacts(c0.db, p.actor, {}));
+	const mine = facts.contact!.people.find((x) => x.person.id === who.id)!;
+	const history = ok(await assessments.readHistory(c0.db, p.actor, {}));
+	const legacyRun = history.runs.find((x) => x.runId === legacyId)!;
+	assert.deepEqual(
+		{
+			actual_contact_date: mine.lastContactedAt!.slice(0, 10),
+			recent: mine.recent,
+			old_proxy_formula: legacyRun.formulaVersion,
+		},
+		k.expected.result,
+	);
+	assert.deepEqual(facts.contact, beforeEdit.contact, "the profile edit changes no contact fact");
+	assert.equal(facts.sourceRevision, beforeEdit.sourceRevision);
+	assert.deepEqual(await stored(), snapshot, "the legacy snapshot is never reinterpreted");
+	assert.equal(history.runs.find((x) => x.runId === base.id)!.formulaVersion, c.FACTS_FORMULA_VERSION);
+});
+
+const point = (label: string, urgency: c.Urgency, citations: string[]) => ({
+	title: `Item ${label}`,
+	body: "A plain operational observation from the recorded facts.",
+	urgency,
+	citations,
+});
+
+test("AC:PI-CASE-017 the focus read returns primary I1, supplements I2 and I3, positives P1 and P2, and the rest of the ranked items, I4 and I5, as drill-down", async () => {
+	const k = K("PI-CASE-017");
+	clockMs = Date.parse(k.clock.now);
+	const p = await c0.plant("Case 017 Church");
+	await c0.committed(p, "Focus Person");
+	const base = await publish(p);
+	const ranked = given<string[]>(k, "persisted_nonpositive_ranked");
+	const positives = given<string[]>(k, "persisted_positive");
+	const lens: Record<string, c.LensKey> = {
+		I1: "vision",
+		I2: "critical_mass",
+		I3: "cohesion",
+		I4: "ownership",
+		I5: "training",
+	};
+	const draft = {
+		summary: "The church has a few recorded items to look at this week.",
+		focus: point(ranked[0]!, "urgent", ["vision.daysSince"]),
+		supporting: [point(ranked[1]!, "urgent", ["growth.daysSince"]), point(ranked[2]!, "watch", ["cohesion.committed"])],
+		positives: positives.map((title) => point(title, "positive", ["coverage.filled"])),
+	};
+	await replica(sql`UPDATE assessment_run SET result=jsonb_set(result,'{draft}',${JSON.stringify(draft)}::jsonb),
+		facts=jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(facts,
+			'{vision,status}','"direct"'),'{growth,status}','"stalled"'),'{cohesion,status}','"flagged"'),
+			'{followUps}',facts->'followUps'||'{"status":"measured","onTime":1,"measured":3}'::jsonb),
+			'{training,status}','"not_met"'),'{coverage,status}','"met"')
+		WHERE id=${base.id}`);
+	assert.equal(given<string>(k, "current_grants"), "valid");
+	const before = calls;
+	const focus = ok(await assessments.readFocus(c0.db, p.actor, {})).focus!;
+	assert.equal(calls, before);
+	const labelOf = (x: { title: string }) => x.title.replace(/^Item /, "");
+	const named = (l: c.LensKey) => Object.keys(lens).find((x) => lens[x] === l)!;
+	assert.deepEqual(
+		{
+			primary: labelOf(focus.primary),
+			supplements: focus.supplements.map(labelOf),
+			positive: focus.positives.map(labelOf),
+			drilldown: focus.drilldown.map((x) => named(x.lens)),
+		},
+		k.expected.result,
+	);
+	assert.deepEqual(
+		[focus.primary, ...focus.supplements].map((x) => x.lenses),
+		[["vision"], ["critical_mass"], ["cohesion"]],
+	);
+	assert.deepEqual(
+		focus.drilldown.map((x) => [x.severity, x.evidence.length > 0]),
+		[
+			["medium", true],
+			["medium", true],
+		],
+	);
+	const member = await seat(c0, p, "member");
+	assert.equal(refusedCode(await assessments.readFocus(c0.db, member.actor, {})), "access_denied");
 });

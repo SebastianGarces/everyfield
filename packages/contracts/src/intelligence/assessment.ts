@@ -75,6 +75,25 @@ export type FactEntry = z.infer<typeof factEntry>;
 export const FACT_TOPICS = ["committedAdults", "growth", "vision", "cohesion", "followUps", "training"] as const;
 export type FactTopic = (typeof FACT_TOPICS)[number];
 
+const READINESS_LABELS = {
+	relationship: "Attested sending church or network relationship",
+	worship_agreement: "Person who agreed to lead worship",
+	community: "Chosen community",
+} as const;
+export function readinessCatalog(f: PlantFacts): FactEntry[] {
+	return (f.readiness ?? []).flatMap((r) =>
+		[
+			{
+				key: `readiness.${r.key}`,
+				label: READINESS_LABELS[r.key],
+				value: r.state === "answered" ? r.named : null,
+				status: r.state,
+			},
+			{ key: `readiness.${r.key}.asOf`, label: `${READINESS_LABELS[r.key]}: date`, value: r.asOf, status: r.state },
+		].map((e) => factEntry.parse(e)),
+	);
+}
+
 export function factCatalog(f: PlantFacts): FactEntry[] {
 	const a = f.committedAdults,
 		g = f.growth,

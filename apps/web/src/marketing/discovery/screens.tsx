@@ -21,6 +21,7 @@ import {
 	TextBoldIcon,
 	TextItalicIcon,
 	TextUnderlineIcon,
+	Tick02Icon,
 	UndoIcon,
 	UnfoldMoreIcon,
 	LeftToRightListBulletIcon,
@@ -381,11 +382,12 @@ export function TemplateScreen() {
 	);
 }
 
-export function LockedScreen({ page }: { page: "Tasks" | "Launch" }) {
-	const body =
-		page === "Tasks"
-			? "This is where your church team shares its work and follow-ups."
-			: "This is where your church plans its launch.";
+const LOCKED = {
+	People: "This is where your church keeps track of the people it reaches.",
+	Launch: "This is where your church plans its launch.",
+} as const;
+
+export function LockedScreen({ page }: { page: keyof typeof LOCKED }) {
 	return (
 		<Shell
 			rail={page.toLowerCase()}
@@ -394,8 +396,82 @@ export function LockedScreen({ page }: { page: "Tasks" | "Launch" }) {
 			<PageHead title={page} xl />
 			<LockedNote
 				title={`${page} opens when you start your church`}
-				body={`${body} You can keep exploring in Discovery for as long as you need.`}
+				body={`${LOCKED[page]} You can keep exploring in Discovery for as long as you need.`}
 			/>
+		</Shell>
+	);
+}
+
+const STARTER_STEPS = [
+	[
+		"Write a one-page vision summary",
+		"Who this church is for, what it will be like, and why here. One page — it has to survive being read aloud.",
+	],
+	[
+		"List the people already praying for this plant",
+		"Names, not a vague sense of support. Ask each one if they will pray weekly and hear a short update.",
+	],
+	[
+		"Meet a potential coach",
+		"Someone who has planted before and will tell you the truth. Meet before you need them, not after.",
+	],
+	[
+		"Walk the neighbourhood and write down what you see",
+		"Walk it at different times of day. Note the schools, the shops, the empty buildings and who is out on the street.",
+	],
+	[
+		"Agree the commitments this plant will ask of your family",
+		"Time, money, Sundays and the home. Agree them out loud now so nobody discovers them in month six.",
+	],
+	[
+		"Draft a budget for the first year",
+		"Income you can count on, costs you cannot avoid, and the gap between them. A rough number now beats a perfect one later.",
+	],
+] as const;
+const STEPS_DONE = 2;
+
+export function TasksScreen() {
+	return (
+		<Shell
+			rail="tasks"
+			label={`Tasks in Discovery: your six starter steps for the discovery season, ${STEPS_DONE} of ${STARTER_STEPS.length} done, from writing a one-page vision summary to drafting a budget for the first year.`}
+		>
+			<PageHead
+				title="Tasks"
+				sub="Your starter steps for the discovery season. Work through them in any order and check each one off as you go."
+				xl
+			/>
+			<div className={cn("max-w-[760px] p-6 @max-[639px]:p-4", CARD)}>
+				<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+					<div className="font-semibold text-ink">Starter steps</div>
+					<p className="type-sm text-text-2 tabular-nums">
+						{STEPS_DONE} of {STARTER_STEPS.length} done
+					</p>
+				</div>
+				<ul className="mt-2 flex list-none flex-col divide-y divide-line p-0">
+					{STARTER_STEPS.map(([t, d], i) => (
+						<li key={t} className="flex items-start gap-3 py-3">
+							<span
+								className={cn(
+									"mt-0.5 grid size-5 flex-none place-items-center rounded-full",
+									i < STEPS_DONE
+										? "bg-ink text-on-ink"
+										: "bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)]",
+								)}
+							>
+								{i < STEPS_DONE ? <Icon icon={Tick02Icon} size={12} stroke={2} /> : null}
+							</span>
+							<div className="min-w-0">
+								<div className="font-medium text-ink">{t}</div>
+								<p className="mt-0.5 type-md text-text-2">{d}</p>
+							</div>
+						</li>
+					))}
+				</ul>
+				<p className="mt-3 border-t border-line pt-3 type-sm text-pretty text-text-2">
+					When you start a church, these steps come with you as tasks. The ones you&rsquo;ve checked off arrive done.
+				</p>
+			</div>
 		</Shell>
 	);
 }

@@ -619,6 +619,7 @@ test("AC:B02-029 Network Intelligence and the oversight plant view consume only 
 	ok(await assessments.markAssessmentSeen(c0.db, a.actor, { runId: newest.runId }));
 	const riverside = ok(await assessments.readAssessment(c0.db, b.actor, {})).current!;
 	ok(await assessments.markAssessmentSeen(c0.db, b.actor, { runId: riverside.runId }));
+	await refresh(net);
 	const after = await rows();
 	for (const [name, p, own] of [
 		["Lakeside Church", a, newest],

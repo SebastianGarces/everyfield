@@ -2,10 +2,10 @@ import { z } from "zod";
 import { defineSafeError, recordId, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 import { criterionKey, criterionStatus } from "../phases/index.ts";
-import { renewal, signalKey, signalValue } from "./signals.ts";
+import { readinessKey, renewal, signalKey, signalValue } from "./signals.ts";
 
-export const FACTS_FORMULA_VERSION = "plant-facts/2";
-const formulaVersion = z.enum(["plant-facts/1", FACTS_FORMULA_VERSION]);
+export const FACTS_FORMULA_VERSION = "plant-facts/3";
+const formulaVersion = z.enum(["plant-facts/1", "plant-facts/2", FACTS_FORMULA_VERSION]);
 export const ADULT_TARGET = 30;
 export const GROWTH_SLOWED_DAYS = 21;
 export const GROWTH_STALLED_DAYS = 28;
@@ -15,6 +15,8 @@ export const VISION_WATCH_DAYS = 21;
 export const VISION_DIRECT_DAYS = 28;
 export const COHESION_SHARE = 0.2;
 export const COHESION_MIN = 3;
+export const CONTACT_RECENT_DAYS = 14;
+export const CANDIDATE_LOOKBACK_DAYS = 180;
 
 export const MINISTRY_RESPONSIBILITIES = [
 	{ key: "worship", label: "Worship" },
@@ -78,6 +80,9 @@ export const cohesion = z.strictObject({
 	reason: z.enum(["no_attendance"]).nullable(),
 	disengaged: z.array(personRef),
 	committed: z.int().min(0),
+	ratio: z.number().min(0).max(1).nullable().optional(),
+	leaderDisengaged: z.array(personRef).optional(),
+	voice: z.enum(["steady", "watch", "direct"]).nullable().optional(),
 });
 export type Cohesion = z.infer<typeof cohesion>;
 
@@ -122,6 +127,13 @@ const attestationFact = z.strictObject({
 	renewal,
 });
 
+const readinessFact = z.strictObject({
+	key: readinessKey,
+	state: z.enum(["answered", "retracted"]),
+	asOf: localDate,
+	named: z.string().nullable(),
+});
+
 export const firstService = z.discriminatedUnion("path", [
 	z.strictObject({
 		path: z.literal("milestone"),
@@ -133,6 +145,62 @@ export const firstService = z.discriminatedUnion("path", [
 		path: z.literal("launch_sunday"),
 		status: z.enum(["met", "unknown"]),
 		heldOn: localDate.nullable(),
+	}),
+]);
+
+export const SOURCE_KEYS = [
+	"personal_referral",
+	"social_media",
+	"vision_meeting",
+	"website",
+	"event",
+	"partner_church",
+	"meeting_guest_list",
+	"other",
+	"unknown",
+] as const;
+export const sourceMix = z.strictObject({
+	cohort: z.literal("live_people"),
+	total: z.int().min(0),
+	counts: z.partialRecord(z.enum(SOURCE_KEYS), z.int().min(1)),
+});
+export const leadership = z.strictObject({
+	windowDays: z.int().min(1),
+	candidates: z.array(z.strictObject({ person: personRef, basis: z.enum(["records", "attestation"]) })),
+	people: z.array(
+		z.strictObject({
+			person: personRef,
+			attendanceDays: z.int().min(0).nullable(),
+			volunteeringDays: z.int().min(0).nullable(),
+			status: z.enum(["candidate", "not_yet", "unknown"]),
+		}),
+	),
+});
+export const contactFreshness = z.strictObject({
+	recentDays: z.int().min(1),
+	people: z.array(
+		z.strictObject({ person: personRef, lastContactedAt: instant.nullable(), recent: z.boolean().nullable() }),
+	),
+});
+export const ownership = z.strictObject({
+	owners: z.int().min(0),
+	owned: z.array(recordId),
+	unowned: z.array(recordId),
+	staleUnownedPeople: z.int().min(0),
+});
+
+export const debriefFact = z.discriminatedUnion("submitted", [
+	z.strictObject({
+		submitted: z.literal(false),
+		submittedAt: z.null(),
+		missingNames: z.null(),
+		missingCount: z.null(),
+	}),
+	z.strictObject({
+		submitted: z.literal(true),
+		submittedAt: instant,
+		missingNames: z.boolean(),
+		missingCount: z.int().min(1).nullable(),
 	}),
 ]);
 
@@ -155,7 +223,13 @@ export const plantFacts = z.strictObject({
 	humanRecords,
 	launch: z.strictObject({ targetOn: localDate.nullable(), daysToLaunch: z.int().nullable() }),
 	firstService: firstService.optional(),
+	sources: sourceMix.optional(),
+	leadership: leadership.optional(),
+	contact: contactFreshness.optional(),
+	ownership: ownership.optional(),
+	debrief: debriefFact.optional(),
 	criteria: z.partialRecord(criterionKey, criterionStatus),
+	readiness: z.array(readinessFact).min(1).optional(),
 });
 export type PlantFacts = z.infer<typeof plantFacts>;
 

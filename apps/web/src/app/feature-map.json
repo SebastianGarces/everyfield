@@ -150,7 +150,7 @@
 		},
 		{
 			"id": "app.discovery-page",
-			"says": "The public page for planters still discerning a call: Discovery is always free, a four-tab tour of sample Discovery screens (Wiki, Documents, Templates, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.",
+			"says": "The public page for planters still discerning a call: Discovery is always free, a five-tab tour of sample Discovery screens (Wiki, Documents, Templates, Tasks, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.",
 			"routes": ["/discovery"],
 			"catalog": ["ADM-006"],
 			"reach": [
@@ -160,7 +160,7 @@
 				{
 					"from": "app.home",
 					"persona": "visitor",
-					"path": [{ "click": { "role": "link", "name": "Discovery" } }]
+					"path": [{ "click": { "role": "link", "name": "Discovery", "match": "contains" } }]
 				},
 				{
 					"from": "app.home",

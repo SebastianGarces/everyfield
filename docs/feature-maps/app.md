@@ -25,7 +25,7 @@ flowchart LR
   s2 -.- s2_st0(("visitor"))
   s3["app.discovery-page<br/>/discovery"]
   s3_link0 --> s3
-  s1 -- "link #quot;Discovery#quot;" --> s3
+  s1 -- "link containing #quot;Discovery#quot;" --> s3
   s1 -- "link #quot;Start with Discovery, free.#quot;" --> s3
   s2 -- "link #quot;Send them to Discovery, free.#quot;" --> s3
   s3 -.- s3_st0(("visitor"))
@@ -147,7 +147,7 @@ agent-browser find role link text --name "Talk to us about your network" --exact
 
 ### app.discovery-page
 
-The public page for planters still discerning a call: Discovery is always free, a four-tab tour of sample Discovery screens (Wiki, Documents, Templates, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.
+The public page for planters still discerning a call: Discovery is always free, a five-tab tour of sample Discovery screens (Wiki, Documents, Templates, Tasks, When you're ready), privacy, how it works, seat guidance and the questions people ask, with buttons that open the access form already set to a planter. Reached from the site nav, the home page's closing call to action and /oversight's closing call to action.
 
 - Routes: `/discovery`
 - Personas: `visitor` read
@@ -159,7 +159,7 @@ Reach:
 - From app.home as `visitor`:
 
 ```bash
-agent-browser find role link click --name "Discovery" --exact
+agent-browser find role link click --name "Discovery"
 agent-browser wait --load networkidle
 ```
 

@@ -140,6 +140,7 @@ const released = (concerns: object[], withheld: number) => ({
 	asOf: "2026-11-01T00:00:00.000Z",
 	phase: 3,
 	concerns,
+	strengths: [],
 	withheld,
 });
 const raised = [
@@ -211,6 +212,7 @@ const findings = [
 const run = { runId: ID, ranAt: "2026-11-01T00:00:00.000Z" };
 const intelligence = (shownLevel: Level, over: object = {}): IntelligenceView =>
 	intelligenceView.parse({
+		status: "ready",
 		organizationName: CHURCH,
 		timeZone: "America/Chicago",
 		level: shownLevel,

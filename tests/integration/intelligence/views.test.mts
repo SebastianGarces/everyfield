@@ -7,6 +7,7 @@ import * as c from "../../../packages/contracts/src/intelligence/index.ts";
 import {
 	createAssessmentJob,
 	createAssessments,
+	createRelease,
 	runAssessmentBatch,
 	type Drafter,
 } from "../../../packages/domain/src/intelligence/index.ts";
@@ -267,7 +268,10 @@ test("a feedback save and an Owner's first open each write one audit row; the sa
 
 test("the network sees a new assessment's health only after the planter opens it or 72 hours pass; until then the previous released result, or Not yet assessed", async () => {
 	const { p, run: first, director } = await assessedPlant("Westfield Church");
-	const released = async () => (await orgView(director, p))!.assessment;
+	const released = async () => {
+		await createRelease({ clock }).releaseDueAssessments(c0.db);
+		return (await orgView(director, p))!.assessment;
+	};
 	assert.deepEqual(await released(), { status: "not_assessed" }, "nothing released yet");
 	const row = (await listPlants(c0.db, director, clock))!.plants.find((x) => x.plantId === p.id)!;
 	assert.equal(row.health, "not_assessed");
@@ -288,10 +292,12 @@ test("the network sees a new assessment's health only after the planter opens it
 	assert.ok(r1.status === "released");
 	assert.equal(r1.runId, first.runId, "72 hours after it became available");
 
-	clockMs = Date.now();
+	clockMs += 1000;
 	ok(await assessments.markAssessmentSeen(c0.db, p.actor, { runId: first.runId }));
 	const second = await publish(p);
 	assert.notEqual(second.runId, first.runId);
+	await c0.admin.execute(sql`UPDATE assessment_run SET available_at=${new Date(clockMs).toISOString()}::timestamptz
+		WHERE id=${second.runId}`);
 	const r2 = await released();
 	assert.ok(r2.status === "released");
 	assert.equal(r2.runId, first.runId, "the previous released result until the new one is released");

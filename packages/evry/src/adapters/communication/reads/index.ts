@@ -826,7 +826,7 @@ const searchInput = z.strictObject({
 export const searchRecipients: ReadAdapter<z.infer<typeof searchInput>> = {
 	operation: "communication.searchRecipients",
 	description:
-		"Find live people by name to email, up to 20. Use this, not people.listPeople, when asked whether someone can be emailed, and when several match, give each one's email status. Each row's email says whether Messages can email them: can_email, no_address (no email address recorded) or unsubscribed (they opted out of this church's email). Never print an email address.",
+		"Find live people by name to email, up to 20. Use this, not people.listPeople, when asked whether someone can be emailed, and when several match, give each one's email status. For a person's email address or phone number, use people.listPeople and people.getPerson instead. Each row's email says whether Messages can email them: can_email, no_address (no email address recorded) or unsubscribed (they opted out of this church's email). Never print an email address.",
 	input: searchInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input): Promise<SourceResult> {

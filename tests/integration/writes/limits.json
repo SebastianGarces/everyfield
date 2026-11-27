@@ -57,7 +57,7 @@
 		"limit": 2
 	},
 	"GET /intelligence/journey": {
-		"limit": 4
+		"limit": 6
 	},
 	"GET /intelligence/attestations": {
 		"limit": 2
@@ -1293,8 +1293,7 @@
 	},
 	"onboarding.setDiscoveryStep": {
 		"limit": 6,
-		"retry": 5,
-		"reason": "The producer's savepoint and its release; the write gate with the account lock; the planter's open, seatless Discovery profile locked; the request-key read; one final statement with the step change and its audit. A retry or refusal answers before the final statement."
+		"retry": 5
 	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 7,
@@ -1525,8 +1524,7 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 10,
-		"reason": "The retry is a people write that runs its statements and then rolls back: a refusal, or the MW-CASE wake cases' fault on its required audit insert. The longest, 10, is the 4Cs createAssessment path that MW-CASE-005 replays and faults."
+		"retry": 10
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
@@ -2232,10 +2230,16 @@
 	"signals.attestCandidate": {
 		"limit": 1
 	},
+	"signals.attestReadiness": {
+		"limit": 1
+	},
 	"signals.correct": {
 		"limit": 1
 	},
 	"signals.correctCandidate": {
+		"limit": 1
+	},
+	"signals.correctReadiness": {
 		"limit": 1
 	},
 	"signals.getHistory": {
@@ -2245,6 +2249,9 @@
 		"limit": 0
 	},
 	"signals.readAttestations": {
+		"limit": 1
+	},
+	"signals.readReadiness": {
 		"limit": 1
 	},
 	"signals.reaffirm": {
@@ -2356,9 +2363,35 @@
 		"retry": 4
 	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
-		"limit": 5,
+		"limit": 11,
 		"retry": 5,
-		"reason": "The retry is a refused refresh: a run id another organization holds reads the shared people, tries the insert and rolls back as a conflict, so it sends the full five statements."
+		"reason": "A refresh is the request's own claimed run, captured and published in its write transaction: BEGIN, the locked write gate, the run insert under its lease, the shared people read, the contribution capture, the audit row, the active network reference read, the captured contributions read for the deterministic findings, the locked publication fence, the settle and COMMIT. The retry is a refused refresh: a run id another organization holds, or no active network reference, rolls back after the insert attempt. Its largest first run: 2 transaction, 2 locked read, 3 read, 4 write.",
+		"reads": "The captured contributions are read to compose and validate the findings in the server, and only then does the locked publication fence recheck the run's claim, lease and live contributor revisions. The fence must start after the composition, so a sharing or release change made while the findings were composed supersedes the run (NI-026 publication race); read in one statement with the captured contributions it would miss that change."
+	},
+	"oversight/intelligence.claimIntelligenceRefresh": {
+		"limit": 5
+	},
+	"oversight/intelligence.runIntelligenceRefresh": {
+		"limit": 7,
+		"reason": "A claimed run settles outside the provider call: the active network reference read, the captured contributions read, then BEGIN, the locked publication fence, the settle and COMMIT; a deferred or degraded run settles in its own short transaction. Its largest first run: 2 transaction, 1 locked read, 2 read, 2 write."
+	},
+	"oversight/intelligence.scheduleIntelligenceRefresh": {
+		"limit": 1
+	},
+	"oversight/reference.writeNetworkReference": {
+		"limit": 1
+	},
+	"oversight/reference.validateNetworkReference": {
+		"limit": 1
+	},
+	"oversight/reference.activateNetworkReference": {
+		"limit": 1
+	},
+	"assessments.release.releaseAssessmentToOversight": {
+		"limit": 1
+	},
+	"assessments.release.releaseDueAssessments": {
+		"limit": 1
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {
 		"limit": 5,

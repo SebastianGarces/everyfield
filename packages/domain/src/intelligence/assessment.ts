@@ -17,6 +17,9 @@ import {
 	criteriaOf,
 	lensesOf,
 	storedConcern,
+	focusOf,
+	followUpsCell,
+	ratesOf,
 	trendCells,
 	trendCellsSql,
 	trendOf,
@@ -319,6 +322,8 @@ r AS (SELECT r.id FROM assessment_run r WHERE r.id=${q.data.runId}::uuid AND r.p
 	AND r.outcome='published' AND (SELECT ok FROM gate)),
 v AS (INSERT INTO assessment_seen(run_id,account_id,plant_id,seen_at) SELECT r.id,${s.me}::uuid,${s.plant}::uuid,${now()}
 	FROM r ON CONFLICT DO NOTHING RETURNING run_id),
+x AS (INSERT INTO assessment_release(run_id,plant_id,released_at,cause) SELECT v.run_id,${s.plant}::uuid,${now()},'opened'
+	FROM v ON CONFLICT DO NOTHING RETURNING run_id),
 a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,metadata)
 	SELECT ${s.plant}::uuid,${s.me}::uuid,'intelligence.assessment_opened','create','plant',${s.plant}::uuid,
 		'assessment-opened:'||v.run_id||':'||${s.me}::text,jsonb_build_object('runId',v.run_id) FROM v RETURNING 1)
@@ -389,7 +394,8 @@ r AS (SELECT r.*,x.timezone FROM assessment_run r JOIN x ON x.id=r.plant_id WHER
 	ORDER BY r.available_at DESC,r.id DESC LIMIT ${c.TREND_RUNS}::int)
 SELECT (SELECT ok FROM gate) AS ok,(SELECT coalesce(json_agg(json_build_object('runId',r.id,'asOf',${iso("r.as_of")},
 	'measuredOn',coalesce(r.facts->>'today',(r.as_of AT TIME ZONE r.timezone)::date::text),'phase',r.phase,
-	'cells',${trendCellsSql("r")}) ORDER BY r.available_at DESC,r.id DESC),'[]'::json) FROM r) AS runs`);
+	'formulaVersion',r.formula_version,'followUps',CASE WHEN jsonb_typeof(r.facts->'followUps')='object'
+		THEN r.facts->'followUps' END,'cells',${trendCellsSql("r")}) ORDER BY r.available_at DESC,r.id DESC),'[]'::json) FROM r) AS runs`);
 				const r = z
 					.object({
 						ok: z.boolean(),
@@ -399,6 +405,8 @@ SELECT (SELECT ok FROM gate) AS ok,(SELECT coalesce(json_agg(json_build_object('
 								asOf: z.string(),
 								measuredOn: z.string(),
 								phase: z.int(),
+								formulaVersion: z.string(),
+								followUps: followUpsCell,
 								cells: trendCells,
 							}),
 						),
@@ -406,8 +414,31 @@ SELECT (SELECT ok FROM gate) AS ok,(SELECT coalesce(json_agg(json_build_object('
 					.parse(rows[0]);
 				if (!r.ok) deny("access_denied");
 				return c.assessmentHistory.parse({
-					runs: r.runs.map(({ cells, ...run }) => ({ ...run, values: trendOf(cells) })),
+					runs: r.runs.map(({ cells, followUps, ...run }) => ({
+						...run,
+						values: trendOf(cells),
+						rates: ratesOf(followUps),
+					})),
 				});
+			});
+		},
+
+		async readFocus(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
+			return settle(async () => {
+				if (!c.readFocusRequest.safeParse(raw).success) deny("invalid_input");
+				const s = scopeOf(authority);
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
+cur AS (SELECT r.id,r.facts,r.result->'draft' AS draft FROM assessment_run r WHERE r.plant_id=${s.plant}::uuid
+	AND r.outcome='published' AND (SELECT ok FROM gate) ORDER BY r.available_at DESC,r.id DESC LIMIT 1)
+SELECT (SELECT ok FROM gate) AS ok,(SELECT row_to_json(cur) FROM cur) AS cur`);
+				const r = z
+					.object({
+						ok: z.boolean(),
+						cur: z.object({ id: z.string(), facts: z.unknown(), draft: c.draftOutput }).nullable(),
+					})
+					.parse(rows[0]);
+				if (!r.ok) deny("access_denied");
+				return c.focusReply.parse({ focus: r.cur ? focusOf(r.cur.id, r.cur.facts, r.cur.draft) : null });
 			});
 		},
 
