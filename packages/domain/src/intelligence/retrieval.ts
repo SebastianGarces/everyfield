@@ -110,7 +110,11 @@ const probeRow = z.object({
 });
 
 function denseSkipped(reason: string): null {
-	logLine({ component: "intelligence", outcome: "dense-skipped", reason: asLogWord(reason) });
+	try {
+		logLine({ component: "intelligence", outcome: "dense-skipped", reason: asLogWord(reason) });
+	} catch {
+		return null;
+	}
 	return null;
 }
 

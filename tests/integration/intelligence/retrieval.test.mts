@@ -228,6 +228,14 @@ for (const [name, embedder, reason, calls] of [
 		assert.deepEqual(skips(log.mock.calls), [reason]);
 	});
 
+test("a log sink that throws when the dense leg is skipped leaves the run grounded on sparse candidates", async (t) => {
+	t.mock.method(console, "error", () => {
+		throw new Error("trace sink down");
+	});
+	const found = slugs(await run(T, null));
+	assert.ok(found.includes("training-and-preparation"));
+});
+
 test("the dense leg returns a network's passage only while the plant's affiliation is active and shares its Wiki", async () => {
 	const article = randomUUID();
 	const revision = randomUUID();
