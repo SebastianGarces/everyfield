@@ -1,6 +1,11 @@
 {
   "exceptions": [
     {
+      "id": "CASE-ADM-007",
+      "package": "WP-049",
+      "reason": "Its result is the product privacy text, so T-351 owns and runs it once Maya's privacy copy lands."
+    },
+    {
       "id": "AI44-001",
       "package": "WP-058",
       "reason": "It compares the privacy policy with verified provider settings, so it waits for those settings and T-351's privacy text with Maya's OK."

@@ -32,9 +32,9 @@ successful scaffold checks never establish application acceptance.
 `python3 docs/acceptance/check.py --release` is the release check. It prints the selected, run, not-run and excepted
 counts of each case file and fails, naming each one, on a selected case that is not `run`. Every case is selected unless
 [`release-exceptions.json`](acceptance/release-exceptions.json) lists its ID with the package that proves it (WP-094,
-WP-095, WP-096, WP-057 or WP-058) and a one-line reason why only a browser, file parity or a fresh bootstrap can prove
-it. An exception for a case that is `run` fails too. The check reports for now: `docs/check-all.py` does not run it
-until the last WP-056 slice lands.
+WP-095, WP-096, WP-057, WP-058 or WP-049) and a one-line reason why only a browser, file parity, a fresh bootstrap or
+the product privacy text can prove it. An exception for a case that is `run` fails too. `docs/check-all.py` runs the
+release check, so the documentation checks fail while any selected case is not `run`.
 
 WP-097 keeps the owner's 2026-10-14 fast-track history in the frozen record, with its commit, checks, independent review
 and owner go-live references. Preserve that evidence.
