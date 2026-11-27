@@ -2,7 +2,6 @@ import { cn } from "@everyfield/ui/foundations";
 import type { ReactNode } from "react";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
-import { EvryBot } from "@/components/kit/EvryBot";
 import { Reveal } from "@/components/motion/Reveal";
 import type { Copy } from "../copy";
 import { ICONS } from "../icons";
@@ -30,12 +29,6 @@ export function Free({ f }: { f: D["free"] }) {
 				<Display as="h2" size="h2" className="mx-auto mt-[18px]">
 					{f.headline}
 				</Display>
-				{f.evry.shown ? (
-					<p className={cn("mx-auto mt-6 flex max-w-[620px] items-center justify-center gap-4 text-left", LEAD)}>
-						<EvryBot size="lg" />
-						<span>{f.evry.line}</span>
-					</p>
-				) : null}
 			</Reveal>
 		</Wrap>
 	);
@@ -104,8 +97,7 @@ export function Ready({ r }: { r: D["ready"] }) {
 						{r.headline}
 					</Display>
 					<p className={cn("mt-5 max-w-[54ch]", LEAD)}>
-						{r.body}
-						{r.carry.shown ? ` ${r.carry.line}` : null}
+						{r.body} {r.carry}
 					</p>
 				</Reveal>
 				<Reveal delay={120}>

@@ -382,6 +382,11 @@
             "line": "Your starter steps for the discovery season. Check each one off as you go."
           },
           {
+            "id": "evry",
+            "label": "Evry",
+            "line": "Ask Evry, Everyfield's assistant, questions about the wiki and your own documents."
+          },
+          {
             "id": "ready",
             "label": "When you're ready",
             "line": "Start your church plant, and the rest opens up."
@@ -390,11 +395,7 @@
       },
       "free": {
         "eyebrow": "What you get free",
-        "headline": "Discovery is always free.",
-        "evry": {
-          "shown": false,
-          "line": "Ask Evry, Everyfield's assistant, questions about the wiki and your own documents."
-        }
+        "headline": "Discovery is always free."
       },
       "privacy": {
         "eyebrow": "Privacy",
@@ -412,10 +413,7 @@
       "ready": {
         "headline": "When you're ready to start your church plant",
         "body": "Start your church plant in Everyfield and the rest opens up: your people, meetings, tasks, your launch journey toward Launch Sunday, and Evry with your church's context.",
-        "carry": {
-          "shown": false,
-          "line": "Everything you wrote in Discovery comes with you and stays private to you."
-        },
+        "carry": "Everything you wrote in Discovery comes with you and stays private to you.",
         "seat": {
           "headline": "Starting a church plant is when a seat comes in.",
           "items": [
@@ -461,8 +459,7 @@
           {
             "id": "notes",
             "q": "What happens to my notes when I start my church plant?",
-            "a": "They come with you and stay private to you.",
-            "shown": false
+            "a": "They come with you and stay private to you."
           }
         ]
       },

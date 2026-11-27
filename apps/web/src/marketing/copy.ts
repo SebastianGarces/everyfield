@@ -86,7 +86,6 @@ const accessPage = z.object({
 	}),
 });
 const eyebrowHead = z.object({ eyebrow: text, headline: text });
-const held = z.object({ shown: z.boolean(), line: text });
 const discoveryPage = z.object({
 	hero: z.object({ eyebrow: text, headline: text, subhead: text, cta_primary: text, note: text }),
 	tour: z.object({
@@ -96,18 +95,19 @@ const discoveryPage = z.object({
 			z.object({ id: z.literal("documents"), label: text, line: text }),
 			z.object({ id: z.literal("templates"), label: text, line: text }),
 			z.object({ id: z.literal("tasks"), label: text, line: text }),
+			z.object({ id: z.literal("evry"), label: text, line: text }),
 			z.object({ id: z.literal("ready"), label: text, line: text }),
 		]),
 	}),
-	free: eyebrowHead.extend({ evry: held }),
+	free: eyebrowHead,
 	privacy: eyebrowHead.extend({ body: text }),
 	how: z.object({ headline: text, steps: z.array(text).length(3) }),
 	ready: headBody.extend({
-		carry: held,
+		carry: text,
 		seat: z.object({ headline: text, items: z.tuple([text, text]) }),
 	}),
 	senders: eyebrowHead.extend({ body: text, link: text }),
-	faq: z.object({ headline: text, items: z.array(faqItem.extend({ shown: z.boolean().optional() })).min(1) }),
+	faq: z.object({ headline: text, items: z.array(faqItem).min(1) }),
 	cta: z.object({ headline: text, cta_primary: text, note: text }),
 });
 const legalPage = z.object({
