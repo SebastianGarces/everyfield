@@ -4,7 +4,16 @@ import { randomUUID } from "node:crypto";
 import { instant } from "../../../packages/contracts/src/common/index.ts";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture, type Fixture } from "../identity/invitations-support.mts";
-import { createSignals, type Signals } from "../../../packages/domain/src/intelligence/index.ts";
+import {
+	createFacts,
+	createSignals,
+	criteriaOf,
+	type Signals,
+} from "../../../packages/domain/src/intelligence/index.ts";
+import { readCatalog } from "../../../packages/domain/src/phases/index.ts";
+import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { seedFoundations } from "../../evry/runtime/foundations.mts";
+import { caseOf } from "../target/sql/core/support.mts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import type { SignalValue } from "../../../packages/contracts/src/intelligence/index.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
@@ -820,6 +829,81 @@ test("AC:REQ-TEAM-017 recording, correcting and retracting a candidate changes n
 	assert.deepEqual(await snapshot(), before);
 	const org = await seated(await f.workspace("sending_church"));
 	refusedBare(await signals.getHistory(f.db, org.actor, { key: null }), "access_denied");
+});
+
+test("AC:PI-DISC-001 AC:PI-DISC-002 Foundational modules complete needs one current lead who read all six past 80 percent: such a reader meets it with no new grant, and two readers' halves never pool", async () => {
+	const articles = await seedFoundations(f.admin);
+	const wiki = createWikiProducer();
+	const facts = createFacts();
+	const catalog = await readCatalog();
+	const readAs = async (who: Seated, ratios: number[]) => {
+		for (const [n, ratio] of ratios.entries())
+			if (ratio > 0)
+				ok(
+					await wiki.updateProgress(f.db, who.actor, {
+						requestKey: randomUUID(),
+						input: { articleId: articles[n]!, fraction: ratio.toFixed(2) },
+					}),
+				);
+	};
+	const criterion = async (who: Seated) => {
+		const read = ok(await facts.readFacts(f.db, who.actor, {}));
+		const row = criteriaOf(catalog, 0, read).find((x) => x.key === "foundations_complete")!;
+		assert.equal(row.label, "Foundational modules complete");
+		assert.equal(row.status, read.criteria.foundations_complete);
+		return row.status;
+	};
+	const qualifies = async (who: Seated) => ok(await wiki.readingStats(f.db, who.actor, {})).qualifyingReader;
+	const grants = () =>
+		one<{ seats: number; grants: number }>(sql`SELECT (SELECT count(*)::int FROM seat) seats,
+			(SELECT count(*)::int FROM platform_grant) grants`);
+	const readAudits = (w: Workspace) =>
+		one<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${w.id}`);
+
+	const one1 = caseOf("intelligence", "PI-DISC-001");
+	const in1 = one1.given["case-input"] as {
+		Owner_A_read: number;
+		eligibleLead_B_read: number;
+		ratios_B: number[];
+		lead_B_current_same_plant_Admin: boolean;
+	};
+	assert.equal(in1.lead_B_current_same_plant_Admin, true);
+	const w1 = await f.workspace();
+	const A1 = await seated(w1, "owner");
+	const B1 = await seated(w1, "admin");
+	assert.equal(await criterion(A1), "not_met", "no lead has read the six yet");
+	const before = await grants();
+	await readAs(
+		A1,
+		Array.from({ length: in1.Owner_A_read }, () => 0.81),
+	);
+	assert.equal(in1.ratios_B.length, in1.eligibleLead_B_read);
+	await readAs(B1, in1.ratios_B);
+	const audited = await readAudits(w1);
+	const met = {
+		criterion: await criterion(A1),
+		qualifying_reader: (await qualifies(B1)) && !(await qualifies(A1)) ? "B" : null,
+		new_grants: (await grants()).seats - before.seats + ((await grants()).grants - before.grants),
+	};
+	assert.deepEqual(met, one1.expected.result);
+	assert.equal(await criterion(B1), "met", "the lead's own read agrees");
+	assert.deepEqual(await readAudits(w1), audited, "the read writes no audit row");
+
+	const two = caseOf("intelligence", "PI-DISC-002");
+	const in2 = two.given["behavior-inputs"] as { reader_progress: { A: number[]; B: number[] } };
+	const w2 = await f.workspace();
+	const A2 = await seated(w2, "owner");
+	const B2 = await seated(w2, "admin");
+	await readAs(A2, in2.reader_progress.A);
+	await readAs(B2, in2.reader_progress.B);
+	assert.deepEqual(
+		{
+			foundations_complete: (await criterion(A2)) === "met",
+			pooled_credit: (await qualifies(A2)) || (await qualifies(B2)),
+		},
+		two.expected.result,
+	);
+	assert.equal(await criterion(B2), "not_met");
 });
 
 const readiness = (who: Seated, input: unknown, expectedRevision = "0", requestKey: string = randomUUID()) =>

@@ -134,7 +134,7 @@ export function readingOf(criterion: c.AssessedCriterion): string | null {
 	return read((key) => criterion.evidence.find((e) => e.key === key)?.value ?? null);
 }
 
-export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => {
+const pointsSql = <RName extends string>(r: SqlLiteral<RName>, urgencies: SQL) => {
 	const run = sql.raw(r);
 	return sql`(SELECT coalesce(json_agg(json_build_object('ordinal',e.n-1,'urgency',e.p->>'urgency','keys',e.p->'citations',
 	'evidence',(SELECT coalesce(json_agg(json_build_object('key',k.v,'label',f.cite->>'label','value',f.cite->'value')
@@ -143,8 +143,10 @@ export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => {
 	ORDER BY e.n),'[]'::json)
 	FROM jsonb_array_elements(jsonb_build_array(${run}.result->'draft'->'focus')||(${run}.result->'draft'->'supporting')
 		||coalesce(${run}.result->'draft'->'positives','[]'::jsonb)) WITH ORDINALITY e(p,n)
-	WHERE e.p->>'urgency' IN ('watch','urgent'))`;
+	WHERE e.p->>'urgency' IN (${urgencies}))`;
 };
+export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => pointsSql(r, sql`'watch','urgent'`);
+export const strengthsSql = <RName extends string>(r: SqlLiteral<RName>) => pointsSql(r, sql`'positive'`);
 export const storedConcern = z.object({
 	ordinal: z.int(),
 	urgency: z.enum(["watch", "urgent"]),
@@ -161,11 +163,23 @@ export const concernOf = (runId: string, s: StoredConcern): c.Concern =>
 		evidence: s.evidence,
 	}) satisfies z.output<typeof c.concern>;
 
+export const storedStrength = z.object({
+	ordinal: z.int(),
+	urgency: z.literal("positive"),
+	keys: z.array(z.string()),
+	evidence: z.array(c.evidenceFact),
+});
+export const strengthOf = (runId: string, s: z.infer<typeof storedStrength>) => ({
+	id: c.concernId(runId, s.ordinal),
+	ordinal: s.ordinal,
+	lens: s.keys.map(c.lensOfKey).find((l) => l !== null) ?? null,
+	evidence: s.evidence,
+});
+
 export const RELEASE_HOURS = 72;
-export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assessment_run r WHERE r.plant_id=${plant}
-	AND r.outcome='published' AND least(r.available_at+make_interval(hours=>${RELEASE_HOURS}),
-		(SELECT min(s.seen_at) FROM assessment_seen s WHERE s.run_id=r.id))<=${now}
-	ORDER BY r.available_at DESC,r.id DESC LIMIT 1)`;
+export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assessment_run r
+	JOIN assessment_release x ON x.run_id=r.id AND x.plant_id=r.plant_id WHERE r.plant_id=${plant}
+	AND r.outcome='published' AND x.released_at<=${now} ORDER BY r.available_at DESC,r.id DESC LIMIT 1)`;
 
 const UNKNOWN_WITH_STATUS = new Set(["followUps", "training", "cohesion"]);
 export const trendCellsSql = <RName extends string>(r: SqlLiteral<RName>) =>
@@ -187,4 +201,60 @@ export function trendOf(cells: z.infer<typeof trendCells>): c.TrendValue[] {
 		if (cell.status === "unknown" && UNKNOWN_WITH_STATUS.has(group)) return { state: "unknown" };
 		return typeof cell.value === "number" ? { state: "measured", value: cell.value } : { state: "unknown" };
 	});
+}
+
+type Observed = "high" | "medium" | null;
+const OBSERVED: Record<c.LensKey, (f: c.PlantFacts) => Observed> = {
+	vision: (f) =>
+		f.vision.status === "direct"
+			? "high"
+			: f.vision.status === "watch" || f.vision.status === "over_target"
+				? "medium"
+				: null,
+	ownership: (f) => (f.followUps.status === "measured" && f.followUps.onTime < f.followUps.measured ? "medium" : null),
+	critical_mass: (f) => (f.growth.status === "stalled" ? "high" : f.growth.status === "slowed" ? "medium" : null),
+	cohesion: (f) => (f.cohesion.status === "flagged" ? "high" : null),
+	prayer: () => null,
+	generosity: () => null,
+	leadership: (f) => (f.coverage.status === "not_met" ? "medium" : null),
+	training: (f) => (f.training.status === "not_met" ? "medium" : null),
+};
+const SEVERITY_RANK = { high: 0, medium: 1 } as const;
+
+function drilldownOf(facts: unknown, cited: ReadonlySet<c.LensKey>): c.DrilldownItem[] {
+	const { facts: f, entries } = catalogOf(facts);
+	if (!f) return [];
+	return c.LENSES.flatMap((lens, order) => {
+		const severity = OBSERVED[lens.key](f);
+		return severity && !cited.has(lens.key)
+			? [{ item: { lens: lens.key, label: lens.label, severity, evidence: evidenceOf(entries, lens.headline) }, order }]
+			: [];
+	})
+		.sort((a, b) => SEVERITY_RANK[a.item.severity] - SEVERITY_RANK[b.item.severity] || a.order - b.order)
+		.map((x) => x.item);
+}
+
+export function focusOf(runId: string, facts: unknown, draft: c.DraftOutput): c.FocusView {
+	const lensesOfPoint = (p: c.DraftPoint) => [
+		...new Set(p.citations.map(c.lensOfKey).filter((l): l is c.LensKey => l !== null)),
+	];
+	const point = (p: c.DraftPoint) => ({ title: p.title, severity: c.SEVERITY[p.urgency], lenses: lensesOfPoint(p) });
+	const cited = new Set([draft.focus, ...draft.supporting].flatMap(lensesOfPoint));
+	return c.focusView.parse({
+		runId,
+		primary: point(draft.focus),
+		supplements: draft.supporting.map(point),
+		positives: draft.positives.map(point),
+		drilldown: drilldownOf(facts, cited),
+	});
+}
+
+const rate = (n: unknown, d: unknown) => (typeof n === "number" && typeof d === "number" && d > 0 ? n / d : null);
+export const followUpsCell = z.record(z.string(), z.unknown()).nullable();
+export function ratesOf(followUps: z.infer<typeof followUpsCell>): c.AssessmentHistory["runs"][number]["rates"] {
+	if (!followUps || followUps.status === "unknown") return { followUpWithin48Hours: null, actualContact: null };
+	return {
+		followUpWithin48Hours: rate(followUps.onTime, followUps.measured),
+		actualContact: rate(followUps.contacted, followUps.total),
+	};
 }

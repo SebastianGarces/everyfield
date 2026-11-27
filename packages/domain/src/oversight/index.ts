@@ -17,7 +17,15 @@ export {
 	readIntelligence,
 	readPattern,
 	submitIntelligenceFeedback,
+	claimIntelligenceRefresh,
+	runIntelligenceRefresh,
+	runIntelligenceRefreshBatch,
+	scheduleIntelligenceRefresh,
+	NetworkProviderDeadline,
+	NetworkRetrievalUnavailable,
+	type RefreshConfig,
 } from "./intelligence.ts";
+export { activateNetworkReference, validateNetworkReference, writeNetworkReference } from "./reference.ts";
 export { readLocationHistory } from "./locations.ts";
 
 type Organization = Extract<Owner, { kind: "organization" }>;

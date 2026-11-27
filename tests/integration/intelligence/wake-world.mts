@@ -119,13 +119,13 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 	};
 	const current = async (p: { actor: RequestActor }) =>
 		ok(await assessments.readAssessment(db, p.actor, {})).current?.runId ?? null;
-	async function publish(p: ChurchPlant) {
+	async function publish(p: ChurchPlant, seen = true) {
 		await sync();
 		ok(await assessments.requestRefresh(db, p.actor, { requestId: randomUUID() }));
 		await run(p);
 		const now = ok(await assessments.readAssessment(db, p.actor, {})).current;
 		assert.ok(now, "published");
-		ok(await assessments.markAssessmentSeen(db, p.actor, { runId: now.runId }));
+		if (seen) ok(await assessments.markAssessmentSeen(db, p.actor, { runId: now.runId }));
 		const { source_revision } = await c.one<{ source_revision: string }>(
 			sql`SELECT source_revision FROM assessment_run WHERE id=${now.runId}`,
 		);
@@ -181,6 +181,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 	async function plant<T>(
 		name: string,
 		arrange: (w: Omit<WakePlant<T>, "r0" | "arranged">) => Promise<T>,
+		{ seen = true }: { seen?: boolean } = {},
 	): Promise<WakePlant<T>> {
 		const orgA = await org(`${name} Org-A`);
 		const orgB = await org(`${name} Org-B`);
@@ -195,7 +196,7 @@ export async function wakeWorld(prefix: string, at = "2026-10-13T16:00:00.000Z")
 		await c.checkIn(P);
 		const base = { name, P, Q, A, orgA, orgB };
 		const arranged = await arrange(base);
-		const r0 = await publish(P);
+		const r0 = await publish(P, seen);
 		await publish(Q);
 		for (const o of [orgA, orgB]) ok(await requestIntelligenceRefresh(db, o.reader, { runId: randomUUID() }));
 		assert.equal(await inputState(P), r0.sourceRevision, "R0 was captured at P's current input state");

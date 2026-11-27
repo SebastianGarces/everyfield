@@ -6,6 +6,7 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createFacts,
+	createRelease,
 	createSignals,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
@@ -77,14 +78,16 @@ test("AC:EVRY-FAMILY-INTELLIGENCE-PHASE measures stay measured, attested or Unkn
 	const health = async () => rowsOf(await w.look(director, "oversight.listPlants", {}))[0].fields.health;
 	await w.look(owner, "intelligence.readAssessment", {});
 	assert.deepEqual([await seen(), await health()], [0, "Not yet assessed"], "Evry's read is not a person opening it");
-	const aged = (hours: number) =>
-		w.admin.execute(
+	const aged = async (hours: number) => {
+		await w.admin.execute(
 			sql`UPDATE assessment_run SET available_at=available_at-make_interval(hours=>${hours}::int) WHERE id=${first.runId}`,
 		);
-	await aged(72);
+		await createRelease().releaseDueAssessments(w.db);
+	};
+	await aged(71);
+	assert.deepEqual([await seen(), await health()], [0, "Not yet assessed"], "not released before 72 hours");
+	await aged(1);
 	assert.deepEqual([await seen(), await health()], [0, "Watch"], "released after 72 hours unopened");
-	await aged(-72);
-	assert.equal(await health(), "Not yet assessed");
 	ok(await assessments.markAssessmentSeen(w.db, await authority(), { runId: first.runId }));
 	assert.deepEqual([await seen(), await health()], [1, "Watch"]);
 	await w.admin.execute(sql`UPDATE affiliation SET shared_findings=false WHERE id=${p.affiliation}`);

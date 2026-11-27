@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { recordId } from "../common/values.ts";
+import { defineSafeError, recordId, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 import { criterionKey, phaseNumber } from "../phases/index.ts";
 import type { SignalKey } from "./signals.ts";
@@ -167,6 +167,25 @@ export const markSeenRequest = z.strictObject({ runId: recordId });
 export const seenReceipt = z.strictObject({ outcome: z.enum(["recorded", "already_seen"]) });
 export type SeenReceipt = z.infer<typeof seenReceipt>;
 
+export const releaseRequest = z.strictObject({
+	plantId: recordId,
+	assessmentId: recordId,
+	releaseCause: z.literal("elapsed_72_hours"),
+	requestKey: recordId,
+});
+export const releaseReceipt = z.strictObject({
+	runId: recordId,
+	releasedAt: instant,
+	cause: z.enum(["opened", "elapsed_72_hours"]),
+});
+type ReleaseReceipt = z.infer<typeof releaseReceipt>;
+export const releaseError = z.discriminatedUnion("code", [
+	defineSafeError("invalid_input", {}, "never"),
+	defineSafeError("not_found", {}, "never"),
+	defineSafeError("not_due", {}, "refresh"),
+]);
+export type ReleaseReply = Reply<ReleaseReceipt, z.infer<typeof releaseError>>;
+
 export const TREND_FACTS = [
 	{ key: "committedAdults.known", label: "Committed adults known" },
 	{ key: "growth.current", label: "New adults in the last 28 days" },
@@ -187,8 +206,33 @@ export const trendRun = z.strictObject({
 	asOf: instant,
 	measuredOn: localDate,
 	phase: phaseNumber,
+	formulaVersion: z.string(),
 	values: z.array(trendValue).length(TREND_FACTS.length),
+	rates: z.strictObject({
+		followUpWithin48Hours: z.number().min(0).max(1).nullable(),
+		actualContact: z.number().min(0).max(1).nullable(),
+	}),
 });
 export const assessmentHistory = z.strictObject({ runs: z.array(trendRun).max(TREND_RUNS) });
 export type AssessmentHistory = z.infer<typeof assessmentHistory>;
 export const readAssessmentHistoryRequest = z.strictObject({});
+
+const focusSeverity = z.enum(["info", "low", "medium", "high", "critical"]);
+const focusPoint = z.strictObject({ title: z.string(), severity: focusSeverity, lenses: z.array(lensKey) });
+const drilldownItem = z.strictObject({
+	lens: lensKey,
+	label: z.string(),
+	severity: z.enum(["medium", "high"]),
+	evidence: z.array(evidenceFact),
+});
+export type DrilldownItem = z.infer<typeof drilldownItem>;
+export const focusView = z.strictObject({
+	runId: recordId,
+	primary: focusPoint,
+	supplements: z.tuple([focusPoint, focusPoint]),
+	positives: z.array(focusPoint),
+	drilldown: z.array(drilldownItem),
+});
+export type FocusView = z.infer<typeof focusView>;
+export const focusReply = z.strictObject({ focus: focusView.nullable() });
+export const readFocusRequest = z.strictObject({});

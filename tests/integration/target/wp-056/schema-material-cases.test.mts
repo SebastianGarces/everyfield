@@ -185,7 +185,9 @@ test("AC:SCHEMA-012 every assessment input table changes the source revision, no
 	});
 	const p = await assessed("Material Point", enrich);
 	await lateMeeting(p);
-	const { text, tables: inputs } = await builderTables(p.id, p.actor);
+	const { text, tables: read } = await builderTables(p.id, p.actor);
+	assert.ok(read.includes("reading"), "Foundational modules complete reads Discovery progress beside the inputs");
+	const inputs = read.filter((t) => t !== "reading");
 	assert.ok(inputs.length >= 15, inputs.join());
 	const baseline = await state(c0.admin, p.id, p.actor);
 	assert.notEqual(JSON.parse(baseline)[1], null, "the late, touched meeting puts the published run out of date");

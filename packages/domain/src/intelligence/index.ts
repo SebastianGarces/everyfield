@@ -16,4 +16,5 @@ export {
 } from "./assessment.ts";
 export { ASSESSMENT_TIMING, createAssessmentJob, runAssessmentBatch, type AssessmentJob } from "./assessment-job.ts";
 export { checkDraft, draftText } from "./checks.ts";
+export { createRelease } from "./release.ts";
 export { criteriaOf, readingOf } from "./views.ts";

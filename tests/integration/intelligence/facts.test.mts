@@ -19,6 +19,8 @@ import { commitments, peopleWriter, recordCorrections } from "../../../packages/
 import { ok, refusedWith } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { instant } from "../../../packages/contracts/src/common/index.ts";
+import { WINDOW_DAYS } from "../../../packages/contracts/src/intelligence/index.ts";
+import { readIntelligence } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { readCatalog } from "../../../packages/domain/src/phases/index.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
 import { caseOf, type Case } from "../target/sql/core/support.mts";
@@ -534,6 +536,8 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"anyAttendance",
 		"attendance",
 		"attestations",
+		"candidates",
+		"contacts",
 		"debrief",
 		"followUps",
 		"fourCs",
@@ -544,6 +548,10 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"phase",
 		"readiness",
 		"roles",
+		"roster",
+		"sources",
+		"tasks",
+		"tenures",
 		"training",
 		"vision",
 		"zone",
@@ -963,5 +971,288 @@ test("AC:PI-GROW-003 a reactivation is not a new acquisition; a same-day join an
 	assert.deepEqual(
 		[r.growth.lastAcquiredOn, r.growth.current, r.growth.status],
 		[behavior.new_adult_on, 1, "on_track"],
+	);
+});
+
+async function tenure(o: Plant, personId: string, from: string, leadership = false, to: string | null = null) {
+	const team = randomUUID(),
+		role = randomUUID(),
+		id = randomUUID();
+	await record(team, "team", o.w.id);
+	await record(role, "team_role", o.w.id);
+	await record(id, "team_tenure", o.w.id);
+	await f.admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${o.w.id},'Setup team','active',1)`,
+	);
+	await f.admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+		VALUES(${role},${o.w.id},${team},${leadership ? "Team lead" : "Setup"},${leadership},1)`);
+	await f.admin.execute(sql`INSERT INTO team_tenure(id,plant_id,role_id,person_id,started_on,ended_on)
+		VALUES(${id},${o.w.id},${role},${personId},${from},${to})`);
+}
+const auditCount = async (o: Plant) =>
+	(await one<{ n: number }>(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${o.w.id}`)).n;
+
+test("AC:PI-CASE-002 the recorded source mix counts partner church 2, personal referral 1 and unknown 1 for the owner and an Admin; it claims no conversion and no organization reads it", async () => {
+	const k = piCase("PI-CASE-002");
+	const o = await plant();
+	const cohort = valueOf<{ id: string; recorded_source: string | null }[]>(k, "source_cohort");
+	for (const p of cohort)
+		await person(o, `Source ${p.id}`, {
+			adultClassification: "adult",
+			...(p.recorded_source ? { source: p.recorded_source } : {}),
+		});
+	assert.deepEqual(valueOf<string[]>(k, "actors"), ["plantOwner", "acceptedAdmin", "organizationMember"]);
+	const admin = await f.account();
+	await f.seat(admin, o.w, "admin");
+	const network = await f.workspace("sending_network");
+	const member = await f.account();
+	await f.seat(member, network, "member");
+	await f.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
+		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${o.w.id},${network.id},clock_timestamp(),true,true,true,true,true,true,true)`);
+	const before = await auditCount(o);
+	for (const actor of [o.actor, await f.actor(admin.session)]) {
+		const r = ok(await pinnedFacts(k.clock.now).readFacts(f.db, actor, {}));
+		assert.deepEqual(
+			{
+				source_counts: r.sources!.counts,
+				conversion_claim: /conver/i.test(JSON.stringify(r.sources)) ? r.sources : null,
+				organization_composition: null,
+			},
+			k.expected.result,
+		);
+		assert.deepEqual([r.sources!.cohort, r.sources!.total], ["live_people", 4]);
+	}
+	const orgActor = await f.actor(member.session);
+	refusedBare(await pinnedFacts(k.clock.now).readFacts(f.db, orgActor, {}), "access_denied");
+	const networkView = await readIntelligence(f.db, orgActor, { level: "portfolio", runId: null });
+	assert.ok(networkView);
+	assert.doesNotMatch(JSON.stringify(networkView), /partner_church|personal_referral|sources/);
+	assert.equal(await auditCount(o), before);
+});
+
+test("AC:PI-CASE-005 cohesion over two 28-day windows reads 0.2, 0.25, 0.1875 and 0.2, flags the first and last, and a disengaged leader makes the voice one level more direct with no spiritual verdict", async () => {
+	const k = piCase("PI-CASE-005");
+	assert.deepEqual(valueOf<number[]>(k, "windows_days"), [WINDOW_DAYS, WINDOW_DAYS]);
+	assert.equal(valueOf<boolean>(k, "completed_core_group_meetings_without_vision"), true);
+	const variants = valueOf<
+		{ active_committed: number; prior_only_attendees: number; leader_among_disengaged: boolean }[]
+	>(k, "variants");
+	const read: PlantFacts[] = [];
+	for (const [i, v] of variants.entries()) {
+		const o = await plant();
+		const people: Committed[] = [];
+		for (let n = 0; n < v.active_committed; n++) people.push(await committed(o, `Core ${i}-${n}`, "2026-07-01"));
+		const away = people.slice(0, v.prior_only_attendees);
+		await heldOn(
+			o,
+			"2026-09-01",
+			away.map((p) => p.id),
+			{ type: "orientation" },
+		);
+		await heldOn(
+			o,
+			"2026-10-06",
+			people.slice(v.prior_only_attendees).map((p) => p.id),
+			{ type: "orientation" },
+		);
+		if (v.leader_among_disengaged) await tenure(o, away[0]!.id, "2026-07-15", true);
+		read.push(await readAt(o, k.clock.now));
+	}
+	const voice = { steady: 0, watch: 1, direct: 2 } as const;
+	const [plain, , , led] = read;
+	assert.deepEqual(
+		{
+			ratios: read.map((r) => r.cohesion.ratio),
+			cohesion_flag: read.map((r) => r.cohesion.status === "flagged"),
+			leader_variant_more_direct: voice[led!.cohesion.voice!] - voice[plain!.cohesion.voice!] === 1,
+			spiritual_verdict: Object.keys(read[0]!.cohesion).find((key) => /spirit|unity|verdict|qualif/i.test(key)) ?? null,
+		},
+		k.expected.result,
+	);
+	assert.deepEqual(
+		read.map((r) => [r.cohesion.voice, r.cohesion.leaderDisengaged!.length, r.vision.status]),
+		[
+			["watch", 0, "unknown"],
+			["steady", 0, "unknown"],
+			["steady", 0, "unknown"],
+			["direct", 1, "unknown"],
+		],
+	);
+});
+
+test("AC:PI-CASE-006 60 dated days of attendance and volunteering make P a candidate and S one by a typed attestation; Q's tenure and lifetime attendance leave continuity unknown, R's 60 and 59 days are no conjunction, and nothing is promoted", async () => {
+	const k = piCase("PI-CASE-006");
+	const now = k.clock.now;
+	const o = await plant();
+	const [cp, cq, cr] = valueOf<Record<string, unknown>[]>(k, "candidates") as [
+		{ person: string; dated_attendance_and_volunteering_days: number; human_interview: { date: string } },
+		{ person: string; tenure_days: number; lifetime_attendance: number; volunteering_continuity: null },
+		{ person: string; dated_attendance_days: number; dated_volunteering_days: number },
+	];
+	assert.equal(cq.volunteering_continuity, null);
+	const s = valueOf<{ person: string; both_behaviors: boolean; start: string; end: string; human_actor: string }>(
+		k,
+		"typed_attestation",
+	);
+	const today = "2026-10-13";
+	const P = await committed(o, `Person ${cp.person}`, "2026-03-01");
+	const Q = await committed(o, `Person ${cq.person}`, shiftDays(today, -cq.tenure_days));
+	const R = await committed(o, `Person ${cr.person}`, "2026-03-01");
+	const S = await committed(o, `Person ${s.person}`, "2026-03-01");
+	const pStart = shiftDays(today, -(cp.dated_attendance_and_volunteering_days - 1));
+	const rAttend = shiftDays(today, -(cr.dated_attendance_days - 1));
+	for (let n = 0; n < cq.lifetime_attendance; n++) {
+		const on = shiftDays(pStart, 3 * (19 - n));
+		const attended = [Q.id, ...(on >= pStart ? [P.id] : []), ...(on >= rAttend ? [R.id] : [])];
+		await heldOn(o, on, attended, { type: "orientation" });
+	}
+	await tenure(o, P.id, pStart);
+	await tenure(o, R.id, shiftDays(today, -(cr.dated_volunteering_days - 1)));
+	await f.admin.execute(sql`INSERT INTO interview(id,plant_id,person_id,interviewed_on,recorded_at,maturity,gifted,
+		chemistry,right_reasons,season,result) VALUES(${randomUUID()},${o.w.id},${P.id},${cp.human_interview.date},
+		clock_timestamp(),'pass','pass','pass','pass','pass','qualified')`);
+	assert.equal(s.human_actor, "A");
+	ok(
+		await createSignals({ clock: { now: () => instant.parse(new Date(now).toISOString()) } }).attestCandidate(
+			f.db,
+			o.actor,
+			{
+				requestKey: randomUUID(),
+				expectedRevision: "0",
+				input: {
+					personId: S.id,
+					periodStart: s.start,
+					periodEnd: s.end,
+					attended: s.both_behaviors,
+					volunteered: s.both_behaviors,
+					statement: "Served and attended every week.",
+				},
+			},
+		),
+	);
+	const stages = async () =>
+		JSON.stringify(await rows(sql`SELECT id,stage FROM person WHERE tenant_id=${o.w.id} ORDER BY id`));
+	const tenures = async () =>
+		(await one<{ n: number }>(sql`SELECT count(*)::int AS n FROM team_tenure WHERE plant_id=${o.w.id}`)).n;
+	const [stagesBefore, tenuresBefore, auditBefore] = [await stages(), await tenures(), await auditCount(o)];
+	const r = await readAt(o, now);
+	const name = (id: string) => [P, Q, R, S].find((p) => p.id === id)!.displayName.replace("Person ", "");
+	const of = (p: { id: string }) => r.leadership!.people.find((x) => x.person.id === p.id)!;
+	assert.deepEqual(
+		{
+			candidate_persons: r.leadership!.candidates.map((x) => name(x.person.id)),
+			Q_continuity: of(Q).status,
+			R_conjunction: of(R).status === "candidate",
+			automatic_promotions:
+				Number((await stages()) !== stagesBefore) +
+				(await tenures()) -
+				tenuresBefore +
+				(await auditCount(o)) -
+				auditBefore,
+		},
+		k.expected.result,
+	);
+	assert.deepEqual(
+		[P, Q, R, S].map((p) => [of(p).attendanceDays, of(p).volunteeringDays, of(p).status]),
+		[
+			[60, 60, "candidate"],
+			[150, null, "unknown"],
+			[60, 59, "not_yet"],
+			[null, null, "unknown"],
+		],
+	);
+	assert.deepEqual(
+		r.leadership!.candidates.map((x) => x.basis),
+		["records", "attestation"],
+	);
+	assert.deepEqual(r.humanRecords.interviews, { count: 1, latestOn: cp.human_interview.date });
+	assert.doesNotMatch(JSON.stringify(r), /qualified/);
+});
+
+async function contacted(o: Plant, personId: string, at: string, kind = "contacted") {
+	const id = randomUUID();
+	await record(id, "contact_outcome", o.w.id);
+	await f.admin.execute(sql`INSERT INTO contact_outcome(id,plant_id,person_id,outcome,occurred_at,recorded_at)
+		VALUES(${id},${o.w.id},${personId},${kind},${at}::timestamptz,${at}::timestamptz)`);
+}
+
+test("AC:PI-CASE-010 actual contact is fresh for under 14 days: 12:00:01 is recent, 12:00:00 is not, none and a future time are unknown, and an attempt, an administrative completion or no-longer-needed never refreshes it", async () => {
+	const k = piCase("PI-CASE-010");
+	const asOf = valueOf<string>(k, "as_of");
+	assert.equal(asOf, k.clock.now);
+	const o = await plant();
+	const times = valueOf<(string | null)[]>(k, "effective_contacted_times");
+	const people: Committed[] = [];
+	for (const [i, at] of times.entries()) {
+		const p = await committed(o, `Contact ${i + 1}`, "2026-08-01");
+		if (at) await contacted(o, p.id, at);
+		people.push(p);
+	}
+	const freshness = async () => {
+		const r = await readAt(o, asOf);
+		return people.map((p) => r.contact!.people.find((x) => x.person.id === p.id)!);
+	};
+	const first = await freshness();
+	assert.deepEqual(
+		first.map((x) => x.lastContactedAt),
+		times.map((t) => (t ? new Date(t).toISOString() : null)),
+	);
+	for (const kind of valueOf<string[]>(k, "later_outcomes"))
+		await contacted(o, people[1]!.id, "2026-10-12T12:00:00Z", kind);
+	const later = await freshness();
+	assert.deepEqual(
+		{
+			recent: later.map((x) => x.recent),
+			attempt_refreshes_contact: JSON.stringify(later) !== JSON.stringify(first),
+		},
+		k.expected.result,
+	);
+	assert.equal((await readAt(o, asOf)).contact!.recentDays, 14);
+});
+
+test("AC:PI-CASE-009 follow-up task ownership counts one distinct live owner, owned T1 and T2, unowned T3 whose owner is no longer eligible, and one stale unowned person", async () => {
+	const k = piCase("PI-CASE-009");
+	const o = await plant();
+	assert.equal(valueOf<string>(k, "planter_account"), "A");
+	const planter = await person(o, "Alex Planter");
+	await f.admin.execute(sql`UPDATE person SET linked_account_id=${o.id},stage='core_group' WHERE id=${planter.id}`);
+	const b = await f.account();
+	const bSeat = await f.seat(b, o.w, "admin");
+	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${bSeat}`);
+	const owners: Record<string, string> = { A: o.id, B: b.id };
+	const people: Record<string, { id: string }> = {
+		P: await person(o, "Person P"),
+		Q: await person(o, "Person Q"),
+	};
+	const ids: Record<string, string> = {};
+	const tasks = valueOf<{ id: string; person: string; owner: string; owner_eligible: boolean; overdue: boolean }[]>(
+		k,
+		"tasks",
+	);
+	for (const t of tasks) {
+		const id = randomUUID();
+		ids[id] = t.id;
+		await record(id, "task", o.w.id);
+		await f.admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+			person_id) VALUES(${id},${o.w.id},'Call back','follow_up','medium','not_started','2026-10-01T12:00:00Z',
+			'date_only',${t.overdue ? "2026-10-10" : "2026-10-20"},${people[t.person]!.id})`);
+		await f.admin.execute(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${o.w.id},${id},${owners[t.owner]!})`,
+		);
+	}
+	const r = (await readAt(o, k.clock.now)).ownership!;
+	assert.deepEqual(
+		{
+			distinct_live_owners: r.owners,
+			owned_task_ids: r.owned.map((id) => ids[id]).sort(),
+			unowned_task_ids: r.unowned.map((id) => ids[id]),
+			stale_unowned_people: r.staleUnownedPeople,
+		},
+		k.expected.result,
+	);
+	assert.deepEqual(
+		tasks.map((t) => t.owner_eligible),
+		[true, true, false],
 	);
 });
