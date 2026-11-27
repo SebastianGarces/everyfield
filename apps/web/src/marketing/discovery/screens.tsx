@@ -567,8 +567,8 @@ export function EvryScreen() {
 									connecting with the people in the room, then cast a clear vision.
 								</p>
 								<p>
-									Your notes already hold that vision: families on the east side who are new to the city and
-									don&rsquo;t know anyone yet. You could open with what you&rsquo;ve seen at the park.
+									Your notes already hold that vision: families on the east side who are new to the city and don&rsquo;t
+									know anyone yet. You could open with what you&rsquo;ve seen at the park.
 								</p>
 							</div>
 						</div>
