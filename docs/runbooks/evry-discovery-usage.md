@@ -3,7 +3,7 @@
 A free Discovery account can ask Evry `EVRY_DISCOVERY_DAILY_QUESTIONS` questions a day (default 30, D-3098). The day
 starts at 00:00 in the account's personal time zone, or 00:00 UTC when it has none (D-3099). A question is one planter
 message Evry accepts in a Discovery conversation; a retry of the same message, a repeated request and a refused message
-do not count (D-3100). The 31st question is refused before anything is saved, with no model call and no spend, and the
+do not count (D-3100). A question over the limit is refused before anything is saved, with no model call and no spend, and the
 planter sees "You've reached today's Evry questions. They'll be back tomorrow. Everything else in Discovery stays
 open." Church, sending church and network conversations are never limited. The monthly cap `EVRY_MONTHLY_CAP_USD`
 (D77) still applies to every call. The decision is D109 in `docs/architecture/decisions.md`.

@@ -18705,7 +18705,7 @@
 					"additional_producers": ["WP-051"],
 					"rule": "T-710 Discovery daily Evry question limit through Drizzle Kit."
 				},
-				"feature_ids": ["EVR-004", "EVR-019"],
+				"feature_ids": ["EVR-004", "EVR-019", "EVR-027", "EVR-030"],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "assistant",
