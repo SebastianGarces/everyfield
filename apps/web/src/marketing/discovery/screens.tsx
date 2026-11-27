@@ -1,5 +1,5 @@
 import { Tag } from "@everyfield/ui/display";
-import { cn, EvryBot } from "@everyfield/ui/foundations";
+import { cn } from "@everyfield/ui/foundations";
 import {
 	ArrowDown01Icon,
 	ArrowRight01Icon,
@@ -35,6 +35,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
+import { EvryBot } from "@/components/kit/EvryBot";
 import { LockedNote, PageHead, Shell } from "./Shell";
 
 const SQ = "grid size-[46px] place-items-center text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]";
@@ -540,7 +541,7 @@ export function EvryScreen() {
 					<div className="flex items-start gap-3 border-b border-line px-6 pt-5 pb-4 @max-[639px]:px-4 @max-[639px]:pt-4">
 						<div className="min-w-0 flex-1">
 							<div className="flex items-center gap-3 font-title type-title-sm leading-[1.2] tracking-[-0.02em] text-ink">
-								<EvryBot size="md" />
+								<EvryBot size="sm" />
 								Evry
 							</div>
 							<p className="mt-1 type-sm text-text-3">Reads and drafts. You approve every change.</p>
@@ -558,7 +559,7 @@ export function EvryScreen() {
 						</p>
 						<div className="flex gap-2.5">
 							<span className="grid size-[30px] flex-none place-items-center">
-								<EvryBot size="md" />
+								<EvryBot size="sm" />
 							</span>
 							<div className="flex min-w-0 flex-1 flex-col gap-3 pt-1 leading-[1.55] text-ink-2">
 								<p>
