@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-09T15:00:38.392Z",
+	"recordedAt": "2026-11-09T15:00:17.390Z",
 	"spend": {
-		"newCalls": 3,
-		"newMicroUsd": 14818,
-		"allCalls": 2511,
-		"allMicroUsd": 9324956
+		"newCalls": 2,
+		"newMicroUsd": 7112,
+		"allCalls": 2513,
+		"allMicroUsd": 9332068
 	},
 	"calls": {
 		"0004b8bd270d218e": {
@@ -58753,6 +58753,116 @@
 			"usage": {
 				"input": 64956,
 				"output": 44
+			}
+		},
+		"561c97a2c4040b39": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": [
+						{
+							"type": "compatibility",
+							"feature": "JSON Schema propertyNames",
+							"details": "OpenAI does not support JSON Schema propertyNames. It was removed before sending the schema, so OpenAI will not enforce property-name constraints."
+						}
+					]
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ed884f673c645c4016b0915e8f41487d2a97432dbc7c3ef8f",
+					"timestamp": "2026-11-27T05:32:25.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0ed884f673c645c4016b0915ea71e487d292fff13b31c64eae:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ed884f673c645c4016b0915ea71e487d292fff13b31c64eae"
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0ed884f673c645c4016b0915ea71e487d292fff13b31c64eae:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0ed884f673c645c4016b0915ea71e487d292fff13b31c64eae"
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0ed884f673c645c4016b0915ea764c87d2bcabe5974706e467",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ed884f673c645c4016b0915ea764c87d2bcabe5974706e467",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0ed884f673c645c4016b0915ea764c87d2bcabe5974706e467",
+					"delta": "The assessment before the latest was measured **Nov 9, 2026**, in **Phase 1**. Its summary said: “This looks at your launch progress in Phase 1. The main thing to look at now: finish guest follow-up from the vision meeting.”\n\n**Findings**\n- **Focus — Watch: “Finish guest follow-up from the Vision meeting.”** “Follow-up timing isn't measured yet. You might finish calling the guests from your last Vision meeting.” It cited follow-ups as Unknown and the last Vision meeting as Nov 5, 2026.\n- **Supporting — Watch: “Set a regular prayer rhythm.”** “No prayer rhythm is recorded yet. You might ask your team when to meet to pray.” The recorded answer was Unknown.\n- **Supporting — Worth knowing: “Required training isn't assigned yet.”** “No required training is assigned yet, so training progress is unknown.”\n- **Positive — Going well: “New adults keep joining.”** “The newest adult commitment was 5 days ago, and 1 adult committed in the last 28 days.”\n- **Positive — Going well: “Vision meetings are on rhythm.”** “Your last Vision meeting was on Nov 5, 4 days ago. The rhythm aims for one every 14 days.”\n\n**Lens standings:** Vision Casting — Watch; Shared Ownership — Watch; Critical Mass — Strength; Core Group Cohesion — Not raised; Prayer — Watch; Generosity & Financial Readiness — Not enough evidence; Emerging Leadership — Not raised; Comprehensive Training — Noted.\n\n**Phase 1 exit criteria:** 30 committed adults — Unknown (28 known; 2 people with commitments needed adult/child classification); Growth still moving — Met; Launch funding viable — Unknown; Worship leader identified — Met; Geographic area set — Unknown."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0ed884f673c645c4016b0915ea764c87d2bcabe5974706e467",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ed884f673c645c4016b0915ea764c87d2bcabe5974706e467",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 66530,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 66527
+						},
+						"outputTokens": {
+							"total": 453,
+							"text": 375,
+							"reasoning": 78
+						},
+						"raw": {
+							"input_tokens": 66530,
+							"input_tokens_details": {
+								"cached_tokens": 0,
+								"cache_write_tokens": 66527,
+								"cache_write_tokens_details": {
+									"ttl_30m_tokens": 66527,
+									"ttl_12h_tokens": 0
+								}
+							},
+							"output_tokens": 453,
+							"output_tokens_details": {
+								"reasoning_tokens": 78
+							},
+							"total_tokens": 66983
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ed884f673c645c4016b0915e8f41487d2a97432dbc7c3ef8f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 66530,
+				"output": 453
 			}
 		},
 		"562204e2061766b9": {
@@ -167638,6 +167748,25 @@
 			"usage": {
 				"input": 65160,
 				"output": 82
+			}
+		},
+		"fc81b62d909afea9": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"adequate\",\"reason\":\"The answer is clear and matter-of-fact, but the long list of findings and criteria is more detail than a brief reply needs.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It clearly identifies guest follow-up as the assessment’s main focus and provides supporting details, but it doesn’t suggest a next step.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_00f64a19c70cb366016b0915ef6e0887d280e38a7676a00ea1",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 643,
+				"output": 334
 			}
 		},
 		"fc825f18f0dfbeb4": {
