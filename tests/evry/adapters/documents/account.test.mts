@@ -6,6 +6,9 @@ import { readNative } from "../../../../packages/contracts/src/documents/index.t
 import { documentsWriter } from "../../../../packages/domain/src/documents/index.ts";
 import { createWikiProducer } from "../../../../packages/domain/src/wiki/index.ts";
 import { readAttachment } from "../../../../packages/evry/src/attachments/store.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/index.ts";
+import { createMineFromTemplate } from "../../../../packages/evry/src/adapters/documents/commands/index.ts";
+import { templatesGet, templatesList } from "../../../../packages/evry/src/adapters/documents/reads/index.ts";
 import {
 	approveProposal,
 	cancelProposal,
@@ -65,8 +68,16 @@ const READS = [
 	"wiki.tableOfContents",
 	"documents.listOwned",
 	"documents.read",
+	"documents.templates.list",
+	"documents.templates.get",
 ];
-const WRITES = ["discovery.convertToPlant", "documents.saveNative", "documents.archive", "documents.importTextOrWord"];
+const WRITES = [
+	"discovery.convertToPlant",
+	"documents.saveNative",
+	"documents.createMineFromTemplate",
+	"documents.archive",
+	"documents.importTextOrWord",
+];
 
 let w: CaseWorld;
 let church: Church;
@@ -255,7 +266,7 @@ test("AC:EVRY-ACCOUNT-PRIVATE-DISCOVERY a person with no church reads only their
 		read("meetings.list"),
 		read("tasks.count"),
 		read("documents.readCoreValuesEvidence"),
-		read("documents.templates.list"),
+		read("documents.templates.contextual"),
 		read("documents.history.list"),
 		read("wiki.reading.stats"),
 		read("wiki.bookmarks.list"),
@@ -517,6 +528,146 @@ test("INV-account-import: an account's attached Word or text file becomes one pr
 	w.files.objects.set(key, Buffer.from("other words"));
 	assert.deepEqual((await w.approve(A, changed)).review.receipt?.code, "file_changed");
 	assert.equal((await documentsOf(A)).length, 1);
+});
+
+const TEMPLATE_TOOLS = ["documents.templates.list", "documents.templates.get", "documents.createMineFromTemplate"];
+const offeredOf = (catalog: ReturnType<typeof readCatalog>) => [
+	...catalog.domains.flatMap((d) => d.operations),
+	...catalog.reviewedWrites,
+];
+
+test("INV-account-templates: only a Discovery planter gets template help; church seats keep their template tools and wording, and a former Member is refused on the server", async () => {
+	const planter = await w.actorOf(await person("Jo Rivera"));
+	const former = await w.seated(church.P, "member");
+	await w.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${former.id}`);
+	const formerActor = await w.actorOf(former);
+	assert.deepEqual(
+		[formerActor.owner.kind, formerActor.role, formerActor.discovery ?? false],
+		["account", null, false],
+	);
+
+	const mine = offeredOf(readCatalog(planter));
+	assert.deepEqual(
+		TEMPLATE_TOOLS.map((op) => mine.find((o) => o.operation === op)?.description.includes("Church Document") ?? null),
+		[false, false, false],
+	);
+	assert.deepEqual(
+		offeredOf(readCatalog(formerActor)).filter((o) => TEMPLATE_TOOLS.includes(o.operation)),
+		[],
+	);
+	for (const call of [
+		read("documents.templates.list"),
+		read("documents.templates.get", { templateId: "bylaws" }),
+		propose("documents.createMineFromTemplate", { templateId: "bylaws" }),
+	]) {
+		const asked = await w.quiet(() => w.ask(former, said, [() => call]));
+		assert.deepEqual([asked.replies[0].error, asked.proposals], ["not_offered", []], JSON.stringify(call));
+	}
+	const forced = { ...formerActor, discovery: true };
+	for (const attempt of [
+		() => templatesList.invoke(w.db as never, forced, {}, null),
+		() => templatesGet.invoke(w.db as never, forced, { templateId: "bylaws" }, null),
+	])
+		assert.equal(await refusal(attempt()), "access_denied");
+
+	const seated = await w.plant({ name: "Seated Church" });
+	for (const role of ["owner", "admin", "member"] as const) {
+		const seat = await w.actorOf(await w.seated(seated, role));
+		const offered = offeredOf(readCatalog(seat));
+		const list = offered.find((o) => o.operation === "documents.templates.list");
+		const get = offered.find((o) => o.operation === "documents.templates.get");
+		assert.deepEqual(
+			[list?.description, get?.description],
+			[templatesList.description, templatesGet.description],
+			role,
+		);
+		assert.equal(
+			offered.some((o) => o.operation === "documents.createMineFromTemplate"),
+			false,
+			role,
+		);
+		assert.equal(
+			offered.some((o) => o.operation === "documents.createFromTemplate"),
+			role !== "member",
+			role,
+		);
+	}
+});
+
+test("INV-account-template-document: an approved template review makes one private document, also when approved twice or retried; after the planter starts a church or the profile closes, approval writes nothing", async () => {
+	const prepared = async (who: Actor) =>
+		reviewing(() =>
+			w.ask(who, "Start my bylaws", [proposes("documents.createMineFromTemplate", { templateId: "bylaws" })]),
+		);
+	const A = await person("Jo Rivera");
+	const Aa = await w.actorOf(A);
+	const card = await prepared(A);
+	assert.deepEqual(changesOf(card), [
+		["template", null, "Bylaws"],
+		["title", null, "Bylaws"],
+		["notice", null, "Template, not legal advice"],
+	]);
+	assert.deepEqual(await documentsOf(A), []);
+	const approved = await w.approve(A, card);
+	assert.equal(approved.review.outcome, "completed");
+	await refusal(approveProposal(w.db, Aa, card.id, w.witness(card), null));
+	await w.effect();
+	const [made, ...more] = await documentsOf(A);
+	assert.deepEqual([made?.title, made?.kind, more], ["Bylaws", "native", []]);
+
+	const { input } = await w.one<{ input: unknown }>(sql`SELECT input FROM proposal WHERE id=${card.id}`);
+	const context = { session: A.session as never, selected: { kind: "account" as const, id: A.id as never } };
+	const key = `evry:${card.id}:1`;
+	const authority = await w.authorityOf(A);
+	const retried = await gatedTransaction(w.db, (tx) =>
+		createMineFromTemplate.execute(
+			tx,
+			context,
+			input,
+			key,
+			{ reminders: async () => undefined as never, phaseNotices: async () => undefined },
+			{ authority, ports: null },
+		),
+	);
+	assert.equal("receiptId" in retried && retried.receiptId, made!.id);
+	assert.equal((await documentsOf(A)).length, 1);
+
+	const started = await person("Sam Starter");
+	const startedCard = await prepared(started);
+	const plant = await w.plant({ name: "New Hope" });
+	await w.admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${started.id},${plant.id},'owner',clock_timestamp())`,
+	);
+	await w.admin.execute(sql`UPDATE discovery SET converted_at=clock_timestamp(), converted_plant_id=${plant.id}
+		WHERE account_id=${started.id}`);
+	const closed = await person("Casey Closed");
+	const closedCard = await prepared(closed);
+	await w.admin.execute(sql`DELETE FROM discovery WHERE account_id=${closed.id}`);
+	const outcomes = [];
+	for (const [who, late] of [
+		[started, startedCard],
+		[closed, closedCard],
+	] as const) {
+		outcomes.push(
+			await approveProposal(w.db, await w.actorOf(who), late.id, w.witness(late), null).then(
+				() => "approved",
+				(e: { code?: string }) => e.code,
+			),
+		);
+		assert.deepEqual(await documentsOf(who), [], who.id);
+	}
+	assert.deepEqual(outcomes, ["review_closed", "not_found"]);
+
+	const midway = await person("Mo Midway");
+	const midwayCard = await prepared(midway);
+	await approveProposal(w.db, await w.actorOf(midway), midwayCard.id, w.witness(midwayCard), null);
+	await w.admin.execute(sql`DELETE FROM discovery WHERE account_id=${midway.id}`);
+	await w.effect();
+	assert.deepEqual(await w.one(sql`SELECT state, outcome FROM proposal WHERE id=${midwayCard.id}`), {
+		state: "approved",
+		outcome: "refused",
+	});
+	assert.deepEqual(await documentsOf(midway), []);
 });
 
 test("INV-account-archive: an account's document is archived only by an approved, current review: cancelled, expired or stale writes nothing", async () => {

@@ -2485,7 +2485,9 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 		case "feedback.getOwnStatus":
 			return joined(`Sent ${String(f.sent)}`, text(f.status));
 		case "documents.templates.get":
-			return joined(f.required === true ? "Required" : "Optional", `Filled from ${String(f.filledFrom)}`);
+			return f.blank === true
+				? "Left blank for you to fill in"
+				: joined(f.required === true ? "Required" : "Optional", `Filled from ${String(f.filledFrom)}`);
 		case "documents.resolveContext":
 		case "documents.preview":
 			return f.value === null

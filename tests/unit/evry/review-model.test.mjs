@@ -8,6 +8,7 @@ import {
 	delayedText,
 	digestSchedule,
 	documentRefusalText,
+	documentResult,
 	draftRows,
 	editableChanges,
 	fieldLabel,
@@ -551,6 +552,28 @@ test("an approved end shows plain words, and a withdrawn person never reads as h
 	assert.equal(refusal("enrollment_ended"), "Maria Santos's enrollment has already ended, so nothing was saved.");
 	assert.match(refusal("revision_conflict"), /^Maria Santos's enrollment changed after Evry prepared this/);
 	assert.match(refusal("access_denied"), /^Your seat no longer allows this change/);
+});
+
+test("a Discovery template review is a private document of the planter's own, and opens it in Documents once saved", () => {
+	const made = review({
+		operation: "documents.createMineFromTemplate",
+		review: {
+			target: { kind: "template", id: "bylaws", label: "Bylaws" },
+			changes: [{ field: "template", before: null, after: "Bylaws" }],
+			private: true,
+		},
+	});
+	assert.equal(operationTitle(made.operation), "New document from a template");
+	assert.equal(
+		consequence(made),
+		"The new document opens in Documents. It's private: only you can open it. Fill in the blanks there. A template is starting text, not legal advice.",
+	);
+	assert.equal(documentResult(made), null);
+	assert.equal(savedText(made), "Saved. Bylaws is in your Documents.");
+	assert.deepEqual(documentResult({ ...made, receipt: { receiptId: "d1", revision: "1" } }), {
+		href: "/documents/written/d1",
+		label: "Open the new document",
+	});
 });
 
 test("an account's own document review says it is private, never that it is for a church to edit", () => {
