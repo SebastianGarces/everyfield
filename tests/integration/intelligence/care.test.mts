@@ -24,7 +24,7 @@ import {
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { teamsReader, teamsWriter, withTeamsWrite } from "../../../packages/domain/src/teams/index.ts";
 import { accountPersonProducer, peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
-import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
+import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { nextMonday } from "../../../apps/web/src/components/time.ts";
 import {
 	approveProposal,
@@ -37,7 +37,6 @@ import {
 	submitTurn,
 } from "../../../packages/evry/src/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
-import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { probing, type Call } from "./probing-model.mts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
@@ -1568,6 +1567,7 @@ async function quietly<T>(w: Workspace, run: () => Promise<T>) {
 	assert.equal((await captureFacts(f.admin, w.id, null))!.sourceRevision, piBefore);
 	return value;
 }
+const HARD_RUN = ["2026-09-28", "2026-10-05", "2026-10-12"];
 type Weekly = { weeks: string[]; answers: string[]; dimension?: keyof typeof AREA_OF };
 
 test("AC:B03-027 Strained, Struggling, Strained on one area in three adjacent weeks raise the support question ending on the current week", async () => {
@@ -1585,7 +1585,7 @@ test("AC:B03-027 Strained, Struggling, Strained on one area in three adjacent we
 	);
 	assert.deepEqual(
 		strip.weeks.map((x) => [x.startsOn, x.answer!.answers[area]]),
-		[...input.weeks.map((monday, i) => [monday, level(input.answers[i]!)])].reverse(),
+		input.weeks.map((monday, i) => [monday, level(input.answers[i]!)]).reverse(),
 	);
 	assert.deepEqual(
 		{ support_question_visible: strip.support.question, ends_on: strip.support.endsOn },
@@ -1598,7 +1598,6 @@ test("AC:B03-027 Strained, Struggling, Strained on one area in three adjacent we
 test("AC:B03-028 mixed hard weeks qualify; two weeks, a run across two areas or across two authors never do", async () => {
 	const k = careCase("B03-028");
 	const controls = (k.action.arguments as { controls: string[][] }).controls;
-	const MONDAYS = ["2026-09-28", "2026-10-05", "2026-10-12"];
 	const qualifies: boolean[] = [];
 	for (const control of controls) {
 		const w = await f.workspace();
@@ -1606,7 +1605,7 @@ test("AC:B03-028 mixed hard weeks qualify; two weeks, a run across two areas or 
 		const plan = control.map((entry, i): [string, Answers] => {
 			const [label, dimension] = entry.split(":") as [string, keyof typeof AREA_OF | undefined];
 			return [
-				MONDAYS[MONDAYS.length - control.length + i]!,
+				HARD_RUN[HARD_RUN.length - control.length + i]!,
 				{ ...STEADY, [AREA_OF[dimension ?? "energy"]]: level(label) },
 			];
 		});
@@ -1620,9 +1619,9 @@ test("AC:B03-028 mixed hard weeks qualify; two weeks, a run across two areas or 
 		b = await seated(w);
 	const hard = (label: string) => ({ ...STEADY, pace: level(label) });
 	const split = await quietly(w, async () => {
-		await answered(a, k, [[MONDAYS[0]!, hard("Strained")]]);
-		await answered(b, k, [[MONDAYS[1]!, hard("Struggling")]]);
-		return [await answered(a, k, [[MONDAYS[2]!, hard("Strained")]]), ok(await trends(b))];
+		await answered(a, k, [[HARD_RUN[0]!, hard("Strained")]]);
+		await answered(b, k, [[HARD_RUN[1]!, hard("Struggling")]]);
+		return [await answered(a, k, [[HARD_RUN[2]!, hard("Strained")]]), ok(await trends(b))];
 	});
 	assert.deepEqual(
 		split.map((x) => [x.support.question, x.weeks.filter((y) => y.answer).length]),
@@ -1739,7 +1738,6 @@ test("AC:B03-031 an older run shows as historical with its ending week; a missin
 	}
 });
 
-const HARD_RUN = ["2026-09-28", "2026-10-05", "2026-10-12"];
 const requirementCopy = () => {
 	const found = (
 		JSON.parse(readFileSync(join(root, "docs/catalog/requirements/identity-access.json"), "utf8")) as {
@@ -1896,72 +1894,68 @@ test("AC:B03-033 even for its author, no private answer, note, history or suppor
 	};
 	const offered: string[] = [];
 	const prompts: string[] = [];
-	const fetched = { n: 0 };
-	const realFetch = globalThis.fetch;
-	globalThis.fetch = (async () => {
-		fetched.n++;
-		throw new Error("no provider call from this test");
-	}) as typeof fetch;
-	const ran = await captureConsole(async () => {
-		const conversationId = (await createConversation(f.db, actor, { requestKey: randomUUID() })).id;
-		await submitTurn(f.db, actor, conversationId, {
-			requestKey: randomUUID(),
-			text: "Show my weekly check-in and its support question, then draft and propose a change to it",
-			references: [],
-		});
-		const [claim] = await claimDue(f.db, ["assistant_turn"], 1, 240);
-		assert.ok(claim);
-		const outcome = await runTurn(
-			{
-				db: f.db,
-				model: probing([...calls.read, ...calls.draft, ...calls.propose], offered, prompts),
-				freshActor: async (session) => {
-					const viewer = await readViewer(f.db, session as never);
-					return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
+	const { value: ran, calls: fetched } = await withoutProvider(() =>
+		captureConsole(async () => {
+			const conversationId = (await createConversation(f.db, actor, { requestKey: randomUUID() })).id;
+			await submitTurn(f.db, actor, conversationId, {
+				requestKey: randomUUID(),
+				text: "Show my weekly check-in and its support question, then draft and propose a change to it",
+				references: [],
+			});
+			const [claim] = await claimDue(f.db, ["assistant_turn"], 1, 240);
+			assert.ok(claim);
+			const outcome = await runTurn(
+				{
+					db: f.db,
+					model: probing([...calls.read, ...calls.draft, ...calls.propose], offered, prompts),
+					freshActor: async (session) => {
+						const viewer = await readViewer(f.db, session as never);
+						return viewer?.authority ? evryActor(viewer.authority, viewer.discovery) : null;
+					},
 				},
-			},
-			{
-				turnId: claim.id,
-				tenantId: claim.tenant_id,
-				leaseOwner: claim.lease_owner,
-				generation: claim.claim_generation,
-			},
-			{ claimStart: new Date(), claimEnd: new Date() },
-		);
-		await transaction(f.db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
-		assert.equal(outcome, "succeeded");
-		const proposals = await rows<{ id: string; operation: string }>(
-			sql`SELECT id::text,operation FROM proposal WHERE conversation_id=${conversationId}::uuid ORDER BY created_at`,
-		);
-		assert.deepEqual(
-			proposals.map((p) => p.operation),
-			["tasks.create"],
-			"no private care proposal is staged",
-		);
-		const review = await readReview(f.db, actor, proposals[0]!.id);
-		await approveProposal(f.db, actor, review.id, { revision: review.revision, digest: review.digest }, null);
-		const [effect] = await claimDue(f.db, ["evry_effect"], 1, 60);
-		assert.ok(effect);
-		const executed = await executeProposal(
-			f.db,
-			{
-				jobId: effect.id,
-				tenantId: effect.tenant_id,
-				leaseOwner: effect.lease_owner,
-				generation: effect.claim_generation,
-			},
-			{ reminders: async () => undefined, phaseNotices: async () => undefined },
-		);
-		await transaction(f.db, (tx) => finishClaim(tx, effect, { state: executed === "failed" ? "failed" : "succeeded" }));
-		assert.equal(executed, "completed");
-		return {
-			events: (await readConversation(f.db, actor, conversationId)).events,
-			proposals: await rows(sql`SELECT * FROM proposal WHERE conversation_id=${conversationId}::uuid`),
-			executed: await readReview(f.db, actor, proposals[0]!.id),
-		};
-	}).finally(() => {
-		globalThis.fetch = realFetch;
-	});
+				{
+					turnId: claim.id,
+					tenantId: claim.tenant_id,
+					leaseOwner: claim.lease_owner,
+					generation: claim.claim_generation,
+				},
+				{ claimStart: new Date(), claimEnd: new Date() },
+			);
+			await transaction(f.db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+			assert.equal(outcome, "succeeded");
+			const proposals = await rows<{ id: string; operation: string }>(
+				sql`SELECT id::text,operation FROM proposal WHERE conversation_id=${conversationId}::uuid ORDER BY created_at`,
+			);
+			assert.deepEqual(
+				proposals.map((p) => p.operation),
+				["tasks.create"],
+				"no private care proposal is staged",
+			);
+			const review = await readReview(f.db, actor, proposals[0]!.id);
+			await approveProposal(f.db, actor, review.id, { revision: review.revision, digest: review.digest }, null);
+			const [effect] = await claimDue(f.db, ["evry_effect"], 1, 60);
+			assert.ok(effect);
+			const executed = await executeProposal(
+				f.db,
+				{
+					jobId: effect.id,
+					tenantId: effect.tenant_id,
+					leaseOwner: effect.lease_owner,
+					generation: effect.claim_generation,
+				},
+				{ reminders: async () => undefined, phaseNotices: async () => undefined },
+			);
+			await transaction(f.db, (tx) =>
+				finishClaim(tx, effect, { state: executed === "failed" ? "failed" : "succeeded" }),
+			);
+			assert.equal(executed, "completed");
+			return {
+				events: (await readConversation(f.db, actor, conversationId)).events,
+				proposals: await rows(sql`SELECT * FROM proposal WHERE conversation_id=${conversationId}::uuid`),
+				executed: await readReview(f.db, actor, proposals[0]!.id),
+			};
+		}),
+	);
 	const { events, proposals, executed } = ran.value;
 	const results = events.flatMap((e) =>
 		e.kind === "tool_result"
@@ -2019,6 +2013,6 @@ test("AC:B03-033 even for its author, no private answer, note, history or suppor
 		k.expected.result,
 		hits.join("; "),
 	);
-	assert.equal(fetched.n, 0, "the scripted model is the only model; no provider is called");
+	assert.equal(fetched, 0, "the scripted model is the only model; no provider is called");
 	assert.equal((k.expected as { event?: unknown }).event, null);
 });
