@@ -36,8 +36,12 @@ registerHooks({
 		url.startsWith("file:///next-stub/")
 			? { format: "module", source: STUB[url.slice(18, -4)], shortCircuit: true }
 			: /\.(?:jpg|png|webp|svg)$/.test(url)
-			? { format: "module", source: `export default ${JSON.stringify({ src: url, width: 1, height: 1 })};`, shortCircuit: true }
-			: next(url, context),
+				? {
+						format: "module",
+						source: `export default ${JSON.stringify({ src: url, width: 1, height: 1 })};`,
+						shortCircuit: true,
+					}
+				: next(url, context),
 });
 
 const load = async <T,>(file: string) => (await import(pathToFileURL(join(SRC, file)).href)) as T;
@@ -60,9 +64,7 @@ test("live /discovery is in the sitemap and the robots allow list with its share
 	assert.equal(pageMetadata(PAGES.discovery).robots, undefined);
 });
 
-const { DiscoveryPage } = (await import(
-	pathToFileURL(join(SRC, "marketing/discovery/DiscoveryPage.tsx")).href
-)) as typeof import("../../../apps/web/src/marketing/discovery/DiscoveryPage.tsx");
+const { DiscoveryPage } = await load<{ DiscoveryPage: () => unknown }>("marketing/discovery/DiscoveryPage.tsx");
 
 const EVRY_SCREEN = "Evry in Discovery: next to your private document";
 const EVRY_LINE = "Ask Evry, Everyfield's assistant, questions about the wiki and your own documents.";
