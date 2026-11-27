@@ -4,8 +4,8 @@ import { instant, localDate } from "../common/time.ts";
 import { criterionKey, criterionStatus } from "../phases/index.ts";
 import { readinessKey, renewal, signalKey, signalValue } from "./signals.ts";
 
-export const FACTS_FORMULA_VERSION = "plant-facts/2";
-const formulaVersion = z.enum(["plant-facts/1", FACTS_FORMULA_VERSION]);
+export const FACTS_FORMULA_VERSION = "plant-facts/3";
+const formulaVersion = z.enum(["plant-facts/1", "plant-facts/2", FACTS_FORMULA_VERSION]);
 export const ADULT_TARGET = 30;
 export const GROWTH_SLOWED_DAYS = 21;
 export const GROWTH_STALLED_DAYS = 28;
@@ -188,6 +188,22 @@ export const ownership = z.strictObject({
 	unowned: z.array(recordId),
 	staleUnownedPeople: z.int().min(0),
 });
+
+export const debriefFact = z.discriminatedUnion("submitted", [
+	z.strictObject({
+		submitted: z.literal(false),
+		submittedAt: z.null(),
+		missingNames: z.null(),
+		missingCount: z.null(),
+	}),
+	z.strictObject({
+		submitted: z.literal(true),
+		submittedAt: instant,
+		missingNames: z.boolean(),
+		missingCount: z.int().min(1).nullable(),
+	}),
+]);
+
 const recordPresence = z.strictObject({ count: z.int().min(0), latestOn: localDate.nullable() });
 const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
 
@@ -211,6 +227,7 @@ export const plantFacts = z.strictObject({
 	leadership: leadership.optional(),
 	contact: contactFreshness.optional(),
 	ownership: ownership.optional(),
+	debrief: debriefFact.optional(),
 	criteria: z.partialRecord(criterionKey, criterionStatus),
 	readiness: z.array(readinessFact).min(1).optional(),
 });

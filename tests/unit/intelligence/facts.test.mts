@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { buildFacts, factInputs, type FactInputs } from "../../../packages/domain/src/intelligence/facts.ts";
+import { plantFacts } from "../../../packages/contracts/src/intelligence/facts.ts";
 import { criteriaOf } from "../../../packages/domain/src/intelligence/views.ts";
 import { readCatalog } from "../../../packages/domain/src/phases/catalog.ts";
 
@@ -48,6 +49,7 @@ const empty = (): FactInputs => ({
 	contacts: [],
 	tasks: [],
 	launch: null,
+	debrief: null,
 });
 const facts = (over: Partial<FactInputs>, today = TODAY, asOf = AS_OF) =>
 	buildFacts(factInputs.parse({ ...empty(), ...over }), asOf as never, today);
@@ -289,6 +291,7 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 		"attestations",
 		"candidates",
 		"contacts",
+		"debrief",
 		"followUps",
 		"fourCs",
 		"interviews",
@@ -314,6 +317,11 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 	]);
 	assert.deepEqual(Object.keys(factInputs.shape.interviews.shape).sort(), ["count", "latestOn"]);
 	assert.deepEqual(Object.keys(factInputs.shape.fourCs.shape).sort(), ["count", "latestOn"]);
+	assert.deepEqual(Object.keys(factInputs.shape.debrief.unwrap().shape).sort(), [
+		"missingCount",
+		"missingNames",
+		"submittedAt",
+	]);
 	assert.throws(() =>
 		factInputs.parse({ ...empty(), interviews: { count: 1, latestOn: day(-1), result: "qualified" } }),
 	);
@@ -411,8 +419,8 @@ test("a reached milestone is First service held on the milestone path; unreached
 	const open = facts({ launch: milestone(null) }, "2026-10-12");
 	assert.equal(open.criteria.first_service_complete, "unknown");
 	assert.deepEqual(open.firstService, { path: "milestone", status: "unknown", milestone: null, heldOn: null });
-	assert.equal(reached.criteria.guest_data_entered, undefined);
-	assert.equal(reached.criteria.debrief_done, undefined);
+	assert.equal(reached.criteria.guest_data_entered, "unknown", "no debrief is submitted");
+	assert.equal(reached.criteria.debrief_done, "unknown", "no debrief is submitted");
 });
 
 test("a corrected date moves the evidence", () => {
@@ -465,6 +473,21 @@ test("a Launch Sunday plant counts only an actual Launch Sunday; its launch-date
 		["met", "met"],
 		"a scheduled launch still sets the date and window",
 	);
+});
+
+const phase5 = async (f: ReturnType<typeof facts>) =>
+	Object.fromEntries(
+		criteriaOf(await readCatalog(), 5, f)
+			.filter((x) => x.key === "guest_data_entered" || x.key === "debrief_done")
+			.map((x) => [x.key, x.status]),
+	);
+
+test("a snapshot stored before the debrief fact still parses, and its debrief criteria read Unknown", async () => {
+	const { debrief: _, ...stored } = facts({});
+	const { guest_data_entered: _g, debrief_done: _d, ...criteria } = stored.criteria;
+	const earlier = { ...stored, formulaVersion: "plant-facts/2", criteria };
+	assert.equal(plantFacts.parse(earlier).formulaVersion, "plant-facts/2");
+	assert.deepEqual(await phase5(earlier as never), { guest_data_entered: "unknown", debrief_done: "unknown" });
 });
 
 test("AC:PI-028 readiness attestations add their criteria only when answered, and a plant without them reads exactly as before", () => {

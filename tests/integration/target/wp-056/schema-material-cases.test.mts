@@ -170,6 +170,9 @@ async function enrich(p: ChurchPlant) {
 	await c0.admin.execute(sql`INSERT INTO commitment_change(id,plant_id,person_id,kind,effective_on)
 		VALUES(${randomUUID()},${p.id},${leaving},'withdrawn',${day(-1)})`);
 	await c0.admin.execute(sql`INSERT INTO launch(plant_id,status,target_date) VALUES(${p.id},'scheduled',${day(90)})`);
+	await c0.admin
+		.execute(sql`INSERT INTO launch_debrief(plant_id,version,missing_names,missing_count,saved_at,submitted_at)
+		VALUES(${p.id},1,'yes',3,clock_timestamp(),clock_timestamp())`);
 }
 
 test("AC:SCHEMA-012 every assessment input table changes the source revision, no other table does, private care stays out, and a run claimed before a change never publishes", async () => {

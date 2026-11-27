@@ -2,7 +2,7 @@ import { File02Icon } from "@hugeicons/core-free-icons";
 import type { Metadata } from "next";
 import { Icon } from "@/components/Icon";
 import { COPY } from "@/marketing/copy";
-import { DocumentsScreen, LockedScreen, TemplateScreen, WikiScreen } from "./screens";
+import { DocumentsScreen, LockedScreen, TasksScreen, TemplateScreen, WikiScreen } from "./screens";
 import { Free, How, Privacy, Ready, Senders } from "./sections";
 import { Tour } from "./Tour";
 import { HeroPanel } from "@/marketing/hero/HeroPanel";
@@ -15,11 +15,18 @@ import { accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.discovery);
 
-const TAB_ICONS = { wiki: ICONS.book, documents: ICONS.edit, templates: File02Icon, ready: ICONS.flag };
+const TAB_ICONS = {
+	wiki: ICONS.book,
+	documents: ICONS.edit,
+	templates: File02Icon,
+	tasks: ICONS.task,
+	ready: ICONS.flag,
+};
 const SCREENS = [
 	<WikiScreen key="wiki" />,
 	<DocumentsScreen key="documents" />,
 	<TemplateScreen key="templates" />,
+	<TasksScreen key="tasks" />,
 	<LockedScreen key="ready" page="Launch" />,
 ];
 

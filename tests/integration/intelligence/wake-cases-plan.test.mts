@@ -366,6 +366,49 @@ const ROWS: Row<unknown>[] = [
 		},
 		action: "membership.ended",
 	}),
+	row({
+		id: "MW-CASE-021",
+		marker: "AC:MW-CASE-021 ",
+		operation: "launch.submitDebrief",
+		producer:
+			"createLaunchWriter().submitDebrief (draftId, expectedRevision = the reviewed draft revision, the draft's answers) after the Launch outcome",
+		arrange: async (w) => ({
+			draft: await launched(w, {
+				wentWell: "Yes, the welcome team was ready.",
+				toChange: "No, nothing to change yet.",
+				operations: "Yes, setup ran on time.",
+				followUpPlan: "Yes, calls go out Monday.",
+				supportNeeded: "No, no support needed.",
+				missingNames: "yes",
+				missingCount: 2,
+			}),
+		}),
+		facts: async (w) => {
+			const plan = await planOf(w);
+			const answers = (plan.debrief?.draft ?? plan.debrief?.submitted)!.answers;
+			return {
+				draftSixAreaAnswered: [...WRITTEN.map((key) => answers[key]), answers.missingNames].filter((x) => x !== null)
+					.length,
+				draftPositiveAnswers: WRITTEN.filter((key) => /^yes\b/i.test(answers[key] ?? "")).length,
+				submitted: plan.debrief?.submitted != null,
+				guestCue: answers.missingNames === "yes" ? "missing_names" : answers.missingNames,
+				debriefCriterion: STATUS[plan.evidence.debriefDone.status],
+				guestCriterion: STATUS[plan.evidence.guestNamesEntered.status],
+				publishedSummary: plan.summary?.published[0]?.body ?? null,
+			};
+		},
+		write: async (w, k) => {
+			const { draft } = w.arranged as { draft: Draft };
+			const args = k.action.arguments as { formVersion: string; request_key: string };
+			assert.equal(args.formVersion, "six-areas-v1");
+			return launch().writer.submitDebrief(W.db, w.A.actor, {
+				requestKey: W.key(args.request_key),
+				expectedRevision: draft.revision,
+				input: { draftId: draft.id, answers: draft.answers },
+			});
+		},
+		action: "launch.debrief_submitted",
+	}),
 ];
 
 for (const r of ROWS)
@@ -377,7 +420,8 @@ for (const r of ROWS)
 		assert.equal(k.failure.action.operation, r.operation);
 		const w = await W.plant(r.id, (base) => r.arrange(base, k));
 		const facts = () => r.facts(w);
-		assert.deepEqual(await facts(), strip(k.given["input-before"] as Json));
+		const inputBefore = strip(k.given["input-before"] as Json);
+		assert.deepEqual(listed(await facts(), inputBefore), inputBefore);
 		await W.runCase(w, k, { write: () => r.write(w, k), facts, action: r.action });
 	});
 
@@ -831,49 +875,6 @@ const UNCHANGED: Row<unknown>[] = [
 			});
 		},
 		action: "launch.changed",
-	}),
-	row({
-		id: "MW-CASE-021",
-		marker: "AC:MW-CASE-021 ",
-		operation: "launch.submitDebrief",
-		producer:
-			"createLaunchWriter().submitDebrief (draftId, expectedRevision = the reviewed draft revision, the draft's answers) after the Launch outcome",
-		arrange: async (w) => ({
-			draft: await launched(w, {
-				wentWell: "Yes, the welcome team was ready.",
-				toChange: "No, nothing to change yet.",
-				operations: "Yes, setup ran on time.",
-				followUpPlan: "Yes, calls go out Monday.",
-				supportNeeded: "No, no support needed.",
-				missingNames: "yes",
-				missingCount: 2,
-			}),
-		}),
-		facts: async (w) => {
-			const plan = await planOf(w);
-			const answers = (plan.debrief?.draft ?? plan.debrief?.submitted)!.answers;
-			return {
-				draftSixAreaAnswered: [...WRITTEN.map((key) => answers[key]), answers.missingNames].filter((x) => x !== null)
-					.length,
-				draftPositiveAnswers: WRITTEN.filter((key) => /^yes\b/i.test(answers[key] ?? "")).length,
-				submitted: plan.debrief?.submitted != null,
-				guestCue: answers.missingNames === "yes" ? "missing_names" : answers.missingNames,
-				debriefCriterion: STATUS[plan.evidence.debriefDone.status],
-				guestCriterion: STATUS[plan.evidence.guestNamesEntered.status],
-				publishedSummary: plan.summary?.published[0]?.body ?? null,
-			};
-		},
-		write: async (w, k) => {
-			const { draft } = w.arranged as { draft: Draft };
-			const args = k.action.arguments as { formVersion: string; request_key: string };
-			assert.equal(args.formVersion, "six-areas-v1");
-			return launch().writer.submitDebrief(W.db, w.A.actor, {
-				requestKey: W.key(args.request_key),
-				expectedRevision: draft.revision,
-				input: { draftId: draft.id, answers: draft.answers },
-			});
-		},
-		action: "launch.debrief_submitted",
 	}),
 	row({
 		id: "MW-CASE-026",
