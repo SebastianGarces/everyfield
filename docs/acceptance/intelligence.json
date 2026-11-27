@@ -52798,7 +52798,10 @@
       "work_packages": [
         "WP-041"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/unit/intelligence/retrieval-cases.test.mts"
+      ],
       "description": "phase-dense-sparse-provenance-and-entitlement",
       "given": {
         "P": {
