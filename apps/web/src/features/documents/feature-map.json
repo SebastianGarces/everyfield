@@ -168,6 +168,55 @@
 					}
 				},
 				{
+					"id": "use-for-church",
+					"says": "Use for this church copies one of your own documents, including one written in Discovery before you started the church, into the church as a new document; the original stays private in Your documents. No other seat can copy, find or export that original.",
+					"catalog": ["DOC-016"],
+					"operations": ["documents.useForChurch", "documents.listOwned"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/discovery.test.mts",
+								"name": "INV-tenancy AC:CASE-DOC-016: after a Discovery planter starts a church, Use for this church copies one Discovery document and leaves the original private"
+							},
+							{
+								"file": "tests/integration/target/wp-056/roles-discovery.test.mts",
+								"name": "INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, the church's Member finds none of the planter's Discovery documents in any search, Evry read or count"
+							},
+							{
+								"file": "tests/integration/target/wp-056/roles-discovery.test.mts",
+								"name": "INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, the sending director finds none of the planter's Discovery documents in any search, Evry read or count"
+							},
+							{
+								"file": "tests/integration/target/wp-056/roles-discovery.test.mts",
+								"name": "INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, no export the church's Member can run carries the planter's Discovery documents, and one that names them is refused"
+							},
+							{
+								"file": "tests/integration/target/wp-056/roles-discovery.test.mts",
+								"name": "INV-roles AC:CASE-DOC-016: after a Discovery planter starts a church, no export the sending director can run carries the planter's Discovery documents, and one that names them is refused"
+							}
+						],
+						"cases": ["CASE-DOC-016"],
+						"browser": {
+							"kind": "behavior",
+							"state": "templates",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Use for this church"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "The original stays in Your documents",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
 					"id": "filter",
 					"says": "The Category choice narrows the template list to that kind of template; Administrative keeps Bylaws and Budget Worksheet and drops the Vision meeting templates. The narrowing runs in the page, and no test covers it; the test proves the list it narrows.",
 					"catalog": ["DOC-001"],
