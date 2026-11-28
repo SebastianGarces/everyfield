@@ -337,7 +337,7 @@ agent-browser find role heading text --name "What we collect" --exact
 agent-browser find role heading text --name "Ask for a copy, a correction or deletion" --exact
 ```
 
-- **terms**: URL `/terms`; heading "Terms"; heading "Your requests". As `visitor`, on the QA seed:
+- **terms**: URL `/terms`; heading "Terms"; heading "When access ends". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/"
@@ -346,7 +346,7 @@ agent-browser find role link click --name "Terms" --exact
 agent-browser wait --load networkidle
 agent-browser wait --url "**/terms"
 agent-browser find role heading text --name "Terms" --exact
-agent-browser find role heading text --name "Your requests" --exact
+agent-browser find role heading text --name "When access ends" --exact
 ```
 
 ### app.site-files
