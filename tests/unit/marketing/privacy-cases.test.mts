@@ -23,7 +23,7 @@ const { NextRequest } = web("next/server");
 const { cases } = JSON.parse(
 	readFileSync(new URL("../../../docs/acceptance/operations.json", import.meta.url), "utf8"),
 );
-const { expected } = cases.find((c: { id: string }) => c.id === "CASE-ADM-007");
+const { action, expected } = cases.find((c: { id: string }) => c.id === "CASE-ADM-007");
 const { shared } = JSON.parse(readFileSync(new URL("../../../design/marketing-copy.json", import.meta.url), "utf8"));
 const lines = (value: unknown): string[] =>
 	typeof value === "string"
@@ -35,39 +35,56 @@ const textOf = (page: unknown) =>
 		.replace(/<\/?a\b[^>]*>/g, "")
 		.replace(/<[^>]+>/g, "\n")
 		.replace(/&#x27;/g, "'")
+		.replace(/&quot;/g, '"')
 		.replace(/&amp;/g, "&")
 		.replace(/\s+/g, " ");
 
-const VENDOR_OR_OUTAGE =
-	/\b(?:vercel|neon|tigris|amazon|aws|postgres\w*|cloudflare|openai|anthropic|langfuse|azure|outages?|us-east-1)\b/i;
-const EXACT_TIMEFRAME =
-	/\b(?:\d+|seven|thirty|twelve|thirty-seven|one|an?)[\s-]+(?:calendar )?(?:hour|day|week|month|year)s?\b/i;
+const VENDOR =
+	/\b(?:vercel|neon|tigris|amazon|aws|postgres\w*|cloudflare|openai|anthropic|langfuse|azure|us-east-1)\b/i;
 const PHYSICAL_ERASURE = /day 37|37 days|physical(?:ly)?|permanently erase|recall/i;
 
-test("INV-marketing: the served privacy page states backup deletion and outside-copy limits in general terms, and robots grants and refuses no access", () => {
+test("AC:CASE-ADM-007 INV-marketing: the served privacy page states the private hold, live removal, the backup limit, no exact erasure day, the outside-copy limits and no set recovery time, names no vendor, and robots grants and refuses no access", () => {
 	const text = textOf(Privacy);
 	for (const line of lines(shared.privacy_page)) assert.ok(text.includes(line), line);
+	const { cancel_days, copy_days_after_purge } = action.arguments;
+	const states = (line: string) => text.includes(line);
 	const { result, event } = expected;
 	assert.deepEqual(
 		{
-			policy_states_deletion_reaches_backups: text.includes(
-				"When data is deleted, it's also removed from our backups as they roll over on a regular schedule.",
+			policy_states_access_stops_at_once: states("Normal access stops at once."),
+			policy_states_cancellation_period: states(
+				`We keep the data privately for ${cancel_days} days so the request can be cancelled.`,
 			),
-			policy_states_external_copy_limits: text.includes(
-				"Our providers may keep service logs and backup copies under their own retention policies.",
+			policy_states_live_removal: states("After that, we remove the data from the live systems."),
+			policy_states_deletion_reaches_backups: states(
+				`Backup copies last at most ${copy_days_after_purge} more days after that removal.`,
 			),
-			policy_names_vendor_or_outage: VENDOR_OR_OUTAGE.test(text),
-			policy_exact_timeframe: EXACT_TIMEFRAME.test(text),
+			policy_states_no_exact_erasure_day: states("We do not promise that every copy is gone on an exact day."),
+			policy_states_shared_attribution: states(
+				"We may keep a short note that an account was deleted, not a full profile.",
+			),
+			policy_states_external_copy_limits:
+				states(
+					"Email already sent, a public feedback issue already published, and a file someone already downloaded cannot be taken back at once.",
+				) && states("Our providers may keep service logs and backup copies under their own retention policies."),
+			policy_states_no_recovery_time: states("We do not promise a set recovery time if that provider has an outage."),
+			policy_names_vendor: VENDOR.test(text),
 			physical_day37_claim: PHYSICAL_ERASURE.test(text),
 		},
 		{
+			policy_states_access_stops_at_once: result.policy_states_access_stops_at_once,
+			policy_states_cancellation_period: result.policy_states_cancellation_period,
+			policy_states_live_removal: result.policy_states_live_removal,
 			policy_states_deletion_reaches_backups: result.policy_states_deletion_reaches_backups,
+			policy_states_no_exact_erasure_day: result.policy_states_no_exact_erasure_day,
+			policy_states_shared_attribution: result.policy_states_shared_attribution,
 			policy_states_external_copy_limits: result.policy_states_external_copy_limits,
-			policy_names_vendor_or_outage: result.policy_names_vendor_or_outage,
-			policy_exact_timeframe: result.policy_exact_timeframe,
+			policy_states_no_recovery_time: result.policy_states_no_recovery_time,
+			policy_names_vendor: result.policy_names_vendor,
 			physical_day37_claim: result.physical_day37_claim,
 		},
 	);
+	assert.equal(VENDOR.test(textOf(Terms)), result.policy_names_vendor);
 
 	const { rules } = robots();
 	assert.equal(rules.disallow, "/");

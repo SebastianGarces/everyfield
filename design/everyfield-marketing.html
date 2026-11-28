@@ -2074,162 +2074,294 @@ body.pbar-hidden { padding-bottom: 0; }
       }
     },
     "privacy_page": {
-      "note": "E2 (2026-10-14): Sebastian approved this privacy policy as drafted on 2026-10-14. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
+      "note": "Follow .agents/skills/policy-writing/SKILL.md before editing. T-351 (2026-11-28): the product policy, Nora's v3 of 2026-11-18, approved by Sebastian on 2026-11-28 with one edit to the password line. It covers the public site, the early access form and the product. Its exact timeframes and outage line are published as he approved them (D-3110) and sit on the allow list in tests/unit/marketing/legal-copy.test.mjs.",
       "title": "Privacy policy",
-      "updated": "November 24, 2026",
+      "updated": "November 28, 2026",
       "intro": [
-        "This policy covers everyfield.app, the early access site for Everyfield. Everyfield LLC runs the site.",
-        "The site has no accounts, no sign in and no newsletter. We collect the details you send in an early access request. Our hosting provider also records information about visits, as described below."
+        "This policy covers everyfield.app: the public site, the early access request form, and the Everyfield product you sign in to. Everyfield LLC runs Everyfield. Everyfield is offered only in the United States during early access."
       ],
       "sections": [
         {
           "heading": "What we collect",
-          "paragraphs": [],
-          "items": [
-            "From the planter form: your name, email, church plant name, city and phase. If you add it, your sending church or network.",
-            "From the network form: your name, email, network or church and role. If you add them, the number of church plants you send or support and your message.",
-            "With each request: the date and time, the form you used and your IP address.",
-            "When you visit any page, our hosting provider keeps request logs, including your IP address, your browser type and the page you opened."
+          "body": [
+            "From an early access request:",
+            [
+              "From the planter form: your name, email, church plant name, city and phase. If you add it, your sending church or network.",
+              "From the network form: your name, email, network or church and role. If you add them, the number of church plants you send or support and your message.",
+              "With each request: the date and time, the form you used and your IP address."
+            ],
+            "The site has no newsletter signup. A request does not create a product account.",
+            "From a product account, when you create one:",
+            [
+              "Your email, display name and a securely hashed version of your password. We also store a photo if you add one, and your timezone if you set one.",
+              "Security events needed to run the account, such as a password change or an email change.",
+              "The church plant, sending church or network you belong to, and your role there. An account can have only one active seat at a time. Someone still discerning a call can have an account with no church seat."
+            ],
+            "From the work a church enters in the product:",
+            [
+              "Church plant or organization profile details, such as the name, place and timezone. A church plant's street address, if one is stored, is not shown to sending churches or networks.",
+              "The records a church keeps in Everyfield, such as people, meetings, tasks, teams, documents, wiki pages, launch plans, messages and files. People records can include a person's name, email, phone, address, household, optional birth date and an adult or child classification, notes, interviews, commitment, meeting attendance, and whether they are a guest or part of the core group or launch team.",
+              "Evry conversations started by an account.",
+              "Private weekly check-ins, which only the person who wrote them can see.",
+              "Sharing choices the church plant's Owner or Admin sets for each sending church or network.",
+              "Product feedback you send, including the page, church, role, browser, screen size, theme, app version and time. There is no screenshot or file field."
+            ],
+            "When you visit any page, our hosting provider keeps request logs. These include your IP address, your browser type and the page you opened. If you sign in, the product uses a session cookie so you stay signed in. The product also uses a theme cookie to remember your display preference, and a short-lived cookie during account or church plant deletion. These are not advertising or tracking cookies.",
+            "When the product sends email, our email delivery provider records whether it was accepted, bounced or refused. If a person unsubscribes from a church's Messages emails, we store that opt-out for that church and that person."
           ]
         },
         {
           "heading": "Why we collect it",
-          "paragraphs": [],
-          "items": [
-            "To read your request and reply to you about early access.",
-            "To decide who joins early access, and when.",
-            "To stop spam and repeat requests. We use your email and IP address to limit how many requests can come from one email address or one internet connection."
+          "body": [
+            [
+              "To read an early access request and reply about early access, and to decide who joins and when.",
+              "To stop spam and repeat requests. We use your email and IP address to limit how many requests can come from one email address or one internet connection.",
+              "To create and run your account, keep you signed in and send security or invitation email.",
+              "To provide the product: the church plant's records, Evry, Plant Intelligence, messages, notifications and oversight for sending churches and networks the church plant has chosen to share with.",
+              "To send church Messages email a church chooses to send, and to honor an unsubscribe.",
+              "If you have a product account, you can turn off some notification emails in your preferences. Security and invitation email may still be sent.",
+              "To receive product feedback, sort it and, where we publish a public issue, share only a short safe summary.",
+              "To keep the service secure and to fix problems."
+            ]
           ]
         },
         {
           "heading": "What we do not do",
-          "paragraphs": [],
-          "items": [
-            "We do not add you to a newsletter or a mailing list.",
-            "We do not create an account for you.",
-            "We do not sell your information or share it for advertising.",
-            "We do not use advertising or tracking cookies."
+          "body": [
+            [
+              "We do not add you to a newsletter or a mailing list when you send an early access request.",
+              "We do not create a product account from an early access request alone.",
+              "We do not sell your information or share it for advertising.",
+              "We do not use advertising or tracking cookies.",
+              "We do not let sending churches or networks see a person's contact details, notes or people records. They see counts and statuses for the categories a church plant shares, plus the church plant's name, city or region (not the street) and the lead's display name in the directory.",
+              "We do not send private weekly check-ins, staff notes or leadership conversation notes to a model, even when the person using Evry is allowed to read them. Interview notes and scores stay out of model input too."
+            ]
           ]
         },
         {
-          "heading": "Where it is stored and processed",
-          "paragraphs": [
-            "We use service providers to host the site, store requests and send email. They store information in the United States and may process it outside your country."
-          ],
-          "items": [
-            "Our hosting provider runs the site and the forms.",
-            "Our database provider stores each request.",
-            "Our email provider sends a copy of each request to our team inbox."
+          "heading": "Evry and other model use",
+          "body": [
+            "Evry is the assistant inside Everyfield. It can read records the signed-in person is already allowed to see, and it can prepare changes. Nothing is saved until that person approves the exact change on a review card. Saying \"yes\" in the conversation is not enough. Evry conversations belong to the person who starts them.",
+            "Plant Intelligence reads a church plant's records to name findings the planter can already see. Network Intelligence reads only the findings and totals a church plant has shared. It does not receive a person's contact details, notes, interviews or street address.",
+            "Evry and Plant Intelligence use an AI model provider when those features are turned on. Our AI model provider does not use your data to train its models."
+          ]
+        },
+        {
+          "heading": "Who sees what inside Everyfield",
+          "body": [
+            "The church plant owns its records. A church that signs up on its own starts with every kind of sharing turned off. The church plant's Owner or an Admin can turn each kind of sharing on or off for each sending church or network.",
+            "Sending churches and networks see only what that church plant shares. They see counts and statuses, not a person's contact details, notes or people records.",
+            "A private weekly check-in is for the person who wrote it only. Evry and the sending church never see it.",
+            "Staff notes and leadership conversation notes stay with the church or organization that recorded them, and only the people allowed to see them can read them. They never go to a model.",
+            "If a church sends Messages email to a person in its records, that email includes an Unsubscribe link and the church's mailing address. Messages to people marked as children are blocked by default. The opt-out is for that church and that person. Staff can see it and when it happened. They cannot clear it. It does not change that person's status in the church's records, and it does not opt them out of another church."
+          ]
+        },
+        {
+          "heading": "Services we use",
+          "body": [
+            "These are the kinds of services the product and the public site use, and why:",
+            [
+              "Our hosting provider hosts the public site and the product, runs the forms and keeps visit logs.",
+              "The data is stored with a database provider.",
+              "Our file storage provider stores files in a private bucket, such as documents and photos. It also holds our backup copies. We do not promise a set recovery time if that provider has an outage.",
+              "Our email delivery provider sends email, including early access notices, sign-in and security mail, invitations, church Messages, notifications and feedback notices. It stores email data in the United States.",
+              "Our AI model provider runs the models Evry and Plant Intelligence use, as described above, when those features are turned on.",
+              "A feedback tracker may receive a short public issue when someone sends product feedback. The issue names only the kind of report and the area, plus a reference. It does not include the person's name, church, words, or other private details. The full report stays in Everyfield, where only the Everyfield team reviews it."
+            ],
+            "These services may process information outside your country.",
+            "We'll share our current list of service providers on request. Email privacy@everyfield.app."
           ]
         },
         {
           "heading": "How long we keep it",
-          "paragraphs": [],
-          "items": [
-            "We keep each request only as long as we need it to run early access, then delete it.",
-            "We delete the IP addresses we keep for request limits once we no longer need them for that.",
-            "Our providers may keep service logs and backup copies under their own retention policies.",
-            "If you join early access, we will tell you how the product handles your information before you use it."
+          "body": [
+            "Early access requests:",
+            [
+              "We keep each request in our database for 12 months after you send it, then delete it.",
+              "We delete the IP addresses we keep for request limits after 30 days.",
+              "Our providers may keep service logs and backup copies under their own retention policies."
+            ],
+            "Product accounts and church data, while they are in use, stay until the account is deleted or the church plant is removed from Everyfield, or until a shorter rule above applies (for example, an email opt-out stays so later mail can honor it).",
+            "These are two different cases, with two different timelines.",
+            "If you delete your account, or if the church plant's Owner deletes the church plant from Everyfield, that is the in-product deletion process:",
+            [
+              "Normal access stops at once.",
+              "We keep the data privately for 30 days so the request can be cancelled.",
+              "After that, we remove the data from the live systems.",
+              "Backup copies last at most 7 more days after that removal.",
+              "We do not promise that every copy is gone on an exact day.",
+              "Email already sent, a public feedback issue already published, and a file someone already downloaded cannot be taken back at once."
+            ],
+            "If you delete your own account, the church plant keeps the records that belong to it, such as people, meetings and documents. We may keep a short note that an account was deleted, not a full profile. Private weekly check-ins, your Evry conversations, your photo and files that belong only to your account are removed on the timeline above. An Admin or Member cannot delete the church plant from Everyfield, or delete another person's account.",
+            "If a sending church or network leaves Everyfield, that is a separate, manual process, because the product has no organization-deletion action:",
+            [
+              "The organization no longer has access to the church plants it oversaw.",
+              "Each church plant's own data stays with the church plant, because the planter's Owner or Admin owns it.",
+              "The organization's own data, including its settings, seats, notes and anything it created, can be exported for 30 days after it leaves.",
+              "After that, we delete that data within 60 days of the organization leaving, and backup copies last at most 7 more days after that deletion.",
+              "The organization can ask us to delete its data sooner at any time by writing to privacy@everyfield.app."
+            ]
           ]
         },
         {
           "heading": "Ask for a copy, a correction or deletion",
-          "paragraphs": [
-            "Email privacy@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
+          "body": [
+            "Email privacy@everyfield.app. For an early access request, send the email from the address you used in the form, so we know the request is yours. For a product account, send it from the address on the account. The church plant's Owner can also start that deletion in the product. Someone who can use the church plant's People page can also export a copy of those people records from the product.",
             "We will reply by email about your request."
           ]
         },
         {
           "heading": "Children",
-          "paragraphs": [
-            "The forms are for adults who lead or support church plants. Do not send a request for a child."
+          "body": [
+            "You must be 18 or older to use Everyfield. Only adults may create an account or send an early access request.",
+            "People records a church enters may include children and family members, including an optional birth date and an adult or child classification. That does not create an account for the child. The church is responsible for having the right to enter that information. Everyfield processes it on the church's behalf to provide the product."
+          ]
+        },
+        {
+          "heading": "Church records and religious information",
+          "body": [
+            "For early access requests, product accounts and product feedback, Everyfield LLC decides how that information is used.",
+            "For the records a church enters about people, the church plant owns those records. The church is responsible for having the right to enter people's information, including information about children and family members and information about a person's involvement in the church plant. Everyfield processes those records on the church's behalf to provide the product.",
+            "Church records can include meeting attendance, commitment, interviews and notes. Some privacy laws treat information that reveals religious beliefs as sensitive. We process that information on the church's behalf."
           ]
         },
         {
           "heading": "Changes to this policy",
-          "paragraphs": [
+          "body": [
             "If we change this policy, we post the new version on this page and change the date at the top."
           ]
         },
         {
           "heading": "Contact",
-          "paragraphs": [
-            "Send questions about this policy to privacy@everyfield.app."
+          "body": [
+            "Send questions about this policy to privacy@everyfield.app.",
+            "Everyfield LLC, North Ridgeville, OH"
           ]
         }
       ]
     },
     "terms_page": {
-      "note": "E2 (2026-10-14): terms for /terms, approved by Sebastian on 2026-10-14. Short terms for the marketing site during early access. Product terms come later.",
+      "note": "Follow .agents/skills/policy-writing/SKILL.md before editing. T-351 (2026-11-28): the product terms, Nora's v3 of 2026-11-18, approved by Sebastian on 2026-11-28. They cover the public site and the product. Their exact timeframes and outage line are published as he approved them (D-3110) and sit on the allow list in tests/unit/marketing/legal-copy.test.mjs.",
       "title": "Terms",
-      "updated": "October 14, 2026",
+      "updated": "November 28, 2026",
       "intro": [
-        "These terms apply to everyfield.app, the early access site for Everyfield. Everyfield LLC runs the site. When you use the site, you agree to these terms."
+        "These terms apply to everyfield.app, the public site and the Everyfield product. Everyfield LLC runs Everyfield. When you use the site or the product, you agree to these terms."
       ],
       "sections": [
         {
           "heading": "Early access",
-          "paragraphs": [
-            "Everyfield is in early access. You cannot sign in or use the product on this site.",
-            "A request does not reserve a place. We choose who joins early access and when, and we can say no.",
-            "The product will have its own terms. We will give them to you before you use it."
+          "body": [
+            "Early access is coming soon. Joining the list does not reserve a place. We choose who joins early access and when, and we can say no. Early access is free and is provided as is. Features can change. Everyfield is offered only in the United States during early access.",
+            "The public site describes Everyfield as we build it. Names and numbers in the product pictures come from sample data."
           ]
         },
         {
-          "heading": "What the site shows",
-          "paragraphs": [
-            "The site describes Everyfield as we build it. Features can change before you can use them.",
-            "Names and numbers in the product pictures come from a sample church."
+          "heading": "Accounts and your responsibilities",
+          "body": [
+            "You must be 18 or older to use Everyfield.",
+            "If you use Everyfield on behalf of a church plant, sending church or network, you confirm you have the right to accept these terms for that church or network as well as for yourself.",
+            "Request access only for yourself, or for a church or network you represent. Send true information that you have the right to share.",
+            "If you create an account, you are responsible for keeping your password private and for the activity on that account. An account can have only one active seat at a time.",
+            "The church plant's Owner or an Admin sets the church plant's location and region, and who leads. They also set what each linked sending church or network can see.",
+            "You and the church or network you represent are responsible for having the right to enter people's information, including information about children and family members and information about a person's involvement in the church. Do not enter records about people unless your church has that right and a reason to keep them for its work. Everyfield processes those records on the church's behalf."
           ]
         },
         {
-          "heading": "Your requests",
-          "paragraphs": [
-            "Send true information that you have the right to share. Request access only for yourself, or for a church or network you represent."
+          "heading": "Your church's records",
+          "body": [
+            "The church plant owns its records. Everyfield hosts them so the people your church has allowed can use them, including through the services named in the privacy policy. To provide the product, you grant Everyfield LLC permission to host, store, back up, display and otherwise process those records, including through those services. This permission lasts only as long as needed to provide the product and to follow these terms and the privacy policy. We do not claim ownership of those records.",
+            "Evry can prepare a change. It does not take effect until a person approves the exact change on a review card. Evry is a writing and setup assistant. It is not a pastor, a lawyer or a substitute for your church's judgment. We do not promise that its suggestions are complete or correct."
+          ]
+        },
+        {
+          "heading": "Email from a church",
+          "body": [
+            "If a church sends Messages email through Everyfield, each of those emails includes a way to unsubscribe and the church's mailing address. Messages to people marked as children are blocked by default. The opt-out is for that church and that person. Staff can see it. They cannot clear it."
+          ]
+        },
+        {
+          "heading": "Cost",
+          "body": [
+            "Early access is free for now. Discernment is free, always. People still discerning a call to church planting can sign up for free. When paid plans begin, we will post updated terms."
+          ]
+        },
+        {
+          "heading": "When access ends",
+          "body": [
+            "These are two different cases, with two different timelines.",
+            "If you delete your account, or if the church plant's Owner deletes the church plant from Everyfield, that is the in-product deletion process. Normal access stops at once. We keep the data privately for 30 days so the request can be cancelled. After that we remove it from the live systems, and backup copies last at most 7 more days. We do not promise erasure on an exact day.",
+            "Already sent email, already published public feedback issues, and files already downloaded cannot be taken back at once.",
+            "If a sending church or network leaves Everyfield, that is a separate, manual process, because the product has no organization-deletion action. The organization no longer has access to the church plants it oversaw. Each church plant's own data stays with the church plant, because the planter's Owner or Admin owns it. The organization's own data, including its settings, seats, notes and anything it created, can be exported for 30 days after it leaves. After that, we delete that data within 60 days of the organization leaving, and backup copies last at most 7 more days after that deletion. The organization can ask us to delete its data sooner at any time by writing to privacy@everyfield.app.",
+            "We may suspend or end access if you break these terms, if we need to protect the service or other users, or if we stop offering early access. You can delete your account as described in this section."
           ]
         },
         {
           "heading": "Fair use",
-          "paragraphs": [],
-          "items": [
-            "Do not use the site to send spam, to pose as someone else or to break the law.",
-            "Do not try to get around the request limits, overload the site or get into systems you have no right to use."
+          "body": [
+            [
+              "Do not use the site or the product to send spam, to pose as someone else or to break the law.",
+              "Do not try to get around request or sign-in limits, overload the service or get into systems you have no right to use.",
+              "Do not try to bypass sharing rules, opt-outs or the review step that Evry requires before a change is saved."
+            ]
           ]
         },
         {
           "heading": "Our content",
-          "paragraphs": [
-            "The Everyfield name, logo, text and pictures on this site belong to Everyfield LLC. You can link to any page and share it. Ask us before you copy our content for other uses."
+          "body": [
+            "The Everyfield name, logo, text and pictures on this site belong to Everyfield LLC. You can link to any page and share it. Ask us before you copy our content for other uses.",
+            "The records a church enters belong to that church."
           ]
         },
         {
           "heading": "No warranty",
-          "paragraphs": [
-            "We provide the site as it is. We work to keep it correct and online, but we do not promise that it is always correct, complete or available."
+          "body": [
+            "We provide the site and the product as they are. Early access is free and can change. We work to keep them correct and online, but we do not promise that they are always correct, complete or available. We do not promise a set time to restore data after an outage."
           ]
         },
         {
           "heading": "Limit of liability",
-          "paragraphs": [
-            "As far as the law allows, Everyfield LLC is not liable for any loss that comes from your use of this site. These terms do not limit any rights that the law does not let us limit."
+          "body": [
+            "As far as the law allows, Everyfield LLC is not liable for any loss that comes from your use of the site or the product. These terms do not limit any rights that the law does not let us limit."
+          ]
+        },
+        {
+          "heading": "If a claim is made because of your use",
+          "body": [
+            "If a claim is made against Everyfield LLC because of your use of the product or because of records you enter, you will cover the losses and reasonable legal costs that come from that claim, as far as the law allows."
           ]
         },
         {
           "heading": "Privacy",
-          "paragraphs": [
-            "Our privacy policy explains what we collect when you send a request and how to have it deleted."
+          "body": [
+            "Our privacy policy explains what we collect, the services we use, who can see a church's records, and what happens after an account is deleted or a church plant is removed from Everyfield."
           ]
         },
         {
           "heading": "Changes to these terms",
-          "paragraphs": [
+          "body": [
             "If we change these terms, we post the new version on this page and change the date at the top."
           ]
         },
         {
+          "heading": "Other terms",
+          "body": [
+            "If a court finds that a part of these terms cannot be enforced, the rest still applies.",
+            "You may not transfer these terms to someone else without our written agreement. We may transfer them as part of a sale or reorganization of Everyfield LLC.",
+            "These terms, together with the privacy policy, are the entire agreement between you and Everyfield LLC about the site and the product.",
+            "If you believe content on the site uses your copyright without permission, write to hello@everyfield.app with a description of the work and where it appears."
+          ]
+        },
+        {
+          "heading": "Governing law",
+          "body": [
+            "These terms are governed by the laws of the State of Ohio. Any dispute will be handled in the state or federal courts located in Lorain County, Ohio (or the Northern District of Ohio for federal court)."
+          ]
+        },
+        {
           "heading": "Contact",
-          "paragraphs": [
-            "Send questions about these terms to hello@everyfield.app."
+          "body": [
+            "Send questions about these terms to hello@everyfield.app.",
+            "Everyfield LLC, North Ridgeville, OH"
           ]
         }
       ],

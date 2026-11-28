@@ -5988,7 +5988,7 @@
     "id": "ADM-007",
     "title": "Public privacy/terms, static sitemap and robots",
     "module": "admin",
-    "behavior": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names provider categories, model purpose/terms, immediate normal-access suspension, the private cancellation period, eligible live purge, deletion reaching backups as they roll over, minimal retained shared attribution and asynchronous/external-copy limits, in general terms without vendors, regions, outage scenarios or exact timeframes unless the law requires one or Sebastian asks for it. Promise no customer recovery SLA. Avoid exact physical-erasure or recalled public/mail/download claims.",
+    "behavior": "Public privacy/terms and static sitemap/robots preserve public access; robots is not auth. Before real data, reviewed copy names provider categories, model purpose/terms, immediate normal-access suspension, the private cancellation period, eligible live purge, the backup-copy limit after live purge, minimal retained shared attribution and asynchronous/external-copy limits, without vendors or regions. An exact timeframe or outage line appears only where the law requires it or Sebastian approved that exact line; he approved those in the v3 product policy and terms verbatim on 2026-11-28 (D-3110). Promise no customer recovery SLA. Avoid exact physical-erasure or recalled public/mail/download claims.",
     "spec_file": "docs/product/operations.md#dashboard-and-public-surfaces",
     "requirement_ids": [
       "REQ-ADM-007",
