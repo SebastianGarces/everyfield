@@ -114,7 +114,7 @@ const legalPage = z.object({
 	title: text,
 	updated: text.optional(),
 	intro: z.array(text).optional(),
-	sections: z.array(z.object({ heading: text, paragraphs: z.array(text).optional(), items: z.array(text).optional() })),
+	sections: z.array(z.object({ heading: text, body: z.array(z.union([text, z.array(text).min(1)])).min(1) })),
 	links: z.object({ privacy: text.optional() }).optional(),
 });
 

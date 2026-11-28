@@ -2812,8 +2812,11 @@
       "work_packages": [
         "WP-049"
       ],
-      "status": "future-not-run",
-      "description": "Review future privacy copy for the cancellation period, deletion reaching backups, shared attribution and asynchronous cleanup/external copies, in general terms with no vendor, outage or exact timeframe.",
+      "status": "run",
+      "run_by": [
+        "tests/unit/marketing/privacy-cases.test.mts"
+      ],
+      "description": "Read the served product privacy policy for the immediate access stop, the private cancellation hold, removal from live systems, the backup copy limit, no exact erasure day, shared attribution, outside-copy limits and no set recovery time, with no vendor name. Its exact timeframes and outage line are allowed because Sebastian approved them verbatim on 2026-11-28 (D-3110).",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2888,12 +2891,15 @@
       "expected": {
         "state": {},
         "result": {
+          "policy_states_access_stops_at_once": true,
           "policy_states_cancellation_period": true,
+          "policy_states_live_removal": true,
           "policy_states_deletion_reaches_backups": true,
+          "policy_states_no_exact_erasure_day": true,
           "policy_states_shared_attribution": true,
           "policy_states_external_copy_limits": true,
-          "policy_names_vendor_or_outage": false,
-          "policy_exact_timeframe": false,
+          "policy_states_no_recovery_time": true,
+          "policy_names_vendor": false,
           "physical_day37_claim": false,
           "robots_is_auth": false
         },

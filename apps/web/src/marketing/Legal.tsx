@@ -56,16 +56,17 @@ export function Legal({ path, copy }: { path: string; copy: LegalCopy }) {
 							<Display as="h2" size="h3" className="text-ink">
 								{marked(s.heading)}
 							</Display>
-							{s.paragraphs?.map((p, i) => (
-								<p key={i}>{linked(p, privacy)}</p>
-							))}
-							{s.items?.length ? (
-								<ul className="grid list-disc gap-2 pl-5">
-									{s.items.map((it, i) => (
-										<li key={i}>{linked(it, privacy)}</li>
-									))}
-								</ul>
-							) : null}
+							{s.body.map((block, i) =>
+								typeof block === "string" ? (
+									<p key={i}>{linked(block, privacy)}</p>
+								) : (
+									<ul key={i} className="grid list-disc gap-2 pl-5">
+										{block.map((it, j) => (
+											<li key={j}>{linked(it, privacy)}</li>
+										))}
+									</ul>
+								),
+							)}
 						</section>
 					))}
 					<p>{COPY.shared.footer.fineprint}</p>

@@ -15,6 +15,7 @@ type Path = (typeof LIVE_PAGES)[number];
 type Page = { path: Path; title: string; description: string; shareImage: "own" | "home" };
 
 const strip = (s: string) => s.replace(/\.$/, "");
+const firstSentence = (s = "") => s.match(/^.*?\.(?=\s|$)/)?.[0] ?? s;
 const J = COPY.journey.hero;
 const O = COPY.shared.oversight_page.hero;
 const D = COPY.shared.discovery_page;
@@ -28,10 +29,15 @@ export const PAGES = {
 	privacy: {
 		path: "/privacy",
 		title: L.privacy_page.title,
-		description: L.privacy_page.intro?.[0] ?? "",
+		description: firstSentence(L.privacy_page.intro?.[0]),
 		shareImage: "home",
 	},
-	terms: { path: "/terms", title: L.terms_page.title, description: L.terms_page.intro?.[0] ?? "", shareImage: "home" },
+	terms: {
+		path: "/terms",
+		title: L.terms_page.title,
+		description: firstSentence(L.terms_page.intro?.[0]),
+		shareImage: "home",
+	},
 } satisfies Record<string, Page>;
 
 export const fullTitle = (p: Page) => `${p.title} · ${SITE_NAME}`;

@@ -1024,12 +1024,17 @@ test("AC:DEL58-009 the deletion status gives 30 days to cancel and 7 days of rec
 
 	const { shared } = JSON.parse(
 		readFileSync(new URL("../../../design/marketing-copy.json", import.meta.url), "utf8"),
-	) as { shared: { privacy_page: { sections: { paragraphs: string[]; items?: string[] }[] } } };
-	const lines = shared.privacy_page.sections.flatMap((s) => [...s.paragraphs, ...(s.items ?? [])]);
-	assert.ok(lines.some((line) => /removed from our backups as they roll over/.test(line)));
+	) as { shared: { privacy_page: { sections: { body: (string | string[])[] }[] } } };
+	const lines = shared.privacy_page.sections.flatMap((s) => s.body.flat());
+	assert.ok(
+		lines.includes(`We keep the data privately for ${result.cancellation_days} days so the request can be cancelled.`),
+	);
+	assert.ok(
+		lines.includes(`Backup copies last at most ${result.recovery_days_after_live_purge} more days after that removal.`),
+	);
 	assert.ok(lines.some((line) => /providers may keep .* under their own retention policies/.test(line)));
 	assert.equal(
-		lines.some((line) => /\b\d+[ -]days?\b|thirty[ -]seven|\bphysical|\bpermanently\b|\brecall/i.test(line)),
+		lines.some((line) => /day 37|37 days|thirty[ -]seven|\bphysical|\bpermanently\b|\brecall/i.test(line)),
 		result.physical_day37_claim,
 	);
 });
