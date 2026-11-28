@@ -7,6 +7,7 @@ const SKILL = ".agents/skills/policy-writing/SKILL.md";
 const { shared } = JSON.parse(readFileSync(new URL("../../../design/marketing-copy.json", import.meta.url), "utf8"));
 
 const MISSPELLED = ["Every", "Field"].join("");
+const PRIVACY_EMAIL = ["privacy", "everyfield.app"].join("@");
 const APPROVED = "Sebastian approved v3 verbatim, Nov 28, 2026 (D-3110)";
 const ALLOWED = [
 	"Our file storage provider stores files in a private bucket, such as documents and photos. It also holds our backup copies. We do not promise a set recovery time if that provider has an outage.",
@@ -17,7 +18,7 @@ const ALLOWED = [
 	"The organization's own data, including its settings, seats, notes and anything it created, can be exported for 30 days after it leaves.",
 	"After that, we delete that data within 60 days of the organization leaving, and backup copies last at most 7 more days after that deletion.",
 	"If you delete your account, or if the church plant's Owner deletes the church plant from Everyfield, that is the in-product deletion process. Normal access stops at once. We keep the data privately for 30 days so the request can be cancelled. After that we remove it from the live systems, and backup copies last at most 7 more days. We do not promise erasure on an exact day.",
-	"If a sending church or network leaves Everyfield, that is a separate, manual process, because the product has no organization-deletion action. The organization no longer has access to the church plants it oversaw. Each church plant's own data stays with the church plant, because the planter's Owner or Admin owns it. The organization's own data, including its settings, seats, notes and anything it created, can be exported for 30 days after it leaves. After that, we delete that data within 60 days of the organization leaving, and backup copies last at most 7 more days after that deletion. The organization can ask us to delete its data sooner at any time by writing to privacy@everyfield.app.",
+	`If a sending church or network leaves Everyfield, that is a separate, manual process, because the product has no organization-deletion action. The organization no longer has access to the church plants it oversaw. Each church plant's own data stays with the church plant, because the planter's Owner or Admin owns it. The organization's own data, including its settings, seats, notes and anything it created, can be exported for 30 days after it leaves. After that, we delete that data within 60 days of the organization leaving, and backup copies last at most 7 more days after that deletion. The organization can ask us to delete its data sooner at any time by writing to ${PRIVACY_EMAIL}.`,
 	"We provide the site and the product as they are. Early access is free and can change. We work to keep them correct and online, but we do not promise that they are always correct, complete or available. We do not promise a set time to restore data after an outage.",
 ].map((line) => ({ line, reason: APPROVED }));
 const ALLOWED_KINDS = new Set(["timeframe", "outage"]);
